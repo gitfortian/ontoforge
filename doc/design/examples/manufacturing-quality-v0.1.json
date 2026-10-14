@@ -1,0 +1,124 @@
+{
+  "schemaVersion": "0.1.0",
+  "packageId": "mie.manufacturing.quality",
+  "version": "0.1.0",
+  "namespaceIri": "https://example.org/ontology/manufacturing/quality#",
+  "imports": [],
+  "entityTypes": [
+    {
+      "kind": "EntityType",
+      "id": "type_product_lot_01",
+      "iri": "https://example.org/ontology/manufacturing/quality#ProductLot",
+      "name": "ProductLot",
+      "labels": {
+        "zh-CN": "产品批次",
+        "en": "Product lot"
+      },
+      "definition": "具有明确追溯边界的制造产品批次",
+      "subClassOf": [],
+      "equivalentClass": []
+    },
+    {
+      "kind": "EntityType",
+      "id": "type_customer_order_01",
+      "iri": "https://example.org/ontology/manufacturing/quality#CustomerOrder",
+      "name": "CustomerOrder",
+      "labels": {
+        "zh-CN": "客户订单",
+        "en": "Customer order"
+      },
+      "definition": "客户对产品的购买与交付请求",
+      "subClassOf": [],
+      "equivalentClass": []
+    }
+  ],
+  "dataProperties": [
+    {
+      "kind": "DataProperty",
+      "id": "prop_lot_number_01",
+      "iri": "https://example.org/ontology/manufacturing/quality#lotNumber",
+      "name": "lotNumber",
+      "labels": {
+        "zh-CN": "批次编号",
+        "en": "Lot number"
+      },
+      "definition": "企业内受治理的产品批次标识",
+      "domain": "https://example.org/ontology/manufacturing/quality#ProductLot",
+      "datatype": "string",
+      "constraints": {
+        "minCount": 1,
+        "maxCount": 1,
+        "pattern": "^[A-Z0-9-]+$"
+      }
+    },
+    {
+      "kind": "DataProperty",
+      "id": "prop_quality_status_01",
+      "iri": "https://example.org/ontology/manufacturing/quality#qualityStatus",
+      "name": "qualityStatus",
+      "labels": {
+        "zh-CN": "质量状态",
+        "en": "Quality status"
+      },
+      "definition": "质量处置流程定义的批次状态",
+      "domain": "https://example.org/ontology/manufacturing/quality#ProductLot",
+      "datatype": "string",
+      "constraints": {
+        "minCount": 1,
+        "maxCount": 1,
+        "allowedValues": [
+          "pending",
+          "held",
+          "released"
+        ]
+      }
+    },
+    {
+      "kind": "DataProperty",
+      "id": "prop_order_number_01",
+      "iri": "https://example.org/ontology/manufacturing/quality#orderNumber",
+      "name": "orderNumber",
+      "labels": {
+        "zh-CN": "订单编号",
+        "en": "Order number"
+      },
+      "definition": "企业业务系统中的订单编号",
+      "domain": "https://example.org/ontology/manufacturing/quality#CustomerOrder",
+      "datatype": "string",
+      "constraints": {
+        "minCount": 1,
+        "maxCount": 1
+      }
+    }
+  ],
+  "objectProperties": [
+    {
+      "kind": "ObjectProperty",
+      "id": "rel_affects_order_01",
+      "iri": "https://example.org/ontology/manufacturing/quality#affectsOrder",
+      "name": "affectsOrder",
+      "labels": {
+        "zh-CN": "影响订单",
+        "en": "Affects order"
+      },
+      "definition": "产品批次质量事件可能涉及的客户订单关系；实例必须由可追溯映射确定",
+      "domain": "https://example.org/ontology/manufacturing/quality#ProductLot",
+      "range": "https://example.org/ontology/manufacturing/quality#CustomerOrder",
+      "characteristics": [],
+      "constraints": {
+        "minCount": 0
+      }
+    }
+  ],
+  "axioms": [
+    {
+      "kind": "DisjointClasses",
+      "id": "ax_disjoint_lot_order_01",
+      "classes": [
+        "https://example.org/ontology/manufacturing/quality#ProductLot",
+        "https://example.org/ontology/manufacturing/quality#CustomerOrder"
+      ],
+      "rationale": "产品批次与客户订单在本示例的业务模型中互不兼为同一类"
+    }
+  ]
+}
