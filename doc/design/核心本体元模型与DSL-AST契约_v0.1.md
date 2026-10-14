@@ -101,3 +101,83 @@ RDFS/OWL 的 domain/range 可产生类型蕴含，并非封闭世界数据拒绝
 ### 4.4 Axiom
 
 当前机器合同只允许 DisjointClasses（至少两个互异的类 IRI）；subClassOf/equivalentClass 由 EntityType 提供。复杂 OWL 类表达式、属性链及完整 OWL2 DL 不在 P0。公理不等于业务审批或 Agent 动作许可。必须把 **OWL 推理、SHACL 校验、业务 DomainRule、ActionPolicy** 分开实现和测试。
+
+
+## 5. 规范化 AST、SourceMap 和信息摘要
+
+[AST Schema](./schema/ontology-ast-v0.1.schema.json) 的根字段为 astVersion、packageId、version、namespaceIri、resolvedImports、nodes。节点是带 kind 判别的类型化联合，明确区别 EntityType、DataProperty、ObjectProperty 和 DisjointClasses；编译器不允许通过字段的值类型临时判断关系种类。
+
+节点顺序为 EntityType→DataProperty→ObjectProperty→Axiom，同一类节点按 IRI（无 IRI 的公理按稳定 id）UTF-8 字节序排列，不得使用可受运行环境影响的 Locale 排序。规范化 AST 要在同一输入、同一锁文件、同一版本编译策略下稳定生成。
+
+发布制品建议计算四类摘要：
+
+- astDigest = SHA256(canonicalJSON(normalizedAst))
+- lockDigest = SHA256(canonicalJSON(resolvedImports))
+- releaseDigest = SHA256(canonicalJSON({astDigest,lockDigest,compilerProfileDigest,artifactContractVersion}))
+- projectionDigest = SHA256(实际 RDF/SHACL 投影的规范化构建输出)，并绑定对应 releaseDigest
+
+上述是待 POC 的内容摘要设计，不是当前已有代码。canonicalJSON 建议选用经过跨语言验证的 JCS/RFC8785 或同等明确算法，须测试 Unicode、数字表示、键排序。用户、审查时间、随机任务 ID 不应影响逻辑模型内容 digest。SourceMap 将 JSON Pointer/semantic path 关联到源文件行列、审查意见和诊断，不混进模型的权威语义内容。
+
+## 6. 编译器阶段、错误报告和失败策略
+
+| 阶段 | 输入→输出 | 最低负例 |
+|---|---|---|
+| C01 Parse | UTF-8 JSON→原始对象 | 非法语法、重复 key、过深嵌套、资源超限 |
+| C02 Schema | 原始对象→结构检查 | 缺字段、未知字段、错误类型 |
+| C03 Typed AST | DSL→归一化节点与 SourceMap | 非法 kind、无法归一化 |
+| C04 Namespace | AST→标识已注册 | IRI 碰撞、所属空间无权写、重复 id |
+| C05 Imports | 锁定依赖→已解析符号 | 缺依赖、循环、摘要不一致 |
+| C06 Semantics | 已解析 AST→内部语义 IR | 无效 domain/range、继承环、非法 inverse/约束 |
+| C07 Emit | IR→OWL/RDF 与 SHACL | 不支持的公理或不可交换的输出 |
+| C08 Quality | 投影+检验实例→报告 | 不相交冲突、Shape 违规、推理能力未知 |
+| C09 Compatibility | 新/旧发布→影响报告 | 删除类型、改值域、收紧基数而无迁移 |
+| C10 Release | 签收内容→不可变版本 | 旧哈希审批、撤权、投影激活失败 |
+
+诊断包含 code、severity、message、modelPath、sourceLocation、relatedIris、repairHint、compilerVersion。错误代码族建议 E_PARSE、E_SCHEMA、E_IRI、E_IMPORT、E_TYPE、E_AXIOM、E_SHACL、E_COMPAT、E_AUTH、E_RELEASE。区分 UNSUPPORTED、UNKNOWN、VIOLATION，不允许把未测试的 OWL 逻辑宣布为已满足。
+
+JSON Schema 负责结构；编译器负责引用和语义；SHACL 负责声明的闭世界实例验证；业务运行时及 Action Policy 负责业务动作风险与授权。不能把一次结构校验通过当成“可上线、符合国标、可自动行动”的证明。
+
+## 7. 审批、发布和投影激活状态
+
+~~~mermaid
+stateDiagram-v2
+ [*] --> Draft
+ Draft --> Validating: validate
+ Validating --> Draft: failed
+ Validating --> InReview: passed
+ InReview --> Draft: requestChanges
+ InReview --> Approved: signedDigest
+ Approved --> BuildingProjection: publish
+ BuildingProjection --> Active: projectionVerified
+ BuildingProjection --> FailedActivation: failure
+ FailedActivation --> BuildingProjection: safeRetry
+ Active --> Deprecated: retire
+~~~
+
+Approved != Active。发布到 PostgreSQL Registry 与 TDB2 等 RDF 存储不是天然同一笔事务；可以通过 Outbox、幂等投影任务和激活记录确保 Agent 只读取已验证 Active 的发布版本。
+
+批准结果应绑定 ChangeSet、规范化 AST、依赖锁、质量报告及预期 releaseDigest，修改任一内容使旧批准失效。禁止通过 REST、SDK 或 MCP 绕过 Review/Quality Gate；撤权在关键步骤重新校验。发布失败不得把部分写入的图投影作为当前有效版本。Schema 回滚不能回滚 ERP/QMS 中已发生的工单、订单操作。
+
+## 8. 兼容性与四层包扩展
+
+| 变更 | 兼容性策略 | 验收要求 |
+|---|---|---|
+| 追加可读 label/非语义备注 | 一般可兼容 | 仍留变更审计 |
+| 新增可选属性/独立类型 | 通常可兼容 | 引用、权限、查询复验 |
+| 改变 IRI 已有语义定义 | 高风险 | 禁止静默重定义；考虑新 IRI/迁移 |
+| 删除属性、类型、关系 | 破坏性 | 消费者影响、退役和迁移报告 |
+| 收紧基数、枚举、数值范围 | 可能破坏性 | 用真实实例和黄金查询回归 |
+| 调整 domain/range/inverse/disjoint | 改变推理语义 | 重新执行 OWL/SHACL/兼容检查 |
+| 改变 Action / Capability 契约 | 独立安全变更 | 不能借 Schema 更新自动扩大执行权限 |
+
+四层包：通用核心 → 制造基础本体 → 质量/BOM/供应链领域本体 → 企业扩展本体。扩展不能直接修改所依赖包的正式核心定义，必须使用自有命名空间与依赖锁；违反约束或隐藏式覆写需阻断发布。Package 版本号并不替代实际语义 diff 和实例兼容检查。
+
+GB/T 48000.3 第9章提供模块化扩展原则的参考。该标准特有的 Standard、Clause、InformationUnit、InformationForm、StandardizationProcess 应属于独立可选 Standard Document Ontology Profile，不应写死到制造业企业通用内核。
+
+## 9. 与实例、Agent 及受控行动的接缝
+
+生产 Query/Context 只能消费有授权的 Active release，并明确返回 Schema release、mapping version、facts/evidence、时间和授权范围。草稿类型、未审 AlignmentCandidate、FactCandidate 不得自动进入生产 Agent Context。
+
+P0 DSL 不直接包含实体实例或源表物理绑定，也不包含可执行工具实现。若 QualityBatch 可以关联 CustomerOrder，**仅表示关系类型合法，不代表真实批次影响了某个订单**。实际关系须由已审来源映射及有证据的 RelationFact 提供。ActionDefinition 同样不能因为类型定义存在就成为可执行 Tool。
+
+标准第3部分“行动”实体描述标准条款规定的检验步骤；本产品 Action Runtime 的 ToolBinding、RiskPolicy、Approval、Idempotency、Execution、Verification 是另外一套受控合同。
