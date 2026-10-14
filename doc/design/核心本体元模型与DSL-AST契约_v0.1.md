@@ -181,3 +181,70 @@ GB/T 48000.3 第9章提供模块化扩展原则的参考。该标准特有的 St
 P0 DSL 不直接包含实体实例或源表物理绑定，也不包含可执行工具实现。若 QualityBatch 可以关联 CustomerOrder，**仅表示关系类型合法，不代表真实批次影响了某个订单**。实际关系须由已审来源映射及有证据的 RelationFact 提供。ActionDefinition 同样不能因为类型定义存在就成为可执行 Tool。
 
 标准第3部分“行动”实体描述标准条款规定的检验步骤；本产品 Action Runtime 的 ToolBinding、RiskPolicy、Approval、Idempotency、Execution、Verification 是另外一套受控合同。
+
+
+## 10. 最小制造质量黄金模型
+
+[合法 JSON 模型](./examples/manufacturing-quality-v0.1.json) 包含：
+
+| 节点 | 含义 | 可验证边界 |
+|---|---|---|
+| ProductLot、CustomerOrder | 产品批次、客户订单 EntityType | 两种语义类型、稳定 IRI |
+| lotNumber | 批次标识 DataProperty | 正则格式、单值且非空 |
+| qualityStatus | 质量状态 DataProperty | pending/held/released 枚举 |
+| orderNumber | 客户订单编号 DataProperty | 必填单值 |
+| affectsOrder | 批次可能影响订单 ObjectProperty | 仅定义方向与类型，不凭空创建事实 |
+| DisjointClasses | 示例中批次与订单不能是同一业务类型 | 推理/实例反例需显式测试 |
+
+[AST 预期文件](./examples/manufacturing-quality-ast-v0.1.json) 给出上述节点的类型化表现；[非法文件](./examples/manufacturing-quality-invalid-data-property-v0.1.json) 为 lotNumber 注入 inverseOf，结构 Schema 应立即拒绝。实际影响分析还需要跨 MES/QMS/ERP 的身份映射、有效时间和真实数据证据，本 P0 模型不替代它们。
+
+## 11. 后端 REST 接口草案（尚未存在）
+
+| 建议方法与路径 | 请求/响应摘要 | 授权 |
+|---|---|---|
+| POST /api/v1/ontology/packages/validate | 草稿 DSL→DiagnosticReport、draftDigest | 授权建模人 |
+| POST /api/v1/ontology/packages/compile | draftDigest→AST、OWL、SHACL、QualityReport | 建模与预览权限 |
+| POST /api/v1/ontology/changesets | baseRelease、patch→ChangeSet | 语义对象级写授权 |
+| POST /api/v1/ontology/changesets/{id}/reviews | decision、digest→ReviewDecision | 审核者；禁止旧审批 |
+| POST /api/v1/ontology/releases | approvedChangeSet→releaseId+activationJob | 发行管理员和独立门禁 |
+| GET /api/v1/ontology/releases/{id} | 状态、摘要、质量、兼容报告 | 明确读授权 |
+| GET /api/v1/ontology/types/{iri} | 指定 Active Release 的类型元数据 | 语义对象、项目和属性级读授权 |
+
+实现时不能从 UI 的按钮禁用推断安全；导入/导出、REST、SPARQL 代理、SDK 和 MCP 必须执行同一权限策略并完成撤权回归。超时的发布任务和长时编译必须提供可恢复状态，不允许无证据地宣称成功。
+
+## 12. GB/T 48000.3 的条款映射和缺口状态
+
+| 位置 | V0.1 映射 | 状态 |
+|---|---|---|
+| §5.1 内容与形式分离、跨语境 | Schema 不绑定文本顺序，标准文档知识单元保留扩展接口 | 设计覆盖，专业包未做 |
+| §5.2 类型、两类属性与公理 | EntityType、DataProperty、ObjectProperty、Axiom | 子集结构已有 Schema |
+| §5.3 标准表示、Turtle/JSON-LD、SHACL | Compiler Emit 和校验 Gate | 待实际编译器/往返测试 |
+| §5.4 命名空间和 IRI | Namespace Registry、稳定公开标识 | 待域名策略和冲突 POC |
+| §6.1 类型粒度、继承和复用 | Linter、导入包、Term/Concept 管理 | 待规则实现 |
+| §6.2 标准领域的核心类型 | 独立 Standard Document Ontology Profile | **不作为通用核心必装项** |
+| §7.1–7.3 属性规则与标准关系 | Data/Object 强类型 + Domain/Range | 待 Jena/SHACL Gate |
+| §8.1–8.2 类别、公理和核心规则 | 当前 DisjointClasses 最小子集 | 无法宣称覆盖全章 |
+| §9 模块化扩展 | 依赖锁、命名空间隔离、兼容测试 | 待 POC |
+| **规范性附录 A** | 可导出 IRI、Name、Label、Definition、Properties、SubclassOf、HasSubclass、EquivalentClass；属性 Domain/Range/TypeOfTerms 及基本值类型 | 标准领域 Profile 尚未实现与测试 |
+
+注意附录 A 的描述项不意味着所有关系都需要重复存入输入 DSL。HasSubclass 可由 subClassOf 推导，Properties 可由属性 Domain 得到。标准领域的附录 B–D 属资料性，不应直接将示例 RDF 片段视作可运行且自动合规的源代码。
+
+## 13. P0 测试签收、ADR 与研发切分
+
+完整测试见 [正反例与验收清单](./tests/DSL-AST-契约验收案例_v0.1.md)。测试分为：结构约束、IRI/引用/继承/公理、模型发布/兼容、运行时鉴权和制造质量业务证据四层。
+
+| ADR | V0.1 推荐设计 | 待审定问题 |
+|---|---|---|
+| ADR-03 | 不可变 Typed AST + locks 为发行权威输入 | 跨语言 canonical JSON/摘要 |
+| ADR-15 | 术语/概念/类型独立生命周期 | 概念到类的多对多映射 |
+| ADR-16 | ChangeSet/Review/基于摘要的审批 | 多人并发差异与职责分离 |
+| ADR-18 | Schema、OWL、SHACL、兼容、授权 Gate | 阻断严重性和例外机制 |
+| ADR-20 | Internal ID + External IRI | URI 生产域名/废止迁移政策 |
+| ADR-21 | Typed DSL/AST→RDF/OWL/SHACL | JSON 交换与编译器 POC |
+| ADR-22 | Data/Object/Axiom 强类型边界 | 推理引擎功能 Profile |
+| ADR-23 | 标准文档 Profile 可选 | 具体商业化场景是否需要 |
+| ADR-24 | 模型包的扩展兼容和锁定 | 变更影响与迁移策略 |
+
+**建议 P0 依四个可集中验收的单元开发**：A）IRI/Registry/Typed AST；B）Compiler/RDF/SHACL/Diagnostics；C）ChangeSet/Review/Release/不可变 Artifact；D）制造质量样例、实例/查询桥接及全链路回归。不建议以单张表或单个接口形成碎片 PR。
+
+**正式签收条件**：类型和边界明晰；输入与 AST Schema 能验证；IRI、依赖/命名空间、编译失败与摘要策略有可执行用例；发布和撤权安全没有旁路；国标条款范围正确；未把结构测试通过冒充 OWL 逻辑正确或生产符合性。**本 PR 仅为契约评审，尚不授权后端实现。**
