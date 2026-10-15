@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Activity, Blocks, Database, GitBranch, ShieldCheck, RefreshCw } from 'lucide-react';
 import NativeModelWorkspace from './NativeModelWorkspace';
@@ -21,7 +21,10 @@ function App() {
   const [status,setStatus]=useState<LoadState>({kind:'loading'});
   const [location,setLocation]=useState(window.location.hash);
   const [dirty,setDirty]=useState(false);
-  const onDirtyChange=useCallback((v:boolean)=>setDirty(v),[]);
+  // Synchronous refs protect navigation even before React's next paint.
+  const dirtyRef=useRef(false);
+  const locationRef=useRef(window.location.hash);
+  const onDirtyChange=useCallback((v:boolean)=>{dirtyRef.current=v;setDirty(v)},[]);
   const model=location.startsWith('#/model');
   async function reload() {
     setStatus({kind:'loading'});
@@ -35,14 +38,25 @@ function App() {
   }
   useEffect(()=>{void reload()},[]);
   useEffect(()=>{
-    const onHash=()=>setLocation(window.location.hash);
+    const onHash=()=>{
+      const next=window.location.hash;
+      if(next===locationRef.current)return;
+      if(dirtyRef.current && !window.confirm('存在尚未保存的本地编辑。离开会放弃这些更改，是否继续？')){
+        // hashchange fires AFTER browser Back/Forward. Restore the previous
+        // location without dispatching another hashchange or discarding edits.
+        history.replaceState(null,'',window.location.pathname+window.location.search+(locationRef.current||'#/system'));
+        return;
+      }
+      dirtyRef.current=false;setDirty(false);
+      locationRef.current=next;
+      setLocation(next);
+    };
     window.addEventListener('hashchange',onHash);
     return ()=>window.removeEventListener('hashchange',onHash);
   },[]);
   function navigate(hash:string) {
-    if(dirty&&!window.confirm('存在尚未保存的本地编辑。离开会放弃这些更改，是否继续？'))return;
-    window.location.hash=hash;
-    if(hash===location)setLocation(hash);
+    // All menu, editor and browser Back/Forward navigation uses the SAME guard.
+    if(hash!==window.location.hash)window.location.hash=hash;
   }
   return <div className="layout">
     <aside className="sidebar">
@@ -56,7 +70,7 @@ function App() {
     </aside>
     <main className="main">
       <div className="topline"><span>{model?'本体设计 / ObjectType':'平台基座 / 系统概览'}</span><span className="env-chip">LOCAL DEVELOPMENT</span></div>
-      {model?<NativeModelWorkspace onDirtyChange={onDirtyChange}/>:<>
+      {model?<NativeModelWorkspace onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>:<>
         <div className="intro"><p className="eyebrow">S0 · FOUNDATION</p><h1>系统概览</h1><p>系统概览来自真实 Spring Boot + PostgreSQL。Native 本体建模当前只提供草稿编辑与校验。</p></div>
         <div className="panel">
           <div className="panel-top"><div><h2>运行状态</h2><p>来自后端实时 API，并非演示数据</p></div><button type="button" onClick={()=>void reload()}><RefreshCw size={15}/> 重新检测</button></div>
