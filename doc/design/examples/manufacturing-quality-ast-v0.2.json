@@ -197,11 +197,13 @@
         "fieldMappings": [
           {
             "propertyRef": "order-id",
-            "sourceField": "order_id"
+            "sourceField": "order_id",
+            "authority": "AUTHORITATIVE"
           },
           {
             "propertyRef": "amount-cents",
-            "sourceField": "total_cents"
+            "sourceField": "total_cents",
+            "authority": "AUTHORITATIVE"
           }
         ],
         "identity": {
@@ -209,7 +211,6 @@
           "conflictPolicy": "REJECT"
         },
         "refreshMode": "BATCH",
-        "sourceAuthority": "AUTHORITATIVE",
         "completeness": {
           "maxAgeSeconds": 3600,
           "onMissing": "UNKNOWN"
@@ -228,11 +229,13 @@
         "fieldMappings": [
           {
             "propertyRef": "lot-id",
-            "sourceField": "product_lot_id"
+            "sourceField": "product_lot_id",
+            "authority": "AUTHORITATIVE"
           },
           {
             "propertyRef": "quality-status",
-            "sourceField": "quality_state"
+            "sourceField": "quality_state",
+            "authority": "AUTHORITATIVE"
           }
         ],
         "identity": {
@@ -240,7 +243,6 @@
           "conflictPolicy": "REJECT"
         },
         "refreshMode": "CDC",
-        "sourceAuthority": "AUTHORITATIVE",
         "completeness": {
           "maxAgeSeconds": 3600,
           "onMissing": "UNKNOWN"
@@ -259,7 +261,8 @@
         "fieldMappings": [
           {
             "propertyRef": "workorder-id",
-            "sourceField": "work_order_id"
+            "sourceField": "work_order_id",
+            "authority": "AUTHORITATIVE"
           }
         ],
         "identity": {
@@ -267,7 +270,6 @@
           "conflictPolicy": "REJECT"
         },
         "refreshMode": "CDC",
-        "sourceAuthority": "AUTHORITATIVE",
         "completeness": {
           "maxAgeSeconds": 3600,
           "onMissing": "UNKNOWN"
@@ -286,11 +288,13 @@
         "fieldMappings": [
           {
             "propertyRef": "event-id",
-            "sourceField": "event_id"
+            "sourceField": "event_id",
+            "authority": "AUTHORITATIVE"
           },
           {
             "propertyRef": "inspection-status",
-            "sourceField": "inspection_status"
+            "sourceField": "inspection_status",
+            "authority": "AUTHORITATIVE"
           }
         ],
         "identity": {
@@ -298,7 +302,6 @@
           "conflictPolicy": "REJECT"
         },
         "refreshMode": "CDC",
-        "sourceAuthority": "AUTHORITATIVE",
         "completeness": {
           "maxAgeSeconds": 3600,
           "onMissing": "UNKNOWN"
@@ -317,11 +320,13 @@
         "fieldMappings": [
           {
             "propertyRef": "material-id",
-            "sourceField": "material_lot_id"
+            "sourceField": "material_lot_id",
+            "authority": "AUTHORITATIVE"
           },
           {
             "propertyRef": "source-quality-status",
-            "sourceField": "quality_status"
+            "sourceField": "quality_status",
+            "authority": "AUTHORITATIVE"
           }
         ],
         "identity": {
@@ -329,7 +334,6 @@
           "conflictPolicy": "REJECT"
         },
         "refreshMode": "BATCH",
-        "sourceAuthority": "AUTHORITATIVE",
         "completeness": {
           "maxAgeSeconds": 3600,
           "onMissing": "UNKNOWN"
