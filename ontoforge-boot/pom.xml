@@ -5,14 +5,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.ontology.system</groupId>
-        <artifactId>ontology-system</artifactId>
+        <groupId>io.ontoforge</groupId>
+        <artifactId>ontoforge</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>ontology-system-boot</artifactId>
-    <name>Ontology System Boot</name>
+    <artifactId>ontoforge-boot</artifactId>
+    <name>OntoForge Boot</name>
     <description>Spring Boot entry and S0 minimal platform runtime</description>
 
     <dependencies>

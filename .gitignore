@@ -1,9 +1,9 @@
 .idea/
 .vscode/
 *.iml
-ontology-system-boot/target/
-ontology-system-ui/node_modules/
-ontology-system-ui/dist/
+ontoforge-boot/target/
+ontoforge-ui/node_modules/
+ontoforge-ui/dist/
 .env
 .env.*
 !.env.example

@@ -1,12 +1,12 @@
-name: S0 MVP foundation
+name: OntoForge S0 MVP foundation
 on:
   push:
     branches:
-      - refactor/s0-yakops-style-project-layout-20261015
+      - refactor/ontoforge-brand-and-modules-20261015
   pull_request:
     paths:
-      - "ontology-system-boot/**"
-      - "ontology-system-ui/**"
+      - "ontoforge-boot/**"
+      - "ontoforge-ui/**"
       - "pom.xml"
       - "compose.yaml"
       - ".github/workflows/s0-mvp.yml"
@@ -44,17 +44,23 @@ jobs:
           cache: maven
           cache-dependency-path: |
             pom.xml
-            ontology-system-boot/pom.xml
-      - name: Verify canonical Yak Ops-style layout
+            ontoforge-boot/pom.xml
+      - name: Verify OntoForge canonical project naming
         run: |
           test ! -d apps
           test ! -d infra
           test -f pom.xml
-          test -f ontology-system-boot/pom.xml
-          test -f ontology-system-ui/package.json
-          grep -q '<module>ontology-system-boot</module>' pom.xml
+          test -f ontoforge-boot/pom.xml
+          test -f ontoforge-ui/package.json
+          grep -q '<module>ontoforge-boot</module>' pom.xml
+          grep -q '<groupId>io.ontoforge</groupId>' pom.xml
+          grep -q '<artifactId>ontoforge</artifactId>' pom.xml
+          grep -q '"name": "ontoforge-ui"' ontoforge-ui/package.json
+          test ! -d ontology-system-boot
+          test ! -d ontology-system-ui
+          test -f ontoforge-boot/src/main/java/io/ontoforge/boot/OntoForgeApplication.java
       - name: Real PostgreSQL startup and Flyway integration tests
-        run: mvn -B -pl ontology-system-boot -am verify
+        run: mvn -B -pl ontoforge-boot -am verify
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -64,7 +70,7 @@ jobs:
           node-version: "22"
       - name: Install pinned UI dependencies
         run: npm install --no-audit --no-fund
-        working-directory: ontology-system-ui
+        working-directory: ontoforge-ui
       - name: Type-check and production build
         run: npm run build
-        working-directory: ontology-system-ui
+        working-directory: ontoforge-ui
