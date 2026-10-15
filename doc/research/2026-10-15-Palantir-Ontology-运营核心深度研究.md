@@ -87,3 +87,109 @@
 
 **自主建议**：IndexBuild 应持有 sourceCursor、watermark、effectiveAt、schemaReleaseId、bindingVersion、buildGeneration、activeAlias、errorState。数据源乱序需要具体版本/时间戳/序号策略，不能盲目依赖最后到达者胜出。生产查询要能报告对象快照的实际新鲜度及部分源失败。
 
+
+
+## 4. ObjectSet：我们最需要吃透的查询抽象
+
+### 4.1 ObjectSet 不应该是内存数组
+
+**官方可证实**：Palantir Function Types Reference 明确区分把对象数组作为函数参数，与传递 ObjectSet。数组必须先加载实例；ObjectSet 可在实际加载前执行 filter、search-around/遍历和 aggregate，因而可提高规模与性能；官方还建议优先用 ObjectSet 传递大量对象 [P11]。ObjectSet Service 负责搜索、过滤、聚合、加载，聚合在高基数场景可能不精确，可请求偏好精度并通过响应字段获知实际准确性 [P02][P12]。
+
+**架构推断**：ObjectSet 最适合定义为**类型化、可组合、延迟求值的逻辑查询计划或不变查询句柄**，而不是普通 Java List，也不一定每次都物化一组主键。是否保存可复用查询定义、是否保存查询结果快照和何时加载实体，应是三个独立 API 行为。
+
+### 4.2 推荐 Native Query AST
+
+| 节点 | 输入输出 | 必须审查的约束 |
+|---|---|---|
+| RootObjectSet | ObjectTypeRef + SchemaRelease | 类型可见性、空间范围、数据准备状态 |
+| Filter | Typed Predicate + ObjectSet | 字段的 searchable/indexable 标志、比较值类型、字段权限 |
+| SearchAround / Traverse | ObjectSet + LinkType + direction + depth | link 来源、关系权限、路径数量及预算 |
+| Union / Intersect / Exclude | 多个同型/接口兼容集合 | 多源范围、版本兼容、差集与存在性侧信道 |
+| Project | 属性选择/衍生列 | 属性/对象权限、已加载数据、时间语义 |
+| Aggregate | Count/Sum/Group/Average/Histogram | 准确/近似/部分结果标识、小群体隐私 |
+| Materialize | 明确的 Snapshot/Export 执行 | 物化成本、数据权限传播和撤权 |
+| Page / Cursor | 排序、页、查询快照/一致性 token | 结果重排、过期游标、权限快照不能复用 |
+| Explain | QueryPlan、索引、来源、时态与成本 | 避免解释接口泄露源表名/敏感过滤值 |
+
+**官方给出的两个反面启示**：一是 Function 的 object parameter 比 ObjectSet 参数更容易导致频繁的对象加载 [P23]；二是 TypeScript v2 中针对未标记 Searchable 的字段的过滤可能通过类型检查，却在运行时返回空结果，因此**对象类型定义的可搜索能力必须由编译/查询计划层真实校验**，不能只由 SDK 语法接受 [P24]。
+
+### 4.3 执行计划边界
+
+**自主建议**：将 Query Definition/AST 与 Query Execution/Physical Plan 分开：
+- 对外保持统一 ObjectSet API，具体执行可选择 SQL、搜索引擎、图、时序或联邦来源；
+- 增加 LIMIT、最大遍历深度、请求/结果字节数、COST_BUDGET、TIMEOUT 与 CANCELLATION；
+- 返回 schemaReleaseId、bindingVersion、sourceCheckpoint、indexSnapshot、observedAt、freshness、accuracy、completeness 与 authorizationContextRef；
+- “部分返回”不得伪装成完整成功；准确性、范围完整性、实体存在性分别声明；
+- **不可为了性能在中间结果先做未授权聚合，再最后过滤**；禁止通过 count/exists/异常/耗时泄露无权对象。
+
+### 4.4 官方容量说明只是能力证据，不是我们的 SLA
+
+[P02] 文档公开描述 OSv2 支持十亿级以上乃至单类型数百亿级索引吞吐场景、单 Action 最多编辑 10,000 对象、默认 SearchAround 上限 100,000 对象、单类型属性上限 2,000 等说明。具体功能可能依赖租户配置、场景和版本；**不能把这些数字抄成 ontology-system 的 P0 性能指标**。我们应按设备/批次的真实数据量分别测试基数、关系扇出、过滤/聚合、增量索引、授权开销与批量编辑。
+
+## 5. Function：计算行为必须建模，但不要错置权限
+
+### 5.1 Function 不是纯粹的只读公式
+
+**官方可证实**：Functions 能在服务端隔离环境运行，支持对本体对象和关系进行读取、计算以及 Ontology edits；TS/Python 是官方支持的函数语言 [P10]。Function-backed Action 支持跨对象、跨关系的复杂批量编辑逻辑 [P13]。
+
+这纠正了一个容易偏离 Palantir 的误解：Function 并不总是 ReadOnly。但“函数具备编辑逻辑”与“任何用户可以直接执行编辑”是两个不同问题。
+
+**自主建议**：在 Native 定义中明确区分：
+- **QueryFunction**：只读或无外部副作用，允许 ObjectSet 计算并返回可解释值；
+- **OntologyEditFunction**：返回一份具有类型、目标和预期效果的 ChangeSet / EditPlan（可以声明拟议修改），但其生产提交由 ActionRuntime 授权并执行；
+- **ExternalEffectFunction**：外部服务读取可作为受限适配器；有外部写入的逻辑不得在普通函数执行路径隐式生效，应升级为 Action 受控执行器。
+
+**注意**：这是一项我们自己的安全体系设计，不声称 Palantir 内部也是这种统一的 EditPlan 实现。
+
+### 5.2 Function 版本升级可绕过原本的 Action 审查意图
+
+**官方可证实**：[P14] 说明 Function-backed Action 可配置自动升级到兼容 Function 版本，但警告：Function 编辑权限与 Action 编辑权限并非完全绑定，自动升级可能使无法直接编辑 Action 的用户改变其行为。Palantir 也记录了 provenance 的某些约束与检查。
+
+**这是本轮最高优先级的架构研究发现之一**。
+
+**自主建议**：
+- ActionVersion 永远固定 functionReleaseDigest/implementationDigest；不允许生产自动漂移至 latest；
+- 任何可改变 Action 目标对象、外部副作用、读取范围或风险等级的 Function 更新，必须重新执行 Action 影响分析和审批；
+- EditPlan 的实际目标范围不能超过签收时的 declaredEffectScope；
+- 无论 Function 源码是否变化，调用者、批准者、执行者三种身份和权限需独立保留；
+- Function 可计算有副作用的**计划**，不能因此取得执行 Token；Action 控制最终提交、幂等/审批和审计。
+
+### 5.3 函数编排的规模问题
+
+**官方可证实**：Palantir 建议优先传递可查询的 ObjectSet 而不是大量内存对象 [P23]。当对象规模增加时，若我们允许每个 Object 调用一次外部 Function、再联邦查两次源，容易出现 N+1 查询和超时雪崩。
+
+**自主建议**：FunctionDefinition 标注 batchCapability、inputSetCompatibility、readScope、declaredEffects、timeout、memoryLimit、networkEgressPolicy、versionLock；必要时由 QueryRuntime 推送聚合，避免把海量对象加载至 JVM/脚本沙箱。
+
+## 6. Action：提交运营决策，而不只是改一行数据
+
+### 6.1 Action 是对对象和链接的受控变更入口
+
+**官方可证实**：ActionType 定义一组可应用于对象、属性和链接的修改；包含参数、规则、提交条件和副作用 [P09]。简单规则可以创建/删除对象、修改属性、创建/删除链接；复杂场景使用 Function-backed Action [P13]。Side Effects 支持通知和 Webhooks，可调用外部 REST API 或 ERP 系统 [P15]。
+
+**重要的落地启发**：在真实工业现场，Action 可能同时影响本体中的“运营决策视图”和外部 ERP/QMS 中的业务状态。因此需要至少区分：
+- 计算/校验完成（计划有效）；
+- 平台内对象编辑已提交；
+- 外部系统动作已被接受（可能异步）；
+- 外部系统业务事实已确认达到预期；
+- 索引/物化视图已捕获后续变化。
+
+这些状态不能合并成一个 success 布尔值。一个发送 Webhook 成功的网络响应，不等于业务冻结真实生效。
+
+### 6.2 提交条件和预演
+
+**官方可证实**：[P25] 通过 Action submission criteria 限制哪些对象状态允许提交；[P26] 的 Test Run 返回拟议对象/链接变动、执行路径和副作用预览，**不提交对象编辑且跳过提交后的真实 Side Effects**。
+
+**自主建议**：我们的 Action 在生产执行前提供 Preview/Explain/EditPlan，校验目标/参数/政策/证据/对象快照，返回 ProposedEdits 和 ExternalEffectsPreview。生产提交必须对目标对象状态及授权**重新检查**，不可把数分钟前的预演结果当成持续有效的授权凭证。预演和正式操作有不同的资源限额与审计。
+
+### 6.3 操作审计不能只保存成功记录
+
+**官方可证实**：[P27] 明确 Action Log 记录的是成功提交，失败由 Action Metrics 跟踪；来自 Action 之外的编辑不一定进入 Action Log。可见不同日志/历史来源不能互相替代。
+
+**自主建议**：建立统一不可篡改的 ActionAttempt、Decision、Approval、Dispatch、Receipt、Reconciliation、AuditEvent，至少覆盖 Proposed、Rejected、Denied、Pending、Running、Unknown、Succeeded、Failed；外部执行失败、被拒绝与未获授权也要保存最小必要诊断（避免泄露敏感输入）。不要认为“成功 ActionLog”可以代替审计闭环。
+
+### 6.4 权限不能让所有写入都落到无边界服务账号
+
+**官方可证实**：[P28] 明确 Action 应用权限包括看见 ActionType、编辑 ActionType、以给定参数应用 ActionType 等层次；它还涉及对象类型、关联类型、源及提交流程的权限。[P29] 的 Read/Write Authorization（Beta）作为已有权限和提交条件的补充，控制行动期间的读边界与写入最低安全级别，而不是赋予新权限。
+
+**自主建议**：Action 的调用身份、输入阅读身份、目标编辑权限、外部执行身份和审批权限明确区分，使用 scope-bound credentials；在 SDK/Agent/MCP、后台批处理及函数入口均应用同样的 Policy Enforcement。对 Action 依赖的资源版本和权限做启动时及执行前校验；撤权后不能通过已缓存 Action 计划或后台任务继续越权提交。
+
