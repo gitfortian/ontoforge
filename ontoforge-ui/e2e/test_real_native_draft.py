@@ -108,6 +108,65 @@ class NativeDraftRealBrowserTest(unittest.TestCase):
         self.assertEqual(api("/" + self.id)["editingContent"]["objectTypes"][0]["description"],
                          "另一标签页提交的更新")
 
+    def test_p1_slow_post_commit_response_locks_fields_without_losing_edits(self):
+        self.create_package()
+        self.edit_type()
+        self.save()
+        self.page.evaluate("""() => {
+          const original=window.fetch.bind(window);
+          window.fetch=(url,opts)=>opts?.method==='PUT' && String(url).includes('/api/model/drafts/')
+            ? new Promise(resolve=>setTimeout(()=>resolve(original(url,opts)),1800))
+            : original(url,opts);
+        }""")
+        self.page.locator("#obj-desc").fill("保存前的输入")
+        self.page.get_by_role("button", name="保存编辑进度").click()
+        self.assertTrue(self.page.locator("#obj-desc").is_disabled(), "Editor must lock while PUT pending")
+        self.assertTrue(self.page.locator("#obj-id").is_disabled())
+        self.assertTrue(self.page.locator("#add-property").is_disabled())
+        self.assertEqual(self.page.locator("#obj-desc").input_value(), "保存前的输入")
+        self.page.get_by_text("已写入 PostgreSQL", exact=False).wait_for(timeout=10000)
+        self.assertEqual(self.page.locator("#obj-desc").input_value(), "保存前的输入")
+        self.assertTrue(self.page.get_by_role("button", name="保存编辑进度").is_disabled())
+        self.page.locator("#obj-desc").fill("响应后新输入")
+        self.assertTrue(self.page.get_by_role("button", name="保存编辑进度").is_enabled())
+        self.save()
+        self.assertEqual(api("/"+self.id)["editingContent"]["objectTypes"][0]["description"], "响应后新输入")
+
+    def test_p1_browser_back_forward_protects_unsaved_draft(self):
+        self.create_package()
+        self.edit_type()
+        self.save()
+        self.page.locator("#obj-desc").fill("不可悄悄丢失的本地内容")
+        self.page.once("dialog", lambda dialog: dialog.dismiss())
+        self.page.go_back(wait_until="domcontentloaded")
+        self.assertTrue(self.page.url.endswith("/#/model/drafts/"+self.id))
+        self.assertEqual(self.page.locator("#obj-desc").input_value(), "不可悄悄丢失的本地内容")
+        # URL history Back has been cancelled; a direct in-app hash nav must
+        # pass through the same guard (no silent skip).
+        self.page.once("dialog", lambda dialog: dialog.accept())
+        self.page.evaluate("window.location.hash='#/model/packages'")
+        self.page.get_by_role("heading", name="模型包", exact=True).wait_for()
+        self.page.go_back(wait_until="domcontentloaded")
+        self.page.locator("#obj-desc").wait_for()
+        self.assertEqual(self.page.locator("#obj-desc").input_value(), "")
+        self.page.go_forward(wait_until="domcontentloaded")
+        self.page.get_by_role("heading", name="模型包", exact=True).wait_for()
+
+    def test_p2_enum_typing_preserves_comma_before_server_save(self):
+        self.create_package()
+        self.edit_type()
+        self.page.locator("#add-property").click()
+        self.page.locator("#prop-0-id").fill("quality-status")
+        self.page.locator("#prop-0-apiName").fill("qualityStatus")
+        self.page.locator("#prop-0-valueType").select_option("ENUM")
+        values=self.page.locator("#prop-0-enumValues")
+        values.press_sequentially("PLANNED, RUNNING, COMPLETED",delay=12)
+        self.assertEqual(values.input_value(),"PLANNED, RUNNING, COMPLETED")
+        self.save()
+        document=api("/"+self.id)["editingContent"]
+        self.assertEqual(document["objectTypes"][0]["properties"][0]["enumValues"],
+                         ["PLANNED","RUNNING","COMPLETED"])
+
     def test_real_api_network_error_never_claims_save_success(self):
         self.create_package()
         self.edit_type()
