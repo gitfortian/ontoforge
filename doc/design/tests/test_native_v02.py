@@ -419,6 +419,26 @@ class NativeV02ContractTests(unittest.TestCase):
         self.assertEqual(self.result["completeness"], "PARTIAL")
         self.assertEqual(self.result["answerScope"], "KNOWN_SUBSET")
 
+    def test_denied_authorization_cannot_report_unknown_dispatch(self):
+        self.record["authorization"]["authorizationDecision"] = "DENY"
+        self.invalid_structure("record", self.record)
+
+    def test_denied_authorization_cannot_report_verified_success(self):
+        self.record["authorization"]["authorizationDecision"] = "DENY"
+        self.record["state"] = "VERIFIED_SUCCESS"
+        self.record["externalReceipt"] = {
+            "systemRef": "erp", "remoteCommandId": "erp-1", "receiptStatus": "ACCEPTED",
+            "receivedAt": "2026-10-15T06:03:00Z"}
+        self.record["outcomeVerification"] = {
+            "status": "CONFIRMED", "evidenceRef": "erp-proof",
+            "verifiedAt": "2026-10-15T06:05:00Z"}
+        self.invalid_structure("record", self.record)
+
+    def test_ast_definitions_do_not_drift_from_dsl(self):
+        # Two independent schema files must keep an identical set of node definitions.
+        for key, declaration in SCHEMA_DATA["package"]["$defs"].items():
+            self.assertEqual(declaration, SCHEMA_DATA["ast"]["$defs"][key])
+
     def test_v01_is_not_silently_accepted_as_v02(self):
         old = load(EXAMPLES / "manufacturing-quality-v0.1.json")
         self.invalid_structure("package", old)
