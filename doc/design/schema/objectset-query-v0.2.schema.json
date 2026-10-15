@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ontology-system.example.invalid/contracts/v0.2/objectset-query.schema.json",
+  "title": "ObjectSet Logical Query Request v0.2",
+  "description": "Declarative and typed request only; caller identity and authorizationContext are SERVER-OWNED, not client query fields. Runtime must validate type transitions, schema release and policy at each intermediate step.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "queryVersion": {
+      "const": "0.2.0"
+    },
+    "schemaReleaseRef": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "rootTypeRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$"
+    },
+    "objectSetRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/Filter"
+          },
+          {
+            "$ref": "#/$defs/Traverse"
+          },
+          {
+            "$ref": "#/$defs/Project"
+          },
+          {
+            "$ref": "#/$defs/Aggregate"
+          },
+          {
+            "$ref": "#/$defs/Page"
+          },
+          {
+            "$ref": "#/$defs/Sort"
+          }
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 64
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        },
+        "maxVisitedObjects": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000000
+        },
+        "maxResults": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        }
+      },
+      "required": [
+        "timeoutMs",
+        "maxVisitedObjects",
+        "maxResults"
+      ]
+    }
+  },
+  "required": [
+    "queryVersion",
+    "schemaReleaseRef",
+    "rootTypeRef",
+    "steps",
+    "limits"
+  ],
+  "$defs": {
+    "Filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "Filter"
+        },
+        "propertyRef": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        },
+        "operator": {
+          "enum": [
+            "EQ",
+            "NE",
+            "IN",
+            "GT",
+            "GTE",
+            "LT",
+            "LTE"
+          ]
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": [
+                  "string",
+                  "integer",
+                  "number",
+                  "boolean"
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 100
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "propertyRef",
+        "operator",
+        "value"
+      ]
+    },
+    "Traverse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "Traverse"
+        },
+        "linkTypeRef": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        },
+        "direction": {
+          "enum": [
+            "OUT",
+            "IN"
+          ]
+        },
+        "maxDepth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        }
+      },
+      "required": [
+        "kind",
+        "linkTypeRef",
+        "direction",
+        "maxDepth"
+      ]
+    },
+    "Project": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "Project"
+        },
+        "propertyRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{1,63}$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "kind",
+        "propertyRefs"
+      ]
+    },
+    "Aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "Aggregate"
+        },
+        "aggregation": {
+          "enum": [
+            "COUNT_DISTINCT",
+            "SUM",
+            "AVG"
+          ]
+        },
+        "propertyRef": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        },
+        "groupBy": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{1,63}$"
+          },
+          "uniqueItems": true,
+          "maxItems": 4
+        }
+      },
+      "required": [
+        "kind",
+        "aggregation"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "aggregation": {
+                "enum": [
+                  "SUM",
+                  "AVG"
+                ]
+              }
+            },
+            "required": [
+              "aggregation"
+            ]
+          },
+          "then": {
+            "required": [
+              "propertyRef"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "propertyRef"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "Page": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "Page"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "afterCursor": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "kind",
+        "limit"
+      ]
+    },
+    "Sort": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "Sort"
+        },
+        "propertyRef": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        },
+        "direction": {
+          "enum": [
+            "ASC",
+            "DESC"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "propertyRef",
+        "direction"
+      ]
+    }
+  }
+}

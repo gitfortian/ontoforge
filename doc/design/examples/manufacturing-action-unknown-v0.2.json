@@ -1,0 +1,51 @@
+{
+  "recordVersion": "0.2.0",
+  "executionId": "example-action-attempt-001",
+  "actionRef": "hold-product-lot",
+  "workspaceRef": "plant-01",
+  "authorization": {
+    "subjectRef": "operator-42",
+    "authorizationDecision": "PERMIT",
+    "policyRef": "hold-authorization",
+    "approvedBy": "supervisor-8",
+    "authorizedAt": "2026-10-15T06:00:00Z"
+  },
+  "knowledge": {
+    "schemaReleaseDigest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "bindingVersion": "1.0.0",
+    "indexSnapshotRef": "index-generation-17",
+    "sourceCheckpoint": "mes-cdc-offset-1024",
+    "functionDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "ruleVersion": "1.0.0",
+    "decisionVersion": "1.0.0",
+    "policyVersion": "1.0.0",
+    "actionVersion": "1.0.0"
+  },
+  "intent": {
+    "objectRef": "product-lot:PL-001",
+    "effectScopeDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "idempotencyKey": "example-idempotency-001",
+    "expectedSourceRevision": "mes-revision-22",
+    "previewDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "state": "UNKNOWN",
+  "createdAt": "2026-10-15T05:55:00Z",
+  "events": [
+    {
+      "event": "PROPOSED",
+      "at": "2026-10-15T05:55:00Z"
+    },
+    {
+      "event": "APPROVED",
+      "at": "2026-10-15T06:00:00Z"
+    },
+    {
+      "event": "DISPATCHED",
+      "at": "2026-10-15T06:01:00Z"
+    },
+    {
+      "event": "UNKNOWN",
+      "at": "2026-10-15T06:02:00Z"
+    }
+  ]
+}

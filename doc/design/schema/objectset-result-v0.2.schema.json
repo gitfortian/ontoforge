@@ -1,0 +1,375 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ontology-system.example.invalid/contracts/v0.2/objectset-result.schema.json",
+  "title": "Server-authored ObjectSet Query Result Envelope v0.2",
+  "description": "Separate exactness from scope completeness and freshness; partial aggregate is exact only over the known subset. Authorization context is server resolved; no unauthorized object refs.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "resultVersion": {
+      "const": "0.2.0"
+    },
+    "queryDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "schemaReleaseDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "bindingVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "indexSnapshotRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authorizationScopeRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "executedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "enum": [
+        "SUCCESS",
+        "PARTIAL",
+        "FAILED"
+      ]
+    },
+    "accuracy": {
+      "enum": [
+        "EXACT",
+        "APPROXIMATE",
+        "UNKNOWN"
+      ]
+    },
+    "completeness": {
+      "enum": [
+        "COMPLETE",
+        "PARTIAL",
+        "UNKNOWN"
+      ]
+    },
+    "freshness": {
+      "enum": [
+        "FRESH",
+        "STALE",
+        "UNKNOWN"
+      ]
+    },
+    "answerScope": {
+      "enum": [
+        "REQUESTED_SCOPE",
+        "KNOWN_SUBSET"
+      ]
+    },
+    "sourceCheckpoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "sourceRef": {
+            "type": "string",
+            "minLength": 1
+          },
+          "checkpoint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "observedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completeness": {
+            "enum": [
+              "COMPLETE",
+              "PARTIAL",
+              "UNKNOWN"
+            ]
+          }
+        },
+        "required": [
+          "sourceRef",
+          "checkpoint",
+          "observedAt",
+          "completeness"
+        ]
+      },
+      "minItems": 0
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "enum": [
+            "COUNT_DISTINCT",
+            "SUM",
+            "AVG"
+          ]
+        },
+        "value": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "operation",
+        "value"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "COUNT_DISTINCT"
+              }
+            },
+            "required": [
+              "operation"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "objectRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "approximateErrorBound": {
+      "type": "number",
+      "minimum": 0
+    },
+    "errors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+          },
+          "safeMessage": {
+            "type": "string",
+            "maxLength": 250
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "resultVersion",
+    "queryDigest",
+    "schemaReleaseDigest",
+    "bindingVersion",
+    "indexSnapshotRef",
+    "authorizationScopeRef",
+    "executedAt",
+    "status",
+    "accuracy",
+    "completeness",
+    "freshness",
+    "answerScope",
+    "sourceCheckpoints"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "completeness": {
+            "enum": [
+              "PARTIAL",
+              "UNKNOWN"
+            ]
+          }
+        },
+        "required": [
+          "completeness"
+        ]
+      },
+      "then": {
+        "properties": {
+          "answerScope": {
+            "const": "KNOWN_SUBSET"
+          },
+          "status": {
+            "enum": [
+              "PARTIAL",
+              "FAILED"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "SUCCESS"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "completeness": {
+            "const": "COMPLETE"
+          },
+          "answerScope": {
+            "const": "REQUESTED_SCOPE"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "accuracy": {
+            "const": "APPROXIMATE"
+          }
+        },
+        "required": [
+          "accuracy"
+        ]
+      },
+      "then": {
+        "required": [
+          "approximateErrorBound"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "approximateErrorBound"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "FAILED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "errors"
+        ],
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "aggregate"
+              ]
+            },
+            {
+              "required": [
+                "objectRefs"
+              ]
+            }
+          ]
+        },
+        "properties": {
+          "accuracy": {
+            "const": "UNKNOWN"
+          },
+          "completeness": {
+            "const": "UNKNOWN"
+          },
+          "freshness": {
+            "const": "UNKNOWN"
+          },
+          "answerScope": {
+            "const": "KNOWN_SUBSET"
+          }
+        }
+      },
+      "else": {
+        "oneOf": [
+          {
+            "required": [
+              "aggregate"
+            ],
+            "not": {
+              "required": [
+                "objectRefs"
+              ]
+            }
+          },
+          {
+            "required": [
+              "objectRefs"
+            ],
+            "not": {
+              "required": [
+                "aggregate"
+              ]
+            }
+          }
+        ],
+        "properties": {
+          "sourceCheckpoints": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "completeness": {
+            "const": "COMPLETE"
+          }
+        },
+        "required": [
+          "completeness"
+        ]
+      },
+      "then": {
+        "properties": {
+          "sourceCheckpoints": {
+            "items": {
+              "properties": {
+                "completeness": {
+                  "const": "COMPLETE"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
