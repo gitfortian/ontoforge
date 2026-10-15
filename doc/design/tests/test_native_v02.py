@@ -469,6 +469,21 @@ class NativeV02ContractTests(unittest.TestCase):
         failed["status"] = "SUCCESS"
         self.invalid_structure("result", failed)
 
+    def test_distinct_count_cannot_be_negative_or_fractional(self):
+        self.result["aggregate"]["value"] = -3
+        self.invalid_structure("result", self.result)
+        self.result["aggregate"]["value"] = 1.5
+        self.invalid_structure("result", self.result)
+
+    def test_complete_result_needs_complete_sources(self):
+        self.result["status"] = "SUCCESS"
+        self.result["completeness"] = "COMPLETE"
+        self.result["answerScope"] = "REQUESTED_SCOPE"
+        self.invalid_structure("result", self.result)
+        for source in self.result["sourceCheckpoints"]:
+            source["completeness"] = "COMPLETE"
+        self.assertEqual(structure_errors("result", self.result), [])
+
     def test_v01_is_not_silently_accepted_as_v02(self):
         old = load(EXAMPLES / "manufacturing-quality-v0.1.json")
         self.invalid_structure("package", old)
