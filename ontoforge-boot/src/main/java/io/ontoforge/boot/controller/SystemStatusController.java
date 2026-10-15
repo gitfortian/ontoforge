@@ -1,4 +1,4 @@
-package io.ontology.system.boot.controller;
+package io.ontoforge.boot.controller;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,7 +22,7 @@ public class SystemStatusController {
                 "SELECT installation_id::text FROM platform_installation WHERE id = 1",
                 String.class);
         if (installationId == null) throw new IllegalStateException("Migration is incomplete");
-        return new PlatformStatus("ontology-system", "S0-MVP-0.1", "CONNECTED",
+        return new PlatformStatus("ontoforge", "S0-MVP-0.1", "CONNECTED",
                 installationId, "NOT_IMPLEMENTED", "NOT_IMPLEMENTED");
     }
 }

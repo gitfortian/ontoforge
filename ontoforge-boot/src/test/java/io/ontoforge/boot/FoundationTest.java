@@ -1,4 +1,4 @@
-package io.ontology.system.boot;
+package io.ontoforge.boot;
 
 import java.net.URI;
 import java.util.Map;
@@ -19,6 +19,7 @@ class FoundationTest {
     @Test void realPostgresMigrationAndApiStatus() {
         Map<?, ?> result = http.getForObject(URI.create("http://127.0.0.1:" + port + "/api/system/status"), Map.class);
         assertThat(result).isNotNull();
+        assertThat(result.get("service")).isEqualTo("ontoforge");
         assertThat(result.get("database")).isEqualTo("CONNECTED");
         assertThat(result.get("modelModule")).isEqualTo("NOT_IMPLEMENTED");
         assertThat(result.get("authModule")).isEqualTo("NOT_IMPLEMENTED");

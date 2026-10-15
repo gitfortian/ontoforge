@@ -1,4 +1,4 @@
-# S0 开发基座：完整规划、极简 MVP 分版本实施
+# OntoForge · 砺元 S0 开发基座：完整规划、极简 MVP 分版本实施
 
 > 状态：实施计划。遵循 V1.3 架构，但不预先实现边缘模块或臆造业务数据。
 > 目标：每一个版本独立可运行、可验收。用户、角色、权限、复杂多工作空间在 MVP **只作为后续规划**。
@@ -21,8 +21,8 @@
 ### 验收
 
 1. 启动本地数据库：`docker compose up -d`。
-2. 使用 Java 21/Maven：`mvn -pl ontology-system-boot spring-boot:run`。
-3. 使用 Node.js 22：进入 `ontology-system-ui` 后运行 `npm install`，再执行 `npm run dev`，浏览器访问 http://127.0.0.1:5173 。
+2. 使用 Java 21/Maven：`mvn -pl ontoforge-boot spring-boot:run`。
+3. 使用 Node.js 22：进入 `ontoforge-ui` 后运行 `npm install`，再执行 `npm run dev`，浏览器访问 http://127.0.0.1:5173 。
 4. 实际调用 http://127.0.0.1:8080/api/system/status，返回 S0-MVP-0.1、数据库 CONNECTED 与持久 installationId。
 5. 关闭后端再刷新前端：应展示连接失败；重启后端应恢复且 installationId 不变。
 6. CI 必须运行 Maven PostgreSQL/Flyway 集成测试及 React/TypeScript build；其他旧 POC 测试不得受到影响。

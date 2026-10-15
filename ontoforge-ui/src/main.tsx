@@ -38,7 +38,7 @@ function App() {
 
   return <div className="layout">
     <aside className="sidebar">
-      <div className="brand"><div className="brand-icon"><Blocks size={20}/></div><div><strong>Ontology System</strong><small>企业运营本体平台</small></div></div>
+      <div className="brand"><div className="brand-icon"><Blocks size={20}/></div><div><strong>OntoForge · 砺元</strong><small>工业运营本体平台</small></div></div>
       <p className="nav-heading">工作空间</p>
       <div className="nav-active"><Activity size={17}/> 系统概览</div>
       <p className="nav-heading secondary-label">规划模块</p>
@@ -57,7 +57,7 @@ function App() {
       </div>
       <div className="section-heading"><h2>下一阶段建设</h2><span>以下内容当前均未实现</span></div>
       <div className="cards">{planned.map(item=><div key={item.title} className="feature"><div className="feature-icon"><item.icon size={20}/></div><div className="stage">{item.stage}</div><h3>{item.title}</h3><p>{item.detail}</p><span className="planned">暂未开放</span></div>)}</div>
-      <footer>架构依据：V1.3 · S0-MVP-0.1 不包含用户认证、权限与业务数据。</footer>
+      <footer>OntoForge 砺元 · 架构 V1.3 · S0-MVP-0.1 不包含用户认证、权限与业务数据。</footer>
     </main>
   </div>;
 }
