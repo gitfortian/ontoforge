@@ -1,0 +1,332 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ontology-system.example.invalid/contracts/v0.2/semantic-execution-record.schema.json",
+  "title": "Semantic Execution Record v0.2 (server-authored runtime evidence)",
+  "description": "Server-authored evidence contract; never a model-package node, never execution approval, and cannot prove business-side effects solely by a transport receipt. Append-only tamper protection and signatures are runtime obligations.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "recordVersion": {
+      "const": "0.2.0"
+    },
+    "executionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "actionRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workspaceRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "subjectRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authorizationDecision": {
+          "enum": [
+            "PERMIT",
+            "DENY",
+            "NEEDS_APPROVAL"
+          ]
+        },
+        "policyRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approvedBy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authorizedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "subjectRef",
+        "authorizationDecision",
+        "policyRef",
+        "authorizedAt"
+      ]
+    },
+    "knowledge": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaReleaseDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "bindingVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "indexSnapshotRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceCheckpoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "functionDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "ruleVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decisionVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policyVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actionVersion": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "schemaReleaseDigest",
+        "bindingVersion",
+        "indexSnapshotRef",
+        "sourceCheckpoint",
+        "functionDigest",
+        "ruleVersion",
+        "decisionVersion",
+        "policyVersion",
+        "actionVersion"
+      ]
+    },
+    "intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "objectRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effectScopeDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expectedSourceRevision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "previewDigest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "objectRef",
+        "effectScopeDigest",
+        "idempotencyKey",
+        "expectedSourceRevision",
+        "previewDigest"
+      ]
+    },
+    "state": {
+      "enum": [
+        "PROPOSED",
+        "DENIED",
+        "APPROVED",
+        "QUEUED",
+        "DISPATCHING",
+        "UNKNOWN",
+        "RECEIPT_CONFIRMED",
+        "VERIFIED_SUCCESS",
+        "FAILED",
+        "BLOCKED"
+      ]
+    },
+    "externalReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "systemRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "remoteCommandId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "receiptStatus": {
+          "enum": [
+            "ACCEPTED",
+            "REJECTED",
+            "UNKNOWN"
+          ]
+        },
+        "receivedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "systemRef",
+        "remoteCommandId",
+        "receiptStatus",
+        "receivedAt"
+      ]
+    },
+    "outcomeVerification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "CONFIRMED",
+            "NOT_CONFIRMED",
+            "UNKNOWN"
+          ]
+        },
+        "evidenceRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verifiedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "status",
+        "evidenceRef",
+        "verifiedAt"
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "event": {
+            "enum": [
+              "PROPOSED",
+              "DENIED",
+              "APPROVED",
+              "QUEUED",
+              "DISPATCHED",
+              "UNKNOWN",
+              "RECEIPT",
+              "OUTCOME",
+              "BLOCKED"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "evidenceRef": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "event",
+          "at"
+        ]
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "recordVersion",
+    "executionId",
+    "actionRef",
+    "workspaceRef",
+    "authorization",
+    "knowledge",
+    "intent",
+    "state",
+    "createdAt",
+    "events"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "VERIFIED_SUCCESS"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "required": [
+          "externalReceipt",
+          "outcomeVerification"
+        ],
+        "properties": {
+          "externalReceipt": {
+            "properties": {
+              "receiptStatus": {
+                "const": "ACCEPTED"
+              }
+            }
+          },
+          "outcomeVerification": {
+            "properties": {
+              "status": {
+                "const": "CONFIRMED"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "UNKNOWN"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "outcomeVerification"
+          ],
+          "properties": {
+            "outcomeVerification": {
+              "properties": {
+                "status": {
+                  "const": "CONFIRMED"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
