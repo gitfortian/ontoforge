@@ -26,7 +26,9 @@ def select_paths(paths: list[str]) -> dict[str, bool]:
     if not paths:
         return selected
     for path in paths:
-        p = path.replace("\\", "/").lstrip("./")
+        p = path.replace("\\", "/")
+        if p.startswith("./"):
+            p = p[2:]
         if not p or p.startswith("../") or p.startswith("/"):
             return full_scope()
         if p.startswith((".github/workflows/", "scripts/ci/")):
@@ -68,7 +70,7 @@ def paths_from_name_status(raw: bytes) -> list[str]:
     while index < len(fields):
         status = fields[index].decode("ascii", errors="strict")
         index += 1
-        if not status or status[0] not in "AMDRCTUXB":
+        if not status or status[0] not in "AMDRCT":
             raise ValueError(f"Unsupported git status: {status!r}")
         count = 2 if status[0] in "RC" else 1
         if len(fields) - index < count:
