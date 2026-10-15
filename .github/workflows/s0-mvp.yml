@@ -2,13 +2,17 @@ name: OntoForge S0 MVP foundation
 on:
   push:
     branches:
-      - refactor/ontoforge-brand-and-modules-20261015
+      - main
   pull_request:
     paths:
       - "ontoforge-boot/**"
       - "ontoforge-ui/**"
       - "pom.xml"
       - "compose.yaml"
+      - "scripts/verify-s0.ps1"
+      - "README.md"
+      - "doc/implementation/S0-MVP-迭代计划.md"
+      - "doc/implementation/S0-Windows11-本机PostgreSQL-启动与验收.md"
       - ".github/workflows/s0-mvp.yml"
   workflow_dispatch:
 permissions:
@@ -31,6 +35,7 @@ jobs:
           --health-timeout 5s
           --health-retries 15
     env:
+      # CI uses an isolated service DB, never developer machine credentials.
       DB_URL: jdbc:postgresql://127.0.0.1:5432/ontology
       DB_USERNAME: ontology
       DB_PASSWORD: ontology_dev_only
@@ -59,6 +64,10 @@ jobs:
           test ! -d ontology-system-boot
           test ! -d ontology-system-ui
           test -f ontoforge-boot/src/main/java/io/ontoforge/boot/OntoForgeApplication.java
+      - name: Assert DB password cannot fall back to a committed default
+        run: |
+          grep -Fq 'password: ${DB_PASSWORD}' ontoforge-boot/src/main/resources/application.yml
+          test -f scripts/verify-s0.ps1
       - name: Real PostgreSQL startup and Flyway integration tests
         run: mvn -B -pl ontoforge-boot -am verify
   frontend:
