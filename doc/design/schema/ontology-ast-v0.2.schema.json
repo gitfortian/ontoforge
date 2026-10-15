@@ -691,6 +691,11 @@
             "properties": {
               "declaredEffectTypeRefs": {
                 "maxItems": 0
+              },
+              "outputType": {
+                "not": {
+                  "const": "CHANGE_SET"
+                }
               }
             }
           }
