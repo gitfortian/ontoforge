@@ -76,4 +76,4 @@ python experiments/pg-runtime/run_final_gates.py
 
 **安全与可靠性边界**：本实验仅模拟业务接受回执，并不验证真实 ERP 业务效果；连接以超级用户身份建模并使用 SET ROLE 的 RLS 用例不是生产权限架构；不保证任意高扇出查询的 SLA，也不能据此声称跨 ERP 的 Exactly Once。
 
-阅读 doc/research/2026-10-15-ObjectSet-Action-架构选型收口与冻结提案.md 以了解可冻结/不可冻结决策。
+阅读 [统一架构 V1.3](../../doc/本体产品总体功能与技术架构设计_v1.3.md) 第6、8、13、14章，了解 POC 证据、可采用的 P0 基线和仍不可冻结的生产能力。

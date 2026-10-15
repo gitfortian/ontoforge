@@ -1,40 +1,36 @@
-# 本体产品设计文档
+# 本体产品设计与架构文档
 
-本目录保存 `ontology-system` 的正式产品和技术架构设计文档。架构研究及待评审决策以 GitHub Issue 管理。
+**唯一现行总体架构入口：[本体产品总体功能与技术架构设计 V1.3](./本体产品总体功能与技术架构设计_v1.3.md)**
 
-| 文档 | 版本 | 状态 |
-| --- | --- | --- |
-| [本体产品功能架构与技术架构设计 V1.0](./本体产品功能架构与技术架构设计_v1.0.md) | V1.0 · 2026-10-14 | 保留历史基线 |
-| [本体产品功能架构与技术架构设计 V1.1](./本体产品功能架构与技术架构设计_v1.1.md) | V1.1 · 2026-10-14 | 待评审：语义工程 + GB/T 48000.3 核心建模契约 |
-| [本体产品功能架构与技术架构设计 V1.2](./本体产品功能架构与技术架构设计_v1.2.md) | V1.2 · 2026-10-15 | **当前架构评审候选**：Palantir 对标，Native 核心 + 可选 OWL，ADR-25–32 |
-| [Palantir Ontology 运营核心深度研究](./research/2026-10-15-Palantir-Ontology-运营核心深度研究.md) | 2026-10-15 | **官方证据 + 架构推断 + POC Gate**：Language、Binding、ObjectSet、Function、Action、OSv1/v2、安全传播 |
-| [POC-Query / POC-Edit 第二轮验证报告](./research/2026-10-15-POC-Query-Edit-第二轮验证报告.md) | 2026-10-15 | **24 项实际通过；PostgreSQL 脚本尚未实测**：ObjectSet 多跳、独立 HTTP Outbox、崩溃恢复与选型门禁 |
-| [ObjectSet / Action 最后一轮架构选型收口与冻结提案](./research/2026-10-15-ObjectSet-Action-架构选型收口与冻结提案.md) | 2026-10-15 | **30/30×2 真实 PG17 测试**：80万/600万高扇出 Link、RLS 实测、Claim fencing、架构冻结/待验门禁 |
-| [PostgreSQL 17 ObjectSet / Outbox 真实运行验证](./research/2026-10-15-POC-PostgreSQL17-ObjectSet-Outbox-真实运行验收.md) | 2026-10-15 | **实测证据**：PG17.11，2万/10万批次、各14项测试通过，EXPLAIN、RLS、事务 Outbox 与崩溃恢复 |
-| [OMBOK、GB/T 48000.4 研究与差距分析](./research/2026-10-14-OMBOK-GBT48000.4-蒸馏与差距分析.md) | 2026-10-14 | 原文边界、采纳思想及新模块映射 |
-| [GB/T 48000.3 本体建模要求差距矩阵](./research/2026-10-14-GBT48000.3-本体建模要求差距矩阵.md) | 2026-10-14 | §5–9、规范性附录 A、ADR-20–24 与 P0 Gate |
-| [Native DSL/AST 核心契约 V0.2](./design/核心本体元模型与Native-DSL-AST契约_v0.2.md) | V0.2 · 2026-10-15 | **架构评审候选**：Native Schema、Typed AST、Binding、ObjectSet Query/Result、Decision/Action 执行证据；可运行正反例 |
-| [核心本体元模型与 DSL/AST 契约 V0.1](./design/核心本体元模型与DSL-AST契约_v0.1.md) | V0.1 · 2026-10-14 | **历史技术合同**：原 OWL-first 倾向，Native V0.2 将另行修订并完成迁移评审 |
+> 状态：**正式统一架构基线候选，待产品、技术、安全联合评审签收**。代码/运行时与生产部署尚未完成；实验通过不代表生产能力已经签收。
+>
+> 设计方向：Enterprise-native Operational Ontology，连接 Object/Link、Data Binding、ObjectSet、Rule/Function、Decision、Policy、Action 与可追溯证据。**推理结论不等于行动授权**。
 
-## 深度研究路线
+## 当前有效文件
 
-- Palantir 的 Language→Binding→ObjectSet→Function→Action 是主要商业产品对标；研究文档明确区分官方公开事实与本项目推断，不将产品能力当作实现与性能已验证。
-- 原生本体 V1.2 仍是产品路线；关键 ObjectSet、编辑写回与授权机制须以 POC 取得工程证据之后再冻结底层实现。
+| 文档/合同 | 权威职责与状态 |
+|---|---|
+| **[总体功能与技术架构 V1.3](./本体产品总体功能与技术架构设计_v1.3.md)** | **唯一现行总体设计基线候选**：定位、F01–F29、限界上下文、PG17 证据、统一 ADR、路线与签收 Gate |
+| [Native DSL/AST V0.2](./design/核心本体元模型与Native-DSL-AST契约_v0.2.md) | 配套**机器可读技术合同**：五份 [V0.2 Package JSON Schema](./design/schema/ontology-package-v0.2.schema.json)、Typed AST、制造质量样例、[契约测试](./design/tests/test_native_v02.py) |
+| [V0.1 → Native V0.2 迁移矩阵](./design/V0.1到NativeV0.2迁移矩阵.md) | 历史 IRI、公理与 EntityType 的显式兼容/拒绝约束，不是第二份总体架构 |
 
-## 产品定位
+## 证据与参考研究（非第二套架构权威）
 
-**通用本体核心 + 制造业及产业生态专业语义体系 + Agent 上下文与受控行动能力。**
+| 材料 | 用途 |
+|---|---|
+| [Palantir Ontology 官方材料深度研究](./research/2026-10-15-Palantir-Ontology-运营核心深度研究.md) | 公开产品事实、抽象关系与设计边界；不代表知晓厂商私有实现 |
+| [GB/T 48000.3 专项差距矩阵](./research/2026-10-14-GBT48000.3-本体建模要求差距矩阵.md) | 标准数字化专业建模 Profile 与通用企业本体的适用范围 |
+| [OMBOK / GB/T 48000.4 研究](./research/2026-10-14-OMBOK-GBT48000.4-蒸馏与差距分析.md) | 治理、语义共识及质量的研究证据 |
+| [真实 PostgreSQL/Outbox POC](../experiments/pg-runtime/README.md) | 可运行的代码、PostgreSQL 17 服务端实测、授权/竞态负例；与 [PR #8](https://github.com/gitfortian/ontology-system/pull/8)、[PR #9](https://github.com/gitfortian/ontology-system/pull/9) 原始 CI 互相核验 |
 
-底层引擎不绑定行业，行业特色通过基础本体、领域本体包、企业扩展和 Agent 能力包体现。平台连接现有 ERP、MES、PLM、QMS、WMS、EAM 等系统，不替代这些业务系统。
+## 历史文件与清理原则
 
-## 研究与评审
+- V1.0、V1.1、V1.2 总体架构 Markdown 均被 V1.3 统一替代；旧的 OWL-first V0.1 设计说明与旧版验收说明不再作为现行技术依据。
+- 各轮 POC 的阶段性研究报告已由 V1.3 第6、8、13、14章的定量证据、决策边界和 GitHub Actions 原始执行记录取代；旧 Markdown 不再留在当前文档目录中。
+- **保留** V0.1 的 JSON Schema 和制造业正反例，供 V0.2 自动化迁移与历史兼容回归使用；它们不代表旧版模式仍是平台权威。
+- 删除的是当前 Git 文件树中的过期文档，**Git 历史及原 PR 仍保留**，如有审计需要可按历史 commit 恢复查阅。
+- 新增/调整设计必须引用 V1.3 的唯一入口；发生重大路线变化时更新 ADR、注明 POC/权衡，再通过独立 PR 修订或创建下一版本，**不得平行维护多份所谓现行总体架构**。
 
-- [Issue #1：Apache Jena / BKN Foundry 蒸馏与架构研究](https://github.com/gitfortian/ontology-system/issues/1)
-- V1.0/V1.1 保留为演进历史；V1.2 将企业原生本体（Object/Link/ObjectSet/Function/Action）确立为架构候选主线，OWL 作为按需互操作。尚待评审，不代表研发授权。
-- **核心本体元模型与 DSL/AST 契约 V0.1 已形成独立评审稿**，配套 JSON Schema、制造质量示例、AST 与正反例；本次仅提交 doc/，尚未实现生产编译器。
+## 实施顺序
 
-## 文档管理约定
-
-- 已发布版本不直接覆盖；重大修改应产生新版本并记录变更。
-- 评审中的架构决策需标明状态、权衡、验证方式和签收条件。
-- 文档中使用 Mermaid 维护架构图，以便 GitHub 在线渲染和代码审查。
+**S0 工程底座 → P0-A Native Model → P0-B Model Governance → P1 Binding / ObjectSet → P2 Function / Agent → P3 Governed Action → P4 产品化**。每个阶段 PR 应完成可验收用户闭环，包含实际启动/操作路径、安全负例和可重复证据。S0、正式生产编译器、真实业务系统连接与 Action 都不因本次文档归一而视为已实现。
