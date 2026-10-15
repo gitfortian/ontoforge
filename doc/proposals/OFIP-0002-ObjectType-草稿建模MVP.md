@@ -2,7 +2,7 @@
 
 **Status:** Discussion
 
-**Discussion:** Pending — 待本提案独立 PR 创建后绑定
+**Discussion:** [PR #6 — [DISCUSS][OFIP-0002]](https://github.com/gitfortian/ontoforge/pull/6)
 
 **Decision:** Pending — 维护者未签收；文档或 CI 通过不等于 Accepted
 
