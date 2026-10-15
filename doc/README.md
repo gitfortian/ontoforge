@@ -25,6 +25,15 @@
 | [OMBOK / GB/T 48000.4 研究](./research/2026-10-14-OMBOK-GBT48000.4-蒸馏与差距分析.md) | 治理、语义共识及质量的研究证据 |
 | [真实 PostgreSQL/Outbox POC](../experiments/pg-runtime/README.md) | 可运行的代码、PostgreSQL 17 服务端实测、授权/竞态负例；与 [PR #8](https://github.com/gitfortian/ontology-system/pull/8)、[PR #9](https://github.com/gitfortian/ontology-system/pull/9) 原始 CI 互相核验 |
 
+## 重大设计提案与研发治理（讨论中，不构成现行规范）
+
+| 文件 | 状态与用途 |
+| --- | --- |
+| [OFIP-0001：需求提案、文档治理与 CI 证据门禁](./proposals/OFIP-0001-需求提案文档治理与CI证据门禁.md) | **Discussion / Decision Pending**：拟议重大设计的审批、单一文档权威、PR 证据与可靠 CI 分层，尚未签收、尚未实施 |
+| [Yak Ops YOIP、文档体系和 CI 研究](./research/2026-10-15-Yak-Ops-YOIP-文档治理与CI蒸馏.md) | 外部工程治理蒸馏及 OntoForge 适配建议；仅研究证据，不能取代 V1.3 或已实现代码 |
+
+**状态区分**：设计是否 Accepted、代码是否 Implemented、测试是否 Passed、产品是否 Released 是不同事实。OFIP 的存在或 CI 绿灯都不能自动批准设计。
+
 ## 历史文件与清理原则
 
 - V1.0、V1.1、V1.2 总体架构 Markdown 均被 V1.3 统一替代；旧的 OWL-first V0.1 设计说明与旧版验收说明不再作为现行技术依据。
