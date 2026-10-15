@@ -245,9 +245,19 @@ def http_json(method,url,payload=None):
         except (ValueError,UnicodeError):
             return exc.code,{}
 
-def mark_state(aid,state):
-    # Late errors may not erase an already VERIFIED receipt.
+def mark_state(aid,state,token=None):
+    # An old Worker cannot overwrite state after its lease was stolen.
+    # Detached reconciliation is allowed only when not actively leased.
     with conn() as db:
+        lease=db.execute("SELECT state,claim_token FROM poc.action_outbox "
+                         "WHERE attempt_id=%s FOR UPDATE",(aid,)).fetchone()
+        if not lease:
+            return False
+        if token is not None:
+            if lease["state"]!="LEASED" or lease["claim_token"]!=token:
+                return False
+        elif lease["state"]=="LEASED":
+            return False
         changed=db.execute("UPDATE poc.action_attempt SET state=%s "
                            "WHERE id=%s AND state IN ('DISPATCHING','UNKNOWN') "
                            "RETURNING id",(state,aid)).fetchone()
@@ -255,6 +265,7 @@ def mark_state(aid,state):
             db.execute("UPDATE poc.action_outbox SET state=%s WHERE attempt_id=%s",
                        ("UNKNOWN" if state=="UNKNOWN" else "BLOCKED",aid))
             db.execute("INSERT INTO poc.action_event(attempt_id,event_type) VALUES(%s,%s)",(aid,state))
+        return bool(changed)
 
 def finalize_receipt(aid,receipt):
     a = get_attempt(aid)
@@ -275,7 +286,7 @@ def finalize_receipt(aid,receipt):
                    "VALUES(%s,'VERIFIED',%s)",(aid,Jsonb(receipt)))
         return "VERIFIED"
 
-def reconcile(aid,base):
+def reconcile(aid,base,token=None):
     a=get_attempt(aid)
     try:
         code,receipt=http_json("GET",base+"/receipts/"+urllib.parse.quote(a["idem_key"],safe=""))
@@ -283,10 +294,10 @@ def reconcile(aid,base):
             return finalize_receipt(aid,receipt)
         if code==404:
             return None
-        mark_state(aid,"UNKNOWN")
+        mark_state(aid,"UNKNOWN",token=token)
         return "UNKNOWN"
     except (urllib.error.URLError, TimeoutError, ConnectionError):
-        mark_state(aid,"UNKNOWN")
+        mark_state(aid,"UNKNOWN",token=token)
         return "UNKNOWN"
 
 def dispatch(aid,token,base):
@@ -300,9 +311,9 @@ def dispatch(aid,token,base):
         try:
             check_contract(db,a)
         except ValueError:
-            mark_state(aid,"BLOCKED_NEEDS_REVIEW")
+            mark_state(aid,"BLOCKED_NEEDS_REVIEW",token=token)
             return "BLOCKED_NEEDS_REVIEW"
-    receipt=reconcile(aid,base)
+    receipt=reconcile(aid,base,token=token)
     if receipt in ("VERIFIED","UNKNOWN"):
         return receipt
     a=get_attempt(aid)
@@ -313,12 +324,12 @@ def dispatch(aid,token,base):
         if code==200:
             return finalize_receipt(aid,response)
         if code==409:
-            mark_state(aid,"BLOCKED_NEEDS_REVIEW")
+            mark_state(aid,"BLOCKED_NEEDS_REVIEW",token=token)
             return "BLOCKED_NEEDS_REVIEW"
-        mark_state(aid,"UNKNOWN")
+        mark_state(aid,"UNKNOWN",token=token)
         return "UNKNOWN"
     except (urllib.error.URLError, TimeoutError, ConnectionError):
-        mark_state(aid,"UNKNOWN")
+        mark_state(aid,"UNKNOWN",token=token)
         return "UNKNOWN"
 
 def effective_object(lot):
