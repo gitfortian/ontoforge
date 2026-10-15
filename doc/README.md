@@ -11,7 +11,7 @@
 | 文档/合同 | 权威职责与状态 |
 |---|---|
 | **[总体功能与技术架构 V1.3](./本体产品总体功能与技术架构设计_v1.3.md)** | **唯一现行总体设计基线候选**：定位、F01–F29、限界上下文、PG17 证据、统一 ADR、路线与签收 Gate |
-| [Native DSL/AST V0.2](./design/核心本体元模型与Native-DSL-AST契约_v0.2.md) | 配套**机器可读技术合同**：五份 [V0.2 JSON Schema](./design/schema/)、Typed AST、制造质量样例、[契约测试](./design/tests/test_native_v02.py) |
+| [Native DSL/AST V0.2](./design/核心本体元模型与Native-DSL-AST契约_v0.2.md) | 配套**机器可读技术合同**：五份 [V0.2 Package JSON Schema](./design/schema/ontology-package-v0.2.schema.json)、Typed AST、制造质量样例、[契约测试](./design/tests/test_native_v02.py) |
 | [V0.1 → Native V0.2 迁移矩阵](./design/V0.1到NativeV0.2迁移矩阵.md) | 历史 IRI、公理与 EntityType 的显式兼容/拒绝约束，不是第二份总体架构 |
 
 ## 证据与参考研究（非第二套架构权威）
