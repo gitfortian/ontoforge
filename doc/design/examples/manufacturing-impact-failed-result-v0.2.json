@@ -1,0 +1,21 @@
+{
+  "resultVersion": "0.2.0",
+  "queryDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+  "schemaReleaseDigest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "bindingVersion": "1.0.0",
+  "indexSnapshotRef": "unavailable-before-index-read",
+  "authorizationScopeRef": "server-auth-scope-42",
+  "executedAt": "2026-10-15T06:12:00Z",
+  "status": "FAILED",
+  "accuracy": "UNKNOWN",
+  "completeness": "UNKNOWN",
+  "freshness": "UNKNOWN",
+  "answerScope": "KNOWN_SUBSET",
+  "sourceCheckpoints": [],
+  "errors": [
+    {
+      "code": "SOURCE_UNAVAILABLE",
+      "safeMessage": "Source projection was not available for the requested scope"
+    }
+  ]
+}
