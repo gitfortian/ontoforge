@@ -30,7 +30,7 @@ Authoritative design references:
 - `ontoforge-core`, `ontoforge-dao`, `ontoforge-platform`, `ontoforge-spi` etc. are **planned**; create a module only when a real story, owner, caller, dependency direction and tests justify it.
 - Domain core owns Native ObjectType/LinkType/AST/contracts, not database/HTTP/LLM implementation details. Persistence and integrations are adapters; no Core → Boot, Business → Boot or Core → Connector reverse dependency.
 - Native Schema/Typed AST, semantic facts, Data Binding, ObjectSet query/evidence, deterministic Function/Decision and policy-controlled Action are **different contracts**. Do not collapse states or let a client choose its own authorization context.
-- `source fact != derived projection`; `inference != authorization`; `Action requested != accepted != outcome verified`. UNKNOWN/PARTIAL/STale/failure are not success, false or zero.
+- `source fact != derived projection`; `inference != authorization`; `Action requested != accepted != outcome verified`. UNKNOWN/PARTIAL/STALE/failure are not success, false or zero.
 
 ## Safety, migrations, documentation
 
