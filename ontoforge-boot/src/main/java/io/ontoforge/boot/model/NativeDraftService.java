@@ -38,8 +38,8 @@ public class NativeDraftService {
         public final String code;
         public final int http;
         public final List<DraftValidation.Issue> issues;
-        DraftFailure(int http,String code,String message) {this(http,code,message,List.of());}
-        DraftFailure(int http,String code,String message,List<DraftValidation.Issue> issues) {
+        public DraftFailure(int http,String code,String message) {this(http,code,message,List.of());}
+        public DraftFailure(int http,String code,String message,List<DraftValidation.Issue> issues) {
             super(message);this.http=http;this.code=code;this.issues=issues;
         }
     }
