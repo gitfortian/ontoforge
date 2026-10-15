@@ -1,4 +1,4 @@
-name: OFIP-0002 Low-Fi Browser Review
+name: OFIP-0002 Prototype UX Browser Review
 
 # Design-review browser evidence only. Not a production application gate.
 on:
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   prototype-chromium:
-    name: Prototype Real Chromium UX1-UX9
+    name: High/Low Fidelity Real Chromium UX
     runs-on: ubuntu-latest
     timeout-minutes: 18
     steps:
@@ -25,16 +25,16 @@ jobs:
         run: python -m pip install playwright==1.57.0
       - name: Install real Chromium for Playwright
         run: python -m playwright install --with-deps chromium
-      - name: Run actual click-through, failure and regression cases
+      - name: Run 24 real high/low fidelity click-through and failure cases
         env:
           UX_CAPTURE_SCREENSHOTS: '1'
-          UX_SCREENSHOT_DIR: '${{ runner.temp }}/ofip-lowfi-shots'
+          UX_SCREENSHOT_DIR: '${{ runner.temp }}/ofip-ux-shots'
         run: python -m unittest discover -s doc/prototypes/tests -p 'test_*.py' -v
       - name: Upload browser screenshots on success and failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ofip-0002-lowfi-chromium-screenshots
-          path: '${{ runner.temp }}/ofip-lowfi-shots'
+          name: ofip-0002-ux-chromium-screenshots
+          path: '${{ runner.temp }}/ofip-ux-shots'
           if-no-files-found: warn
           retention-days: 14
