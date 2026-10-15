@@ -1,0 +1,62 @@
+name: Experimental PostgreSQL Ontology Runtime POC
+
+on:
+  push:
+    branches:
+      - research/poc-postgresql-objectset-outbox-20261015
+  pull_request:
+    paths:
+      - "experiments/pg-runtime/**"
+      - ".github/workflows/pg-runtime-poc.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ontology-pg-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres-query-and-outbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        lots: [20000, 100000]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ontopoc
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ontopoc"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      POC_PG_DSN: postgresql://postgres:postgres@127.0.0.1:5432/ontopoc
+      POC_LOTS: ${{ matrix.lots }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PostgreSQL driver
+        run: python -m pip install "psycopg[binary]>=3.2,<4"
+      - name: Run disposable PostgreSQL verification
+        run: python experiments/pg-runtime/run_pg_poc.py
+      - name: Store real execution plans and benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-17-poc-${{ matrix.lots }}-lots
+          path: experiments/pg-runtime/artifacts/
+          if-no-files-found: warn
