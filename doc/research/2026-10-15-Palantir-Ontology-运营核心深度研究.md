@@ -289,3 +289,79 @@ flowchart LR
 
 **具体性能门槛**：需以试点规模、企业硬件预算、原始数据分布确定，并记录 p50/p95/p99、增量索引耗时、跨源映射覆盖率、权限开销、精确/近似结果的错误界限。Palantir 官方公开数字只说明其产品特定能力，**不构成我们的容量或 SLA 承诺**。
 
+
+
+## 10. 研究成果转化为产品总方针
+
+我们不应把“对标 Palantir”理解为复制它当前的系统数量、微服务架构、底层 SQL/搜索图组合、TS 函数运行时或特定界面。更重要的是：
+
+1. **可组合运营本体**：业务模型不是孤立 Schema，定义和真实对象实例、来源映射、可查询集合、计算/动作引用同一类稳定身份。
+2. **模型与数据持续绑定**：Schema 是业务契约，Binding 是映射合同，Index 是可重建读模型。数据源变动不等于模型自动变化。
+3. **查询先于推理炫技**：对企业对象的搜索、过滤、关联、聚合、分页、时态和权限形成稳定 SDK，才能支撑可重复的业务问题与 Agent Context。
+4. **Function 产生智能，Action 管控实际变更**：Function 可以计算 Ontology Edit 意图，但不能以其可计算性自动获得执行业务副作用的权限。
+5. **读权限与数据输出传播不能混为一谈**：从对象集合进入函数、外部模型、Agent、物化与导出，都需要明确的数据政策承接。
+6. **不能照搬任何一版 Palantir 特性**：OSv1→OSv2 的变更说明架构必须有演进余地；接口和领域身份的长期稳定比初始引擎选型更重要。
+7. **语义标准保持互操作**：OWL/RDF/SHACL 能处理它们擅长的知识交换和语义校验，不要求模拟 Connection、ObjectSet、Function、Action 的所有运行逻辑。
+8. **用黄金故事逼问设计**：质量异常批次→受影响订单→风险计算→授权处置，在真实多源和错误状态下可验证，才是产品进度。
+
+## 11. 给 V1.2 与 Native DSL/AST V0.2 的明确建议
+
+| 影响事项 | 对 V1.2 结论 | 对后续合同的要求 | 行动 |
+|---|---|---|---|
+| Palantir 的核心运营抽象 | **路线不变** | ObjectType/LinkType/ObjectSet/Function/Action 一等 | V0.2 合同签收 |
+| ObjectSet 的 Lazy 特征 | **增强** | Query AST、集合/实例分离、索引状态与成本 | Query POC |
+| 多来源属性不完整 | **增强** | SourceAuthority、CompletenessPolicy、FactStatus、Evidence | Binding POC |
+| v2 对象编辑/物化演进 | **增强** | EditIntent、EditLayer、EffectiveObject、ExternalReceipt 分开 | Edit POC |
+| Function-backed Action 的版本风险 | **明确修改** | Function/Action digest 联合绑定、效果范围和升级审批 | 安全负例 |
+| 行/列读权限不自动传播 | **明确修改** | 派生数据分类、输出标签、撤权和审计 | 安全 Gate |
+| Link cardinality 不等于实际数据质量 | **增强** | LinkQuality、关联来源、关系类型独立校验 | 质量 Gate |
+| 模型 Branch/Review 与索引激活 | **保留并细化** | Schema ChangeSet、Binding Migration、Index Activation 分别管理 | 发布 Gate |
+| OWL 的地位 | **不改变** | 可选标准互操作，保真/有损报告 | Adapter POC 后置 |
+
+**建议的 ADR 后续补充主题**：Query AST 懒求值（ADR-27 延伸）、实例身份/事实完整性（ADR-28 延伸）、受控 Function Edit Plan（ADR-29 延伸）、Edit Layer vs Materialization、Action 功能版本权限升级和 Security Label Propagation。不是每个观察都要新起一个一级模块或微服务。
+
+**本轮签收语句（建议）**：Palantir Foundry Ontology 的可验证启示应转化成我们自己的稳定业务概念与可运行验收，不应变成厂商技术术语崇拜。正式启动工程底座开发以前，先保证 Native Schema/Binding/ObjectSet/Action 的关系清楚，明确可用 POC 而非口头评估验证存储、映射和写回的高风险部分。
+
+---
+
+## 12. 官方材料证据索引（按引用编号）
+
+以下均为 Palantir 官方公开文档，查询日期 2026-10-15；文档随产品更新，建议架构评审记录读过的版本/日期并在实施前核对变化。
+
+| 编号 | 官方文档 | 支持的具体研究结论 |
+|---|---|---|
+| P01 | [The Ontology System](https://www.palantir.com/docs/foundry/architecture-center/ontology-system) | Data/Logic/Action/Security、Language/Engine/Toolchain |
+| P02 | [Object Backend Overview](https://www.palantir.com/docs/foundry/object-backend/overview) | OMS、Object Database、OSS、Funnel、Actions、Functions；OSv2 特征与限额 |
+| P03 | [Object Storage v1 vs v2 Breaking Changes](https://www.palantir.com/docs/foundry/object-backend/object-storage-v2-breaking-changes) | 专用对象数据库、API 改造、编辑入口变化 |
+| P04 | [Indexing Overview](https://www.palantir.com/docs/foundry/object-indexing/overview) | Funnel 批处理和流式索引 |
+| P05 | [Ontology Types Reference](https://www.palantir.com/docs/foundry/object-link-types/type-reference) | ObjectType、Property、Interface，类型/实例区分 |
+| P06 | [Create Object Type](https://www.palantir.com/docs/foundry/object-link-types/create-object-type) | 先建类型、Backing Datasource、属性和 Key 映射 |
+| P07 | [Object Type Primary Key](https://www.palantir.com/docs/foundry/object-link-types/create-object-type/index.html) | 主键唯一、修改主键的用户编辑风险 |
+| P08 | [Create Link Type](https://www.palantir.com/docs/foundry/object-link-types/create-link-type) | Foreign Key/Join Table/Object-backed Link；部分基数非自动强制 |
+| P09 | [Action Types Overview](https://www.palantir.com/docs/foundry/action-types/overview) | ActionType、参数/规则/条件/副作用 |
+| P10 | [Functions Overview](https://www.palantir.com/docs/foundry/functions/overview) | TS/Python、服务端、对象计算/编辑 |
+| P11 | [Functions Types Reference](https://www.palantir.com/docs/foundry/functions/types-reference) | ObjectSet 与 Array 的执行效率及 API |
+| P12 | [Aggregation Considerations](https://www.palantir.com/docs/foundry/object-backend/aggregation-considerations) | 不精确聚合、响应准确性指标 |
+| P13 | [Function-backed Actions Overview](https://www.palantir.com/docs/foundry/action-types/function-actions-overview) | 复杂 Ontology 编辑功能 |
+| P14 | [Function-backed Actions Getting Started](https://www.palantir.com/docs/foundry/action-types/function-actions-getting-started) | Function 版本自动升级与行动权限风险 |
+| P15 | [Action Side Effects](https://www.palantir.com/docs/foundry/action-types/side-effects-overview) | 通知与 Webhook 连接外部系统 |
+| P16 | [Actions on Interfaces](https://www.palantir.com/docs/foundry/action-types/actions-on-interfaces) | Interface Action 的范围/限制 |
+| P17 | [Ontology SDK TypeScript](https://www.palantir.com/docs/foundry/ontology-sdk/typescript-osdk) | 对象与函数在 SDK 中的消费方式（旁证） |
+| P18 | [Branching the Ontology](https://www.palantir.com/docs/foundry/ontologies/branching-ontology) | 本体分支、提案、审批、冲突和合并 |
+| P19 | [Funnel Batch Pipelines](https://www.palantir.com/docs/foundry/object-indexing/funnel-batch-pipelines) | 增量索引、Schema 变化时切换 Pipeline |
+| P20 | [Multi-Datasource Objects](https://www.palantir.com/docs/foundry/object-permissioning/multi-datasource-objects) | Column-wise MDO 支持和现有限制 |
+| P21 | [Required Properties](https://www.palantir.com/docs/foundry/object-link-types/required-properties) | 多源对象必填约束可能出现缺口 |
+| P22 | [Funnel Streaming Pipelines](https://www.palantir.com/docs/foundry/object-indexing/funnel-streaming-pipelines) | 乱序更新、近实时索引与限制 |
+| P23 | [Functions Optimize Performance](https://www.palantir.com/docs/foundry/functions/optimize-performance) | 使用 ObjectSet 减少对象逐个加载 |
+| P24 | [TypeScript v1→v2 Migration](https://www.palantir.com/docs/foundry/functions/typescript-v2-migration) | Searchable 缺失的运行时行为 |
+| P25 | [Action Getting Started](https://www.palantir.com/docs/foundry/action-types/getting-started) | 参数与提交条件（Submission Criteria） |
+| P26 | [Action Test Run](https://www.palantir.com/docs/foundry/action-types/test-run) | 提交前预演不应用编辑、不执行副作用 |
+| P27 | [Action Log](https://www.palantir.com/docs/foundry/action-types/action-log) | 成功记录/失败 Metrics/编辑历史差异 |
+| P28 | [Action Permissions](https://www.palantir.com/docs/foundry/action-types/permissions) | ActionType 阅读、编辑、执行及对象权限 |
+| P29 | [Action Read/Write Authorizations (Beta)](https://www.palantir.com/docs/foundry/action-types/read-write-authorizations) | 读边界/写出标记，不代替既有权限 |
+| P30 | [Object Security Policies](https://www.palantir.com/docs/foundry/object-permissioning/object-security-policies) | 行列权限、读时过滤、不自动传播到导出 |
+| P31 | [Access Control Propagation](https://www.palantir.com/docs/foundry/security/access-control-propagation) | Mandatory Control 与普通读权限的衍生传播差异 |
+| P32 | [Object Edits Materializations](https://www.palantir.com/docs/foundry/object-edits/materializations) | OSv1 必需 Writeback；OSv2 可选 Materialization |
+| P33 | [Action Dropdown Security](https://www.palantir.com/docs/foundry/action-types/dropdown-security) | 静态筛选值及 ObjectSet 网络参数的侧信道 |
+
+**结论状态**：本报告是公开源码之外的官方文档研究，文中技术选型建议均为本项目假设。**没有生产工程代码、未运行 SDK 与部署验收，不作为系统功能已完成的证明。**
