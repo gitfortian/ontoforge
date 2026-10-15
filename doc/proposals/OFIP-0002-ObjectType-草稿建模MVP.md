@@ -450,6 +450,43 @@ flowchart TD
 
 **阶段签收规则**：本轮请审 UX1–UX9，包括导航、操作数量、完成路径、校验与失败恢复；不满意的直接在 [PR #6](https://github.com/gitfortian/ontoforge/pull/6) 指出，修改原型后复审。UX-Gate-Low 通过才能进入高保真原型。高保真通过、完整 OFIP Accepted 后才启动前后端功能 PR。**DG1–DG9、TC1–TC10 已签收不代表 UX1–UX9 已签收**。
 
+### UX-Gate-Low：独立浏览器实测与评审结论（维护者签收仍待确认）
+
+**独立复核结论：建议通过低保真交互方向，允许进入高保真设计；当前不代表维护者最终 UX 签收，也不代表完整 OFIP Accepted。**
+
+为了避免只靠浏览器脚本语法正确就宣布可用，本轮新增真实 Chromium 自动化：
+- 回归脚本：[doc/prototypes/tests/test_objecttype_lowfi_browser.py](../prototypes/tests/test_objecttype_lowfi_browser.py)，覆盖真实点击、输入、弹窗、版本状态、失败恢复与窄屏。
+- 工作流：[.github/workflows/ofip-0002-lowfi-browser.yml](../../.github/workflows/ofip-0002-lowfi-browser.yml)，仅用于原型评审的浏览器验证，不测试正式 React API。
+- **第一轮失败证据**：[浏览器 Run #38733853021](https://github.com/gitfortian/ontoforge/actions/runs/38733853021) — 10 项中 8 PASS、1 FAIL、1 ERROR；确认 **UX9：网络模拟导致未保存表单内容丢失**，另一个 ERROR 是测试的菜单定位符过严。
+- **修复与第二轮通过证据**：[浏览器 Run #38734086157](https://github.com/gitfortian/ontoforge/actions/runs/38734086157) — **10/10 PASS**；[10 张浏览器截图](https://github.com/gitfortian/ontoforge/actions/runs/38734086157/artifacts/11971064943)。已修复断网触发页面重绘前未同步 editor state 的问题；导航测试改用稳定 DOM id，没有隐藏失败或降低断言。
+- 本轮最终提交的 [Required Quality Run #38734086165](https://github.com/gitfortian/ontoforge/actions/runs/38734086165) 已通过；同一提交的独立 Native V0.2/文档工作流也通过。当前工作流修改导致自动范围选择器全选相关专项，具体范围以 Actions 记录为准。
+
+**UX1–UX9 审核矩阵（独立测试结果与产品审核区分）**
+
+| 评审项 | Chromium 复核 | 设计判断 |
+| --- | --- | --- |
+| UX1 空态创建 | PASS | 单一“创建模型包”入口清楚；模型包命名提示需在高保真给出可理解的业务说明 |
+| UX2 包进入对象类型 | PASS | “包 → 类型”符合 1:N 领域关系，首版不开放 LinkType 编辑器合理 |
+| UX3 WIP 保存/重开 | PASS（同一页面模拟内存） | WIP 保存与完整校验清晰分离；真实刷新/重启持久化要留给功能验收 |
+| UX4 不完整/错误校验 | PASS | 状态正确；字段错误仍主要在右侧 JSON Pointer 列表，高保真须就地定位 |
+| UX5 类型/属性/PK | PASS | 主键可随新属性 ID 动态选择；可保留首版字段配置，但需降低高级字段首次认知负担 |
+| UX6 编辑后旧校验失效 | PASS | revision 与 NOT_RUN 语义正确，真实后端必须原子保证 |
+| UX7 未保存离开 | PASS | 取消离开仍保留编辑；高保真需覆盖浏览器后退、刷新和跨路由拦截 |
+| UX8 两标签页冲突 | PASS | 409 后仍保留输入；高保真要提供“查看最新版 + 对比本地修改”而非仅舍弃本地 |
+| UX9 断网及恢复 | **第一轮 FAIL → 修复后 PASS** | 必须明确“保存结果未知”和“核对服务端 revision”；避免盲目重复提交 |
+
+**高保真必须落实的改进，不作为本轮拒绝低保真方向的理由：**
+
+1. **表单错误定位**：右侧问题列表须可点击跳转对应 Property 行、聚焦输入，并就地显示错误原因/修复提示。不能要求用户读 JSON Pointer。
+2. **操作层级**：将“保存编辑进度”作为主要操作，“检查模型完整性”在已保存的当前 revision 上分步推进；完成后给“返回模型包 / 继续编辑”明确分叉，不能堆多个等权按钮。
+3. **冲突恢复**：409 除提示加载最新版外，必须展示**服务端 revision、本地 revision、是否舍弃输入**；推荐保留本地内容供用户复制/对比，禁止自动强制覆盖。
+4. **异常与浏览器导航**：网络超时后展示“保存结果未知 → 查询最新草稿 → 决定重试”；真实系统的 URL/draftId、Back/Refresh、加载中、空态、断网以及键盘导航需一并进入高保真状态矩阵。
+5. **视觉范围**：当前灰阶样式只是交互线框；不能照搬成正式 OntoForge 页面。高保真必须遵循现有应用组件、排版密度和整体设计语言。
+
+**本轮未验证/不应冒充通过**：Windows 本机实际 PostgreSQL/Flyway V2、Spring Boot Draft CRUD、Native V0.2 新 Property 作用域、真实 React 页面、刷新后持久化、生产权限/多租户/工业 Action。原型内存模拟就是原型，不存在“真实保存成功”。
+
+**状态边界**：助手作为独立审查者认为 UX1–UX9 在低保真阶段**可进入高保真优化**；仍请维护者在 PR #6 对交互方向明确签收或给出修改意见，随后才进入 UX-Gate-High。保持 `Status: Discussion` / `Implementation: Not Started`，不因 10/10 绿灯改为完整 Accepted。
+
 ### Domain-Gate-1：已签收的领域决策（DG1–DG9 全部 A）
 
 | 决策 | 推荐 A | 备选 B / 风险 |
