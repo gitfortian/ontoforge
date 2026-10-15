@@ -122,6 +122,34 @@ class HighFiProductReview(unittest.TestCase):
         container.locator('label[for="p0-type"]').click()
         self.assertEqual(self.page.evaluate("document.activeElement.id"), "p0-type")
 
+    def test_small_information_text_contrast_at_least_wcag_aa(self):
+        """Small readable notes on white and light-blue surfaces need >=4.5:1 contrast."""
+        def ratio(css_color, against):
+            def linear(rgb):
+                r, g, b = rgb
+                vals = [(v / 255.0) for v in (r, g, b)]
+                vals = [v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in vals]
+                return .2126 * vals[0] + .7152 * vals[1] + .0722 * vals[2]
+
+            def extract(value):
+                if value.startswith("#"):
+                    return tuple(int(value[i:i+2], 16) for i in (1, 3, 5))
+                return tuple(int(v.strip()) for v in value[value.find("(")+1:value.find(")")].split(",")[:3])
+
+            a, b = linear(extract(css_color)), linear(extract(against))
+            return (max(a, b) + .05) / (min(a, b) + .05)
+
+        self.page.get_by_role("heading", name="编辑对象类型").wait_for()
+        for selector, background in [
+            (".head p", "#f6f8fb"),
+            (".panelhead p", "#ffffff"),
+            (".caption", "#ffffff"),
+            (".topbar", "#f6f8fb"),
+        ]:
+            color = self.page.locator(selector).first.evaluate("el=>getComputedStyle(el).color")
+            self.assertGreaterEqual(ratio(color, background), 4.5,
+                                    f"Insufficient text contrast: {selector} {color} against {background}")
+
     def test_mobile_editor_has_no_horizontal_viewport_overflow(self):
         self.page.set_viewport_size({"width": 390, "height": 844})
         self.add_field()
