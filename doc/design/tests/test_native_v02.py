@@ -22,12 +22,14 @@ SCHEMAS = {
     "package": "ontology-package-v0.2.schema.json",
     "ast": "ontology-ast-v0.2.schema.json",
     "query": "objectset-query-v0.2.schema.json",
+    "result": "objectset-result-v0.2.schema.json",
     "record": "semantic-execution-record-v0.2.schema.json",
 }
 EXAMPLE_FILES = {
     "package": "manufacturing-quality-v0.2.json",
     "ast": "manufacturing-quality-ast-v0.2.json",
     "query": "manufacturing-impact-query-v0.2.json",
+    "result": "manufacturing-impact-partial-result-v0.2.json",
     "record": "manufacturing-action-unknown-v0.2.json",
 }
 KINDS = [
@@ -115,12 +117,18 @@ def semantic_validate_package(p):
         require(l["sourceTypeRef"] in type_properties, "LINK_SOURCE_UNKNOWN")
         require(l["targetTypeRef"] in type_properties, "LINK_TARGET_UNKNOWN")
 
+    authority_claims = set()
     for b in p["bindings"]:
         require(b["objectTypeRef"] in type_properties, "BINDING_OBJECT_UNKNOWN")
         owned = type_properties[b["objectTypeRef"]]
         fields = [f["propertyRef"] for f in b["fieldMappings"]]
         require(len(fields) == len(set(fields)), "DUPLICATE_MAPPING_PROPERTY")
         require(set(fields) <= set(owned), "BINDING_PROPERTY_NOT_OWNED")
+        for field in b["fieldMappings"]:
+            if field["authority"] == "AUTHORITATIVE":
+                claim = (b["objectTypeRef"], field["propertyRef"])
+                require(claim not in authority_claims, "MULTIPLE_AUTHORITATIVE_SOURCES")
+                authority_claims.add(claim)
         require(b["identity"]["strategy"] != "APPROVED_CROSS_SOURCE"
                 or b["identity"].get("evidencePolicyRef"), "CROSS_SOURCE_WITHOUT_APPROVAL")
     for b in p["linkBindings"]:
@@ -183,6 +191,18 @@ def semantic_validate_query(pkg, q):
             require(p["searchable"], "QUERY_PROPERTY_NOT_SEARCHABLE")
             require((step["operator"] == "IN") == isinstance(step["value"], list),
                     "QUERY_FILTER_OPERATOR_VALUE_MISMATCH")
+            values = step["value"] if isinstance(step["value"], list) else [step["value"]]
+            expected = p["valueType"]
+            if expected in ("STRING", "ENUM", "DATETIME"):
+                require(all(isinstance(x, str) for x in values), "QUERY_FILTER_VALUE_TYPE")
+            elif expected == "INTEGER":
+                require(all(type(x) is int for x in values), "QUERY_FILTER_VALUE_TYPE")
+            elif expected == "BOOLEAN":
+                require(all(type(x) is bool for x in values), "QUERY_FILTER_VALUE_TYPE")
+            elif expected == "DECIMAL":
+                require(all(type(x) in (int, float) for x in values), "QUERY_FILTER_VALUE_TYPE")
+            if expected == "ENUM":
+                require(all(x in p["enumValues"] for x in values), "QUERY_ENUM_VALUE_UNKNOWN")
         elif kind == "Traverse":
             link = links.get(step["linkTypeRef"])
             require(link is not None, "QUERY_LINK_UNKNOWN")
@@ -209,6 +229,7 @@ class NativeV02ContractTests(unittest.TestCase):
         self.ast = copy.deepcopy(EXAMPLE_DATA["ast"])
         self.query = copy.deepcopy(EXAMPLE_DATA["query"])
         self.record = copy.deepcopy(EXAMPLE_DATA["record"])
+        self.result = copy.deepcopy(EXAMPLE_DATA["result"])
 
     def invalid_structure(self, kind, value):
         self.assertTrue(structure_errors(kind, value),
@@ -267,6 +288,17 @@ class NativeV02ContractTests(unittest.TestCase):
         self.pkg["bindings"][0]["identity"]["strategy"] = "APPROVED_CROSS_SOURCE"
         self.invalid_semantic(self.pkg, "CROSS_SOURCE_WITHOUT_APPROVAL")
 
+    def test_conflicting_property_authority_rejected(self):
+        clone = copy.deepcopy(self.pkg["bindings"][0])
+        clone["id"] = "duplicate-qms-binding"
+        clone["sourceRef"] = "second-qms"
+        self.pkg["bindings"].append(clone)
+        self.invalid_semantic(self.pkg, "MULTIPLE_AUTHORITATIVE_SOURCES")
+
+    def test_external_action_effect_needs_executor(self):
+        del self.pkg["actions"][0]["effects"][0]["executorRef"]
+        self.invalid_structure("package", self.pkg)
+
     def test_unknown_rule_rejected(self):
         self.pkg["decisionStrategies"][0]["ruleRefs"].append("not-a-rule")
         self.invalid_semantic(self.pkg, "DECISION_RULE_UNKNOWN")
@@ -314,6 +346,20 @@ class NativeV02ContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "QUERY_FILTER_OPERATOR_VALUE_MISMATCH"):
             semantic_validate_query(self.pkg, self.query)
 
+    def test_query_rejects_wrong_value_type(self):
+        self.query["steps"][0]["value"] = 27
+        with self.assertRaisesRegex(ValueError, "QUERY_FILTER_VALUE_TYPE"):
+            semantic_validate_query(self.pkg, self.query)
+
+    def test_query_rejects_invalid_enum(self):
+        self.query["steps"][0]["value"] = "ALREADY_DELETED"
+        with self.assertRaisesRegex(ValueError, "QUERY_ENUM_VALUE_UNKNOWN"):
+            semantic_validate_query(self.pkg, self.query)
+
+    def test_query_integer_literal_structure(self):
+        self.query["steps"][0]["value"] = 123
+        self.assertEqual(structure_errors("query", self.query), [])
+
     def test_query_rejects_arbitrary_sql(self):
         self.query["rawSql"] = "DELETE FROM customer_order"
         self.invalid_structure("query", self.query)
@@ -350,6 +396,25 @@ class NativeV02ContractTests(unittest.TestCase):
             "status": "CONFIRMED", "evidenceRef": "fabricated",
             "verifiedAt": "2026-10-15T06:05:00Z"}
         self.invalid_structure("record", self.record)
+
+    def test_partial_result_cannot_claim_full_scope(self):
+        self.result["answerScope"] = "REQUESTED_SCOPE"
+        self.invalid_structure("result", self.result)
+
+    def test_partial_result_cannot_claim_success(self):
+        self.result["status"] = "SUCCESS"
+        self.invalid_structure("result", self.result)
+
+    def test_approximate_result_needs_error_bound(self):
+        self.result["accuracy"] = "APPROXIMATE"
+        self.invalid_structure("result", self.result)
+        self.result["approximateErrorBound"] = 0.05
+        self.assertEqual(structure_errors("result", self.result), [])
+
+    def test_result_exactness_does_not_imply_completeness(self):
+        self.assertEqual(self.result["accuracy"], "EXACT")
+        self.assertEqual(self.result["completeness"], "PARTIAL")
+        self.assertEqual(self.result["answerScope"], "KNOWN_SUBSET")
 
     def test_v01_is_not_silently_accepted_as_v02(self):
         old = load(EXAMPLES / "manufacturing-quality-v0.1.json")
