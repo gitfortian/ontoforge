@@ -8,6 +8,7 @@
 | [本体产品功能架构与技术架构设计 V1.1](./本体产品功能架构与技术架构设计_v1.1.md) | V1.1 · 2026-10-14 | 待评审：语义工程 + GB/T 48000.3 核心建模契约 |
 | [本体产品功能架构与技术架构设计 V1.2](./本体产品功能架构与技术架构设计_v1.2.md) | V1.2 · 2026-10-15 | **当前架构评审候选**：Palantir 对标，Native 核心 + 可选 OWL，ADR-25–32 |
 | [Palantir Ontology 运营核心深度研究](./research/2026-10-15-Palantir-Ontology-运营核心深度研究.md) | 2026-10-15 | **官方证据 + 架构推断 + POC Gate**：Language、Binding、ObjectSet、Function、Action、OSv1/v2、安全传播 |
+| [POC-Query / POC-Edit 第二轮验证报告](./research/2026-10-15-POC-Query-Edit-第二轮验证报告.md) | 2026-10-15 | **24 项实际通过；PostgreSQL 脚本尚未实测**：ObjectSet 多跳、独立 HTTP Outbox、崩溃恢复与选型门禁 |
 | [ObjectSet / Action 最后一轮架构选型收口与冻结提案](./research/2026-10-15-ObjectSet-Action-架构选型收口与冻结提案.md) | 2026-10-15 | **30/30×2 真实 PG17 测试**：80万/600万高扇出 Link、RLS 实测、Claim fencing、架构冻结/待验门禁 |
 | [PostgreSQL 17 ObjectSet / Outbox 真实运行验证](./research/2026-10-15-POC-PostgreSQL17-ObjectSet-Outbox-真实运行验收.md) | 2026-10-15 | **实测证据**：PG17.11，2万/10万批次、各14项测试通过，EXPLAIN、RLS、事务 Outbox 与崩溃恢复 |
 | [OMBOK、GB/T 48000.4 研究与差距分析](./research/2026-10-14-OMBOK-GBT48000.4-蒸馏与差距分析.md) | 2026-10-14 | 原文边界、采纳思想及新模块映射 |
