@@ -21,9 +21,9 @@ class FoundationTest {
         assertThat(result).isNotNull();
         assertThat(result.get("service")).isEqualTo("ontoforge");
         assertThat(result.get("database")).isEqualTo("CONNECTED");
-        assertThat(result.get("modelModule")).isEqualTo("NOT_IMPLEMENTED");
+        assertThat(result.get("modelModule")).isEqualTo("DRAFT_AVAILABLE");
         assertThat(result.get("authModule")).isEqualTo("NOT_IMPLEMENTED");
-        assertThat(result.get("version")).isEqualTo("S0-MVP-0.1");
+        assertThat(result.get("version")).isEqualTo("S0-MVP-0.2");
         String actual = jdbc.queryForObject("SELECT installation_id::text FROM platform_installation WHERE id=1", String.class);
         assertThat(result.get("installationId")).isEqualTo(actual);
     }
@@ -32,5 +32,7 @@ class FoundationTest {
         Integer applied = jdbc.queryForObject(
                 "SELECT count(*) FROM flyway_schema_history WHERE version='1' AND success=true", Integer.class);
         assertThat(applied).isEqualTo(1);
+        Integer draftV2 = jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE version='2' AND success=true", Integer.class);
+        assertThat(draftV2).isEqualTo(1);
     }
 }
