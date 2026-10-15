@@ -4,19 +4,19 @@
 
 **Discussion:** [PR #6 — OFIP-0002 评审](https://github.com/gitfortian/ontoforge/pull/6)
 
-**Decision:** Pending — **第一轮领域模型评审中**；未获维护者明确决定，不得标 Accepted 或进入实现
+**Decision:** Domain-Gate-1：**DG1–DG9 全部 A 已通过**（[PR #6 维护者决定记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)）；Contract-Gate-2 / 原型及完整 OFIP **Pending**，不授权开发
 
 **Implementation:** Not Started — 领域评审 → 技术合同评审 → 低保真原型 → 高保真签收 → 前后端纵向交付 → 真实验收
 
 **Release:** Not Released
 
-**Review gate:** Domain-Gate-1 (Pending)；当前是领域模型决策候选，不冻结数据库表、HTTP API、页面或多租户授权
+**Review gate:** Domain-Gate-1 **Passed**；Contract-Gate-2 **Discussion / Pending**（本轮提出 API、WIP 校验、PG 存储与兼容性候选，尚未冻结，未到原型或代码阶段）
 
 **Related:** [OFIP-0001 治理规范](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [总体架构 V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2 结构合同候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md) · [S0 迭代计划](../implementation/S0-MVP-迭代计划.md)
 
 > **重要事实**：经核对当前 main，Spring Boot 仅有真实的系统状态 API，Flyway V1 只建平台安装记录；React 的本体建模入口仍为“规划中”。Native V0.2 的 JSON Schema 与 Python 正反例是真实存在的**候选合同与实验验证**，不是 Java 服务或生产编译器。S0 无认证/授权/工作空间隔离；不得作为企业正式服务开放或加载真实工业数据。
 >
-> **第一轮重审与前案的关系**：本文件完整替代 OFIP-0002 同一 PR 中之前的“一模型包只包含一个 ObjectType、只允许完整模型保存”的早期建议。新建议是**完整领域支持 Package 1:N ObjectType、1:N LinkType；首版产品操作可只引导创建首个 ObjectType；允许保存未完成编辑，但完整 Schema 校验另设门禁**。所有变更仍是 Discussion，需评审后才能成为合同。
+> **领域决策结果与后续技术评审**：DG1–DG9 已按推荐 A 方案通过，否定原先“一包一类型、只有完整才能保存”。**Package 1:N ObjectType、1:N LinkType；Save WIP 与 Validate 分离**成为领域设计约束。下文 Contract-Gate-2 提出具体技术合同，仍待单独评审；现有 Native V0.2 源码及产品实现本 PR 不改。
 
 ## Motivation
 
@@ -46,7 +46,7 @@
 
 ## Public Interfaces
 
-本轮**先冻结领域语言和概念关系候选**，下轮单独确定 HTTP DTO、SQL、错误码、正式 Native 校验 Profile。现有 V0.2 机器合同**没有在本 PR 修改**。
+**Domain-Gate-1 已通过**。下述核心领域语言为下一轮提供约束；新增 Contract-Gate-2 讨论 HTTP DTO、数据库、校验、引用作用域和错误码，但在本轮评审通过前均不是已签收接口。现有 V0.2 机器合同**没有在本 PR 修改**。
 
 ### 1. 核心领域概念和基数
 
@@ -256,7 +256,7 @@ flowchart TD
 
 ---
 
-### Domain-Gate-1：请维护者逐项裁决（本轮只审领域模型）
+### Domain-Gate-1：已签收的领域决策（DG1–DG9 全部 A）
 
 | 决策 | 推荐 A | 备选 B / 风险 |
 | --- | --- | --- |
@@ -270,4 +270,4 @@ flowchart TD
 | **DG8 MVP 范围** | 一个功能 PR 做首个 ObjectType 的真实创建、WIP 保存、重开、编辑、完整校验及失败恢复；未来多类型不受底层硬约束 | 首版把多类型/Link/Release 全部开发，会明显膨胀 |
 | **DG9 研发顺序** | 本轮领域签收 → 下轮技术合同 → 低保真 → 高保真 → 完整前后端 PR → Windows 实测 | 直接开发或机械地为了轮次生成多份重复文档 |
 
-**当前各项均为待审核建议，不视为用户已经逐项选择 A。** 你可在 PR #6 回复 \`DG1–DG9：全部 A\` 或指出需要修订的具体项；我会按照真实决议更新本 OFIP，随后再开始下一设计 Gate。正式 Accepted/Implementation 与技术架构整体签收必须继续分别记录。
+**签收记录**：[PR #6 评审评论](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)。DG1–DG9 按推荐 A 作为领域约束，但 **OFIP-0002 仍是 Discussion；Contract-Gate-2、交互/视觉、完整设计和实施状态继续独立审议**。
