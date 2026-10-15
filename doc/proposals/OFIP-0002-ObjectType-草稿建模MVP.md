@@ -4,19 +4,19 @@
 
 **Discussion:** [PR #6 — OFIP-0002 评审](https://github.com/gitfortian/ontoforge/pull/6)
 
-**Decision:** **Domain-Gate-1：DG1–DG9 全部 A 已通过**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)）；**Contract-Gate-2：TC1–TC10 全部 A 已通过**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191277696)）。低保真/高保真/完整 OFIP **Pending**，不授权业务功能开发
+**Decision:** **Domain-Gate-1：DG1–DG9 全部 A 已通过**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)）；**Contract-Gate-2：TC1–TC10 全部 A 已通过**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191277696)）。**UX-Gate-Low / UX-Gate-High：受托独立审核通过**（[实际验收结论](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6192752743)）；完整 OFIP **Pending**，尚无业务代码开发授权
 
 **Implementation:** Not Started — 领域评审 → 技术合同评审 → 低保真原型 → 高保真签收 → 前后端纵向交付 → 真实验收
 
 **Release:** Not Released
 
-**Review gate:** Domain-Gate-1 **Passed**；Contract-Gate-2 **Passed (design only)**；UX-Gate-Low **独立 Chromium 评审建议通过（维护者待确认）**；UX-Gate-High **设计与独立浏览器验证进行中 / 待维护者签收**。本轮无业务代码
+**Review gate:** Domain-Gate-1 **Passed**；Contract-Gate-2 **Passed (design only)**；UX-Gate-Low **Passed (delegated independent review)**；UX-Gate-High **Passed (delegated independent review; mock UI only)**；OFIP-0002 整体 `[VOTE] Accepted` **Pending**，未实施业务代码
 
 **Related:** [OFIP-0001 治理规范](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [总体架构 V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2 结构合同候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md) · [S0 迭代计划](../implementation/S0-MVP-迭代计划.md)
 
 > **重要事实**：经核对当前 main，Spring Boot 仅有真实的系统状态 API，Flyway V1 只建平台安装记录；React 的本体建模入口仍为“规划中”。Native V0.2 的 JSON Schema 与 Python 正反例是真实存在的**候选合同与实验验证**，不是 Java 服务或生产编译器。S0 无认证/授权/工作空间隔离；不得作为企业正式服务开放或加载真实工业数据。
 >
-> **已通过的两轮设计约束**：DG1–DG9 与 TC1–TC10 均明确签收为阶段设计决策。Package 1:N ObjectType、1:N LinkType；Save WIP 与 Validate 分离；草稿编辑 DTO / Native Candidate 独立；按包 revision 防覆盖；完整模型校验不等于发布。**机器合同代码的实际修订须在后续受审功能/合同 PR 中实现，并以测试证明**，不能将设计签收等同实现。现在进入低保真用户路径评审，低/高保真原型、完整 OFIP 仍待审。
+> **已通过的两轮设计约束**：DG1–DG9 与 TC1–TC10 均明确签收为阶段设计决策。Package 1:N ObjectType、1:N LinkType；Save WIP 与 Validate 分离；草稿编辑 DTO / Native Candidate 独立；按包 revision 防覆盖；完整模型校验不等于发布。**机器合同代码的实际修订须在后续受审功能/合同 PR 中实现，并以测试证明**，不能将设计签收等同实现。低/高保真受托独立评审已通过，完整 OFIP 的维护者实施授权、Native 机器合同实际修订、前后端纵向功能交付仍是独立事项。
 
 ## Motivation
 
@@ -26,7 +26,7 @@
 
 首个可验收 MVP 要求：本机打开真实的对象类型列表，创建 `manufacturing.production` 包下的 `ProductionBatch`，添加 `batchId` 等属性，保存草稿，返回列表、刷新、重开、修改后再次保存；未填完时也不能丢失合法的编辑进度；明确指出尚未达到完整模型校验要求；重复 ID、非法类型及并发覆盖不得被当成成功。
 
-**领域模型已签收，当前是第二轮技术合同评审**；本轮不输出页面原型、不设计 CSS、不提交应用代码。目标是让 Draft/Package/Property 引用与版本能落实为稳定的数据库/API/校验合同，避免开发后再反复迁移。
+**领域模型与技术合同两轮已签收，低/高保真交互现已通过受托独立审查**；本 OFIP 仍处于整体批准前的设计收口阶段，尚未提交 Spring Boot/React 业务代码或数据库迁移。下一阶段须严格按照真实 Native/PG/API/浏览器验收合同完整交付，不允许仅凭 Mock 演示宣布产品可用。
 
 ### 2. 两个发现的核心设计冲突
 
@@ -487,7 +487,26 @@ flowchart TD
 
 **状态边界**：助手作为独立审查者认为 UX1–UX9 在低保真阶段**可进入高保真优化**；仍请维护者在 PR #6 对交互方向明确签收或给出修改意见，随后才进入 UX-Gate-High。保持 `Status: Discussion` / `Implementation: Not Started`，不因 10/10 绿灯改为完整 Accepted。
 
-### UX-Gate-High：高保真原型与前端交付合同（当前待维护者签收）
+### UX-Gate-High：高保真原型与前端交付合同（受托独立审查通过；整体 OFIP 待批准）
+
+#### 受托独立功能评审记录 · 2026-10-15
+
+- **结论**：**UX-Gate-Low = PASS；UX-Gate-High = PASS（仅设计原型交互）**。用户明确委托助手替代逐条点选审核；此处是独立审查结论，不是维护者正式的 `[VOTE] Accepted`，不得擅自开放业务代码实施。
+- **实际检查**：[Chromium #38739196976](https://github.com/gitfortian/ontoforge/actions/runs/38739196976) **31/31 PASS**：低保真 10、原高保真 14、专项独立审查 7；[31 张实际浏览器截图](https://github.com/gitfortian/ontoforge/actions/runs/38739196976/artifacts/11974794680)。还实际查看了桌面编辑/字段错误、409 冲突和 390px 窄屏截图，确认与现行 OntoForge S0 品牌布局风格一致。
+- **基座回归**：[Required Quality #38739196880](https://github.com/gitfortian/ontoforge/actions/runs/38739196880) PASS；[Architecture Docs Gates #38739196933](https://github.com/gitfortian/ontoforge/actions/runs/38739196933) PASS。既有 PG17/S0 FoundationTest 及 React build 通过**不代表**新的 Native Draft V2/Java API 已测试。
+
+| 审核中发现的问题 | 分级 | 修复及证据 |
+| --- | --- | --- |
+| 编辑旧 VALID 的草稿时，当前本地表单仍显示“校验通过” | P1 误导状态 | 输入修改立即显示“本地编辑待保存”，隐藏旧问题/标记并禁用完整校验；保存新 revision 后旧报告失效，专项 Chromium PASS |
+| 主键下拉框包含非必填或非 STRING/INTEGER 字段 | P1 建模语义 | PK 选择器只提供本类型 required=true 的 STRING/INTEGER 属性，调整字段使其失效时清除选项，专项 Chromium PASS |
+| 非 ENUM 字段可以输入枚举值，修改类型后留下隐形数据 | P2 字段准确性 | 非 ENUM 禁用枚举配置，切回普通类型后清空枚举值；实测提交的 Mock 编辑结构无残留 |
+| 动态 Property 字段 label 无对应 HTML for | P2 可访问性 | ID/API 名/显示名/值类型/分类/枚举均绑定真实输入，实测点击 label 聚焦正确控件 |
+| 高保真辅助说明文字对比度过低 | P2 可读性 | 实际浏览器截图复核后调整灰蓝文字，并新增正文对比度 WCAG AA >=4.5:1 的 Chromium 自动回归 |
+| 既有断网重绘丢编辑内容、未保存时校验按钮没有立即禁用 | 已修 P1 回归 | 原低保真和高保真既有回归继续运行 PASS，不允许后续改版回退 |
+
+**非本轮原型 Gate 的遗留实现阻断（必须在业务功能 PR 验证）**：正式可寻址 draftId 路由与浏览器 Back/Refresh；真实持久化保存/重启重开；服务端 Schema/语义及 Type-scoped Property 引用；乐观并发原子写入；500/网络未知结果查询与恢复；安全/认证/工作空间/发布。它们没有因设计原型通过而成为“已完成”。
+
+
 
 > **可操作文件**：[OFIP-0002 高保真原型](../prototypes/ofip-0002-objecttype-highfi.html)。GitHub 中使用 **Raw/Download** 保存到 Windows 本机后，可直接用 Edge/Chrome 打开。该文件独立于 \`ontoforge-ui\`，**不是产品代码**；保存、校验、并发、离线、页面状态仅使用浏览器内存模拟，刷新会清空原型数据，**没有 API/PG/真实鉴权**。
 >
@@ -534,12 +553,12 @@ flowchart TD
 
 - [高保真真实浏览器回归源码](../prototypes/tests/test_objecttype_highfi_browser.py)：**14 项 Chromium**，沿用低保真的 10 项实际输入/点击测试，并增加 4 项高保真专项检查（字段错误定位、重复 Property 精确定位、保存/校验按钮实时可用状态、冲突双方内容展示）。
 - [低保真浏览器回归源码](../prototypes/tests/test_objecttype_lowfi_browser.py)：**10 项 Chromium** 保留为不可回退的 UX1–UX9 基线。新高保真改动不能破坏旧版的已验证交互方向。
-- [原型浏览器 CI 工作流](../../.github/workflows/ofip-0002-lowfi-browser.yml) 在原型改动时使用真实 Chromium 执行两套测试、捕获截图；所有输出属于**Mock 页面 UX 自动化**，不能证明 Spring Boot API、PostgreSQL Draft V2、生产权限或真实业务验收。
-- 合并前最低证据：24 项实际 Chromium 测试全部 PASS、GitHub Required Quality Gate 与架构合同工作流真实执行成功；存在失败需修复后重新提交完整 head SHA，并在 PR 中区分 PASS / NOT SELECTED / NOT RUN。
-- 设计评审结论需单独由维护者确认。**视觉可用性（页面对齐、密度、标签、文案）和用户故事有效性不能由 Playwright 绿色直接代替**。提交高保真评审确认前，OFIP-0002 保持 Discussion/Implementation Not Started。
+- [原型浏览器 CI 工作流](../../.github/workflows/ofip-0002-lowfi-browser.yml) 在原型改动时使用真实 Chromium 执行三套测试、捕获截图；所有输出属于**Mock 页面 UX 自动化**，不能证明 Spring Boot API、PostgreSQL Draft V2、生产权限或真实业务验收。
+- 本阶段现有证据：31 项实际 Chromium 测试全部 PASS、GitHub Required Quality Gate 与架构合同工作流真实执行成功；存在失败需修复后重新提交完整 head SHA，并在 PR 中区分 PASS / NOT SELECTED / NOT RUN。
+- 设计评审结论需单独由维护者确认。**视觉可用性（页面对齐、密度、标签、文案）和用户故事有效性不能由 Playwright 绿色直接代替**。高/低保真受托独立审查已形成明确 PASS 结论；OFIP-0002 仍保持 Discussion/Implementation Not Started，直到维护者正式批准完整实施。
 - Windows 11 本地原生 PostgreSQL、Java Draft API、Flyway V2、真实刷新后重开、安全/身份、工业语义计算均待实施 PR 实际验收。
 
-**高保真签收建议**：审 H1–H9，重点看当前项目既有视觉的一致性、字段错误可达性、修订对比和下一步行动指引。若通过，可明确回复「UX-Gate-High 通过」；然后在 OFIP-0002 中明确完整设计是否 Accepted，才开始一个真实前后端功能 PR。签收阶段与实施阶段不能合并成一个状态。
+**受托高保真评审结论：PASS（静态 Mock 交互范围）**。[详见独立审查评论及 31/31 Chromium 证据](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6192752743)。全部 H1–H9 的主路径均已通过真实点击与异常恢复审核，视觉与对比度问题也已整改。**下一步不再要求用户逐一手工操作原型**，仅保留维护者对整个 OFIP 的正式批准；业务实现、数据库持久化和 Windows 实测不能以原型验收代替。
 
 ### Domain-Gate-1：已签收的领域决策（DG1–DG9 全部 A）
 
