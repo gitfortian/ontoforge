@@ -1,0 +1,126 @@
+"""Extra UX-Gate-High reviewer regressions: semantic/editor correctness.
+
+Design-only in-memory HTML mock; does not test PostgreSQL, server APIs or permissions.
+"""
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+from playwright.sync_api import sync_playwright
+
+HIGH = (Path(__file__).resolve().parents[1] / "ofip-0002-objecttype-highfi.html").as_uri()
+
+
+class HighFiProductReview(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.playwright = sync_playwright().start()
+        cls.browser = cls.playwright.chromium.launch(headless=True, args=["--no-sandbox"])
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.browser.close()
+        cls.playwright.stop()
+
+    def setUp(self):
+        self.page = self.browser.new_page(viewport={"width": 1365, "height": 900}, locale="zh-CN")
+        self.errors = []
+        self.page.on("pageerror", lambda error: self.errors.append(str(error)))
+        self.page.goto(HIGH)
+        self.page.get_by_role("heading", name="模型包", exact=True).wait_for()
+        self.page.get_by_role("button", name="新建第一个模型包").click()
+        self.page.locator("#package-id").fill("manufacturing.production")
+        self.page.get_by_role("button", name="创建空草稿并进入").click()
+        self.page.get_by_role("button", name="新建首个对象类型").first.click()
+        self.page.locator("#obj-id").fill("production-batch")
+        self.page.locator("#obj-api").fill("ProductionBatch")
+
+    def tearDown(self):
+        self.assertEqual(self.errors, [], "Uncaught browser exception")
+        self.page.close()
+
+    def add_field(self):
+        buttons = self.page.get_by_role("button", name="＋ 添加第一个属性")
+        if buttons.count():
+            buttons.click()
+        else:
+            self.page.get_by_role("button", name="＋ 添加属性").click()
+        self.page.locator("#p0-id").fill("batch-id")
+        self.page.locator("#p0-api").fill("batchId")
+
+    def save(self):
+        self.page.get_by_role("button", name="保存编辑进度", exact=True).click()
+
+    def test_dirty_edit_never_presents_old_validation_as_current(self):
+        self.add_field()
+        self.page.locator("#p0-required").check()
+        self.page.locator("#primary-ref").select_option("batch-id")
+        self.save()
+        self.page.get_by_role("button", name="检查模型完整性").click()
+        self.assertEqual(self.page.evaluate("state.records[0].validation.status"), "VALID")
+        self.assertIn("校验通过", self.page.locator("#validation-current-state").inner_text())
+
+        self.page.locator("#obj-desc").fill("新的本地定义")
+        self.assertIn("待保存", self.page.locator("#validation-current-state").inner_text())
+        self.assertTrue(self.page.locator("#validate-current").is_disabled())
+        self.assertIn("旧版本", self.page.locator("#validation-issues-wrap").inner_text())
+        self.save()
+        self.assertIn("未校验", self.page.locator("#validation-current-state").inner_text())
+        self.assertIsNone(self.page.evaluate("state.records[0].validation"))
+
+    def test_old_invalid_errors_clear_on_edit(self):
+        self.save()
+        self.page.get_by_role("button", name="检查模型完整性").click()
+        self.assertEqual(self.page.locator("#obj-id").get_attribute("aria-invalid"), None)
+        self.assertTrue(self.page.locator(".issue-link").count())
+        self.page.locator("#obj-id").fill("production-lot")
+        self.assertEqual(self.page.locator(".issue-link").count(), 0)
+        self.assertIn("待保存", self.page.locator("#validation-current-state").inner_text())
+
+    def test_primary_key_options_only_include_required_string_or_integer(self):
+        self.add_field()
+        self.assertNotIn("batch-id", self.page.locator("#primary-ref").locator("option").all_text_contents())
+        self.page.locator("#p0-required").check()
+        self.assertIn("batch-id", self.page.locator("#primary-ref").locator("option").all_text_contents()[1])
+        self.page.locator("#primary-ref").select_option("batch-id")
+        self.page.locator("#p0-type").select_option("DECIMAL")
+        self.assertEqual(self.page.locator("#primary-ref").input_value(), "")
+        self.page.locator("#p0-type").select_option("INTEGER")
+        self.page.locator("#primary-ref").select_option("batch-id")
+        self.page.locator("#p0-required").uncheck()
+        self.assertEqual(self.page.locator("#primary-ref").input_value(), "")
+
+    def test_enum_only_can_be_entered_for_enum_and_not_leaked_into_string(self):
+        self.add_field()
+        enum = self.page.locator("#p0-enum")
+        self.assertTrue(enum.is_disabled())
+        self.page.locator("#p0-type").select_option("ENUM")
+        self.assertTrue(enum.is_enabled())
+        enum.fill("PLANNED, RUNNING")
+        self.save()
+        self.assertEqual(self.page.evaluate("state.records[0].objectTypes[0].properties[0].enumValues"),
+                         ["PLANNED", "RUNNING"])
+        self.page.locator("#p0-type").select_option("STRING")
+        self.assertTrue(enum.is_disabled())
+        self.assertEqual(enum.input_value(), "")
+        self.save()
+        self.assertEqual(self.page.evaluate("state.records[0].objectTypes[0].properties[0].enumValues"), [])
+
+    def test_dynamic_property_label_is_clickable_and_follows_its_input(self):
+        self.add_field()
+        container = self.page.locator('.prop[data-prop="0"]')
+        container.locator('label[for="p0-api"]').click()
+        self.assertEqual(self.page.evaluate("document.activeElement.id"), "p0-api")
+        container.locator('label[for="p0-type"]').click()
+        self.assertEqual(self.page.evaluate("document.activeElement.id"), "p0-type")
+
+    def test_mobile_editor_has_no_horizontal_viewport_overflow(self):
+        self.page.set_viewport_size({"width": 390, "height": 844})
+        self.add_field()
+        self.assertLessEqual(self.page.evaluate("document.documentElement.scrollWidth"),
+                             self.page.evaluate("window.innerWidth") + 2)
+        self.assertTrue(self.page.locator("#primary-ref").is_visible())
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
