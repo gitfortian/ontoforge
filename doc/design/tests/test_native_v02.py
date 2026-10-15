@@ -439,6 +439,36 @@ class NativeV02ContractTests(unittest.TestCase):
         for key, declaration in SCHEMA_DATA["package"]["$defs"].items():
             self.assertEqual(declaration, SCHEMA_DATA["ast"]["$defs"][key])
 
+    def test_read_only_function_cannot_output_change_set(self):
+        fn = next(x for x in self.pkg["functions"] if x["id"] == "impact-risk")
+        fn["outputType"] = "CHANGE_SET"
+        self.invalid_structure("package", self.pkg)
+
+    def test_pending_approval_cannot_be_dispatched(self):
+        self.record["authorization"]["authorizationDecision"] = "NEEDS_APPROVAL"
+        self.invalid_structure("record", self.record)
+
+    def test_receipt_confirmed_requires_accepted_receipt(self):
+        self.record["state"] = "RECEIPT_CONFIRMED"
+        self.invalid_structure("record", self.record)
+        self.record["externalReceipt"] = {
+            "systemRef": "erp", "remoteCommandId": "1",
+            "receiptStatus": "REJECTED", "receivedAt": "2026-10-15T06:03:00Z"}
+        self.invalid_structure("record", self.record)
+        self.record["externalReceipt"]["receiptStatus"] = "ACCEPTED"
+        self.assertEqual(structure_errors("record", self.record), [])
+
+    def test_failed_query_result_has_error_without_fake_data(self):
+        failed = load(EXAMPLES / "manufacturing-impact-failed-result-v0.2.json")
+        self.assertEqual(structure_errors("result", failed), [])
+        failed["aggregate"] = {"operation": "COUNT_DISTINCT", "value": 0}
+        self.invalid_structure("result", failed)
+
+    def test_failure_cannot_claim_known_success(self):
+        failed = load(EXAMPLES / "manufacturing-impact-failed-result-v0.2.json")
+        failed["status"] = "SUCCESS"
+        self.invalid_structure("result", failed)
+
     def test_v01_is_not_silently_accepted_as_v02(self):
         old = load(EXAMPLES / "manufacturing-quality-v0.1.json")
         self.invalid_structure("package", old)
