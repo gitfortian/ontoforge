@@ -1,0 +1,448 @@
+{
+  "schemaVersion": "0.2.0",
+  "packageId": "manufacturing.quality",
+  "version": "0.2.0",
+  "description": "Illustrative quality traceability: types are declarations, never asserted object facts or authorized actions",
+  "imports": [],
+  "objectTypes": [
+    {
+      "id": "quality-event",
+      "apiName": "QualityEvent",
+      "primaryKeyRef": "event-id",
+      "properties": [
+        {
+          "id": "event-id",
+          "apiName": "eventId",
+          "valueType": "STRING",
+          "required": true,
+          "searchable": true,
+          "classification": "INTERNAL"
+        },
+        {
+          "id": "inspection-status",
+          "apiName": "inspectionStatus",
+          "valueType": "ENUM",
+          "required": true,
+          "searchable": true,
+          "classification": "INTERNAL",
+          "enumValues": [
+            "HELD",
+            "PASSED"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "material-lot",
+      "apiName": "MaterialLot",
+      "primaryKeyRef": "material-id",
+      "properties": [
+        {
+          "id": "material-id",
+          "apiName": "materialId",
+          "valueType": "STRING",
+          "required": true,
+          "searchable": true,
+          "classification": "INTERNAL"
+        },
+        {
+          "id": "source-quality-status",
+          "apiName": "sourceQualityStatus",
+          "valueType": "ENUM",
+          "required": false,
+          "searchable": true,
+          "classification": "INTERNAL",
+          "enumValues": [
+            "HELD",
+            "RELEASED",
+            "UNKNOWN"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "product-lot",
+      "apiName": "ProductLot",
+      "primaryKeyRef": "lot-id",
+      "properties": [
+        {
+          "id": "lot-id",
+          "apiName": "lotId",
+          "valueType": "STRING",
+          "required": true,
+          "searchable": true,
+          "classification": "INTERNAL"
+        },
+        {
+          "id": "quality-status",
+          "apiName": "qualityStatus",
+          "valueType": "ENUM",
+          "required": true,
+          "searchable": true,
+          "classification": "INTERNAL",
+          "enumValues": [
+            "PENDING",
+            "HELD",
+            "RELEASED"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "work-order",
+      "apiName": "WorkOrder",
+      "primaryKeyRef": "workorder-id",
+      "properties": [
+        {
+          "id": "workorder-id",
+          "apiName": "workorderId",
+          "valueType": "STRING",
+          "required": true,
+          "searchable": true,
+          "classification": "INTERNAL"
+        }
+      ]
+    },
+    {
+      "id": "customer-order",
+      "apiName": "CustomerOrder",
+      "primaryKeyRef": "order-id",
+      "properties": [
+        {
+          "id": "order-id",
+          "apiName": "orderId",
+          "valueType": "STRING",
+          "required": true,
+          "searchable": true,
+          "classification": "INTERNAL"
+        },
+        {
+          "id": "amount-cents",
+          "apiName": "amountCents",
+          "valueType": "INTEGER",
+          "required": false,
+          "searchable": true,
+          "classification": "CONFIDENTIAL"
+        }
+      ]
+    }
+  ],
+  "linkTypes": [
+    {
+      "id": "quality-affects-material",
+      "apiName": "QualityAffectsMaterial",
+      "sourceTypeRef": "quality-event",
+      "targetTypeRef": "material-lot",
+      "cardinality": "MANY_TO_MANY",
+      "evidenceRequired": true
+    },
+    {
+      "id": "material-used-by-product",
+      "apiName": "MaterialUsedByProduct",
+      "sourceTypeRef": "material-lot",
+      "targetTypeRef": "product-lot",
+      "cardinality": "MANY_TO_MANY",
+      "evidenceRequired": true
+    },
+    {
+      "id": "product-built-by-workorder",
+      "apiName": "ProductBuiltByWorkOrder",
+      "sourceTypeRef": "product-lot",
+      "targetTypeRef": "work-order",
+      "cardinality": "MANY_TO_MANY",
+      "evidenceRequired": true
+    },
+    {
+      "id": "workorder-fulfills-order",
+      "apiName": "WorkorderFulfillsOrder",
+      "sourceTypeRef": "work-order",
+      "targetTypeRef": "customer-order",
+      "cardinality": "MANY_TO_MANY",
+      "evidenceRequired": true
+    }
+  ],
+  "bindings": [
+    {
+      "id": "qms-event-binding",
+      "version": "1.0.0",
+      "sourceRef": "qms-inspections",
+      "sourceSchemaVersion": "qms-schema-2026-10",
+      "objectTypeRef": "quality-event",
+      "sourceKey": "event_id",
+      "fieldMappings": [
+        {
+          "propertyRef": "event-id",
+          "sourceField": "event_id"
+        },
+        {
+          "propertyRef": "inspection-status",
+          "sourceField": "inspection_status"
+        }
+      ],
+      "identity": {
+        "strategy": "SOURCE_KEY",
+        "conflictPolicy": "REJECT"
+      },
+      "refreshMode": "CDC",
+      "sourceAuthority": "AUTHORITATIVE",
+      "completeness": {
+        "maxAgeSeconds": 3600,
+        "onMissing": "UNKNOWN"
+      }
+    },
+    {
+      "id": "qms-material-binding",
+      "version": "1.0.0",
+      "sourceRef": "qms-lots",
+      "sourceSchemaVersion": "qms-schema-2026-10",
+      "objectTypeRef": "material-lot",
+      "sourceKey": "material_lot_id",
+      "fieldMappings": [
+        {
+          "propertyRef": "material-id",
+          "sourceField": "material_lot_id"
+        },
+        {
+          "propertyRef": "source-quality-status",
+          "sourceField": "quality_status"
+        }
+      ],
+      "identity": {
+        "strategy": "SOURCE_KEY",
+        "conflictPolicy": "REJECT"
+      },
+      "refreshMode": "BATCH",
+      "sourceAuthority": "AUTHORITATIVE",
+      "completeness": {
+        "maxAgeSeconds": 3600,
+        "onMissing": "UNKNOWN"
+      }
+    },
+    {
+      "id": "mes-product-binding",
+      "version": "1.0.0",
+      "sourceRef": "mes-lots",
+      "sourceSchemaVersion": "mes-schema-2026-10",
+      "objectTypeRef": "product-lot",
+      "sourceKey": "product_lot_id",
+      "fieldMappings": [
+        {
+          "propertyRef": "lot-id",
+          "sourceField": "product_lot_id"
+        },
+        {
+          "propertyRef": "quality-status",
+          "sourceField": "quality_state"
+        }
+      ],
+      "identity": {
+        "strategy": "SOURCE_KEY",
+        "conflictPolicy": "REJECT"
+      },
+      "refreshMode": "CDC",
+      "sourceAuthority": "AUTHORITATIVE",
+      "completeness": {
+        "maxAgeSeconds": 3600,
+        "onMissing": "UNKNOWN"
+      }
+    },
+    {
+      "id": "mes-workorder-binding",
+      "version": "1.0.0",
+      "sourceRef": "mes-workorders",
+      "sourceSchemaVersion": "mes-schema-2026-10",
+      "objectTypeRef": "work-order",
+      "sourceKey": "work_order_id",
+      "fieldMappings": [
+        {
+          "propertyRef": "workorder-id",
+          "sourceField": "work_order_id"
+        }
+      ],
+      "identity": {
+        "strategy": "SOURCE_KEY",
+        "conflictPolicy": "REJECT"
+      },
+      "refreshMode": "CDC",
+      "sourceAuthority": "AUTHORITATIVE",
+      "completeness": {
+        "maxAgeSeconds": 3600,
+        "onMissing": "UNKNOWN"
+      }
+    },
+    {
+      "id": "erp-order-binding",
+      "version": "1.0.0",
+      "sourceRef": "erp-orders",
+      "sourceSchemaVersion": "erp-schema-2026-10",
+      "objectTypeRef": "customer-order",
+      "sourceKey": "order_id",
+      "fieldMappings": [
+        {
+          "propertyRef": "order-id",
+          "sourceField": "order_id"
+        },
+        {
+          "propertyRef": "amount-cents",
+          "sourceField": "total_cents"
+        }
+      ],
+      "identity": {
+        "strategy": "SOURCE_KEY",
+        "conflictPolicy": "REJECT"
+      },
+      "refreshMode": "BATCH",
+      "sourceAuthority": "AUTHORITATIVE",
+      "completeness": {
+        "maxAgeSeconds": 3600,
+        "onMissing": "UNKNOWN"
+      }
+    }
+  ],
+  "linkBindings": [
+    {
+      "id": "quality-material-map",
+      "version": "1.0.0",
+      "linkTypeRef": "quality-affects-material",
+      "sourceRef": "qms-inspection-links",
+      "sourceSchemaVersion": "mapping-schema-2026-10",
+      "sourceKey": "source_key",
+      "targetKey": "target_key",
+      "refreshMode": "BATCH"
+    },
+    {
+      "id": "material-product-map",
+      "version": "1.0.0",
+      "linkTypeRef": "material-used-by-product",
+      "sourceRef": "mes-consumption",
+      "sourceSchemaVersion": "mapping-schema-2026-10",
+      "sourceKey": "source_key",
+      "targetKey": "target_key",
+      "refreshMode": "BATCH"
+    },
+    {
+      "id": "product-workorder-map",
+      "version": "1.0.0",
+      "linkTypeRef": "product-built-by-workorder",
+      "sourceRef": "mes-prod-workorder",
+      "sourceSchemaVersion": "mapping-schema-2026-10",
+      "sourceKey": "source_key",
+      "targetKey": "target_key",
+      "refreshMode": "BATCH"
+    },
+    {
+      "id": "workorder-order-map",
+      "version": "1.0.0",
+      "linkTypeRef": "workorder-fulfills-order",
+      "sourceRef": "erp-workorder-orders",
+      "sourceSchemaVersion": "mapping-schema-2026-10",
+      "sourceKey": "source_key",
+      "targetKey": "target_key",
+      "refreshMode": "BATCH"
+    }
+  ],
+  "objectSets": [
+    {
+      "id": "held-quality-events",
+      "rootTypeRef": "quality-event",
+      "defaultLimit": 100,
+      "description": "Query definition only; query requests are checked at runtime"
+    }
+  ],
+  "functions": [
+    {
+      "id": "impact-risk",
+      "version": "1.0.0",
+      "implementationRef": "function-registry/impact-risk@1.0.0",
+      "implementationDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "effectClass": "READ_ONLY",
+      "inputTypeRefs": [
+        "product-lot"
+      ],
+      "outputType": "BOOLEAN",
+      "declaredEffectTypeRefs": [],
+      "timeoutMs": 2000
+    },
+    {
+      "id": "plan-product-hold",
+      "version": "1.0.0",
+      "implementationRef": "function-registry/plan-product-hold@1.0.0",
+      "implementationDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "effectClass": "EDIT_PLAN",
+      "inputTypeRefs": [
+        "product-lot"
+      ],
+      "outputType": "CHANGE_SET",
+      "declaredEffectTypeRefs": [
+        "product-lot"
+      ],
+      "timeoutMs": 2500
+    }
+  ],
+  "rules": [
+    {
+      "id": "quality-risk-rule",
+      "version": "1.0.0",
+      "ruleArtifactRef": "rule-registry/quality-risk-rule@1.0.0",
+      "artifactDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "mode": "DETERMINISTIC"
+    }
+  ],
+  "decisionStrategies": [
+    {
+      "id": "hold-risk-strategy",
+      "version": "1.0.0",
+      "ruleRefs": [
+        "quality-risk-rule"
+      ],
+      "functionRef": "impact-risk",
+      "mode": "DETERMINISTIC",
+      "outcomes": [
+        "HOLD_RECOMMENDED",
+        "NO_ACTION",
+        "UNKNOWN_EVIDENCE"
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "id": "hold-authorization",
+      "version": "1.0.0",
+      "kind": "ACTION_AUTHORIZATION",
+      "policyArtifactRef": "policy-registry/hold-authorization@1.0.0",
+      "artifactDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    {
+      "id": "hold-approval",
+      "version": "1.0.0",
+      "kind": "APPROVAL",
+      "policyArtifactRef": "policy-registry/hold-approval@1.0.0",
+      "artifactDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  ],
+  "actions": [
+    {
+      "id": "hold-product-lot",
+      "apiName": "HoldProductLot",
+      "version": "1.0.0",
+      "targetTypeRef": "product-lot",
+      "functionRef": "plan-product-hold",
+      "decisionRef": "hold-risk-strategy",
+      "policyRefs": [
+        "hold-authorization",
+        "hold-approval"
+      ],
+      "riskClass": "HIGH",
+      "approvalMode": "ALWAYS",
+      "effects": [
+        {
+          "operation": "EXTERNAL_COMMAND",
+          "targetTypeRef": "product-lot",
+          "executorRef": "mes-hold-command-adapter"
+        }
+      ],
+      "idempotency": "REQUIRED",
+      "verification": "EXTERNAL_RECEIPT_AND_BUSINESS_STATE"
+    }
+  ]
+}
