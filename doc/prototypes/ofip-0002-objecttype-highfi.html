@@ -64,7 +64,7 @@ button.link{border:0;background:transparent;color:#2768a9;text-decoration:none;p
 button.link:hover{text-decoration:underline;background:transparent}
 input,select,textarea{color:#2e445e;background:#fff;border:1px solid #dce4ee;border-radius:7px;min-height:38px;padding:9px 11px;font-size:12px}
 input:focus,textarea:focus,select:focus{outline:2px solid #8ab5e4;outline-offset:1px;border-color:#568fc8}
-input[type=checkbox]{min-height:0;accent-color:#2264a7}
+input[type=checkbox]{min-height:0;accent-color:#2264a7}input:disabled,select:disabled{background:#f3f5f8;color:#a3afbc;cursor:not-allowed}
 label{color:#596b83;font-size:11.5px}.fieldgrid{gap:18px}
 .caption,.muted{color:#8b98ab;font-size:11.5px;line-height:1.75}
 .labelpill{background:#f2f6fb;border:1px solid #e4ebf4;border-radius:5px;padding:5px 9px;color:#657e9a;font-size:11px}
@@ -164,7 +164,7 @@ function createPackage(){
 function openPackage(id){if(!guard())return;state.selected=id;state.view='package';state.dirty=false;state.message=null;render()}
 function beginEdit(){let r=record();if(!r)return;state.view='editor';state.editor=r.objectTypes.length?clone(r.objectTypes[0]):{id:'',apiName:'',label:'',description:'',primaryKeyRef:null,properties:[]};state.openedRev=r.revision;state.dirty=false;state.conflict=false;state.message=null;render()}
 function readRow(i){
- let pre='p'+i+'-';return {id:$(pre+'id').value,apiName:$(pre+'api').value,label:$(pre+'label').value,valueType:$(pre+'type').value,required:$(pre+'required').checked,searchable:$(pre+'searchable').checked,classification:$(pre+'class').value,enumValues:$(pre+'enum').value.split(',').map(s=>s.trim()).filter(Boolean)};
+ let pre='p'+i+'-';return {id:$(pre+'id').value,apiName:$(pre+'api').value,label:$(pre+'label').value,valueType:$(pre+'type').value,required:$(pre+'required').checked,searchable:$(pre+'searchable').checked,classification:$(pre+'class').value,enumValues:$(pre+'type').value==='ENUM'?$(pre+'enum').value.split(',').map(s=>s.trim()).filter(Boolean):[]};
 }
 function syncEditor(){
  if(state.view!=='editor'||!state.editor||!$('obj-id'))return;
@@ -176,12 +176,27 @@ function syncEditor(){
 function refreshPkChoices(){
  const select=$('primary-ref');if(!select||!state.editor)return;
  const selected=select.value;
- const ids=state.editor.properties.map((_,i)=>({id:$('p'+i+'-id')?.value||'',type:$('p'+i+'-type')?.value||''})).filter(x=>x.id);
+ const ids=state.editor.properties.map((_,i)=>({id:$('p'+i+'-id')?.value||'',type:$('p'+i+'-type')?.value||'',required:!!$('p'+i+'-required')?.checked})).filter(x=>x.id && x.required && ['STRING','INTEGER'].includes(x.type));
  select.innerHTML='<option value="">尚未选择主键</option>'+ids.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.id)+' · '+esc(p.type)+'</option>').join('');
  if(ids.some(x=>x.id===selected))select.value=selected;
  else select.value='';
 }
-function changeEditor(){state.dirty=true;state.validationLocal=null;const el=$('dirty-mark');if(el)el.textContent='● 未保存编辑';const validationButton=$('validate-current');if(validationButton){validationButton.disabled=true;validationButton.title='请先保存编辑进度，再校验最新 revision';}}
+function changeEditor(){
+ state.dirty=true;state.validationLocal=null;
+ const el=$('dirty-mark');if(el)el.textContent='● 未保存编辑';
+ const validationButton=$('validate-current');if(validationButton){validationButton.disabled=true;validationButton.title='请先保存编辑进度，再校验最新 revision';}
+ const badge=$('validation-current-state');if(badge)badge.textContent='本地编辑待保存';
+ const list=$('validation-issues-wrap');if(list)list.innerHTML='<div class="caption">你已修改表单。上一次校验只针对已保存的旧版本；保存后请重新校验当前内容。</div>';
+ document.querySelectorAll('.field-error').forEach(n=>n.remove());
+ document.querySelectorAll('[aria-invalid]').forEach(n=>{n.removeAttribute('aria-invalid');n.removeAttribute('aria-describedby')});
+}
+function toggleEnumField(i){
+ const type=$('p'+i+'-type'),field=$('p'+i+'-enum');
+ if(!type||!field)return;
+ field.disabled=type.value!=='ENUM';
+ if(field.disabled)field.value='';
+ field.title=field.disabled?'仅当值类型选择 ENUM 才能设置枚举值':'请输入逗号分隔的枚举值';
+}
 function addProp(){syncEditor();state.editor.properties.push({id:'',apiName:'',label:'',valueType:'STRING',required:false,searchable:false,classification:'INTERNAL',enumValues:[]});state.dirty=true;render()}
 function removeProp(i){syncEditor();const removed=state.editor.properties.splice(i,1)[0];if(removed&&removed.id===state.editor.primaryKeyRef)state.editor.primaryKeyRef=null;state.dirty=true;render()}
 function toggleOffline(){if(state.view==='editor')syncEditor();state.offline=!state.offline;say(state.offline?'模拟网络已断开：后续保存/校验将失败，但本地输入保留。':'模拟网络恢复：可以重试保存/校验。');render()}
@@ -268,7 +283,7 @@ function showPackage(){
 function options(items,value){return items.map(x=>'<option value="'+esc(x)+'" '+(x===value?'selected':'')+'>'+esc(x)+'</option>').join('')}
 function showEditor(){
  const r=record();if(!r)return showPackages();
- const ed=state.editor;const validPK=ed.properties.filter(p=>p.id);
+ const ed=state.editor;const validPK=ed.properties.filter(p=>p.id && p.required && ['STRING','INTEGER'].includes(p.valueType));
  let opts='<option value="">尚未选择主键</option>'+validPK.map(p=>'<option value="'+esc(p.id)+'" '+(p.id===ed.primaryKeyRef?'selected':'')+'>'+esc(p.id)+' · '+esc(p.valueType)+'</option>').join('');
  const rows=ed.properties.map((p,i)=>{
    const base='p'+i+'-';return '<div class="prop" data-prop="'+i+'"><div class="prophead"><strong>属性 #'+(i+1)+'</strong><button class="ghost" onclick="removeProp('+i+')">删除属性</button></div>'+
@@ -278,7 +293,7 @@ function showEditor(){
    '<div><label>显示名</label><input id="'+base+'label" value="'+esc(p.label)+'" placeholder="批次编号"></div>'+
    '<div><label>值类型</label><select id="'+base+'type">'+options(['STRING','INTEGER','DECIMAL','BOOLEAN','DATETIME','ENUM'],p.valueType)+'</select></div>'+
    '<div><label>数据分类</label><select id="'+base+'class">'+options(['PUBLIC','INTERNAL','CONFIDENTIAL','RESTRICTED'],p.classification)+'</select></div>'+
-   '<div class="two"><label>ENUM 值（仅 ENUM，逗号分隔）</label><input id="'+base+'enum" placeholder="PLANNED, RUNNING, COMPLETED" value="'+esc((p.enumValues||[]).join(', '))+'"></div>'+
+   '<div class="two"><label>ENUM 值（仅 ENUM，逗号分隔）</label><input id="'+base+'enum" placeholder="PLANNED, RUNNING, COMPLETED" value="'+esc((p.enumValues||[]).join(', '))+'" '+(p.valueType!=='ENUM'?'disabled':'')+'></div>'+
    '<div><label>字段配置</label><div class="ckrow"><label><input id="'+base+'required" type="checkbox" '+(p.required?'checked':'')+'>必填</label><label><input id="'+base+'searchable" type="checkbox" '+(p.searchable?'checked':'')+'>可搜索</label></div></div>'+
    '</div></div>';
  }).join('');
@@ -297,8 +312,8 @@ function showEditor(){
  (rows||'<div class="empty"><strong>尚未添加属性</strong><p>保存编辑进度可以没有属性，但完整校验会返回 INCOMPLETE。</p><button onclick="addProp()">＋ 添加第一个属性</button></div>')+'</div>'+
  '</div><div>'+
  '<div class="panel"><div class="panelhead"><div><h2>校验与修复</h2><p>与保存进度分开</p></div></div>'+
- '<div class="fieldgrid" style="gap:10px"><div><label>服务端 revision（模拟）</label><div class="labelpill">'+r.revision+'</div></div><div><label>打开时 revision</label><div class="labelpill">'+state.openedRev+'</div></div><div><label>校验状态</label><div class="labelpill">'+esc(status(r))+'</div></div><div><label>受检 revision</label><div class="labelpill">'+(report?report.validatedRevision:'—')+'</div></div></div>'+
- '<p class="caption topgap">保存当前编辑进度后，才能校验明确的 revision。VALID 不等于审核/发布。</p><button id="validate-current" class="primary" onclick="validateDraft()" '+(state.dirty?'disabled title="先保存编辑进度"':'')+'>检查模型完整性</button><div class="side-callout">建议顺序：编辑 → 保存进度 → 完整校验 → 继续完善 / 返回模型包。</div><hr>'+list+'</div>'+
+ '<div class="fieldgrid" style="gap:10px"><div><label>服务端 revision（模拟）</label><div class="labelpill">'+r.revision+'</div></div><div><label>打开时 revision</label><div class="labelpill">'+state.openedRev+'</div></div><div><label>校验状态</label><div class="labelpill" id="validation-current-state">'+(state.dirty?'本地编辑待保存':esc(status(r)))+'</div></div><div><label>受检 revision</label><div class="labelpill">'+(report?report.validatedRevision:'—')+'</div></div></div>'+
+ '<p class="caption topgap">保存当前编辑进度后，才能校验明确的 revision。VALID 不等于审核/发布。</p><button id="validate-current" class="primary" onclick="validateDraft()" '+(state.dirty?'disabled title="先保存编辑进度"':'')+'>检查模型完整性</button><div class="side-callout">建议顺序：编辑 → 保存进度 → 完整校验 → 继续完善 / 返回模型包。</div><hr><div id="validation-issues-wrap">'+(state.dirty?'<div class="caption">表单已修改，请先保存并重新校验；旧结果不适用于本地编辑。</div>':list)+'</div></div>'+
  '<div class="panel"><h2 style="font-size:14px">异常场景演练</h2><p class="caption">模拟后端结果，用于评审提示与操作恢复，绝非真实网络调用。</p>'+
  '<div class="actions"><button onclick="simulateConflict()">模拟另一标签页保存</button><button onclick="toggleOffline()">'+(state.offline?'恢复模拟网络':'模拟断网')+'</button><button onclick="inspectServerRevision()">核对服务端 revision</button></div>'+
  (state.conflict?'<div class="notice error"><b>409 · 编辑版本冲突</b><p>本地内容已保留，不会自动覆盖服务器。请先对照两个版本。</p><div class="revision-compare"><div class="compare-cell"><strong>本地未提交 · revision '+state.openedRev+'</strong><span>'+esc(state.editor?.description||'（无描述）')+'</span></div><div class="compare-cell"><strong>模拟服务器 · revision '+r.revision+'</strong><span>'+esc(r.objectTypes[0]?.description||'（无描述）')+'</span></div></div><div class="actions space"><button onclick="inspectServerRevision()">检查服务器版本</button><button onclick="reloadRemote()">确认放弃本地编辑并载入最新</button></div><p class="caption">如仍需本地修改，请先保留内容并手动对比。</p></div>':'')+
@@ -350,7 +365,7 @@ function render(){
  decorateValidation();
 }
 document.addEventListener('input',e=>{if(state.view==='editor'&&e.target.closest('#view')){changeEditor();if(/^p\d+-id$/.test(e.target.id))refreshPkChoices()}});
-document.addEventListener('change',e=>{if(state.view==='editor'&&e.target.closest('#view'))changeEditor()});
+document.addEventListener('change',e=>{if(state.view==='editor'&&e.target.closest('#view')){changeEditor();if(/^p\d+-(type|required)$/.test(e.target.id)){const i=Number(e.target.id.match(/^p(\d+)-/)[1]);if(e.target.id.endsWith('-type'))toggleEnumField(i);refreshPkChoices()}}});
 render();
 </script>
 </body>
