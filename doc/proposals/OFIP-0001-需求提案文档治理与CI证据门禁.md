@@ -1,18 +1,18 @@
 # OFIP-0001：OntoForge 需求提案、文档治理与 CI 证据门禁
 
-**Status:** Discussion
+**Status:** Accepted
 
 **Discussion:** [PR #3 — [DISCUSS][OFIP-0001]](https://github.com/gitfortian/ontoforge/pull/3)
 
-**Decision:** Pending — 需要项目维护者显式审议；本提案 PR 或 CI 成功不等于 Accepted
+**Decision:** [VOTE] Accepted — 2026-10-15，维护者审议后要求按规划分阶段实施；[PR #3 决定记录](https://github.com/gitfortian/ontoforge/pull/3#issuecomment-6189658540)。本决定仅涵盖 OFIP-0001 研发治理方向与阶段安排，不自动签收 V1.3/Native V0.2 产品技术合同。
 
-**Implementation:** Not Started（只有批准后才建治理实施 PR / CI PR）
+**Implementation:** In Progress — 第一阶段开发规范/文档治理在独立 PR 实施；第二阶段可信 CI 必须另开 PR 并通过实际验证；不因本次状态更新声称全部实施完成。
 
 **Release:** N/A
 
 **Reference:** [Yak Ops YOIP / CI 源码研究和适配结论](../research/2026-10-15-Yak-Ops-YOIP-文档治理与CI蒸馏.md)、[OntoForge V1.3 唯一总架构候选](../本体产品总体功能与技术架构设计_v1.3.md)、[Native V0.2 候选合同](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md)
 
-> 本提案参考 Flink FLIP 与 Yak Ops YOIP 的六章结构，但 OFIP 是 OntoForge 自己的流程，不代表 Apache 官方治理；本文件**只提出拟议制度，不修改代码或现行 CI**。
+> 本提案参考 Flink FLIP 与 Yak Ops YOIP 的六章结构，但 OFIP 是 OntoForge 自己的流程，不代表 Apache 官方治理。已被维护者**批准分阶段实施**；本文件记录治理决策，具体模板与后续 CI 仍按各自实施 PR 单独评审/验收。本提案本身不修改产品业务代码或现行 CI。
 
 ## Motivation
 
@@ -101,7 +101,7 @@ OntoForge 已经拥有 V1.3 总体设计、Native V0.2 结构合同和 S0-MVP-0.
 
 现有 [Windows 11 本机 PostgreSQL 统一 PR #2](https://github.com/gitfortian/ontoforge/pull/2) **已合并**，但 Windows 实机验收仍是独立 S0 任务；不能用本提案替代实际环境验证，也不与本提案 PR 混入代码修改。
 
-建议在 OFIP-0001 Accepted 后，先提交一个工程治理 PR（模板/AGENTS/索引）和一个轻量 CI 稳定门禁 PR；然后以 S0-MVP-0.2 `ObjectType` 草稿保存和重开作为首个领域 OFIP 的验证应用。所有新功能以真实可运行体验为最终收口。
+按照本次 Accepted 的阶段决定，先提交工程治理 PR（模板/AGENTS/索引），再以独立 PR 实施轻量 CI 稳定门禁；然后以 S0-MVP-0.2 `ObjectType` 草稿保存和重开作为首个领域 OFIP 的验证应用。所有新功能以真实可运行体验为最终收口。
 
 ## Compatibility, Deprecation, and Migration Plan
 
@@ -136,12 +136,12 @@ OntoForge 已经拥有 V1.3 总体设计、Native V0.2 结构合同和 S0-MVP-0.
 
 ---
 
-### 维护者评审需决定
+### 已记录的维护者决策（见 PR #3）
 
-- **D1**：采用 `OFIP` 编号/Proposal-only PR 与显式 `[VOTE]` 决策吗？
-- **D2**：六章模板、状态分离、仅重大变化强制提案，是否签收？
-- **D3**：保留 V1.3/Native V0.2 候选权威，不补无用文档，是否签收？
-- **D4**：先治理模板，再 S0 stable required quality gate，P0 之后再加真实 Browser/E2E/Release，是否签收？
-- **D5**：是否批准独立的**实施规划**（注意：并非授权本提案 PR 自行落地任何代码/Ruleset）？
+- **D1 — Accepted**：采用 OFIP 编号、Proposal-only PR 和显式 `[VOTE]` 决策。
+- **D2 — Accepted**：采用六章模板、设计/实现/测试/发布状态分离，仅重大变化需要 OFIP。
+- **D3 — Accepted**：维护单一文档权威；V1.3/Native V0.2 保留各自**待签收**状态，不新增无用文档。
+- **D4 — Accepted as staged roadmap**：先实现治理模板，再独立交付 S0 可信 CI；P0 以后根据真实故事补充浏览器与发行验证。
+- **D5 — Accepted for staged implementation**：允许按步骤实现首轮治理规范，**不**授权在提案 PR 内直接修改业务代码、CI 或 GitHub Ruleset。
 
-**等待维护者审议；不得自行改为 Accepted。**
+**决策已记录；当前执行第一阶段开发规范与文档治理。CI 稳定门禁与 P0 ObjectType 必须分开交付，并以各自真实测试和用户验收为准。**
