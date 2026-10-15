@@ -8,4 +8,17 @@
 - [文档目录、研究证据与历史清理说明](./doc/README.md)
 - [PostgreSQL ObjectSet / Action Outbox 研究实验](./experiments/pg-runtime/README.md)
 
-> **现阶段是架构/合同与 POC 验证阶段**，尚未交付可生产使用的本体后端、真实企业数据联动或工业 Action 闭环。所有架构选择仍以正式评审签收与工程 Gate 为准。
+> **现阶段为 S0-MVP-0.1 本地工程验证**，不是可生产使用的本体产品。用户/权限/工作空间/业务系统连接尚未实现；所有架构选择仍以 V1.3 和阶段 Gate 为准。
+
+## S0-MVP-0.1：最小启动路径（本地开发）
+
+准备：Java 21、Maven、Node.js 22、Docker Desktop。
+
+1. 在仓库根目录执行：`docker compose -f infra/compose.dev.yml up -d`，启动只绑定本地端口的 PostgreSQL 17。
+2. 另开终端执行：`mvn -f apps/api/pom.xml spring-boot:run`，启动 Spring Boot 与 Flyway 迁移。
+3. 再开终端，在 `apps/web` 执行 `npm install` 和 `npm run dev`，浏览器访问 [http://127.0.0.1:5173](http://127.0.0.1:5173)。
+4. 页面应实时显示 API 与 PostgreSQL 连接成功，真实状态接口为 `http://127.0.0.1:8080/api/system/status`；停止后端后刷新会显示连接错误，而不是伪造数据。
+
+详细阶段说明：[S0 极简 MVP 迭代与验收计划](./doc/implementation/S0-MVP-迭代计划.md)。
+
+**安全范围**：此版本没有认证与权限控制，仅适合隔离的本地开发环境；数据库密码为开发演示固定值，不得直接对外开放服务或接入生产数据。
