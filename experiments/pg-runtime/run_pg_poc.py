@@ -148,14 +148,21 @@ def create_attempt(lot="LOT-001", idem=None, requester="operator", workspace="A"
             raise ValueError("MISSING_SOURCE_FACT")
         active = db.execute("SELECT * FROM poc.active_contract WHERE id=true").fetchone()
         aid = uuid.uuid4()
-        db.execute(
+        inserted = db.execute(
             "INSERT INTO poc.action_attempt"
             "(id,workspace_id,idem_key,payload,payload_hash,lot_id,requester,"
             "schema_release,binding_version,function_digest,policy_version,source_revision,state)"
-            " VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'PROPOSED')",
+            " VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'PROPOSED')"
+            " ON CONFLICT(workspace_id,idem_key) DO NOTHING RETURNING id",
             (aid,workspace,idem,Jsonb(payload),digest,lot,requester,
              active["schema_release"],active["binding_version"],active["function_digest"],
-             active["policy_version"],fact["revision"]))
+             active["policy_version"],fact["revision"])).fetchone()
+        if not inserted:
+            winner = db.execute("SELECT id,payload_hash,requester FROM poc.action_attempt "
+                                "WHERE workspace_id=%s AND idem_key=%s",(workspace,idem)).fetchone()
+            if winner is None or winner["payload_hash"]!=digest or winner["requester"]!=requester:
+                raise ValueError("IDEMPOTENCY_COLLISION")
+            return winner["id"]
         db.execute("INSERT INTO poc.action_event(attempt_id,event_type) VALUES(%s,'PROPOSED')",(aid,))
         return aid
 
@@ -186,6 +193,16 @@ def queue(aid):
         if a is None or a["state"]!="APPROVED":
             raise ValueError("NOT_APPROVED")
         check_contract(db,a)
+        # Serialize admission for one operational target, not merely one idem key.
+        # This is POC-level coarse locking; production scope must be policy-defined.
+        db.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
+                   (a["workspace_id"]+":"+a["lot_id"],))
+        competing=db.execute(
+            "SELECT id FROM poc.action_attempt WHERE workspace_id=%s AND lot_id=%s "
+            "AND id<>%s AND state IN ('QUEUED','DISPATCHING','UNKNOWN') LIMIT 1",
+            (a["workspace_id"],a["lot_id"],aid)).fetchone()
+        if competing:
+            raise ValueError("TARGET_OPERATION_IN_PROGRESS")
         db.execute("UPDATE poc.action_attempt SET state='QUEUED' WHERE id=%s",(aid,))
         db.execute("INSERT INTO poc.action_outbox(attempt_id,state) VALUES(%s,'QUEUED')",(aid,))
         db.execute("INSERT INTO poc.action_event(attempt_id,event_type) VALUES(%s,'QUEUED')",(aid,))
@@ -228,12 +245,27 @@ def http_json(method,url,payload=None):
         except (ValueError,UnicodeError):
             return exc.code,{}
 
-def mark_state(aid,state):
+def mark_state(aid,state,token=None):
+    # An old Worker cannot overwrite state after its lease was stolen.
+    # Detached reconciliation is allowed only when not actively leased.
     with conn() as db:
-        db.execute("UPDATE poc.action_attempt SET state=%s WHERE id=%s",(state,aid))
-        db.execute("UPDATE poc.action_outbox SET state=%s WHERE attempt_id=%s",
-                   ("UNKNOWN" if state=="UNKNOWN" else "BLOCKED",aid))
-        db.execute("INSERT INTO poc.action_event(attempt_id,event_type) VALUES(%s,%s)",(aid,state))
+        lease=db.execute("SELECT state,claim_token FROM poc.action_outbox "
+                         "WHERE attempt_id=%s FOR UPDATE",(aid,)).fetchone()
+        if not lease:
+            return False
+        if token is not None:
+            if lease["state"]!="LEASED" or lease["claim_token"]!=token:
+                return False
+        elif lease["state"]=="LEASED":
+            return False
+        changed=db.execute("UPDATE poc.action_attempt SET state=%s "
+                           "WHERE id=%s AND state IN ('DISPATCHING','UNKNOWN') "
+                           "RETURNING id",(state,aid)).fetchone()
+        if changed:
+            db.execute("UPDATE poc.action_outbox SET state=%s WHERE attempt_id=%s",
+                       ("UNKNOWN" if state=="UNKNOWN" else "BLOCKED",aid))
+            db.execute("INSERT INTO poc.action_event(attempt_id,event_type) VALUES(%s,%s)",(aid,state))
+        return bool(changed)
 
 def finalize_receipt(aid,receipt):
     a = get_attempt(aid)
@@ -254,7 +286,7 @@ def finalize_receipt(aid,receipt):
                    "VALUES(%s,'VERIFIED',%s)",(aid,Jsonb(receipt)))
         return "VERIFIED"
 
-def reconcile(aid,base):
+def reconcile(aid,base,token=None):
     a=get_attempt(aid)
     try:
         code,receipt=http_json("GET",base+"/receipts/"+urllib.parse.quote(a["idem_key"],safe=""))
@@ -262,24 +294,26 @@ def reconcile(aid,base):
             return finalize_receipt(aid,receipt)
         if code==404:
             return None
-        mark_state(aid,"UNKNOWN")
+        mark_state(aid,"UNKNOWN",token=token)
         return "UNKNOWN"
     except (urllib.error.URLError, TimeoutError, ConnectionError):
-        mark_state(aid,"UNKNOWN")
+        mark_state(aid,"UNKNOWN",token=token)
         return "UNKNOWN"
 
 def dispatch(aid,token,base):
     with conn() as db:
-        o = db.execute("SELECT state,claim_token FROM poc.action_outbox WHERE attempt_id=%s",(aid,)).fetchone()
-        if not o or o["state"]!="LEASED" or o["claim_token"]!=token:
+        o = db.execute("SELECT state,claim_token,lease_until,"
+                       "(lease_until>clock_timestamp()) AS lease_valid "
+                       "FROM poc.action_outbox WHERE attempt_id=%s",(aid,)).fetchone()
+        if not o or o["state"]!="LEASED" or o["claim_token"]!=token or not o["lease_valid"]:
             raise ValueError("STALE_CLAIM_TOKEN")
         a = db.execute("SELECT * FROM poc.action_attempt WHERE id=%s",(aid,)).fetchone()
         try:
             check_contract(db,a)
         except ValueError:
-            mark_state(aid,"BLOCKED_NEEDS_REVIEW")
+            mark_state(aid,"BLOCKED_NEEDS_REVIEW",token=token)
             return "BLOCKED_NEEDS_REVIEW"
-    receipt=reconcile(aid,base)
+    receipt=reconcile(aid,base,token=token)
     if receipt in ("VERIFIED","UNKNOWN"):
         return receipt
     a=get_attempt(aid)
@@ -290,12 +324,12 @@ def dispatch(aid,token,base):
         if code==200:
             return finalize_receipt(aid,response)
         if code==409:
-            mark_state(aid,"BLOCKED_NEEDS_REVIEW")
+            mark_state(aid,"BLOCKED_NEEDS_REVIEW",token=token)
             return "BLOCKED_NEEDS_REVIEW"
-        mark_state(aid,"UNKNOWN")
+        mark_state(aid,"UNKNOWN",token=token)
         return "UNKNOWN"
     except (urllib.error.URLError, TimeoutError, ConnectionError):
-        mark_state(aid,"UNKNOWN")
+        mark_state(aid,"UNKNOWN",token=token)
         return "UNKNOWN"
 
 def effective_object(lot):
@@ -396,8 +430,8 @@ class OutboxTests(unittest.TestCase):
         with sqlite3.connect(self.erp_path) as db:
             db.execute("DELETE FROM receipt")
 
-    def prepare(self,key=None):
-        aid=create_attempt(idem=key)
+    def prepare(self,key=None,lot="LOT-001"):
+        aid=create_attempt(lot=lot,idem=key)
         approve(aid)
         queue(aid)
         return aid
@@ -412,7 +446,12 @@ class OutboxTests(unittest.TestCase):
             self.assertEqual(get_attempt(aid)["state"],"QUEUED")
 
     def test_concurrent_claim_skips_locked_jobs(self):
-        aids=[self.prepare() for _ in range(4)]
+        with conn() as db:
+            for i in range(4):
+                db.execute("INSERT INTO poc.source_fact "
+                           "(lot_id,workspace_id,status,revision) VALUES(%s,'A','READY',1)",
+                           (f"LOT-CLAIM-{i:03d}",))
+        aids=[self.prepare(lot=f"LOT-CLAIM-{i:03d}") for i in range(4)]
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             claims=list(pool.map(lambda i:claim(f"worker-{i}"),range(8)))
         got=[c[0] for c in claims if c]

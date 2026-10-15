@@ -47,3 +47,33 @@ python experiments/pg-runtime/run_pg_poc.py
 - Transactional Outbox 并不等于跨系统 Exactly Once，也不替代业务补偿和对账。
 
 本 POC 的正确定位是：先签收架构原理与单实例可行性证据，再依据性能和故障表现决定正式运行时技术选型。
+
+
+## 第三轮：高扇出、实际授权成本、Action 并发竞态
+
+**研究分支**：research/poc-final-architecture-gates-20261015。该分支是基于 PR #8 的独立后续研究，生产产品代码不应复制该实验中的超级用户数据库连接或租户 Session GUC 伪授权机制。
+
+CI Workflow：.github/workflows/pg-final-gates.yml（PostgreSQL 17，独立 Job 的 100,000×8 与 250,000×24 配置）。
+
+在一次性 PostgreSQL 17 实验实例中运行：
+
+~~~sh
+export POC_PG_DSN=postgresql://postgres:postgres@127.0.0.1:5432/ontopoc
+export POC_LOTS=100000
+export POC_FANOUT=8
+python -m pip install "psycopg[binary]>=3.2,<4"
+python experiments/pg-runtime/run_pg_poc.py
+python experiments/pg-runtime/run_final_gates.py
+~~~
+
+注意：**第一条 Python 命令会重新初始化并删除旧的 poc Schema，必须首先运行**；第二条命令假定 Schema 和基础合成对象已经存在，额外生成 fanout_link 和独立 RLS/索引。不可指向业务数据库。
+
+第三轮实际验证：
+- FanoutLink 数量精确等于 lots×fanout；Query Role RLS 与逐表授权谓词的逻辑结果一致；Finance 金额列受真实 DB 列权限控制。
+- 高扇出聚合、有限分页及 Reader/Workspace/Visibility 组合；5 次热样本 EXPLAIN ANALYZE、p50/p95 和完整查询计划保存至 artifacts/final_gates.json。
+- 幂等键并发、同目标不同 Action 的入队竞争、租约过期/盗领、旧 Worker 状态更新 fencing、14 个不同目标的并行派单。
+- 通过独立 HTTP MockERP 模拟持久幂等回执、崩溃后再对账、SOURCE_CAUGHT_UP 和 SOURCE_CONFLICT。
+
+**安全与可靠性边界**：本实验仅模拟业务接受回执，并不验证真实 ERP 业务效果；连接以超级用户身份建模并使用 SET ROLE 的 RLS 用例不是生产权限架构；不保证任意高扇出查询的 SLA，也不能据此声称跨 ERP 的 Exactly Once。
+
+阅读 doc/research/2026-10-15-ObjectSet-Action-架构选型收口与冻结提案.md 以了解可冻结/不可冻结决策。
