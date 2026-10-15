@@ -47,7 +47,14 @@ ACTIVE_CONTRACTS = [
 
 LINKS = re.compile(r"\]\(([^)\s]+)(?:\s+['\"][^'\"]*['\"])?\)")
 GONE_NAMES = tuple(Path(x).name for x in RETIRED_DOCS)
-DOC_PATHS = list(DOC.rglob("*.md")) + [ROOT / "README.md", ROOT / "experiments/pg-runtime/README.md"]
+DOC_PATHS = list(DOC.rglob("*.md")) + [
+    ROOT / "README.md",
+    ROOT / "AGENTS.md",
+    ROOT / ".github/CONTRIBUTING.md",
+    ROOT / ".github/OFIP_TEMPLATE.md",
+    ROOT / ".github/PULL_REQUEST_TEMPLATE.md",
+    ROOT / "experiments/pg-runtime/README.md",
+]
 
 
 class ArchitectureDocsTests(unittest.TestCase):
@@ -102,6 +109,54 @@ class ArchitectureDocsTests(unittest.TestCase):
                 if filename in text:
                     findings.append((str(path.relative_to(ROOT)), filename))
         self.assertEqual(findings, [])
+
+    def test_governance_entrypoints_and_single_authority(self):
+        """Governance files exist without promoting candidate architecture to Accepted."""
+        entrypoints = [
+            ROOT / "AGENTS.md",
+            ROOT / ".github/CONTRIBUTING.md",
+            ROOT / ".github/OFIP_TEMPLATE.md",
+            ROOT / ".github/PULL_REQUEST_TEMPLATE.md",
+            DOC / "proposals/OFIP-0001-需求提案文档治理与CI证据门禁.md",
+        ]
+        for file in entrypoints:
+            with self.subTest(path=file.relative_to(ROOT)):
+                self.assertTrue(file.is_file())
+
+        index = (DOC / "README.md").read_text(encoding="utf-8")
+        self.assertIn("OFIP-0001", index)
+        self.assertIn("**Accepted / 分阶段实施**", index)
+        self.assertIn("待产品、技术、安全联合评审签收", index)
+        self.assertIn("AGENTS.md", index)
+
+    def test_ofip_proposals_have_six_sections_and_true_decision_status(self):
+        """A proposal's design decision is not its implementation or release state."""
+        proposal_dir = DOC / "proposals"
+        self.assertTrue(proposal_dir.is_dir())
+        proposal_files = sorted(proposal_dir.glob("OFIP-*.md"))
+        self.assertTrue(proposal_files)
+        sections = (
+            "Motivation", "Public Interfaces", "Proposed Changes",
+            "Compatibility, Deprecation, and Migration Plan",
+            "Test Plan", "Rejected Alternatives",
+        )
+        for file in proposal_files:
+            with self.subTest(path=file.name):
+                document = file.read_text(encoding="utf-8")
+                status = re.search(r"^\\*\\*Status:\\*\\* (.+)$", document, re.M)
+                decision = re.search(r"^\\*\\*Decision:\\*\\* (.+)$", document, re.M)
+                self.assertIsNotNone(status)
+                self.assertIsNotNone(decision)
+                self.assertIn(status.group(1).strip(), ("Discussion", "Accepted", "Rejected", "Superseded"))
+                for label in ("Discussion", "Implementation", "Release"):
+                    self.assertRegex(document, rf"(?m)^\\*\\*{label}:\\*\\* .+")
+                for section in sections:
+                    self.assertIn(f"## {section}", document)
+                if status.group(1).strip() == "Accepted":
+                    self.assertIn("[VOTE] Accepted", decision.group(1))
+                    self.assertRegex(decision.group(1), r"https://github\\.com/.+#issuecomment-\\d+")
+                if status.group(1).strip() == "Discussion":
+                    self.assertIn("Pending", decision.group(1))
 
     def test_readmes_route_to_single_baseline(self):
         for p in (ROOT / "README.md", DOC / "README.md"):
