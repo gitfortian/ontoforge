@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$PsqlPath = 'psql',
-    [string]$ExpectedInstallationId = ''
+    [string]$ExpectedInstallationId = '',
+    [string]$ExpectedDraftId = ''
 )
 
 Set-StrictMode -Version Latest
@@ -37,7 +38,7 @@ if ($PsqlPath -ne 'psql' -and -not (Test-Path -LiteralPath $PsqlPath -PathType L
     throw "psql executable not found at: $PsqlPath"
 }
 
-$sql = "SELECT (SELECT count(*)::text FROM flyway_schema_history WHERE version='1' AND success) || '|' || (SELECT installation_id::text FROM platform_installation WHERE id=1);"
+$sql = "SELECT (SELECT count(*)::text FROM flyway_schema_history WHERE version='1' AND success) || '|' || (SELECT count(*)::text FROM flyway_schema_history WHERE version='2' AND success) || '|' || (SELECT installation_id::text FROM platform_installation WHERE id=1);"
 $previousPgPassword = [Environment]::GetEnvironmentVariable('PGPASSWORD', 'Process')
 try {
     [Environment]::SetEnvironmentVariable('PGPASSWORD', $env:DB_PASSWORD, 'Process')
@@ -49,7 +50,87 @@ try {
     [Environment]::SetEnvironmentVariable('PGPASSWORD', $previousPgPassword, 'Process')
 }
 
-$dbResult = [regex]::Match(($rawResult -join "`n").Trim(), '^1\|([0-9a-fA-F-]{36})$')
+$dbResult = [regex]::Match(($rawResult -join "`n").Trim(), '^1\|1\|([0-9a-fA-F-]{36}))
+if (-not $dbResult.Success) {
+    throw 'Expected successful Flyway V1, Flyway V2 and one persisted platform_installation UUID.'
+}
+$databaseInstallationId = $dbResult.Groups[1].Value
+
+$apiPort = if ([string]::IsNullOrWhiteSpace($env:PORT)) { '8080' } else { $env:PORT }
+if ($apiPort -notmatch '^[0-9]+$') {
+    throw 'PORT must be a local numeric port.'
+}
+$apiUrl = "http://127.0.0.1:$apiPort/api/system/status"
+try {
+    $status = Invoke-RestMethod -Uri $apiUrl -Method Get -TimeoutSec 10
+} catch {
+    throw "Cannot reach $apiUrl. Start the Spring Boot backend before running this check. $($_.Exception.Message)"
+}
+if ($status.service -ne 'ontoforge' -or $status.version -ne 'S0-MVP-0.2' -or $status.database -ne 'CONNECTED') {
+    throw 'The status API did not report the expected real S0-MVP-0.1 service and PostgreSQL connection.'
+}
+if ($status.modelModule -ne 'DRAFT_AVAILABLE' -or $status.authModule -ne 'NOT_IMPLEMENTED') {
+    throw 'Expected draft modeling available, and auth honestly not implemented.'
+}
+if ($status.installationId -ne $databaseInstallationId) {
+    throw "API installationId does not match the PostgreSQL row. Check that both target the same database."
+}
+if (-not [string]::IsNullOrWhiteSpace($ExpectedInstallationId) -and $databaseInstallationId -ne $ExpectedInstallationId) {
+    throw 'Installation ID changed after restart. Investigate database switching or data loss.'
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ExpectedDraftId)) {
+    if ($ExpectedDraftId -notmatch '^[0-9a-fA-F-]{36}
+Write-Host "[OK] API: $apiUrl"
+Write-Host "[OK] Installation ID: $databaseInstallationId"
+Write-Host 'To verify persistence: restart Spring Boot, then run this script with -ExpectedInstallationId <UUID>.'
+)
+if (-not $dbResult.Success) {
+    throw 'Expected successful Flyway V1 and one persisted platform_installation UUID.'
+}
+$databaseInstallationId = $dbResult.Groups[1].Value
+
+$apiPort = if ([string]::IsNullOrWhiteSpace($env:PORT)) { '8080' } else { $env:PORT }
+if ($apiPort -notmatch '^[0-9]+$') {
+    throw 'PORT must be a local numeric port.'
+}
+$apiUrl = "http://127.0.0.1:$apiPort/api/system/status"
+try {
+    $status = Invoke-RestMethod -Uri $apiUrl -Method Get -TimeoutSec 10
+} catch {
+    throw "Cannot reach $apiUrl. Start the Spring Boot backend before running this check. $($_.Exception.Message)"
+}
+if ($status.service -ne 'ontoforge' -or $status.version -ne 'S0-MVP-0.1' -or $status.database -ne 'CONNECTED') {
+    throw 'The status API did not report the expected real S0-MVP-0.1 service and PostgreSQL connection.'
+}
+if ($status.installationId -ne $databaseInstallationId) {
+    throw "API installationId does not match the PostgreSQL row. Check that both target the same database."
+}
+if (-not [string]::IsNullOrWhiteSpace($ExpectedInstallationId) -and $databaseInstallationId -ne $ExpectedInstallationId) {
+    throw 'Installation ID changed after restart. Investigate database switching or data loss.'
+}
+
+Write-Host "[OK] PostgreSQL: $pgHost`:$pgPort/$pgDatabase (Flyway V1 applied)"
+Write-Host "[OK] API: $apiUrl"
+Write-Host "[OK] Installation ID: $databaseInstallationId"
+Write-Host 'To verify persistence: restart Spring Boot, then run this script with -ExpectedInstallationId <UUID>.'
+) {
+        throw 'ExpectedDraftId must be a UUID. It is never passed into SQL.'
+    }
+    $draftUrl = "http://127.0.0.1:$apiPort/api/model/drafts/$ExpectedDraftId"
+    try { $draft = Invoke-RestMethod -Uri $draftUrl -Method Get -TimeoutSec 10 }
+    catch { throw "Cannot reload persisted draft $ExpectedDraftId. $($_.Exception.Message)" }
+    if ($draft.draftId -ne $ExpectedDraftId -or $draft.revision -lt 1 -or $draft.status -ne 'DRAFT') {
+        throw 'Persisted draft API does not match the supplied draft identity.'
+    }
+    Write-Host "[OK] Persisted ObjectType draft: $ExpectedDraftId (revision $($draft.revision))"
+}
+
+Write-Host "[OK] PostgreSQL: $pgHost`:$pgPort/$pgDatabase (Flyway V1 + V2 applied)"
+Write-Host "[OK] API: $apiUrl"
+Write-Host "[OK] Installation ID: $databaseInstallationId"
+Write-Host 'To verify persistence: restart Spring Boot, then run this script with -ExpectedInstallationId <UUID>.'
+)
 if (-not $dbResult.Success) {
     throw 'Expected successful Flyway V1 and one persisted platform_installation UUID.'
 }
