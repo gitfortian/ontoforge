@@ -1,0 +1,38 @@
+{
+  "resultVersion": "0.2.0",
+  "queryDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+  "schemaReleaseDigest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "bindingVersion": "1.0.0",
+  "indexSnapshotRef": "index-generation-17",
+  "authorizationScopeRef": "server-auth-scope-42",
+  "executedAt": "2026-10-15T06:04:00Z",
+  "status": "PARTIAL",
+  "accuracy": "EXACT",
+  "completeness": "PARTIAL",
+  "freshness": "STALE",
+  "answerScope": "KNOWN_SUBSET",
+  "sourceCheckpoints": [
+    {
+      "sourceRef": "qms-inspections",
+      "checkpoint": "qms-offset-100",
+      "observedAt": "2026-10-15T06:00:00Z",
+      "completeness": "COMPLETE"
+    },
+    {
+      "sourceRef": "mes-lots",
+      "checkpoint": "mes-offset-101",
+      "observedAt": "2026-10-15T05:48:00Z",
+      "completeness": "PARTIAL"
+    },
+    {
+      "sourceRef": "erp-orders",
+      "checkpoint": "erp-batch-101",
+      "observedAt": "2026-10-15T05:45:00Z",
+      "completeness": "UNKNOWN"
+    }
+  ],
+  "aggregate": {
+    "operation": "COUNT_DISTINCT",
+    "value": 17
+  }
+}
