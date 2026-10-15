@@ -154,7 +154,7 @@
 | 验收层 | 必须成功 | 必须拒绝或恢复 |
 | --- | --- | --- |
 | Contract | 写入后从 PostgreSQL 读取的 package 能被现行 V0.2 JSON Schema 验证；\`schemaVersion=0.2.0\`，非本轮资产数组完整为空 | 不允许伪造 Binding/Link/Action 或提交 V0.1；未知字段与非法枚举类型拒绝 |
-| Java 服务端 | ObjectType 属性创建、更新和主键引用语义一致；GET 与写入结果相同 | PK 不存在/非 required/非 STRING|INTEGER、重复 ID、重复 apiName、非法 id/apiName、ENUM 缺值/重值、非法分类、缺 required 等产生 422 + 精确 path |
+| Java 服务端 | ObjectType 属性创建、更新和主键引用语义一致；GET 与写入结果相同 | PK 不存在/非 required/非 STRING 或 INTEGER、重复 ID、重复 apiName、非法 id/apiName、ENUM 缺值/重值、非法分类、缺 required 等产生 422 + 精确 path |
 | PostgreSQL / Flyway | 基于干净 PG17 执行 V1→V2；在带 V1 数据的数据库前向升级；创建→读回→更新→重启→读回 JSON 等价，Installation ID 未改变 | duplicate packageId 409、expectedRevision 旧值 409 且无覆盖、异常事务无部分数据、停库失败可恢复 |
 | API 合同 | GET 列表为空是 200 []；POST 201 Location+draftId/revision 1，GET 同草稿，PUT revision 2，GET 重开仍为 revision 2 | 400/404/409/422/5xx 不返回伪成功，错误信息不含数据库密码或内部 SQL |
 | Web 用户故事 | Windows 11 Chrome/Edge：创建 manufacturing.production + ProductionBatch → 保存 → 列表 → 刷新 → 重开 → 编辑 → 重开，页面展示真实 Property/PK | 未保存离开确认、主键错误就地反馈、网络失败保留输入、两个标签页并发冲突不能静默覆盖 |
