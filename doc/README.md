@@ -13,6 +13,7 @@
 | [PostgreSQL 17 ObjectSet / Outbox 真实运行验证](./research/2026-10-15-POC-PostgreSQL17-ObjectSet-Outbox-真实运行验收.md) | 2026-10-15 | **实测证据**：PG17.11，2万/10万批次、各14项测试通过，EXPLAIN、RLS、事务 Outbox 与崩溃恢复 |
 | [OMBOK、GB/T 48000.4 研究与差距分析](./research/2026-10-14-OMBOK-GBT48000.4-蒸馏与差距分析.md) | 2026-10-14 | 原文边界、采纳思想及新模块映射 |
 | [GB/T 48000.3 本体建模要求差距矩阵](./research/2026-10-14-GBT48000.3-本体建模要求差距矩阵.md) | 2026-10-14 | §5–9、规范性附录 A、ADR-20–24 与 P0 Gate |
+| [Native DSL/AST 核心契约 V0.2](./design/核心本体元模型与Native-DSL-AST契约_v0.2.md) | V0.2 · 2026-10-15 | **架构评审候选**：Native Schema、Typed AST、Binding、ObjectSet Query/Result、Decision/Action 执行证据；可运行正反例 |
 | [核心本体元模型与 DSL/AST 契约 V0.1](./design/核心本体元模型与DSL-AST契约_v0.1.md) | V0.1 · 2026-10-14 | **历史技术合同**：原 OWL-first 倾向，Native V0.2 将另行修订并完成迁移评审 |
 
 ## 深度研究路线
