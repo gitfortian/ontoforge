@@ -5,6 +5,7 @@ Design-only in-memory HTML mock; does not test PostgreSQL, server APIs or permis
 from __future__ import annotations
 
 import unittest
+import os
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
@@ -36,6 +37,13 @@ class HighFiProductReview(unittest.TestCase):
         self.page.locator("#obj-api").fill("ProductionBatch")
 
     def tearDown(self):
+        if os.environ.get("UX_CAPTURE_SCREENSHOTS"):
+            root = Path(os.environ.get("UX_SCREENSHOT_DIR", "/tmp/ontoforge-ux-shots"))
+            root.mkdir(parents=True, exist_ok=True)
+            self.page.screenshot(
+                path=str(root / ("HighFiProductReview__" + self._testMethodName + ".png")),
+                full_page=True,
+            )
         self.assertEqual(self.errors, [], "Uncaught browser exception")
         self.page.close()
 
