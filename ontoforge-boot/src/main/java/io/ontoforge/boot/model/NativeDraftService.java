@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.DateTimeException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -95,7 +96,7 @@ public class NativeDraftService {
                 UUID id=UUID.fromString(parts[1]);
                 items=jdbc.query("SELECT "+FIELDS+" FROM native_package_draft WHERE (updated_at,draft_id)<(?,?) ORDER BY updated_at DESC,draft_id DESC LIMIT ?",
                         this::map,Timestamp.from(t),id,pageSize+1);
-            } catch(IllegalArgumentException e){throw new DraftFailure(400,"MALFORMED_REQUEST","无效的分页游标");}
+            } catch(IllegalArgumentException | DateTimeException e){throw new DraftFailure(400,"MALFORMED_REQUEST","无效的分页游标");}
         }
         boolean hasMore=items.size()>pageSize;
         List<DraftDetail> limited=hasMore?items.subList(0,pageSize):items;
