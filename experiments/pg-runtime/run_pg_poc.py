@@ -148,14 +148,21 @@ def create_attempt(lot="LOT-001", idem=None, requester="operator", workspace="A"
             raise ValueError("MISSING_SOURCE_FACT")
         active = db.execute("SELECT * FROM poc.active_contract WHERE id=true").fetchone()
         aid = uuid.uuid4()
-        db.execute(
+        inserted = db.execute(
             "INSERT INTO poc.action_attempt"
             "(id,workspace_id,idem_key,payload,payload_hash,lot_id,requester,"
             "schema_release,binding_version,function_digest,policy_version,source_revision,state)"
-            " VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'PROPOSED')",
+            " VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'PROPOSED')"
+            " ON CONFLICT(workspace_id,idem_key) DO NOTHING RETURNING id",
             (aid,workspace,idem,Jsonb(payload),digest,lot,requester,
              active["schema_release"],active["binding_version"],active["function_digest"],
-             active["policy_version"],fact["revision"]))
+             active["policy_version"],fact["revision"])).fetchone()
+        if not inserted:
+            winner = db.execute("SELECT id,payload_hash,requester FROM poc.action_attempt "
+                                "WHERE workspace_id=%s AND idem_key=%s",(workspace,idem)).fetchone()
+            if winner is None or winner["payload_hash"]!=digest or winner["requester"]!=requester:
+                raise ValueError("IDEMPOTENCY_COLLISION")
+            return winner["id"]
         db.execute("INSERT INTO poc.action_event(attempt_id,event_type) VALUES(%s,'PROPOSED')",(aid,))
         return aid
 
@@ -229,11 +236,15 @@ def http_json(method,url,payload=None):
             return exc.code,{}
 
 def mark_state(aid,state):
+    # Late errors may not erase an already VERIFIED receipt.
     with conn() as db:
-        db.execute("UPDATE poc.action_attempt SET state=%s WHERE id=%s",(state,aid))
-        db.execute("UPDATE poc.action_outbox SET state=%s WHERE attempt_id=%s",
-                   ("UNKNOWN" if state=="UNKNOWN" else "BLOCKED",aid))
-        db.execute("INSERT INTO poc.action_event(attempt_id,event_type) VALUES(%s,%s)",(aid,state))
+        changed=db.execute("UPDATE poc.action_attempt SET state=%s "
+                           "WHERE id=%s AND state IN ('DISPATCHING','UNKNOWN') "
+                           "RETURNING id",(state,aid)).fetchone()
+        if changed:
+            db.execute("UPDATE poc.action_outbox SET state=%s WHERE attempt_id=%s",
+                       ("UNKNOWN" if state=="UNKNOWN" else "BLOCKED",aid))
+            db.execute("INSERT INTO poc.action_event(attempt_id,event_type) VALUES(%s,%s)",(aid,state))
 
 def finalize_receipt(aid,receipt):
     a = get_attempt(aid)
@@ -270,8 +281,10 @@ def reconcile(aid,base):
 
 def dispatch(aid,token,base):
     with conn() as db:
-        o = db.execute("SELECT state,claim_token FROM poc.action_outbox WHERE attempt_id=%s",(aid,)).fetchone()
-        if not o or o["state"]!="LEASED" or o["claim_token"]!=token:
+        o = db.execute("SELECT state,claim_token,lease_until,"
+                       "(lease_until>clock_timestamp()) AS lease_valid "
+                       "FROM poc.action_outbox WHERE attempt_id=%s",(aid,)).fetchone()
+        if not o or o["state"]!="LEASED" or o["claim_token"]!=token or not o["lease_valid"]:
             raise ValueError("STALE_CLAIM_TOKEN")
         a = db.execute("SELECT * FROM poc.action_attempt WHERE id=%s",(aid,)).fetchone()
         try:
