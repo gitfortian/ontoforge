@@ -143,18 +143,18 @@ class ArchitectureDocsTests(unittest.TestCase):
         for file in proposal_files:
             with self.subTest(path=file.name):
                 document = file.read_text(encoding="utf-8")
-                status = re.search(r"^\\*\\*Status:\\*\\* (.+)$", document, re.M)
-                decision = re.search(r"^\\*\\*Decision:\\*\\* (.+)$", document, re.M)
+                status = re.search(r"^\*\*Status:\*\* (.+)$", document, re.M)
+                decision = re.search(r"^\*\*Decision:\*\* (.+)$", document, re.M)
                 self.assertIsNotNone(status)
                 self.assertIsNotNone(decision)
                 self.assertIn(status.group(1).strip(), ("Discussion", "Accepted", "Rejected", "Superseded"))
                 for label in ("Discussion", "Implementation", "Release"):
-                    self.assertRegex(document, rf"(?m)^\\*\\*{label}:\\*\\* .+")
+                    self.assertRegex(document, rf"(?m)^\*\*{label}:\*\* .+")
                 for section in sections:
                     self.assertIn(f"## {section}", document)
                 if status.group(1).strip() == "Accepted":
                     self.assertIn("[VOTE] Accepted", decision.group(1))
-                    self.assertRegex(decision.group(1), r"https://github\\.com/.+#issuecomment-\\d+")
+                    self.assertRegex(decision.group(1), r"https://github\.com/.+#issuecomment-\d+")
                 if status.group(1).strip() == "Discussion":
                     self.assertIn("Pending", decision.group(1))
 
