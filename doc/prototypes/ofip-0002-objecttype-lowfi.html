@@ -102,6 +102,14 @@ function syncEditor(){
  ed.properties=ed.properties.map((_,i)=>readRow(i));
  ed.primaryKeyRef=$('primary-ref').value||null;
 }
+function refreshPkChoices(){
+ const select=$('primary-ref');if(!select||!state.editor)return;
+ const selected=select.value;
+ const ids=state.editor.properties.map((_,i)=>({id:$('p'+i+'-id')?.value||'',type:$('p'+i+'-type')?.value||''})).filter(x=>x.id);
+ select.innerHTML='<option value="">尚未选择主键</option>'+ids.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.id)+' · '+esc(p.type)+'</option>').join('');
+ if(ids.some(x=>x.id===selected))select.value=selected;
+ else select.value='';
+}
 function changeEditor(){state.dirty=true;state.validationLocal=null;const el=$('dirty-mark');if(el)el.textContent='● 未保存编辑';}
 function addProp(){syncEditor();state.editor.properties.push({id:'',apiName:'',label:'',valueType:'STRING',required:false,searchable:false,classification:'INTERNAL',enumValues:[]});state.dirty=true;render()}
 function removeProp(i){syncEditor();const removed=state.editor.properties.splice(i,1)[0];if(removed&&removed.id===state.editor.primaryKeyRef)state.editor.primaryKeyRef=null;state.dirty=true;render()}
@@ -233,7 +241,7 @@ function render(){
  $('view').innerHTML=state.view==='packages'?showPackages():state.view==='types'?showTypes():state.view==='package'?showPackage():showEditor();
  renderMessage();
 }
-document.addEventListener('input',e=>{if(state.view==='editor'&&e.target.closest('#view'))changeEditor()});
+document.addEventListener('input',e=>{if(state.view==='editor'&&e.target.closest('#view')){changeEditor();if(/^p\d+-id$/.test(e.target.id))refreshPkChoices()}});
 document.addEventListener('change',e=>{if(state.view==='editor'&&e.target.closest('#view'))changeEditor()});
 render();
 </script>
