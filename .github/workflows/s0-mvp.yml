@@ -2,7 +2,7 @@ name: S0 MVP foundation
 on:
   push:
     branches:
-      - feature/s0-runnable-platform-foundation-20261015
+      - refactor/s0-yakops-style-project-layout-20261015
   pull_request:
     paths:
       - "ontology-system-boot/**"
