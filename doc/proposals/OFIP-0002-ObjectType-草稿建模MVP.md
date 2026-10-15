@@ -1,22 +1,22 @@
 # OFIP-0002：Native 模型包与 ObjectType 领域模型、草稿生命周期及首个 MVP
 
-**Status:** Discussion
+**Status:** Accepted
 
 **Discussion:** [PR #6 — OFIP-0002 评审](https://github.com/gitfortian/ontoforge/pull/6)
 
-**Decision:** **Domain-Gate-1：DG1–DG9 全部 A 已通过**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)）；**Contract-Gate-2：TC1–TC10 全部 A 已通过**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191277696)）。**UX-Gate-Low / UX-Gate-High：受托独立审核通过**（[实际验收结论](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6192752743)）；完整 OFIP **Pending**，尚无业务代码开发授权
+**Decision:** **[VOTE] Accepted — 2026-10-15（[实施授权记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6193022402)）**。已通过 **Domain-Gate-1：DG1–DG9 全部 A**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)）；**Contract-Gate-2：TC1–TC10 全部 A 已通过**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191277696)）。**UX-Gate-Low / UX-Gate-High：受托独立审核通过**（[实际验收结论](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6192752743)）；**实施获准，业务功能代码尚待独立 PR 交付**
 
-**Implementation:** Not Started — 领域评审 → 技术合同评审 → 低保真原型 → 高保真签收 → 前后端纵向交付 → 真实验收
+**Implementation:** Pending — 已正式授权另开真实功能 PR，尚未实现；不因设计通过声称可用
 
 **Release:** Not Released
 
-**Review gate:** Domain-Gate-1 **Passed**；Contract-Gate-2 **Passed (design only)**；UX-Gate-Low **Passed (delegated independent review)**；UX-Gate-High **Passed (delegated independent review; mock UI only)**；OFIP-0002 整体 `[VOTE] Accepted` **Pending**，未实施业务代码
+**Review gate:** Domain-Gate-1 **Passed**；Contract-Gate-2 **Passed (design only)**；UX-Gate-Low **Passed (delegated independent review)**；UX-Gate-High **Passed (delegated independent review; mock UI only)**；OFIP-0002 已获 `[VOTE] Accepted`（[决议](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6193022402)），业务代码/真实运行验收仍未完成
 
 **Related:** [OFIP-0001 治理规范](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [总体架构 V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2 结构合同候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md) · [S0 迭代计划](../implementation/S0-MVP-迭代计划.md)
 
 > **重要事实**：经核对当前 main，Spring Boot 仅有真实的系统状态 API，Flyway V1 只建平台安装记录；React 的本体建模入口仍为“规划中”。Native V0.2 的 JSON Schema 与 Python 正反例是真实存在的**候选合同与实验验证**，不是 Java 服务或生产编译器。S0 无认证/授权/工作空间隔离；不得作为企业正式服务开放或加载真实工业数据。
 >
-> **已通过的两轮设计约束**：DG1–DG9 与 TC1–TC10 均明确签收为阶段设计决策。Package 1:N ObjectType、1:N LinkType；Save WIP 与 Validate 分离；草稿编辑 DTO / Native Candidate 独立；按包 revision 防覆盖；完整模型校验不等于发布。**机器合同代码的实际修订须在后续受审功能/合同 PR 中实现，并以测试证明**，不能将设计签收等同实现。低/高保真受托独立评审已通过，完整 OFIP 的维护者实施授权、Native 机器合同实际修订、前后端纵向功能交付仍是独立事项。
+> **已通过的两轮设计约束**：DG1–DG9 与 TC1–TC10 均明确签收为阶段设计决策。Package 1:N ObjectType、1:N LinkType；Save WIP 与 Validate 分离；草稿编辑 DTO / Native Candidate 独立；按包 revision 防覆盖；完整模型校验不等于发布。**机器合同代码的实际修订须在后续受审功能/合同 PR 中实现，并以测试证明**，不能将设计签收等同实现。低/高保真受托独立评审已通过，完整 OFIP 已取得实施授权；Native 机器合同实际修订、前后端纵向功能交付仍是独立事项。
 
 ## Motivation
 
@@ -26,7 +26,7 @@
 
 首个可验收 MVP 要求：本机打开真实的对象类型列表，创建 `manufacturing.production` 包下的 `ProductionBatch`，添加 `batchId` 等属性，保存草稿，返回列表、刷新、重开、修改后再次保存；未填完时也不能丢失合法的编辑进度；明确指出尚未达到完整模型校验要求；重复 ID、非法类型及并发覆盖不得被当成成功。
 
-**领域模型与技术合同两轮已签收，低/高保真交互现已通过受托独立审查**；本 OFIP 仍处于整体批准前的设计收口阶段，尚未提交 Spring Boot/React 业务代码或数据库迁移。下一阶段须严格按照真实 Native/PG/API/浏览器验收合同完整交付，不允许仅凭 Mock 演示宣布产品可用。
+**领域模型与技术合同两轮已签收，低/高保真交互现已通过受托独立审查**；本 OFIP 已获准进入独立功能 PR 的工程实施阶段，尚未提交 Spring Boot/React 业务代码或数据库迁移。下一阶段须严格按照真实 Native/PG/API/浏览器验收合同完整交付，不允许仅凭 Mock 演示宣布产品可用。
 
 ### 2. 两个发现的核心设计冲突
 
