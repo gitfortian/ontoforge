@@ -1,0 +1,216 @@
+name: OntoForge Required Quality
+
+# Stable, always-present status on every PR; no paths filter may hide required checks.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ontoforge-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    name: Select Quality Scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    outputs:
+      docs: ${{ steps.choose.outputs.docs }}
+      native: ${{ steps.choose.outputs.native }}
+      backend: ${{ steps.choose.outputs.backend }}
+      frontend: ${{ steps.choose.outputs.frontend }}
+      poc: ${{ steps.choose.outputs.poc }}
+      selected: ${{ steps.choose.outputs.selected }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify suite selector and negative evidence cases
+        run: python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v
+      - name: Classify the complete original-base-to-source-head diff
+        id: choose
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CI_BEFORE_SHA: ${{ github.event.before }}
+        run: python3 scripts/ci/quality_ci.py select
+
+  docs:
+    name: Documentation and Governance Checks
+    needs: scope
+    if: ${{ needs.scope.outputs.docs == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check architecture links, OFIP decisions, and document owners
+        run: python3 -m unittest discover -s doc/tests -p 'test_*.py' -v
+      - name: Record exact tested checkout identity
+        run: echo "Docs PASS on $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+
+  native:
+    name: Native V0.2 Schema Contract Tests
+    needs: scope
+    if: ${{ needs.scope.outputs.native == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned JSON Schema library
+        run: python -m pip install jsonschema==4.25.1
+      - name: Verify Native package, AST, query, and evidence contracts
+        run: python -m unittest discover -s doc/design/tests -p 'test_native_v02.py' -v
+      - name: Record exact tested checkout identity
+        run: echo "Native contract PASS on $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+
+  backend:
+    name: S0 PostgreSQL Flyway Integration
+    needs: scope
+    if: ${{ needs.scope.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: ontology
+          POSTGRES_USER: ontology
+          POSTGRES_PASSWORD: ontology_dev_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ontology -d ontology"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      DB_URL: jdbc:postgresql://127.0.0.1:5432/ontology
+      DB_USERNAME: ontology
+      DB_PASSWORD: ontology_dev_only
+      S0_HOST: 127.0.0.1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: |
+            pom.xml
+            ontoforge-boot/pom.xml
+      - name: Verify canonical naming and environment-only database secret
+        run: |
+          test -f ontoforge-boot/src/main/java/io/ontoforge/boot/OntoForgeApplication.java
+          test -f scripts/verify-s0.ps1
+          test ! -d ontology-system-boot
+          grep -q '<groupId>io.ontoforge</groupId>' pom.xml
+          grep -Fq 'password: ${DB_PASSWORD}' ontoforge-boot/src/main/resources/application.yml
+      - name: Clear any old test reports before this invocation
+        run: rm -rf ontoforge-boot/target/surefire-reports
+      - name: Actual PostgreSQL/Flyway JUnit tests
+        run: mvn -B -pl ontoforge-boot -am verify
+      - name: Require positive JUnit XML for both S0 database/API tests
+        run: python3 scripts/ci/quality_ci.py verify-reports
+      - name: Record exact tested checkout identity
+        run: echo "PostgreSQL/Flyway PASS on $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload Surefire evidence (including failures)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ontoforge-s0-surefire
+          path: ontoforge-boot/target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+  frontend:
+    name: React TypeScript Production Build
+    needs: scope
+    if: ${{ needs.scope.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # A committed package-lock.json is not present in S0. Do not claim npm ci/reproducible lockfile verification.
+      - name: Install S0 frontend dependencies
+        working-directory: ontoforge-ui
+        run: npm install --no-audit --no-fund
+      - name: TypeScript check and Vite production build
+        working-directory: ontoforge-ui
+        run: npm run build
+      - name: Record exact tested checkout identity
+        run: echo "React TypeScript build PASS on $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+
+  poc:
+    name: Research PostgreSQL ObjectSet Outbox Smoke
+    needs: scope
+    if: ${{ needs.scope.outputs.poc == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: ontopoc
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ontopoc"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      POC_PG_DSN: postgresql://postgres:postgres@127.0.0.1:5432/ontopoc
+      POC_LOTS: '20000'
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install research PostgreSQL driver
+        run: python -m pip install "psycopg[binary]>=3.2,<4"
+      - name: Run disposable isolated research experiment
+        run: python experiments/pg-runtime/run_pg_poc.py
+      - name: Record exact tested checkout identity
+        run: echo "POC smoke PASS on $(git rev-parse HEAD) (NOT deployed runtime)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload actual research artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ontoforge-poc-smoke
+          path: experiments/pg-runtime/artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+  required-quality-gate:
+    name: Required Quality Gate
+    if: ${{ always() }}
+    needs: [scope, docs, native, backend, frontend, poc]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: No missing, skipped-selected, failed or cancelled suites may pass
+        env:
+          CI_SCOPE_RESULT: ${{ needs.scope.result }}
+          CI_SELECTED_JSON: ${{ needs.scope.outputs.selected }}
+          CI_DOCS_RESULT: ${{ needs.docs.result }}
+          CI_NATIVE_RESULT: ${{ needs.native.result }}
+          CI_BACKEND_RESULT: ${{ needs.backend.result }}
+          CI_FRONTEND_RESULT: ${{ needs.frontend.result }}
+          CI_POC_RESULT: ${{ needs.poc.result }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 scripts/ci/quality_ci.py check
