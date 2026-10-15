@@ -1,193 +1,273 @@
-# OFIP-0002：P0-A Native ObjectType 草稿建模的首个可用闭环
+# OFIP-0002：Native 模型包与 ObjectType 领域模型、草稿生命周期及首个 MVP
 
 **Status:** Discussion
 
-**Discussion:** [PR #6 — [DISCUSS][OFIP-0002]](https://github.com/gitfortian/ontoforge/pull/6)
+**Discussion:** [PR #6 — OFIP-0002 评审](https://github.com/gitfortian/ontoforge/pull/6)
 
-**Decision:** Pending — 维护者未签收；文档或 CI 通过不等于 Accepted
+**Decision:** Pending — **第一轮领域模型评审中**；未获维护者明确决定，不得标 Accepted 或进入实现
 
-**Implementation:** Not Started — 通过评审后以一个功能 PR 完成 S0-MVP-0.2 纵向交付
+**Implementation:** Not Started — 领域评审 → 技术合同评审 → 低保真原型 → 高保真签收 → 前后端纵向交付 → 真实验收
 
 **Release:** Not Released
 
-**Related:** [OFIP-0001 工程治理（Accepted）](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [总体架构 V1.3（待产品/技术/安全签收）](../本体产品总体功能与技术架构设计_v1.3.md) · [Native DSL/AST V0.2（合同候选）](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md) · [S0 迭代计划](../implementation/S0-MVP-迭代计划.md)
+**Review gate:** Domain-Gate-1 (Pending)；当前是领域模型决策候选，不冻结数据库表、HTTP API、页面或多租户授权
 
-> **Proposal only**：本文件记录第一个可操作 ObjectType 建模方案；本 PR 不包含应用代码、Flyway 迁移、Schema 修改、UI 原型或 CI 放宽。S0 无鉴权与多空间隔离，本功能仅在 Windows 本机 loopback + 开发数据库使用，不得接入实际工业生产数据。
+**Related:** [OFIP-0001 治理规范](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [总体架构 V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2 结构合同候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md) · [S0 迭代计划](../implementation/S0-MVP-迭代计划.md)
+
+> **重要事实**：经核对当前 main，Spring Boot 仅有真实的系统状态 API，Flyway V1 只建平台安装记录；React 的本体建模入口仍为“规划中”。Native V0.2 的 JSON Schema 与 Python 正反例是真实存在的**候选合同与实验验证**，不是 Java 服务或生产编译器。S0 无认证/授权/工作空间隔离；不得作为企业正式服务开放或加载真实工业数据。
+>
+> **第一轮重审与前案的关系**：本文件完整替代 OFIP-0002 同一 PR 中之前的“一模型包只包含一个 ObjectType、只允许完整模型保存”的早期建议。新建议是**完整领域支持 Package 1:N ObjectType、1:N LinkType；首版产品操作可只引导创建首个 ObjectType；允许保存未完成编辑，但完整 Schema 校验另设门禁**。所有变更仍是 Discussion，需评审后才能成为合同。
 
 ## Motivation
 
-### 1. 用户到底需要做成什么
+### 1. 用户、问题与可观察结果
 
-工业领域建模人员希望通过 Web 界面定义“生产批次（ProductionBatch）”这样的**对象类型**，包括稳定标识、展示名称、主键及可查询/敏感度明确的属性；点击保存后数据进入 PostgreSQL，刷新浏览器或者重启服务后还能重新打开同一草稿，非法结构则明确阻止写入并指示如何修复。
+工业领域专家或本体建模人员需要描述“生产批次（ProductionBatch）”的业务概念，再逐渐建立“物料批次（MaterialLot）”“工单（WorkOrder）”“质量事件（QualityEvent）”等类型和它们之间的关联。理想工作流是：创建/选择模型包 → 增加对象类型 → 定义属性与主键 → 保存编辑进度 → 校验语义 → 逐步扩展其他对象与关系 → 将来审核和发布。实际数据库中的生产批次或 MES 表行**不是** ObjectType 定义本身。
 
-现有 \`main\` 经代码核对只有 \`/api/system/status\` 及 React 的“规划中”导航；数据库 Flyway V1 只有 \`platform_installation\`，**没有业务模型持久化**。现有 Native V0.2 JSON Schema 与 Python 测试是设计/校验候选，**不是 Java 运行时的模型 API 和正式编译器**。
+首个可验收 MVP 要求：本机打开真实的对象类型列表，创建 \`manufacturing.production\` 包下的 \`ProductionBatch\`，添加 \`batchId\` 等属性，保存草稿，返回列表、刷新、重开、修改后再次保存；未填完时也不能丢失合法的编辑进度；明确指出尚未达到完整模型校验要求；重复 ID、非法类型及并发覆盖不得被当成成功。
 
-### 2. 黄金故事：从空平台创建第一个对象类型
+**本轮为领域评审**，不输出页面原型、不设计 CSS、不提交应用代码。目标是先确定下述概念的归属、生命周期与不变量，避免开发后再拆“一包一类型”的数据库/API。
 
-1. 用户在“本体设计 → 对象类型”看到真实空状态和明确的“新建对象类型”入口；不展示假模型。
-2. 系统引导**选择已有模型包草稿或创建新包**。首次创建时用户输入 \`manufacturing.production\`（packageId），本轮只有一个本地可编辑 Draft；界面简要解释“模型包 = 类型定义的交付单元”，不强迫用户配置 imports、AST 或发布摘要。
-3. 输入对象类型：\`id=production-batch\`、\`apiName=ProductionBatch\`、\`label=生产批次\`。
-4. 添加属性：\`batch-id\` / \`batchId\` / STRING / required=true / searchable=true / INTERNAL；再添加 \`work-order-id\` / \`workOrderId\` / STRING、\`produced-at\` / \`producedAt\` / DATETIME、\`quality-status\` / \`qualityStatus\` / ENUM（枚举值例：PLANNED、RUNNING、COMPLETED）。必须对每项属性设置 required/searchable/classification，UI 可以提供明确的初始默认值。
-5. 选择 \`batch-id\` 为主键；提交“保存草稿”。
-6. 后端对**同一版本 Native 结构合同 + 本轮局部语义**校验，原子保存至本机 PostgreSQL；返回 \`draftId\` 和 \`revision\`，前端仅在服务端确认后显示成功。
-7. 返回真实草稿列表，刷新浏览器，再点开此草稿，看到原来的四个属性、主键和记录版本；修改描述/属性并再次保存，重新打开变化仍存在。
-8. 停止后端、网络失败或发生编辑版本冲突时，不展示假成功；保留本地尚未提交的内容并给出恢复动作。
+### 2. 两个发现的核心设计冲突
 
-**本轮最少成功结果**：在浏览器“创建 → 保存 → 列表找到 → 重新打开 → 修改 → 保存 → 重新打开”的完整链路，真实 PostgreSQL 持久化可复验。
+**冲突 A：Package 不是 ObjectType 的一对一包装。** Native V0.2 Package Schema 的 \`objectTypes\`、\`linkTypes\` 等字段原本就是数组，允许多项；原 OFIP-0002 临时“每个 Package 草稿只能有一个 ObjectType”的建议如固化到领域模型/数据库唯一键，会阻碍建立 LinkType 和同一领域包内的多类型关联。
 
-### 3. 本轮明确不做
+**冲突 B：编辑草稿不等于有效 Native Package。** 现有 V0.2 Schema 要求 ObjectType 必须有 \`primaryKeyRef\` 和至少一个 Property；如果“保存草稿”必须先满足完整 Schema，则不能自然保存只填好名称、尚未选主键的用户工作进度。长期需要区分“可持久化的编辑内容”与“可通过完整结构/语义校验的模型候选”，而不能向 Schema 偷塞半成品并声称校验通过。
 
-- ObjectInstance/LinkFact、真实 MES/ERP/QMS Data Binding、ObjectSet、RDF/OWL 映射、AI 生成、Action、工业设备写入。
-- LinkType 编辑器、批量导入、跨包 imports、多对象类型协同编辑、复杂 Registry、行业模板商店。
-- Draft → Review → Approved → ImmutableRelease → Activation（后续 P0-A/P0-B 单独交付）。不在 UI 中假装已“发布”。
-- 登录、用户、团队、角色、权限、Workspace、多租户，不创建假的 \`createdBy\` 或授权 API。仅可信**隔离本机开发**。
-- 完整编译器、Digest/签名、AST 发布证明及跨包 Lock。结构合法不能被描述成“完整发布验证通过”。
+**发现 C：现有 Property ID 作用域仍需治理。** 现有 Python \`semantic_validate_package\` 的 \`CROSS_TYPE_PROPERTY_ID_COLLISION\` 要求同一个包中多个 ObjectType 的 Property ID 全局不重复；ObjectType/Property 的声明 JSON Schema 本身只约束 ID 字面格式，不表达跨 ObjectType 唯一性。长期概念的 Property 归属通常以所属 ObjectType 为界；这一点需要显式定夺并经合同修订/测试，而不是前端偷偷改规则。
+
+### 3. 本轮设计非目标
+
+- 不接入 MES/QMS/ERP，不定义 ObjectInstance/LinkFact 运行时，不执行 Data Binding、ObjectSet、Function、Policy、Action 或 Agent。
+- 不冻结完整多用户 Workspace、组织域、RBAC/ABAC、跨包 Imports、工业标准 Profile、Ontology Compiler/Registry。
+- 不在本轮实现或假装已经支持审核、审批、不可变发布、激活、版本回滚与真实跨系统行动。
+- 不以组件、数据库表数、UI 大屏、通用微服务或图谱可视化作为第一批交付目标。
+- 不把既有 V1.3 整体架构从“待签收”自动提升成已签收。
 
 ## Public Interfaces
 
-### 1. 契约与身份：不发明第二套元模型
+本轮**先冻结领域语言和概念关系候选**，下轮单独确定 HTTP DTO、SQL、错误码、正式 Native 校验 Profile。现有 V0.2 机器合同**没有在本 PR 修改**。
 
-使用当前 [Native Package V0.2 JSON Schema](../design/schema/ontology-package-v0.2.schema.json) 的字段作为持久化权威：
+### 1. 核心领域概念和基数
 
-- \`schemaVersion = 0.2.0\` 指**Native 结构合同版本**。
-- \`packageId\` 满足现行 schema（例 \`manufacturing.production\`），一个本机安装内至多一个**可编辑的本地草稿**。它是包的**业务坐标**，不是 PostgreSQL UUID，不等于 Workspace。
-- \`version = 0.1.0\` 是本轮新草稿默认**候选包版本**，区别于独立的 \`revision\` 编辑并发版本、结构合同版本以及未来不可变 \`ReleaseDigest\`。S0-MVP-0.2 不允许客户端改 \`version\`；后续发布语义需新设计评审。
-- \`draftId\` 是服务端生成的 UUID，唯一定位已保存草稿，和 \`ObjectType.id\`、\`packageId\` 均不是同一个 ID。
-- \`ObjectType\` 当前字段：\`id\`、\`apiName\`、可选 \`label\`/\`description\`、\`primaryKeyRef\` 和 \`properties\`。
-- \`Property\` 当前字段：\`id\`、\`apiName\`、\`valueType\`（STRING、INTEGER、DECIMAL、BOOLEAN、DATETIME、ENUM）、\`required\`、\`searchable\`、\`classification\`（PUBLIC/INTERNAL/CONFIDENTIAL/RESTRICTED）以及 ENUM 时的 \`enumValues\`；\`label\` 可选。
-- \`primaryKeyRef\` 必须指向当前类型内存在的属性 ID，该属性 \`required=true\` 且 \`valueType\` 为 STRING 或 INTEGER，不能把字段名/API 名误用作主键引用。
-- 本轮保存的完整包 JSON 含 \`imports=[]\`、单个 \`objectTypes=[...]\` 以及 \`linkTypes/bindings/linkBindings/objectSets/functions/rules/decisionStrategies/policies/actions\` **所有必需的空数组**；该对象被明确标记为 DRAFT，绝不是可发布 Release/AST。
-- V0.2 现有结构允许跨包同名类型；本轮不擅自要求全局唯一。当前单草稿内拒绝重复 Property ID 和重复 API 名（采用区分大小写的确定性比较；若要改变大小写折叠策略须复审）。未来扩展到多 ObjectType 的包时继续遵循现有测试的跨类型 Property ID 冲突限制。
-
-**边界决定**：实现 API 可以接受**只含本轮 ObjectType 输入的窄 DTO**；由后端构造符合现行 V0.2 的完整 Package。**禁止前端自行声明任意未支持的 Link/Binding/Action 字段并误以为已被实现。** 当前 JSON Schema 不修改；如果开发发现必须修改，要在独立设计评审中说明影响，不能静默改 V0.2。
-
-### 2. Proposed HTTP API（仅设计，尚未实现）
-
-统一本地开发 URI 前缀 \`/api/model/drafts\`，请求响应均为 JSON，字段含义在验收时固定：
-
-| 方法 | 资源 | 含义 | 典型响应 |
+| 概念 | 领域定义与身份 | 关系/不变量 | 本轮职责 |
 | --- | --- | --- | --- |
-| \`GET\` | \`/api/model/drafts\` | 列出真实已存草稿摘要；首次使用返回空数组 | 200 + DraftSummary[] |
-| \`POST\` | \`/api/model/drafts\` | 新建一个包草稿及其首个 ObjectType | 201 + DraftDetail，Location 指向新资源 |
-| \`GET\` | \`/api/model/drafts/{draftId}\` | 读取同一个草稿、包 JSON 和最新 revision | 200 + DraftDetail |
-| \`PUT\` | \`/api/model/drafts/{draftId}\` | 全量替换本轮支持的一个 ObjectType，**必须显式携带 expectedRevision** | 200 + revision 自增的 DraftDetail |
+| Ontology Package | 定义集合与将来交付/版本化的边界；\`packageId\` 如 \`manufacturing.production\` | 1 个 Package 持有 0..N 个 ObjectType、0..N 个 LinkType；最终 Package 可包含其他 V0.2 声明 | 组织、依赖边界、未来发布坐标 |
+| ObjectType | 一种业务对象的**类型定义**，如 \`production-batch\` / \`ProductionBatch\` | 属于一个 Package；有 0..N 编辑期 Property（候选正式合同要求 >=1）；最多一个 primaryKeyRef | 类型的字段与标识规则 |
+| Property | ObjectType 所拥有的属性声明；如 \`batch-id\` / \`batchId\` | 属于且只能属于一个 ObjectType；类型、必填、可搜索、分类与 ENUM 值由合同治理 | 声明属性约束，而非真实值 |
+| LinkType | 两个 ObjectType 之间**可能存在关系**的声明 | 属于一个 Package；有 sourceTypeRef、targetTypeRef、cardinality、evidenceRequired；现行 V0.2 源/目标是简短 Type ID 引用 | 关系语义，不是 LinkFact |
+| PackageDraft | 一个正在编辑的 Package 的工作副本 | 独立 draftId、revision、编辑数据、保存时间、校验报告；不等于已发布包 | 不完整工作保存与冲突保护 |
+| CandidatePackage | 从草稿生成的完整 Native Package 候选 | 必须通过 V0.2 JSON Schema + 语义/引用/唯一性验证才能标“已通过本阶段校验” | 为未来 Review/Release 提供输入 |
+| SchemaRelease | 将来版本化、审核/审批后不可变的模型声明 | 绑定 Package 坐标、不可变内容摘要和审核证据；S0 不存在 | 不得被草稿保存替代 |
+| ObjectInstance / LinkFact | 将来由来源/映射/投影提供的**业务实例和关系事实** | 不能因为 ObjectType/LinkType 已定义而自动生成 | P1 之后另行建模 |
 
-创建请求只包含 \`packageId\`、\`objectType\`；更新请求只包含 \`expectedRevision\`、\`objectType\`。后端唯一控制 \`schemaVersion\`、初始 \`version\` 和其余空数组的构造。响应 \`DraftDetail\` 至少包含 \`draftId\`、\`status=DRAFT\`、\`revision\`、\`createdAt\`、\`updatedAt\`、完整 \`package\`。列表至少返回 \`draftId\`、\`packageId\`、\`version\`、\`objectType.id/apiName/label\`、\`revision\`、\`updatedAt\`。字段返回数据库事实，不用前端演示数据。
+**推荐的逻辑关系**（这里不是物理 SQL 结构）：
 
-**状态码及稳定错误语义**：
+~~~mermaid
+classDiagram
+direction TB
+class OntologyPackage {
+  packageId
+  candidateVersion
+  imports
+}
+class PackageDraft {
+  draftId
+  revision
+  editingContent
+  validationState
+}
+class ObjectType {
+  id
+  apiName
+  label
+  primaryKeyRef
+}
+class Property {
+  id
+  apiName
+  valueType
+  required
+  searchable
+  classification
+}
+class LinkType {
+  id
+  apiName
+  sourceTypeRef
+  targetTypeRef
+  cardinality
+}
+class CandidatePackage {
+  schemaVersion
+  packageId
+  version
+}
+OntologyPackage "1" *-- "0..*" ObjectType : declares
+OntologyPackage "1" *-- "0..*" LinkType : declares
+ObjectType "1" *-- "0..*" Property : owns
+PackageDraft "1" --> "1" OntologyPackage : edits
+PackageDraft "1" --> "0..1" CandidatePackage : validates into
+LinkType --> ObjectType : source and target refs
+~~~
 
-| 情况 | HTTP | 稳定 code 和客户端行为 |
+以上草稿 0..N Property 是为了允许持久化 WIP；**校验形成 CandidatePackage 时仍须满足 V0.2 当前 ObjectType \`properties.minItems=1\` 与 \`primaryKeyRef\` 必填要求**。这个图不表示一行或一张 SQL 表。
+
+### 2. 身份和名称规则必须区分
+
+| 标识 | 作用域 | 不得混淆的对象 |
 | --- | --- | --- |
-| JSON 语法不合法/必需请求字段缺失 | 400 | \`MALFORMED_REQUEST\`；错误可定位输入 |
-| Native 结构/主键/枚举/引用/重复 ID 等校验未通过 | 422 | \`MODEL_VALIDATION_FAILED\`，返回 \`details=[{path,code,message}]\` 指向字段；不写入 |
-| 同一 packageId 已有草稿，重复创建 | 409 | \`PACKAGE_DRAFT_EXISTS\`，不覆盖；提示“打开已有草稿” |
-| expectedRevision 与数据库不一致 | 409 | \`DRAFT_REVISION_CONFLICT\`，不覆盖；提示载入最新版本 |
-| draftId 不存在或 URL 不合法 | 404 / 400 | \`DRAFT_NOT_FOUND\` / \`MALFORMED_REQUEST\`；不可假装重新创建成功 |
-| PostgreSQL 不可用/写入结果未知 | 5xx / 网络失败 | \`PERSISTENCE_UNAVAILABLE\`（可明确判断时）；前端**不得显示已保存**，保留编辑缓存并提供重试/列表核实 |
+| \`packageId\` | 包的稳定逻辑坐标（如 manufacturing.production） | PostgreSQL 主键、Tenant、已发布版本 |
+| \`ObjectType.id\` | 所属 Package 内稳定定义 ID（如 production-batch） | apiName、真实生产批次主键 |
+| \`ObjectType.apiName\` | 同一 Package 公开可读/可编程名称（如 ProductionBatch） | objectType.id；重命名会影响消费者 |
+| \`Property.id\` | **待决策**：推荐概念上归属 ObjectType，复合标识为 Package/ObjectType/Property | 现有 V0.2 Python 检查实际要求包内 Property ID 全局不重复 |
+| \`Property.apiName\` | 所属 ObjectType 中的可编程属性名称（如 batchId） | Property.id、ObjectInstance 的字段值 |
+| \`LinkType.id\` | 所属 Package 内的关系类型定义 ID | 特定实例之间的 LinkFact ID |
+| \`draftId\` | 草稿工作副本数据库 ID（建议 UUID） | packageId、ObjectType.id |
+| \`revision\` | 编辑中的乐观并发计数（成功更新后递增） | schemaVersion、候选版本、ReleaseDigest |
+| \`schemaVersion\` | Native JSON 契约版本，目前 V0.2 候选为 \`0.2.0\` | 用户编辑 revision |
+| \`Package.version\` | 候选或正式语义版本（现行 V0.2 字段，例如 \`0.1.0\`） | draft revision、Schema 结构版本 |
+| \`ReleaseDigest\` | 将来真实规范化后不可变发布身份 | 示例 JSON 的伪 digest 或仅通过结构校验 |
 
-后端错误不得回传 SQL、连接串、密码、StackTrace 或其他内部敏感数据；合法枚举/限制由服务器统一执行，不能仅依赖 UI 控件。请求体大小、字符串长度和列表输出设定保守上限，非法负载在触发重型处理前拒绝；拒绝必须返回稳定错误信息，不无限制吞入任意 JSON。
+**建议**：即使 S0 只创建首个 ObjectType，服务端未来的聚合语义也应是 **PackageDraft 编辑一个 Package 的类型集合**，不能把 \`package_id UNIQUE\` 解释为“永远只有一份 Package 版本”；如需要“同一 packageId 只有一个当前可写草稿”，这是 **草稿生命周期临时唯一性策略**，不能禁止未来历史发布版本并存。
 
-### 3. 编辑并发合同
+### 3. ObjectType 与 Property 的专业约束
 
-- **只用一个数字 revision**（创建时 1，每次成功修改 +1）作为乐观并发版本，不借用 \`package.version\`；PUT 提供 \`expectedRevision\`。
-- 数据库使用原子条件写入（示意：\`UPDATE ... SET revision=revision+1 ... WHERE draft_id=? AND revision=? RETURNING ...\`），保证过期编辑不会静默覆盖。
-- 失败与网络超时后客户端不直接假设失败或成功；刷新列表或读取草稿的真实 revision 后，用户自行决定重新提交。
-- 初始草稿建立时的 \`packageId\` 本轮不可修改；包坐标迁移与跨包移动留给后续显式兼容设计。
-- 所有草稿在本版本只有 \`DRAFT\`；不存在变相的 REVIEWED/APPROVED/PUBLISHED 字段，也不提供伪“发布”按钮。
+- **稳定标识与展示信息分离**：\`id\` 是机器 ID；\`apiName\` 是消费接口名称；\`label\` 是展示名；\`description\` 为语义定义。不能把中文 label 翻译成可靠的跨系统身份，也不能默认随意变更稳定 ID。
+- **主键引用为 Property ID**：\`primaryKeyRef\` 必须指向当前 ObjectType 自己拥有的属性；现有 V0.2 语义测试要求对应属性必填且 \`valueType\` 为 STRING 或 INTEGER。主键是未来实例身份的规则，**不是**当前存在的真实实例 ID。
+- **Property 值类型**：沿用当前 V0.2 STRING / INTEGER / DECIMAL / BOOLEAN / DATETIME / ENUM；ENUM 必须有非空、去重的 enumValues，非 ENUM 不允许携带 enumValues。字段 \`required\`、\`searchable\`、\`classification\` 的数据质量/授权含义须分别解释，不因 required=true 就推断 MES 实际已有值。
+- **分类不等于实际访问许可**：PUBLIC/INTERNAL/CONFIDENTIAL/RESTRICTED 是语义分类，不代表已经实现字段级授权；S0 不存在认证主体，禁止“仅在 UI 隐藏”冒充权限控制。
+- **唯一性作用域待裁决**：长期推荐 \`(packageId, objectType.id, property.id)\` 作为 Property 逻辑身份；但 V0.2 的 \`CROSS_TYPE_PROPERTY_ID_COLLISION\` 负例与之不完全兼容。**在修改既有结构/校验合同时，先决定保留包级限制还是修订候选 Native 规范和相关正反例；本轮不改代码。**
+- 正式发布后对主键、数据分类、可搜索和字段类型的修改，应走兼容性评估；**编辑尚未发布的草稿**可以按 revision 更新，不假装已经产生破坏下游消费者的发布变更。
+
+### 4. LinkType 与真实关系事实
+
+- LinkType 的 \`sourceTypeRef\`、\`targetTypeRef\` 引用 ObjectType **定义**，不是 ObjectInstance ID；\`cardinality\` 是关联约束声明，不等于 SQL 物理外键。
+- **同一 Package 内引用**可以在完整候选模型校验时解析。跨包引用必须考虑 Imports、明确版本、锁摘要及歧义处理；现有 V0.2 的简短类型 ID 不能被随意当作跨包全局唯一键，需后续合同评审明确限定/扩展。
+- \`evidenceRequired\` 描述未来产生真实 LinkFact 时是否需要来源证据；**只保存 LinkType 不得生成任何虚假关联事实**。
+- 首版用户故事不开放 LinkType 编辑器，但领域模型、候选 Package 结构和下阶段页面流程必须留出“为已有类型添加关系”的路径；不要求现在创建无用 Link API。
 
 ## Proposed Changes
 
-### 1. 产品交互：最少判断、完整返回路径
+### 1. 双层草稿：Save Progress 与 Validate Model 分离（首轮推荐）
 
-推荐第一个页面身份为“本体设计 / 对象类型”：
+**建议的长期状态语义**：
 
-- **列表**：标题“对象类型”，清楚显示对象名、所在模型包、属性数、状态“草稿”、上次修改时间；空状态仅出现“新建对象类型”。列表的记录来自真实 API；失败态给重试，不用静态计数。
-- **新建**：第一步在当前页面选择已有包或输入新包坐标；由于本轮每包仅有一个 ObjectType，已经有草稿时直接打开它（不让“新建同包第二个对象”产生暗中冲突）。下一步编辑对象标识与属性；主键从已添加且合法的属性中选择，避免手输错误引用。
-- **属性编辑**：简单可读的属性表格，添加/编辑/删除（均在尚未保存的草稿编辑缓存中）；真实 required、searchable、classification、ENUM 值，不用“未来高级设置”占位。删除当前主键时要求重新选主键。
-- **保存**：提交之前进行本地 UX 快速校验以减少往返，但**必须经过服务端校验并真实写库**；失败根据 path 在相关属性行就地显示错误，不清空整个表单。保存按钮在等待请求时禁用，禁止双击创建重复请求。
-- **完成路径**：保存成功后提供“返回对象类型列表”和“继续编辑”两个真实去向，刷新页面和浏览器 Back/前进后仍打开同一 draftId。
-- **未保存离开**：有编辑时显示明确确认，允许继续编辑或放弃本地未提交变化；离开没有持久化的编辑不会假装已自动保存。
-- **错误恢复**：断网/500保留输入与重试；409 编辑冲突给“读取最新版本”入口，不自动合并或覆盖他人修改。系统依然没有用户账户，不能凭两个浏览器窗口假定已实现多人治理。
+~~~mermaid
+flowchart TD
+  A[Draft Editing / WIP] -->|Save Progress| A
+  A -->|Run Validation| B{Complete + Valid?}
+  B -->|No| C[Validation Issues / Incomplete]
+  C --> A
+  B -->|Yes| D[Valid Candidate Snapshot]
+  D -->|Edit Again| A
+  D -. future P0-B .-> E[Review]
+  E -. future P0-B .-> F[Approved]
+  F -. future P0-B .-> G[Immutable Release]
+  G -. future .-> H[Activation]
+~~~
 
-**本轮“保存草稿”的含义是“未发布但结构满足最小创建规则”**：暂不持久化完全缺主键的无效临时表单；若未来要支持未完成模型的自动保存，需定义分级验证与 InvalidDraft 生命周期，而不是悄悄放宽本轮硬约束。
+**保存进度（Save Progress）**：本机持久化编辑器可表达的合法、受边界控制的草稿，即使尚未选主键或尚未完成属性配置，也能重新打开。要求 \`draftId/revision\`、确定性错误信息与数据写入成功证据；尚未完全满足 V0.2 Package Schema 的 WIP 应保存为有明确类型/版本的 **DraftEditingContent**，**不得被标记为完整 Native Package 或发布 Ready**。
 
-### 2. 服务器与数据库：一个可解释的纵向切片
+**校验模型（Validate Model）**：在编辑内容达到完整结构时将其组合为 \`CandidatePackage\`，执行 JSON Schema Draft 2020-12 与全部适用语义校验；明确 \`VALID\` / \`INCOMPLETE\` / \`INVALID\`、字段级问题和受测 revision。校验是**当前快照的结论**，草稿 revision 改变后不得沿用旧的 Valid/Approved 状态。
 
-- Spring Boot 3.5 / Java 21 模块化单体内部创建最小 \`ModelDraft\` Domain/Service/Repository/Controller；在真正出现复用者前，**不单独生成一堆空的 Core/DAO/Registry SPI Maven 模块**。控制器仅处理 HTTP/DTO，业务校验集中在可单测的服务，不让前端/UI 决定真值。
-- Flyway 以新文件 \`V2__native_model_drafts.sql\` 前向迁移，**绝不修改已合并的 V1**。建议单表 \`native_model_draft\`：\`draft_id UUID PK\`、\`package_id TEXT UNIQUE NOT NULL\`、\`revision BIGINT NOT NULL CHECK(revision>=1)\`、\`package_document JSONB NOT NULL\`、\`created_at/updated_at TIMESTAMPTZ NOT NULL\`。本轮不引入虚假的 user/workspace/approver 列。
-- 数据库必须保证 packageId 和 JSON 内 packageId 一致：在应用写入时检查，必要时用适度 SQL CHECK/索引强约束防止漂移；不为未来复杂版本库预建十几张空表。
-- 创建与更新在一个数据库事务内完成结构+语义校验、并发比较与写入；失败不留下半成品；API 只返回成功事务真正产生的结果。
-- 共享 V0.2 JSON Schema 与测试作为合同基线。Java 路径需有能证明与此合同相符的验证方式（成熟 JSON Schema 2020-12 validator 或逐约束可执行等价测试），**不能以仅通过 Python Schema CI 就宣称 Java API 已验证**。
-- 现有 Python \`semantic_validate_package\` 的主键及重复引用正反例要迁移为同等 Java/PostgreSQL API 行为测试；至少包含：主键不存在/不是必填/错误类型、Property ID 重复、ENUM 值缺失/重复、非法字段 classification/apiName/id、伪造非空 Binding/Action、同包重复创建、revision 过期及数据库故障。
-- 单一草稿 JSONB 是 S0 实施最小存储单元；它不代表未来 Registry 的发布模型或高并发局部增量编辑设计。正式模型版本/不可变摘要/跨包依赖仍留在后续 OFIP。
+**Review / Release / Activation**：独立的未来版本化治理状态，需安全与版本锁约束。Validation PASS 只代表这一轮定义约束可通过，**不是审批、发布、可供 Agent 使用或获得工业 Action 权限**。
 
-### 3. 路线：一个实现 PR，而不是“分十几个技术 PR”
+**特别标注待技术合同评审**：如何在 JSONB 中表达未完成编辑、WIP 最小字段的校验规则、与现有 V0.2 候选 Schema 怎样转换及如何防止无界任意 JSON，是下一轮必须交付的结构合同，不在本轮通过一句“JSONB 容易存”就算解决。
 
-**下一功能 PR 交付内容必须完整**：Flyway V2、真实 POST/GET/PUT/LIST API、Property/PK/ENUM 服务端校验、React 本体设计/对象类型 CRUD 中的创建/保存/重开/编辑、两种失败恢复、PG17 集成与浏览器黄金故事自动化/可重复手工验收。
+### 2. 编辑与并发的一致性边界
 
-验收完成后才进入后续评审的 \`P0-A\` 多对象包/LinkType/依赖及 \`P0-B\` 模型审核/不可变发布。当前 S0 身份/认证缺失是一个**明确的安全阻断**，不得借 UI 模型保存宣称企业团队协作或生产可用。
+- 同一个 packageId 的**当前可写草稿**采用独立 draftId 和非负递增 revision。多标签页场景必须是“显式版本冲突并保留未提交编辑”，绝不无条件覆盖。
+- 草稿保存、完整性验证、审议通过和不可变发布各有独立证据。**保存请求成功≠完整校验通过**；校验通过≠将来 Review Approved。
+- 编辑对象 ID/删除当前主键/新增 Link 等操作可能使原 Validation Report 失效；服务端应关联“被校验的 revision”防止陈旧结果被当作当前结果。
+- 如果保存请求超时，不能直接宣称已失败或已成功；应按 draftId 读取最新 revision 或服务端确认结果后，引导用户继续操作。
+- 包中的其他类型不应因为编辑单个 ObjectType 而被客户端整个覆盖，API 合同审查必须明确定义乐观锁粒度及提交范围；首期可以包级 revision 串行化，但不能把 ObjectType 当作包的唯一永久内容。
 
-### 4. 权威和状态
+### 3. 首版 MVP 功能能力边界（不固化为架构限制）
 
-| 信息 | 当前拥有者 | 严格区分 |
+| 能力 | 领域模型 | 第一功能 PR | 后续 |
+| --- | --- | --- | --- |
+| Package 组织多个 ObjectType | **1:N，从第一天成立** | 用户可从空包创建首个类型；底层不做“一包仅一类型”的领域断言 | 逐步增加第 N 个类型 |
+| 编辑 ObjectType 和 Property | 完整、真实 | 创建、编辑、保存 WIP、重开、删除草稿中属性、校验结果 | 更丰富字段/批量变更 |
+| 主键与类型规则 | 完整校验不变量 | 结构/语义负例、提示和修复 | 兼容影响分析 |
+| LinkType | 模型包级声明、两端引用、证据语义 | 不开放编辑器，不生成空功能路由 | 与第二个 ObjectType 的联动故事 |
+| Package Candidate | 完整 Native V0.2 结构 | 一个首个 ObjectType 的完整结构化候选校验，其他资产声明为空 | 多类型、Link、Imports 等 |
+| 版本治理 | 明确不同身份与状态 | draftId、revision、受检 revision；不提供发布 | Review/不可变 Release/Activation |
+| UI 交互/视觉 | 以用户任务推进 | 后续低保真和高保真**签收之后**才实现 | 高级专业工具 |
+| Auth/Workspace | 真实产品必须有 | 仅隔离本机开发，无假用户/假审批 | 单独安全/租户 OFIP 后落地 |
+
+首个可操作验收故事仍然是：
+
+> 创建 \`manufacturing.production\` 下的 \`ProductionBatch\` → 输入类型标识和属性 → 暂存尚未完整配置的 WIP → 返回列表、刷新、重开 → 完成 batch-id（STRING / required）、primaryKeyRef 和其余属性 → 运行完整校验，看到明确 VALID → 保存后重新打开、再次编辑并使旧校验结论失效 → 再次校验 → 比较 revision 和 PG 持久化事实。
+
+**不把先创建一个 ObjectType 误认为以后一个包只能有一个**。产品是否在首版允许“一包继续添加第二个类型”要在第二轮交互设计基于真实操作复杂度决定，不应作为底层永久独占约束。
+
+### 4. 评审 Gate 与交付步骤
+
+| Gate | 要回答的问题 | 本次输出与验收 |
 | --- | --- | --- |
-| ObjectType/Property 结构和候选包 | 现行 Native V0.2 Schema + 本轮服务端校验 | 声明，不是业务对象实例 |
-| DraftId 与 Revision | 本地模型草稿 PostgreSQL | 草稿迭代，不是语义 Release |
-| packageId + version | Native Package 文档内坐标与候选语义版本 | 不是 Database PK、Review Approval 或 AST Digest |
-| 设计是否可发布 | **本轮不实现**；未来 Compiler/Review/Registry | 结构合法 ≠ 发布批准 |
-| 数据是否真实完整/可查询 | **本轮不实现**；未来 Binding/Runtime/ObjectSet | 保存 ObjectType ≠ 导入 MES 真实批次 |
-| 用户/Workspace/权限 | **本轮不实现**；隔离 loopback 开发模式 | UI 暂时可编辑 ≠ 已做鉴权 |
+| **Domain-Gate-1（当前）** | Package/Type/Property/Link 的拥有者、基数、身份、保存与校验、候选与发布如何分离？ | 本 OFIP；维护者逐项决定 DG1–DG9，并标注保留意见 |
+| Contract-Gate-2（下一轮） | Native V0.2 约束冲突怎么处理？DraftEditingContent/ValidationResult/错误码/API/事务/迁移如何精确定义？ | 在同一 OFIP 更新公共合同与兼容迁移章节，形成可测试不变量；仍不写产品代码 |
+| UX-Gate-Low（随后） | 用户从包进入类型、保存未完成草稿、校验、冲突恢复的顺序是否自然？ | 低保真流程与可交互原型；评审通过才进下一 Gate |
+| UX-Gate-High（随后） | 页面是否符合 OntoForge 视觉体系、字段反馈、空态、错误、可访问性？ | 高保真原型 + 签收截图/状态矩阵；避免复刻未确认的 Demo |
+| Implementation Gate | 一次 PR 是否真正交付完整的前后端用户链路？ | Flyway 前向迁移、API、真实 PG、React、字段校验与浏览器自动化/手工回归 |
+| Acceptance Gate | Windows 11 本机用户能否完成黄金故事、重启与异常恢复？ | 用户实际操作与签收；CI 成功不替代本机验证 |
+
+每个阶段能一轮通过就一轮通过；发现真实问题才返工，不以文档数量或流程时长为质量目标。**只有所有设计 Gate 签收后才开始功能 PR**；这不等于 P0-A 的所有未来功能都要一次性实现。
 
 ## Compatibility, Deprecation, and Migration Plan
 
-1. **数据库**：从 V1 执行独立 V2 前向迁移；已有 \`platform_installation\` 和 Installation ID 保持不变。不得 DROP/ALTER 历史 V1 或清理已有本地库。重复重启 Flyway 不能损坏草稿数据。
-2. **Native 合同**：不重新定义 ObjectType/Property，不改变 V0.2 JSON Schema/测试；写出的包必须满足 top-level 完整 required 字段。V0.1 OWL-first 夹具继续用于拒绝/迁移测试，不能把历史 EntityType 自动改成 Native Draft。
-3. **包版本**：草稿初始化候选 \`0.1.0\`，不声明已经发布；正式版本选择、兼容报告、锁摘要、审核、激活会在后续 OFIP 评审；数据迁移/批量导入不在本轮。
-4. **并发与失败**：\`expectedRevision\` 保护已存内容；同包重复 POST 返回 409 并引导打开已有草稿，不能用静默 upsert 隐藏冲突。
-5. **未来演进**：初版仅单 ObjectType 包草稿为交互/请求限制；完整 V0.2 Package JSON 持久化使未来在评审后可扩展多类型、Link 等声明，但必须另行建立完整 Draft/Release 和兼容策略。
-6. **安全边界**：没有认证和 Workspace 隔离时，此功能**只允许本机开发**；服务器/Vite 默认 loopback，不接生产数据库、不通过远程反向代理开放 API，不伪造组织 ID。未来上生产前先通过身份、权限、隔离和审计门禁。
+1. **本提案不修改 V0.2 Schema、任何代码或 Flyway V1**；领域决议确认后下一轮才能提出机器合同变更。尤其 Property ID 作用域与 Draft WIP 结构须先确定，再修改 Python 正反例。
+2. **已存在 V0.2 实验夹具继续为历史契约证据**。若推荐 Type-scoped Property ID 获准，须在 Contract-Gate-2 明确采用“修订仍未正式生产签收的 V0.2 候选合同”还是“版本化 Native V0.3”，避免同名版本的规则暗变；兼容与拒绝矩阵必须保留。
+3. **Package 基数不做“一包一类型”数据库限制**。如持久化中为了第一版选用一行 JSONB 聚合，也应允许内部 0..N ObjectType/LinkType，并明确 WIP 编辑合同与 CandidatePackage 区别。不能先建错误模型，再寄望以后自动迁移。
+4. **编辑版本 vs 发布版本**：draft revision 由成功写入递增；候选包语义版本和未来 ReleaseDigest 不能被 revision 顶替。未来多个已发布版本并存，不能被一个唯一 \`packageId\` 的草稿行所阻断。
+5. **主键和业务身份兼容**：正式发布后 ObjectType/Property ID、PK、classifications、enum 值变化需要影响分析；本轮草稿未发布，可按 revision 编辑，不触发虚假的下游数据迁移。
+6. **S0 安全界限**：此前没有工作空间、用户、授权机制；只允许 127.0.0.1 开发环境操作模拟定义，不连接真实工厂源、不公开 API、不把本地编辑当作企业安全能力。
 
 ## Test Plan
 
-> 本章节定义**未来实现 PR 必须实际通过的测试**，不是本提案 PR 已执行的测试。Proposal-only PR 只应运行文档链接/OFIP 结构及现有 Native V0.2 合同回归，不能声称模型 API 或浏览器通过。
+**本轮设计评审 PR 允许报告的真实检查**：现有文档链接、OFIP 六章及状态测试、Native V0.2 原有结构正反例（以实际 Actions 结果为准）。不能声明已经跑过数据库 V2、Java API、浏览器或工作空间安全验收。
 
-| 验收层 | 必须成功 | 必须拒绝或恢复 |
+**后续设计/开发必须制定的可执行验收**：
+
+| 领域合同 | 成功实例 | 必须覆盖的拒绝/状态边界 |
 | --- | --- | --- |
-| Contract | 写入后从 PostgreSQL 读取的 package 能被现行 V0.2 JSON Schema 验证；\`schemaVersion=0.2.0\`，非本轮资产数组完整为空 | 不允许伪造 Binding/Link/Action 或提交 V0.1；未知字段与非法枚举类型拒绝 |
-| Java 服务端 | ObjectType 属性创建、更新和主键引用语义一致；GET 与写入结果相同 | PK 不存在/非 required/非 STRING 或 INTEGER、重复 ID、重复 apiName、非法 id/apiName、ENUM 缺值/重值、非法分类、缺 required 等产生 422 + 精确 path |
-| PostgreSQL / Flyway | 基于干净 PG17 执行 V1→V2；在带 V1 数据的数据库前向升级；创建→读回→更新→重启→读回 JSON 等价，Installation ID 未改变 | duplicate packageId 409、expectedRevision 旧值 409 且无覆盖、异常事务无部分数据、停库失败可恢复 |
-| API 合同 | GET 列表为空是 200 []；POST 201 Location+draftId/revision 1，GET 同草稿，PUT revision 2，GET 重开仍为 revision 2 | 400/404/409/422/5xx 不返回伪成功，错误信息不含数据库密码或内部 SQL |
-| Web 用户故事 | Windows 11 Chrome/Edge：创建 manufacturing.production + ProductionBatch → 保存 → 列表 → 刷新 → 重开 → 编辑 → 重开，页面展示真实 Property/PK | 未保存离开确认、主键错误就地反馈、网络失败保留输入、两个标签页并发冲突不能静默覆盖 |
-| 安全与现有基座 | 默认只监听本机回环地址，页面明确“本地开发、无鉴权” | 不加载真实生产数据、不公开服务，不把未来用户/授权角色当已实现；不改动 V1 Installation ID |
-| CI 证据 | \`Required Quality Gate\` 成功且选中 Backend+Frontend+Docs（若影响 Schema 还选 Native）；有实际 PG/JUnit 报告与编译/浏览器记录 | 仅 Java/TS 编译或仅 Schema 静态测试不得称为用户可用验收；失败/未执行明确记录 |
+| 多类型语义 | Package 逻辑上包含 2 个 ObjectType，某 LinkType 连接它们 | 跨包无锁引用、歧义端点、孤立 LinkType 被拒；LinkType 不生成 LinkFact |
+| 草稿与候选 | WIP 无 PK 能保存并重开；完成 PK 后候选包可通过 V0.2 结构与语义检查 | WIP 不能声称 VALID / PUBLISHED；改变 revision 后旧 Validate 失效 |
+| 标识规则 | 重复 Property ID 在约定作用域内被正确判断；apiName/ID 各自唯一性明确 | 同一类型重复 ID/Name、跨类型 ID 冲突按最终获批准的合同稳定处理 |
+| 主键约束 | batch-id STRING、required=true、primaryKeyRef 指向自身 | 主键缺失、非必填、DECIMAL/DATETIME 作为 PK、引用其他 ObjectType 属性 |
+| ENUM/分类 | ENUM 非空去重，分类明确，搜索属性可识别 | ENUM 缺值、重复值、非法分类、未知 valueType、未授权语义不能冒充权限 |
+| PG 持久化/并发 | V1 → V2 前向迁移不变安装 ID；WIP→编辑→重启→重开，revision 正确递增 | 过期 revision 409、部分写入回滚、停库/未知响应不伪造已保存 |
+| UI/用户故事 | 浏览器按故事创建、保存、重开、完成校验、再编辑使旧结果失效 | 空状态、未保存离开、网络失败、冲突保留输入，不能靠演示数据 |
+| CI 与安全 | \`Required Quality Gate\` 按实际修改选中真实 PG/前端/合同，并有 JUnit/浏览器证据 | 只跑 S0 FoundationTest、仅 TS 构建、仅 JSON Schema 检查不等于 P0 用户体验通过 |
 
-**尤其注意现有 CI 门禁演进**：当前 \`Required Quality Gate\` 后端 JUnit 保留已有两项 S0 测试证据，但**尚不会自动判定新的 ObjectType 功能是否真的有测试**。后续功能 PR 必须新增 ObjectType 集成测试及明确的报告校验、浏览器证据，不能用旧 S0 测试凑 PASS。真实 Playwright 环境若因技术原因不具备，需要在 PR 上报告为 NOT RUN 并阻断“完成交付”签收，不能伪装已通过。
-
-### 独立提案 PR 的允许验证范围
-
-- 现有 \`doc/tests\` 的 OFIP 六章、决策仍 Pending、链接完整检查。
-- 现有 \`doc/design/tests/test_native_v02.py\` 的结构样例回归。
-- 不修改产品代码、Flyway、GitHub Ruleset、CI 选择器、V1.3 或 Native Schema，不把方案评审当作运行能力实现。
+**重要限制**：现有 S0 PostgreSQL CI 的 FoundationTest 目前只有安装状态和 Flyway V1 两项正向测试；未来实现 PR 不能仅凭它们通过就声称 ObjectType API/PG 写入已被覆盖。必须加入本体领域负例和可重复浏览器路径，并让 CI 实际执行。
 
 ## Rejected Alternatives
 
-1. **先做漂亮的模型工作台，后端接假数据**：拒绝。用户看不到真实保存/重开/冲突事实，与一个 PR 一个有形交付相悖。
-2. **直接让 React 写数据库 JSON 或把任意 package 文本原样写入 JSONB**：拒绝。服务器必须封闭未实现的 Link/Binding/Action 范围并对身份/主键/类型负责。
-3. **每个 Property 一张表 + 先搭完整 Registry/Compiler/权限引擎**：拒绝。S0 没有真实消费方，会膨胀。先以单包 JSONB 草稿完成纵向闭环，后续根据使用与版本要求演进。
-4. **把 schemaVersion、候选 package.version、编辑 revision、不可变 ReleaseDigest 混成一个版本**：拒绝。会造成并发覆盖和“草稿已发布”的错误语义。
-5. **对相同 packageId 做自动 upsert 或对版本冲突覆盖旧内容**：拒绝。静默丢失修改，必须明确 409 和恢复选择。
-6. **保存不完整/非法模型为正式草稿并告诉用户校验通过**：拒绝当前阶段。若引入 WIP/未完成草稿必须先设计另一层校验与状态；当前 Save 仅存满足最小结构合同的未发布 Draft。
-7. **因为是本地单人应用便伪造用户/Workspace/权限**：拒绝。只在 loopback、开发数据中使用，并明确未来安全前置门禁。
+1. **将一包一类型定义为永久领域约束**：拒绝；Native Package 原本是定义集合，未来 LinkType 需要跨 ObjectType 关系语义。
+2. **只要按“保存”就声称模型完整有效**：拒绝；WIP 保存与 Native V0.2 完整 Schema/语义校验必须分层。
+3. **为了存 WIP 而直接修改 V0.2 完整结构必填字段、允许其不再有效但仍叫 NativePackage**：拒绝；应设计独立 DraftEditingContent 和转换/校验。
+4. **直接在代码里取消现有 CROSS_TYPE_PROPERTY_ID_COLLISION 规则**：拒绝；先明确 Property 作用域并正式修订合同/兼容矩阵。
+5. **靠 LinkType 定义自动填充 ObjectInstance/LinkFact**：拒绝；类型声明不是来源事实。
+6. **以 draftId、package.version 或伪 digest 互相替代**：拒绝；编辑、语义版本、发布身份不可互换。
+7. **一轮直接写 SQL/API/页面、后续再评审用户故事**：拒绝；先冻结领域和合同，再做低保真/高保真，最后一个可验收功能 PR。
+8. **为未来 Workspace/审批/图引擎创建无消费方的空服务/通用模块**：拒绝；保留领域边界但不提前堆工程结构。
 
 ---
 
-### 待维护者审议的决策
+### Domain-Gate-1：请维护者逐项裁决（本轮只审领域模型）
 
-- **D1：产品范围** — 首个可交付 MVP 采用“真实 ObjectType → Property → 选主键 → 保存 → 返回列表 → 重开 → 再编辑”的纵向故事；不引入发布/Link/Binding，是否认可？
-- **D2：持久化聚合** — 暂以一个可编辑单 ObjectType 的 Native Package V0.2 草稿（完整 JSONB）作为存储聚合，\`packageId\` 唯一、\`draftId\` UUID 与 \`revision\` 分离，是否认可？
-- **D3：结构合同** — S0 创建时 \`schemaVersion=0.2.0\`、候选包 \`version=0.1.0\`、其他声明数组均空；使用现有 V0.2 字段和主键规则，是否认可？
-- **D4：并发和失败** — POST/GET/LIST/PUT、expectedRevision 乐观并发、稳定 400/404/409/422 与保留输入的恢复路径，是否认可？
-- **D5：交付及安全** — 验收必须包含真实 PG17/Flyway、API 负例和浏览器黄金故事；本机无认证仅 loopback，后续权限/多空间另审，是否认可？
-- **D6：实施节奏** — 提案显式 Accepted 后，**一个功能 PR** 完成前端 + 后端 + Flyway + 正反例 + 用户可复验路径，再考虑 LinkType/审核发布，是否认可？
+| 决策 | 推荐 A | 备选 B / 风险 |
+| --- | --- | --- |
+| **DG1 Package 基数** | Package 1:N ObjectType、1:N LinkType；首版 UI 先做第一个类型 | 一包永久一类型：未来关系建模需要返工 |
+| **DG2 草稿保存** | Save WIP 与 Validate 完整 Native Package 分离，WIP 可以未选主键 | 只能完整后保存：长表单编辑易丢失进度 |
+| **DG3 Property 身份** | 逻辑上以 ObjectType 为作用域；下轮必须显式处理 V0.2 的跨类型 ID 约束与兼容 | 延续 Package 全局唯一，实施最省改动但模型语义较僵硬 |
+| **DG4 主键规则** | PK 引用自身 Property.id，完整候选要求 required=true 且 STRING/INTEGER | 用展示名、任意复合字段或物理数据库自增键充当主键 |
+| **DG5 编辑/发布身份** | draftId + revision + schemaVersion + package.version + future ReleaseDigest 完全分离 | 合并版本概念导致并发/审核语义混乱 |
+| **DG6 LinkType 定位** | 领域先定义端点、基数与来源证据；首版无 Link 编辑器，不生成 LinkFact | 要么不考虑关系，要么首版把关系实例也做进去 |
+| **DG7 验证状态** | WIP / INCOMPLETE / INVALID / VALID 分离；未来 REVIEWED/PUBLISHED 另设 Gate | 校验绿灯直接标“发布” |
+| **DG8 MVP 范围** | 一个功能 PR 做首个 ObjectType 的真实创建、WIP 保存、重开、编辑、完整校验及失败恢复；未来多类型不受底层硬约束 | 首版把多类型/Link/Release 全部开发，会明显膨胀 |
+| **DG9 研发顺序** | 本轮领域签收 → 下轮技术合同 → 低保真 → 高保真 → 完整前后端 PR → Windows 实测 | 直接开发或机械地为了轮次生成多份重复文档 |
 
-**本文件保持 Discussion / Decision Pending；不能因为当前设计 PR 合并或 CI 成功而改为 Accepted。**
+**当前各项均为待审核建议，不视为用户已经逐项选择 A。** 你可在 PR #6 回复 \`DG1–DG9：全部 A\` 或指出需要修订的具体项；我会按照真实决议更新本 OFIP，随后再开始下一设计 Gate。正式 Accepted/Implementation 与技术架构整体签收必须继续分别记录。
