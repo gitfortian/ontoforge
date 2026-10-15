@@ -92,7 +92,7 @@ AGENTS/CONTRIBUTING 明确反对为每个内部改动同步 Architecture/Capabil
 
 **不照搬的前提**：Yak Ops 已有多 Connector、多数据库、恢复和生产发布链路；OntoForge 仍是 S0，只需小而确定的 PostgreSQL + Native 合同 + UI。Oracle/CD​​C、复杂套件矩阵、Kubernetes 发布、全量 E2E、数十个模块当前都没有业务归属，不应提前移植。
 
-## 5. OntoForge 当前差距（以 main `603602b` 为参考）
+## 5. OntoForge 当前差距（设计基线原始检查点 `603602b`；2026-10-15 已更新到 `6f98f5a`）
 
 | 维度 | 已有价值 | 实际差距 | 建议优先级 |
 | --- | --- | --- | --- |
@@ -102,9 +102,9 @@ AGENTS/CONTRIBUTING 明确反对为每个内部改动同步 Architecture/Capabil
 | 自动 CI | 已有 S0 后端/前端、Native V0.2、架构测试、PG POC | 五套 workflow 各自 path/部分 `push` 绑定历史功能分支；无稳定聚合、测试影响选择器/自测与“未运行”报告 | P0/P1 |
 | 前端 | TypeScript 与构建 CI | 尚无统一的 lint/format/架构边界和真实浏览器黄金故事；没有用户可操作的 Native 功能供其验证 | P0-A 后再增 |
 | 数据库 | Flyway V1、真实状态 API、研究期 PG RLS/竞态 POC | 尚未有生产 Native 持久化及模型行为反例；PG 研究 POC 不是发布代码的 Runtime E2E | P0-A 起 |
-| 发行 | 真实 S0 本地启动与说明（Windows 原生 PostgreSQL PR #2 待合并） | 尚无正式 Release Gate、证据绑定与可部署制品；现阶段不应建设生产发布链 | Pilot 前 |
+| 发行 | 真实 S0 本地启动与说明（Windows 原生 PostgreSQL PR #2 已合并；Windows 用户本机实际验收仍待核实） | 尚无正式 Release Gate、证据绑定与可部署制品；现阶段不应建设生产发布链 | Pilot 前 |
 
-**尤其注意**：PR #2 目前只是本机 PostgreSQL 环境统一的候选更改；未合并前不能声称 `main` 已具备其新默认值。当前每个 PR 的 CI 成功不能替代用户 Windows 主机手工验收。GitHub `main` 当前没有启用 branch protection，是否需要 Repository Ruleset/required checks 要单独确认权限和设置，不能通过编辑 YAML 假装已强制禁止绕过。
+**尤其注意**：PR #2 已经合并到 `main`；这说明配置与手册已经进入代码基线，**不等于**用户 Windows 主机实际验收已通过。当前每个 PR 的 CI 成功不能替代本机操作验证。GitHub Repository Ruleset/required checks 尚未确认为强制，不能通过编辑 YAML 假装拥有仓库合并保护。GitHub `main` 当前没有启用 branch protection，是否需要 Repository Ruleset/required checks 要单独确认权限和设置，不能通过编辑 YAML 假装已强制禁止绕过。
 
 ## 6. 推荐 OntoForge 文档信息架构：在现有结构上最小增量
 
