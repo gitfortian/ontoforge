@@ -53,6 +53,12 @@ jobs:
           test -f ontoforge-boot/pom.xml
           test -f ontoforge-ui/package.json
           grep -q '<module>ontoforge-boot</module>' pom.xml
+          grep -q '<groupId>io.ontoforge</groupId>' pom.xml
+          grep -q '<artifactId>ontoforge</artifactId>' pom.xml
+          grep -q '"name": "ontoforge-ui"' ontoforge-ui/package.json
+          test ! -d ontology-system-boot
+          test ! -d ontology-system-ui
+          test -f ontoforge-boot/src/main/java/io/ontoforge/boot/OntoForgeApplication.java
       - name: Real PostgreSQL startup and Flyway integration tests
         run: mvn -B -pl ontoforge-boot -am verify
   frontend:
