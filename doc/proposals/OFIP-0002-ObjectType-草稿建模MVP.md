@@ -4,19 +4,19 @@
 
 **Discussion:** [PR #6 — OFIP-0002 评审](https://github.com/gitfortian/ontoforge/pull/6)
 
-**Decision:** Domain-Gate-1：**DG1–DG9 全部 A 已通过**（[PR #6 维护者决定记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)）；Contract-Gate-2 / 原型及完整 OFIP **Pending**，不授权开发
+**Decision:** **Domain-Gate-1：DG1–DG9 全部 A 已通过**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)）；**Contract-Gate-2：TC1–TC10 全部 A 已通过**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191277696)）。低保真/高保真/完整 OFIP **Pending**，不授权业务功能开发
 
 **Implementation:** Not Started — 领域评审 → 技术合同评审 → 低保真原型 → 高保真签收 → 前后端纵向交付 → 真实验收
 
 **Release:** Not Released
 
-**Review gate:** Domain-Gate-1 **Passed**；Contract-Gate-2 **Discussion / Pending**（本轮提出 API、WIP 校验、PG 存储与兼容性候选，尚未冻结，未到原型或代码阶段）
+**Review gate:** Domain-Gate-1 **Passed**；Contract-Gate-2 **Passed (design only)**；UX-Gate-Low **Discussion / Pending**；UX-Gate-High **Not Started**。本轮仅交付交互评审材料，不开发业务代码
 
 **Related:** [OFIP-0001 治理规范](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [总体架构 V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2 结构合同候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md) · [S0 迭代计划](../implementation/S0-MVP-迭代计划.md)
 
 > **重要事实**：经核对当前 main，Spring Boot 仅有真实的系统状态 API，Flyway V1 只建平台安装记录；React 的本体建模入口仍为“规划中”。Native V0.2 的 JSON Schema 与 Python 正反例是真实存在的**候选合同与实验验证**，不是 Java 服务或生产编译器。S0 无认证/授权/工作空间隔离；不得作为企业正式服务开放或加载真实工业数据。
 >
-> **领域决策结果与后续技术评审**：DG1–DG9 已按推荐 A 方案通过，否定原先“一包一类型、只有完整才能保存”。**Package 1:N ObjectType、1:N LinkType；Save WIP 与 Validate 分离**成为领域设计约束。下文 Contract-Gate-2 提出具体技术合同，仍待单独评审；现有 Native V0.2 源码及产品实现本 PR 不改。
+> **已通过的两轮设计约束**：DG1–DG9 与 TC1–TC10 均明确签收为阶段设计决策。Package 1:N ObjectType、1:N LinkType；Save WIP 与 Validate 分离；草稿编辑 DTO / Native Candidate 独立；按包 revision 防覆盖；完整模型校验不等于发布。**机器合同代码的实际修订须在后续受审功能/合同 PR 中实现，并以测试证明**，不能将设计签收等同实现。现在进入低保真用户路径评审，低/高保真原型、完整 OFIP 仍待审。
 
 ## Motivation
 
@@ -147,7 +147,7 @@ LinkType --> ObjectType : source and target refs
 - `evidenceRequired` 描述未来产生真实 LinkFact 时是否需要来源证据；**只保存 LinkType 不得生成任何虚假关联事实**。
 - 首版用户故事不开放 LinkType 编辑器，但领域模型、候选 Package 结构和下阶段页面流程必须留出“为已有类型添加关系”的路径；不要求现在创建无用 Link API。
 
-### Contract-Gate-2：技术合同候选（Domain-Gate-1 通过后新增；尚未签收）
+### Contract-Gate-2：已通过的技术合同设计（TC1–TC10 全部 A；尚未编码）
 
 **设计口径**：这里给出 S0-MVP-0.2 的服务端/数据库/结构化编辑合同，供技术、产品、安全审议；本 PR **不新增 JSON Schema、Flyway、Controller 或 TypeScript**。应用前仍需低保真、高保真及其实际验收。本节决策编号为 TC1–TC10，**不是已经确认的设计结论**。
 
@@ -384,8 +384,8 @@ flowchart TD
 | Gate | 要回答的问题 | 本次输出与验收 |
 | --- | --- | --- |
 | **Domain-Gate-1（已通过）** | Package/Type/Property/Link 的拥有者、基数、身份、保存与校验、候选与发布如何分离？ | [DG1–DG9 全部 A 已签收](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093) |
-| **Contract-Gate-2（当前待审）** | Native V0.2 作用域冲突怎样显式修订？DraftEditingContent、ValidationResult、错误码、API、事务、迁移如何定义？ | 同一 OFIP 的 TC1–TC10 待签收；仍不写产品代码 |
-| UX-Gate-Low（随后） | 用户从包进入类型、保存未完成草稿、校验、冲突恢复的顺序是否自然？ | 低保真流程与可交互原型；评审通过才进下一 Gate |
+| **Contract-Gate-2（已通过）** | Native V0.2 引用作用域的正式修订方案；Typed WIP、ValidationResult、API、事务与迁移合同 | [TC1–TC10 全部 A 的明确记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191277696)；仍无新运行时代码 |
+| **UX-Gate-Low（当前待审）** | 用户从模型包进入类型，编辑属性、保存 WIP、校验、冲突/网络恢复的操作顺序是否清楚？ | [可点击低保真原型](../prototypes/ofip-0002-objecttype-lowfi.html) + 本 OFIP 的 UX 评审矩阵；评审通过后才进入高保真 |
 | UX-Gate-High（随后） | 页面是否符合 OntoForge 视觉体系、字段反馈、空态、错误、可访问性？ | 高保真原型 + 签收截图/状态矩阵；避免复刻未确认的 Demo |
 | Implementation Gate | 一次 PR 是否真正交付完整的前后端用户链路？ | Flyway 前向迁移、API、真实 PG、React、字段校验与浏览器自动化/手工回归 |
 | Acceptance Gate | Windows 11 本机用户能否完成黄金故事、重启与异常恢复？ | 用户实际操作与签收；CI 成功不替代本机验证 |
@@ -411,7 +411,7 @@ flowchart TD
 
 **签收记录**：[PR #6 评审评论](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)。DG1–DG9 按推荐 A 作为领域约束，但 **OFIP-0002 仍是 Discussion；Contract-Gate-2、交互/视觉、完整设计和实施状态继续独立审议**。
 
-### Contract-Gate-2：待维护者评审的技术决策（本轮 TC1–TC10，尚未批准）
+### Contract-Gate-2：已签收技术决策（TC1–TC10 全部 A；仅设计）
 
 | 议题 | 推荐 A：建议通过 | B / 代价或风险 |
 | --- | --- | --- |
@@ -426,7 +426,7 @@ flowchart TD
 | **TC9 兼容性** | 本 PR 不碰 Native Schema；下个受审合同 PR 明确旧 Property 唯一性变化、上下文规则、版本/迁移矩阵 | 仍用 0.2.0 名称暗改语义，不可追溯 |
 | **TC10 交付纪律** | TC1–TC9 单独评审通过后再做低保真→高保真→一次性纵向交付，不在技术合同评审 PR 开发 | 先堆 Controller/SQL/前端，再让原型追着代码跑 |
 
-**建议本次评审通过的方式**：维护者可明确回复“TC1–TC10 全部 A”或逐项提出修改。在这之前只承认 **DG1–DG9 已批准**，不得改为 `Status: Accepted`，不得以 PR merge / CI success 代替技术合同的真实签收，也不得开始业务功能代码。
+**技术合同签收记录**：[PR #6 评审评论](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191277696)。TC1–TC10 采用推荐 A；现有 Native V0.2 机器合同尚未修改，下一阶段 UX-Gate-Low 待实际评审。完整 OFIP 暂不改为 `Status: Accepted`，不得提前编写业务功能代码。
 
 
 ## Compatibility, Deprecation, and Migration Plan
