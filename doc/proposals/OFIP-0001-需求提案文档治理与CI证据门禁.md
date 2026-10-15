@@ -2,7 +2,7 @@
 
 **Status:** Discussion
 
-**Discussion:** [本提案 PR（提交后填写链接）](https://github.com/gitfortian/ontoforge/pulls)
+**Discussion:** [PR #3 — [DISCUSS][OFIP-0001]](https://github.com/gitfortian/ontoforge/pull/3)
 
 **Decision:** Pending — 需要项目维护者显式审议；本提案 PR 或 CI 成功不等于 Accepted
 
@@ -99,7 +99,7 @@ OntoForge 已经拥有 V1.3 总体设计、Native V0.2 结构合同和 S0-MVP-0.
 
 ### 6. 首轮试点和现有 PR
 
-现有 [Windows 11 本机 PostgreSQL 统一 PR #2](https://github.com/gitfortian/ontoforge/pull/2) 仍是独立 S0 验收，不能用本提案替代其实际环境验证，也不与本提案 PR 合并代码修改。
+现有 [Windows 11 本机 PostgreSQL 统一 PR #2](https://github.com/gitfortian/ontoforge/pull/2) **已合并**，但 Windows 实机验收仍是独立 S0 任务；不能用本提案替代实际环境验证，也不与本提案 PR 混入代码修改。
 
 建议在 OFIP-0001 Accepted 后，先提交一个工程治理 PR（模板/AGENTS/索引）和一个轻量 CI 稳定门禁 PR；然后以 S0-MVP-0.2 `ObjectType` 草稿保存和重开作为首个领域 OFIP 的验证应用。所有新功能以真实可运行体验为最终收口。
 
