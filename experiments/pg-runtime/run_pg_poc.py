@@ -507,10 +507,11 @@ def benchmark():
             times.sort()
             samples.append({"query":name,"samples":len(times),
                 "execution_ms_p50":statistics.median(times),
-                "execution_ms_p95_sample":times[-1],
+                "execution_ms_p95":statistics.quantiles(times,n=100,method="inclusive")[94],
                 "plan_root":plan["Plan"]["Node Type"],
                 "shared_hit_blocks":plan["Plan"].get("Shared Hit Blocks"),
-                "shared_read_blocks":plan["Plan"].get("Shared Read Blocks")})
+                "shared_read_blocks":plan["Plan"].get("Shared Read Blocks"),
+                "last_explain_analyze_plan":plan})
     result={"postgres":None,"lots":LOTS,"time":datetime.now(timezone.utc).isoformat(),
             "queries":samples,"scope":"single-runner local PostgreSQL, no production SLA"}
     with conn() as db:
