@@ -12,9 +12,9 @@
 - [文档目录、研究证据与历史清理说明](./doc/README.md)
 - [PostgreSQL ObjectSet / Action Outbox 研究实验](./experiments/pg-runtime/README.md)
 
-> **现阶段为 S0-MVP-0.1 本地工程验证**，不是可生产使用的本体产品。用户/权限/工作空间/业务系统连接尚未实现；所有架构选择仍以 V1.3 和阶段 Gate 为准。
+> **现阶段为 S0-MVP-0.2 本地 ObjectType 草稿建模候选（[PR #7](https://github.com/gitfortian/ontoforge/pull/7) 待合并/用户实测）**，不是可生产使用的本体产品。用户/权限/工作空间/业务系统连接尚未实现；所有架构选择仍以 V1.3 和阶段 Gate 为准。
 
-## S0-MVP-0.1：Windows 11 本机 PostgreSQL（默认开发方式）
+## S0-MVP-0.2：Windows 11 本机 PostgreSQL（默认开发方式）
 
 准备：Java 21、Maven、Node.js 22、已安装运行的**本机 PostgreSQL**，不需要 Docker Desktop。
 
@@ -29,7 +29,20 @@
    ```
 
 3. 另开 PowerShell 进入 `ontoforge-ui`，运行 `npm install` 和 `npm run dev`；访问 [http://127.0.0.1:5173](http://127.0.0.1:5173)。
-4. 新开 PowerShell，重新设置相同的 DB_* 环境变量，并在仓库根目录运行 `.\scripts\verify-s0.ps1`（`psql` 未加入 PATH 时传 `-PsqlPath`）。脚本只读校验 Flyway V1、数据库 UUID 与真实 API 是否一致；重启后端后可通过 `-ExpectedInstallationId` 验证持久化。
+4. 新开 PowerShell，重新设置相同的 DB_* 环境变量，并在仓库根目录运行 `.\scripts\verify-s0.ps1`（`psql` 未加入 PATH 时传 `-PsqlPath`）。脚本只读校验 Flyway V1/V2、数据库 UUID、`DRAFT_AVAILABLE` 与真实 API 是否一致；重启后端后可用 `-ExpectedInstallationId` 及 `-ExpectedDraftId` 验证既有安装和草稿均被保留。
+
+### ObjectType 真实黄金故事（使用测试模型，不要连接工厂生产数据）
+
+本轮不再使用 `doc/prototypes/` 中的内存模拟 HTML。直接访问 [本体建模工作台](http://127.0.0.1:5173/#/model/packages)，页面请求真实的 Spring Boot API，数据写入你的 `ontoforge` PostgreSQL：
+
+1. 在「模型包」点击「创建模型包」，输入 `manufacturing.production`。若已经有这个包，请打开已有草稿，**不要清空数据库**。
+2. 在对象类型填写 `production-batch` / `ProductionBatch`；可以暂时不设置主键，点击「保存编辑进度」。复制浏览器地址中的 `draftId`，刷新，核实原值仍在。
+3. 点「检查模型完整性」，未完成时看到 `INCOMPLETE`；添加 `batch-id` / `batchId`，选择 `STRING`、勾选「必填」，选择它为主键，保存后再校验应为 `VALID`。这**仅是本阶段结构/语义校验**，不代表审核或发布。
+4. 修改描述并保存，核实旧校验变为 `NOT_RUN`，数据库草稿 revision 增长；重开刚才 URL，核实确实读取 PostgreSQL。
+5. 使用两个浏览器标签页编辑同一 `draftId`；分别保存时旧 revision 应得到 `409 DRAFT_REVISION_CONFLICT`，第二个标签页未保存内容必须保留。断开 API 时不得报告“已保存”，恢复后先核对服务器 revision。
+6. 停止并重新启动 Spring Boot，不要重建 PG 数据库。可运行 `.\scripts\verify-s0.ps1 -ExpectedInstallationId <UUID> -ExpectedDraftId <UUID>`，验证安装身份、Flyway V1/V2 和草稿持久性。替换占位 UUID 为 API 返回的实际值。
+
+**自动证据**：CI 采用隔离 PG17、真实 Spring Boot API、React/Vite 与 Chromium，检查上述成功与冲突/网络负例。**Windows 11 本机人工验收尚未执行时，不得声称已通过。** 本 MVP 不提供 LinkType 编辑、正式发布、身份授权、模型实例、Data Binding 或 Action。
 
 **完整分步骤、psql 安装目录用法、失败排查与重启验收**：[Windows 11 本机 PostgreSQL 启动与验收](./doc/implementation/S0-Windows11-本机PostgreSQL-启动与验收.md)。
 
