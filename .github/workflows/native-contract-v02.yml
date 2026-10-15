@@ -1,0 +1,30 @@
+name: Native DSL AST V0.2 Contract Gates
+
+on:
+  push:
+    branches:
+      - design/native-dsl-ast-v02-contract-20261015
+  pull_request:
+    paths:
+      - "doc/design/schema/*v0.2*"
+      - "doc/design/examples/*v0.2*"
+      - "doc/design/tests/test_native_v02.py"
+      - ".github/workflows/native-contract-v02.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-contract-v02:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned structural validator
+        run: python -m pip install jsonschema==4.25.1
+      - name: Validate Native package, Typed AST, ObjectSet and evidence contracts
+        run: python -m unittest discover -s doc/design/tests -p test_native_v02.py -v
