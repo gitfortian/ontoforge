@@ -9,11 +9,6 @@ on:
       - "experiments/pg-runtime/**"
       - ".github/workflows/pg-runtime-poc.yml"
   workflow_dispatch:
-    inputs:
-      lots:
-        description: Synthetic product lot and order count (1000-500000)
-        required: false
-        default: "20000"
 
 permissions:
   contents: read
@@ -26,6 +21,10 @@ jobs:
   postgres-query-and-outbox:
     runs-on: ubuntu-latest
     timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        lots: [20000, 100000]
     services:
       postgres:
         image: postgres:17
@@ -42,7 +41,7 @@ jobs:
           --health-retries 15
     env:
       POC_PG_DSN: postgresql://postgres:postgres@127.0.0.1:5432/ontopoc
-      POC_LOTS: ${{ inputs.lots || '20000' }}
+      POC_LOTS: ${{ matrix.lots }}
       PYTHONUNBUFFERED: "1"
     steps:
       - uses: actions/checkout@v4
@@ -58,6 +57,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: postgres-17-ontology-poc-evidence
+          name: postgres-17-poc-${{ matrix.lots }}-lots
           path: experiments/pg-runtime/artifacts/
           if-no-files-found: warn
