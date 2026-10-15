@@ -193,3 +193,99 @@
 
 **自主建议**：Action 的调用身份、输入阅读身份、目标编辑权限、外部执行身份和审批权限明确区分，使用 scope-bound credentials；在 SDK/Agent/MCP、后台批处理及函数入口均应用同样的 Policy Enforcement。对 Action 依赖的资源版本和权限做启动时及执行前校验；撤权后不能通过已缓存 Action 计划或后台任务继续越权提交。
 
+
+
+## 7. 三个容易被误读的工程问题
+
+### 7.1 “Writeback Dataset 是修改对象的必经环节”——仅对旧版本部分成立
+
+**官方可证实**：[P32] 对比 Object Storage v1/v2：v1 使用必须配置的 writeback dataset 来承载对象编辑；v2 允许开启 Edits 并直接索引用户编辑，Materialization 是供下游分析/下载快照使用的**可选产物**，不再是编辑的必要条件。v2 的物化与真实对象状态可能存在分钟级/计划延迟，并可能只保障最近快照。
+
+**决策启发**：我们需要定义 **Source Facts、Operational Edits、Effective Object View、External System Receipt、Export/Materialization** 五种不同的状态与版本。不要在底座中把 Writeback Dataset 当成永远必须存在的主执行数据库，也不要让导出的物化快照充当实时对象真相。
+
+**我们自己的架构候选**：写入入口只能是受控 ActionAPI；平台内接受的 edit 形成独立可追溯事件/编辑层，异步 Indexer 将其合并为当前对象视图；外部系统写回由 Action Adapter 与状态核验负责。编辑层与外部系统事实之间可能需要冲突裁决。正式选择编辑事件存储/物化方案前，需完成一致性与失败 POC。
+
+### 7.2 “只要 ObjectSet 过滤了无权对象，导出仍会安全”——错误
+
+**官方可证实**：[P30] 对象/属性策略可以实现行/列/单元可见性，但这些通常是**读时**过滤，不自动约束下游导出。[P31] 明确将 Mandatory Control 的衍生传播与 Row/Column 的读取过滤区分开；在输出、导出、写回、函数结果中必须选择匹配的传播/派生机制。
+
+**我们的工程红线**：QueryPolicy 与 DataClassification/LineagePropagation 分离。所有可导出、函数结果、临时物化、缓存、Embedding、MCP/Agent 上下文都要有数据标签、权限范围和保留策略；不能只校验用户发起查询的瞬间。对于敏感数据派生输出，保守沿用强制标记或显式脱敏审批。
+
+**侧信道事实**：[P33] 还公开提醒 Action 参数的静态筛选值可能通过 ObjectSet RID/网络请求暴露受限信息，说明授权设计不只涉及返回的对象值，还涉及过滤表达式、错误、计数和运行痕迹。我们的审查必须覆盖这些路径。
+
+### 7.3 “Schema 版本升级和索引升级是一件事”——错误
+
+**官方可证实**：Palantir Global Branching 对本体资源支持分支、提案、评审与合并 [P18]；Object Storage v2 的 Funnel 索引可以在某些 Schema 变更时运行替代 Pipeline，在替代版本就绪后切换 [P19]。公开的 OSv1→OSv2 迁移存在破坏性 API/能力差异 [P03]。
+
+**我们的自主建议**：Model Release Approval 与 Binding Migration Approval、Indexer Build Activation 和 Query Compatibility Gate 必须是独立状态，最后通过一个 Release Compatibility Report 衔接。对象主键、关系存储方式、权限传播配置、可检索属性变更应提前验证并给出可观察的迁移窗口。
+
+## 8. 完整制造质量追溯：用来检验我们是否真的学到了 Palantir
+
+目标故事：QMS 报告一个物料批次存在不合格项，需要知道受影响的产品批次、工单和客户订单，并完成受控冻结或复检申请。
+
+~~~mermaid
+flowchart LR
+  SRC["ERP / MES / QMS"]
+  BIND["Mapping + Identity + Source Evidence"]
+  IDX["Object Index / Link Index"]
+  SET["ObjectSet Query: Held Lots → Orders"]
+  FUNC["Function: Impact Risk / Aggregate"]
+  PRE["Action Preview + Policy + Approval"]
+  EXEC["Action Dispatch: QMS / ERP"]
+  ACK["External Receipt + Reconciliation"]
+  SRC --> BIND --> IDX --> SET --> FUNC --> PRE --> EXEC --> ACK
+  ACK -.fresh state.-> SRC
+~~~
+
+**检查项：**
+1. 在 Native Schema 中定义 MaterialLot、ProductLot、QualityEvent、WorkOrder、CustomerOrder、Supplier 的 ObjectType、LinkType、Field/Interface；即使未连接 QMS 也可成功发布 Schema，但不能假造对象实例。
+2. 通过不同 QMS/MES/ERP 样例建立 SourceConnection、Mapping、IdentityRule，以主键/证据连接同一批次；检验同名异义和来源撤权用例。
+3. 将生产批次和影响关系索引为可查询对象；模拟一条乱序更新和一条被撤销关系，验证 watermark 与关系重建策略。
+4. ObjectSet 按质量状态/工厂/时间筛选批次并沿关联链接到订单，返回路径、来源、完整性、精度、新鲜度；确认不可从无权小组的聚合推断存在。
+5. Function 从 ObjectSet 计算影响订单数量与金额，不能先拉取所有对象到内存；模拟异常/超时/降级。
+6. Action 预演一份拟议冻结/复检变更：显示对象前后状态、影响对象集合、外部调用目标；只有具权限且证据完整的主体能提交。
+7. Action 真正运行在沙箱外部系统，验证显式拒绝、重试幂等、网络超时 UNKNOWN、业务回执及对账；关闭 Agent 工具旁路。
+8. 审核 ActionFunction 版本变更对 effectScope 的影响；检查原函数批准后的补丁是否能够扩大目标范围（应拒绝）。
+9. 任何对象状态/审批时间/链接关系变化都应影响预演有效性；过期 Preview 必须重新评估。
+10. 模型版本更新、索引重建、源绑定撤回后，旧 ObjectSet/游标/缓存不得违反新的权限策略。
+
+### 8.1 原生 API 契约的最小切面（建议，不是官方复制）
+
+| API 族 | 设计中的核心入口 | 返回或守卫 |
+|---|---|---|
+| Schema | CreateType、ValidatePackage、ProposeRelease、Activate | ReleaseDigest、CompatibilityReport、PolicyGate |
+| Binding | DescribeSource、CreateMapping、ValidateIdentity、ActivateBinding | MappingVersion、Proof/Conflict、SourceWatermark |
+| Object | ResolveObject、GetObject、GetLinks | EntityRef、SourceEvidence、Freshness、AuthScope |
+| ObjectSet | BuildSet、Filter、Traverse、Aggregate、LoadPage、Explain | TypedPlan、CountAccuracy、Limits、Partial/Unknown |
+| Function | RegisterFunction、ValidateEffects、ExecuteQueryFunction | FunctionVersion、ResultEvidence、ResourceBudget |
+| Action | Preview、Submit、Approve、GetStatus、Reconcile | ProposedEdits、ActionAttemptId、IdempotencyKey、Receipt |
+| Optional Semantics | ImportOntology、ExportProjection、ValidateProfile | LossReport、AdapterVersion、NativeReleaseRef |
+
+权限最小集合至少需分离 ViewSchema、ViewInstance、ReadProperty、TraverseLink、CallFunction、PreviewAction、ApplyAction、ApproveAction、AdminConnector，并在实际实现前进一步细化。**不能复用 Yak Ops Workspace 三角色作为唯一安全模型**。
+
+## 9. 架构冻结前的待定决策与 POC 矩阵
+
+| 决策 | 已有证据足以确认的方向 | 还不能据此确定的选型 | POC／验收证据 |
+|---|---|---|---|
+| R01 Native 权威 | Native Schema + 可选 OWL 是本项目已确定的产品路线，Palantir 运营本体抽象提供参考 | 最终 DSL/AST 字段结构 | Native V0.2 Schema、正反例、迁移矩阵、语义 Diff |
+| R02 Binding 分离 | 业务 Schema 与真实数据绑定生命周期不一致 | 全量存储、联邦、物化的比例 | 源 Schema 漂移、双源身份、断连、撤权回归 |
+| R03 ObjectSet | Typed/Lazy 查询、搜索/关联/聚合为本体核心 | SQL vs Search vs Graph 哪个作默认物理引擎 | 真实对象规模、扇出、权限、聚合准确率及延迟 POC |
+| R04 Edit Layer | 源事实与对象编辑/实际生效状态应分离 | 编辑事件库/对象索引刷新与事务方案 | 乱序、幂等、覆盖层冲突、快照恢复 |
+| R05 Function | 支持只读计算和受控本体编辑函数 | Java-only、TS/Python 沙箱与部署边界 | N+1、版本锁、声明效果与实际效果比较 |
+| R06 Action | 显式政策、提交条件、Preview、执行回执 | 外部写回是同步还是 Saga/Outbox 的细节 | UNKNOWN/重试/撤权/副作用与安全负例 |
+| R07 Security | 对象级、字段级和导出传播必须区分 | ABAC 规则语言、标签体系和性能代价 | 索引+查询+函数+导出+MCP 端到端防越权 |
+| R08 Ontology CI | 模型版本、依赖、审查与索引激活分离 | 分支/候选合并的数据结构实现 | 模型冲突、失效签名、迁移失败不激活 |
+| R09 Standard Adapter | OWL 非核心，支持特定互操作 Profile | 哪些公理和格式可精确双向映射 | LOSSLESS/PARTIAL/UNSUPPORTED 契约测试 |
+| R10 Yak Ops 底座 | 工程结构和 UI 复用有价值 | 数据库选型、认证升级、具体裁剪清单 | 单实例登录/Workspace、无 YakFlow 启动依赖 |
+
+### 9.1 对目前开发顺序的实际建议
+
+**本轮仍处于前期调研与架构收口，暂不要求全面开发。** 建议以「冻结总原则 → 两个高风险可抛弃 POC → S0 底座 → P0-A Native Model → P1 Binding + ObjectSet → P2 Function/Action」推进：
+
+- **POC-Query**：用制造质量实体/链接与真实来源数据验证 ObjectSet 物理存储选型、连接查询、分页/计数、权限执行和性能预算。这项比马上固定 Graph/Jena/OpenSearch 更重要。
+- **POC-Edit**：检验 SourceFacts + EditIntent + ObjectView + ExternalReceipt 的一致性/故障恢复与重放，确定 Action 和原始数据的边界。此项避免后续写回模块推翻 Runtime。
+- **S0**：Yak Ops 仅采用模块化、认证/工作空间/前端 Shell/CI 的必要公共部分，按依赖裁剪和安全评审；不要引入 YakFlow/同步任务作为默认核心依赖。
+- **P0-A**：只实现 Native ObjectType/Property/LinkType、模型包/Registry/变更校验的可运行闭环，保留 P1/P2 所需接口但不提前开发所有执行器。
+
+**具体性能门槛**：需以试点规模、企业硬件预算、原始数据分布确定，并记录 p50/p95/p99、增量索引耗时、跨源映射覆盖率、权限开销、精确/近似结果的错误界限。Palantir 官方公开数字只说明其产品特定能力，**不构成我们的容量或 SLA 承诺**。
+
