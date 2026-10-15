@@ -109,6 +109,9 @@ public final class DraftValidation {
         return issues;
     }
 
+    private static boolean optionalMissing(JsonNode v) {
+        return v==null || v.isNull() || (v.isTextual() && v.textValue().isBlank());
+    }
     private static int mapperBytes(ObjectMapper mapper, JsonNode doc) {
         try {return mapper.writeValueAsBytes(doc).length;}
         catch (Exception e) {return Integer.MAX_VALUE;}
@@ -213,12 +216,12 @@ public final class DraftValidation {
         ArrayNode cleanTypes=mapper.createArrayNode();
         for(JsonNode object:objects){
             ObjectNode clean=(ObjectNode)object.deepCopy();
-            if(clean.has("label") && clean.path("label").asText().isBlank()) clean.remove("label");
-            if(clean.has("description") && clean.path("description").asText().isBlank()) clean.remove("description");
+            if(optionalMissing(clean.get("label"))) clean.remove("label");
+            if(optionalMissing(clean.get("description"))) clean.remove("description");
             ArrayNode cleanProperties=mapper.createArrayNode();
             for(JsonNode prop:object.get("properties")){
                 ObjectNode cp=(ObjectNode)prop.deepCopy();
-                if(cp.has("label") && cp.path("label").asText().isBlank()) cp.remove("label");
+                if(optionalMissing(cp.get("label"))) cp.remove("label");
                 if(cp.has("enumValues") && !"ENUM".equals(get(cp,"valueType"))) cp.remove("enumValues");
                 cleanProperties.add(cp);
             }
@@ -228,6 +231,9 @@ public final class DraftValidation {
         candidate.set("objectTypes",cleanTypes);
         for(String key:List.of("linkTypes","bindings","linkBindings","objectSets","functions","rules","decisionStrategies","policies","actions"))
             candidate.set(key,mapper.createArrayNode());
+        List<Issue> schemaIssues=NativePackageSchema.validate(candidate);
+        if(!schemaIssues.isEmpty())
+            return new Result("INVALID",schemaIssues,null);
         return new Result("VALID",List.of(),candidate);
     }
 }
