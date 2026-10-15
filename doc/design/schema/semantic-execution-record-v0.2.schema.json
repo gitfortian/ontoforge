@@ -327,6 +327,58 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "authorization": {
+            "properties": {
+              "authorizationDecision": {
+                "const": "DENY"
+              }
+            },
+            "required": [
+              "authorizationDecision"
+            ]
+          }
+        },
+        "required": [
+          "authorization"
+        ]
+      },
+      "then": {
+        "properties": {
+          "state": {
+            "enum": [
+              "DENIED",
+              "BLOCKED"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "VERIFIED_SUCCESS"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "authorization": {
+            "properties": {
+              "authorizationDecision": {
+                "const": "PERMIT"
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }
