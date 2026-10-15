@@ -6,29 +6,25 @@
   "imports": [],
   "objectTypes": [
     {
-      "id": "quality-event",
-      "apiName": "QualityEvent",
-      "primaryKeyRef": "event-id",
+      "id": "customer-order",
+      "apiName": "CustomerOrder",
+      "primaryKeyRef": "order-id",
       "properties": [
         {
-          "id": "event-id",
-          "apiName": "eventId",
+          "id": "order-id",
+          "apiName": "orderId",
           "valueType": "STRING",
           "required": true,
           "searchable": true,
           "classification": "INTERNAL"
         },
         {
-          "id": "inspection-status",
-          "apiName": "inspectionStatus",
-          "valueType": "ENUM",
-          "required": true,
+          "id": "amount-cents",
+          "apiName": "amountCents",
+          "valueType": "INTEGER",
+          "required": false,
           "searchable": true,
-          "classification": "INTERNAL",
-          "enumValues": [
-            "HELD",
-            "PASSED"
-          ]
+          "classification": "CONFIDENTIAL"
         }
       ]
     },
@@ -89,6 +85,33 @@
       ]
     },
     {
+      "id": "quality-event",
+      "apiName": "QualityEvent",
+      "primaryKeyRef": "event-id",
+      "properties": [
+        {
+          "id": "event-id",
+          "apiName": "eventId",
+          "valueType": "STRING",
+          "required": true,
+          "searchable": true,
+          "classification": "INTERNAL"
+        },
+        {
+          "id": "inspection-status",
+          "apiName": "inspectionStatus",
+          "valueType": "ENUM",
+          "required": true,
+          "searchable": true,
+          "classification": "INTERNAL",
+          "enumValues": [
+            "HELD",
+            "PASSED"
+          ]
+        }
+      ]
+    },
+    {
       "id": "work-order",
       "apiName": "WorkOrder",
       "primaryKeyRef": "workorder-id",
@@ -102,40 +125,9 @@
           "classification": "INTERNAL"
         }
       ]
-    },
-    {
-      "id": "customer-order",
-      "apiName": "CustomerOrder",
-      "primaryKeyRef": "order-id",
-      "properties": [
-        {
-          "id": "order-id",
-          "apiName": "orderId",
-          "valueType": "STRING",
-          "required": true,
-          "searchable": true,
-          "classification": "INTERNAL"
-        },
-        {
-          "id": "amount-cents",
-          "apiName": "amountCents",
-          "valueType": "INTEGER",
-          "required": false,
-          "searchable": true,
-          "classification": "CONFIDENTIAL"
-        }
-      ]
     }
   ],
   "linkTypes": [
-    {
-      "id": "quality-affects-material",
-      "apiName": "QualityAffectsMaterial",
-      "sourceTypeRef": "quality-event",
-      "targetTypeRef": "material-lot",
-      "cardinality": "MANY_TO_MANY",
-      "evidenceRequired": true
-    },
     {
       "id": "material-used-by-product",
       "apiName": "MaterialUsedByProduct",
@@ -153,6 +145,14 @@
       "evidenceRequired": true
     },
     {
+      "id": "quality-affects-material",
+      "apiName": "QualityAffectsMaterial",
+      "sourceTypeRef": "quality-event",
+      "targetTypeRef": "material-lot",
+      "cardinality": "MANY_TO_MANY",
+      "evidenceRequired": true
+    },
+    {
       "id": "workorder-fulfills-order",
       "apiName": "WorkorderFulfillsOrder",
       "sourceTypeRef": "work-order",
@@ -163,48 +163,22 @@
   ],
   "bindings": [
     {
-      "id": "qms-event-binding",
+      "id": "erp-order-binding",
       "version": "1.0.0",
-      "sourceRef": "qms-inspections",
-      "sourceSchemaVersion": "qms-schema-2026-10",
-      "objectTypeRef": "quality-event",
-      "sourceKey": "event_id",
+      "sourceRef": "erp-orders",
+      "sourceSchemaVersion": "erp-schema-2026-10",
+      "objectTypeRef": "customer-order",
+      "sourceKey": "order_id",
       "fieldMappings": [
         {
-          "propertyRef": "event-id",
-          "sourceField": "event_id"
+          "propertyRef": "order-id",
+          "sourceField": "order_id",
+          "authority": "AUTHORITATIVE"
         },
         {
-          "propertyRef": "inspection-status",
-          "sourceField": "inspection_status"
-        }
-      ],
-      "identity": {
-        "strategy": "SOURCE_KEY",
-        "conflictPolicy": "REJECT"
-      },
-      "refreshMode": "CDC",
-      "sourceAuthority": "AUTHORITATIVE",
-      "completeness": {
-        "maxAgeSeconds": 3600,
-        "onMissing": "UNKNOWN"
-      }
-    },
-    {
-      "id": "qms-material-binding",
-      "version": "1.0.0",
-      "sourceRef": "qms-lots",
-      "sourceSchemaVersion": "qms-schema-2026-10",
-      "objectTypeRef": "material-lot",
-      "sourceKey": "material_lot_id",
-      "fieldMappings": [
-        {
-          "propertyRef": "material-id",
-          "sourceField": "material_lot_id"
-        },
-        {
-          "propertyRef": "source-quality-status",
-          "sourceField": "quality_status"
+          "propertyRef": "amount-cents",
+          "sourceField": "total_cents",
+          "authority": "AUTHORITATIVE"
         }
       ],
       "identity": {
@@ -212,7 +186,6 @@
         "conflictPolicy": "REJECT"
       },
       "refreshMode": "BATCH",
-      "sourceAuthority": "AUTHORITATIVE",
       "completeness": {
         "maxAgeSeconds": 3600,
         "onMissing": "UNKNOWN"
@@ -228,11 +201,13 @@
       "fieldMappings": [
         {
           "propertyRef": "lot-id",
-          "sourceField": "product_lot_id"
+          "sourceField": "product_lot_id",
+          "authority": "AUTHORITATIVE"
         },
         {
           "propertyRef": "quality-status",
-          "sourceField": "quality_state"
+          "sourceField": "quality_state",
+          "authority": "AUTHORITATIVE"
         }
       ],
       "identity": {
@@ -240,7 +215,6 @@
         "conflictPolicy": "REJECT"
       },
       "refreshMode": "CDC",
-      "sourceAuthority": "AUTHORITATIVE",
       "completeness": {
         "maxAgeSeconds": 3600,
         "onMissing": "UNKNOWN"
@@ -256,7 +230,8 @@
       "fieldMappings": [
         {
           "propertyRef": "workorder-id",
-          "sourceField": "work_order_id"
+          "sourceField": "work_order_id",
+          "authority": "AUTHORITATIVE"
         }
       ],
       "identity": {
@@ -264,27 +239,57 @@
         "conflictPolicy": "REJECT"
       },
       "refreshMode": "CDC",
-      "sourceAuthority": "AUTHORITATIVE",
       "completeness": {
         "maxAgeSeconds": 3600,
         "onMissing": "UNKNOWN"
       }
     },
     {
-      "id": "erp-order-binding",
+      "id": "qms-event-binding",
       "version": "1.0.0",
-      "sourceRef": "erp-orders",
-      "sourceSchemaVersion": "erp-schema-2026-10",
-      "objectTypeRef": "customer-order",
-      "sourceKey": "order_id",
+      "sourceRef": "qms-inspections",
+      "sourceSchemaVersion": "qms-schema-2026-10",
+      "objectTypeRef": "quality-event",
+      "sourceKey": "event_id",
       "fieldMappings": [
         {
-          "propertyRef": "order-id",
-          "sourceField": "order_id"
+          "propertyRef": "event-id",
+          "sourceField": "event_id",
+          "authority": "AUTHORITATIVE"
         },
         {
-          "propertyRef": "amount-cents",
-          "sourceField": "total_cents"
+          "propertyRef": "inspection-status",
+          "sourceField": "inspection_status",
+          "authority": "AUTHORITATIVE"
+        }
+      ],
+      "identity": {
+        "strategy": "SOURCE_KEY",
+        "conflictPolicy": "REJECT"
+      },
+      "refreshMode": "CDC",
+      "completeness": {
+        "maxAgeSeconds": 3600,
+        "onMissing": "UNKNOWN"
+      }
+    },
+    {
+      "id": "qms-material-binding",
+      "version": "1.0.0",
+      "sourceRef": "qms-lots",
+      "sourceSchemaVersion": "qms-schema-2026-10",
+      "objectTypeRef": "material-lot",
+      "sourceKey": "material_lot_id",
+      "fieldMappings": [
+        {
+          "propertyRef": "material-id",
+          "sourceField": "material_lot_id",
+          "authority": "AUTHORITATIVE"
+        },
+        {
+          "propertyRef": "source-quality-status",
+          "sourceField": "quality_status",
+          "authority": "AUTHORITATIVE"
         }
       ],
       "identity": {
@@ -292,7 +297,6 @@
         "conflictPolicy": "REJECT"
       },
       "refreshMode": "BATCH",
-      "sourceAuthority": "AUTHORITATIVE",
       "completeness": {
         "maxAgeSeconds": 3600,
         "onMissing": "UNKNOWN"
@@ -300,16 +304,6 @@
     }
   ],
   "linkBindings": [
-    {
-      "id": "quality-material-map",
-      "version": "1.0.0",
-      "linkTypeRef": "quality-affects-material",
-      "sourceRef": "qms-inspection-links",
-      "sourceSchemaVersion": "mapping-schema-2026-10",
-      "sourceKey": "source_key",
-      "targetKey": "target_key",
-      "refreshMode": "BATCH"
-    },
     {
       "id": "material-product-map",
       "version": "1.0.0",
@@ -325,6 +319,16 @@
       "version": "1.0.0",
       "linkTypeRef": "product-built-by-workorder",
       "sourceRef": "mes-prod-workorder",
+      "sourceSchemaVersion": "mapping-schema-2026-10",
+      "sourceKey": "source_key",
+      "targetKey": "target_key",
+      "refreshMode": "BATCH"
+    },
+    {
+      "id": "quality-material-map",
+      "version": "1.0.0",
+      "linkTypeRef": "quality-affects-material",
+      "sourceRef": "qms-inspection-links",
       "sourceSchemaVersion": "mapping-schema-2026-10",
       "sourceKey": "source_key",
       "targetKey": "target_key",
@@ -406,18 +410,18 @@
   ],
   "policies": [
     {
-      "id": "hold-authorization",
-      "version": "1.0.0",
-      "kind": "ACTION_AUTHORIZATION",
-      "policyArtifactRef": "policy-registry/hold-authorization@1.0.0",
-      "artifactDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-    },
-    {
       "id": "hold-approval",
       "version": "1.0.0",
       "kind": "APPROVAL",
       "policyArtifactRef": "policy-registry/hold-approval@1.0.0",
       "artifactDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    {
+      "id": "hold-authorization",
+      "version": "1.0.0",
+      "kind": "ACTION_AUTHORIZATION",
+      "policyArtifactRef": "policy-registry/hold-authorization@1.0.0",
+      "artifactDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     }
   ],
   "actions": [
