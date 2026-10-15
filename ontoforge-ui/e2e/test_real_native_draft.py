@@ -139,7 +139,10 @@ class NativeDraftRealBrowserTest(unittest.TestCase):
         self.page.locator("#obj-desc").fill("不可悄悄丢失的本地内容")
         self.page.once("dialog", lambda dialog: dialog.dismiss())
         self.page.go_back(wait_until="domcontentloaded")
-        self.assertTrue(self.page.url.endswith("/#/model/drafts/"+self.id))
+        # The hashchange guard restores the URL asynchronously after the
+        # browser history transition; go_back() can return before that event.
+        self.page.wait_for_function("(hash)=>window.location.hash===hash",
+                                    arg="#/model/drafts/"+self.id, timeout=5000)
         self.assertEqual(self.page.locator("#obj-desc").input_value(), "不可悄悄丢失的本地内容")
         # URL history Back has been cancelled; a direct in-app hash nav must
         # pass through the same guard (no silent skip).
