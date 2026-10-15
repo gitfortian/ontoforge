@@ -36,7 +36,7 @@ class HighFiBrowserUX(unittest.TestCase):
         if os.environ.get("UX_CAPTURE_SCREENSHOTS"):
             target = Path(os.environ.get("UX_SCREENSHOT_DIR", "/tmp/ontoforge-highfi-shots"))
             target.mkdir(parents=True, exist_ok=True)
-            self.page.screenshot(path=str(target / (self._testMethodName + ".png")), full_page=True)
+            self.page.screenshot(path=str(target / (self.__class__.__name__ + "__" + self._testMethodName + ".png")), full_page=True)
         self.assertEqual(self.console_errors, [], "Prototype JavaScript exception")
         self.page.close()
 
