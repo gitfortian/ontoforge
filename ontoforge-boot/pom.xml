@@ -33,6 +33,11 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.networknt</groupId>
+            <artifactId>json-schema-validator</artifactId>
+            <version>1.5.9</version>
+        </dependency>
+        <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
@@ -45,6 +50,18 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!-- Runtime and Python use ONE authoritative Native V0.2 JSON schema. -->
+            <resource>
+                <directory>${project.basedir}/../doc/design/schema</directory>
+                <includes><include>ontology-package-v0.2.schema.json</include></includes>
+                <targetPath>native</targetPath>
+                <filtering>false</filtering>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
