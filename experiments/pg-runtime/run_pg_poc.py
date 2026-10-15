@@ -64,35 +64,35 @@ def seed(lots):
         db.execute("TRUNCATE poc.workorder_order,poc.lot_workorder,poc.quality_event,"
                    "poc.product_lot,poc.material_lot,poc.work_order,poc.customer_order RESTART IDENTITY CASCADE")
         db.execute("INSERT INTO poc.material_lot SELECT i,"
-                   "CASE WHEN i%10=0 THEN 'B' ELSE 'A' END,'PUBLIC'"
+                   "CASE WHEN i%%10=0 THEN 'B' ELSE 'A' END,'PUBLIC'"
                    " FROM generate_series(1,%s) AS s(i)", (lots // 10,))
         db.execute("INSERT INTO poc.work_order SELECT i,"
-                   "CASE WHEN i%10=0 THEN 'B' ELSE 'A' END,'PUBLIC'"
+                   "CASE WHEN i%%10=0 THEN 'B' ELSE 'A' END,'PUBLIC'"
                    " FROM generate_series(1,%s) AS s(i)", (lots // 2,))
-        db.execute("INSERT INTO poc.customer_order SELECT i,1000+(i%100)*25,"
-                   "CASE WHEN ((i+1)/2)%10=0 THEN 'B' ELSE 'A' END,"
-                   "CASE WHEN i%17=0 THEN 'RESTRICTED' ELSE 'PUBLIC' END"
+        db.execute("INSERT INTO poc.customer_order SELECT i,1000+(i%%100)*25,"
+                   "CASE WHEN ((i+1)/2)%%10=0 THEN 'B' ELSE 'A' END,"
+                   "CASE WHEN i%%17=0 THEN 'RESTRICTED' ELSE 'PUBLIC' END"
                    " FROM generate_series(1,%s) AS s(i)", (lots,))
         db.execute("INSERT INTO poc.product_lot SELECT i,((i-1)/10)+1,"
-                   "CASE WHEN (((i-1)/10)+1)%10=0 THEN 'B' ELSE 'A' END,"
-                   "CASE WHEN i%19=0 THEN 'RESTRICTED' ELSE 'PUBLIC' END"
+                   "CASE WHEN (((i-1)/10)+1)%%10=0 THEN 'B' ELSE 'A' END,"
+                   "CASE WHEN i%%19=0 THEN 'RESTRICTED' ELSE 'PUBLIC' END"
                    " FROM generate_series(1,%s) AS s(i)", (lots,))
         db.execute("INSERT INTO poc.quality_event SELECT i,i,"
-                   "CASE WHEN i%4=0 THEN 'HELD' ELSE 'PASSED' END,"
-                   "CASE WHEN i%10=0 THEN 'B' ELSE 'A' END,'PUBLIC'"
+                   "CASE WHEN i%%4=0 THEN 'HELD' ELSE 'PASSED' END,"
+                   "CASE WHEN i%%10=0 THEN 'B' ELSE 'A' END,'PUBLIC'"
                    " FROM generate_series(1,%s) AS s(i)", (lots // 10,))
         db.execute("INSERT INTO poc.lot_workorder(lot_id,workorder_id,workspace_id,visibility)"
                    " SELECT i,((i-1)/2)+1,"
-                   "CASE WHEN (((i-1)/10)+1)%10=0 THEN 'B' ELSE 'A' END,'PUBLIC'"
+                   "CASE WHEN (((i-1)/10)+1)%%10=0 THEN 'B' ELSE 'A' END,'PUBLIC'"
                    " FROM generate_series(1,%s) AS s(i)", (lots,))
         db.execute("INSERT INTO poc.workorder_order(workorder_id,order_id,workspace_id,visibility)"
                    " SELECT ((i-1)/2)+1,i,"
-                   "CASE WHEN (((i-1)/2)+1)%10=0 THEN 'B' ELSE 'A' END,'PUBLIC'"
+                   "CASE WHEN (((i-1)/2)+1)%%10=0 THEN 'B' ELSE 'A' END,'PUBLIC'"
                    " FROM generate_series(1,%s) AS s(i)", (lots,))
         db.execute("INSERT INTO poc.workorder_order(workorder_id,order_id,workspace_id,visibility)"
                    " SELECT ((i-1)/2)+1,i,"
-                   "CASE WHEN (((i-1)/2)+1)%10=0 THEN 'B' ELSE 'A' END,'PUBLIC'"
-                   " FROM generate_series(1,%s) AS s(i) WHERE i%13=0", (lots,))
+                   "CASE WHEN (((i-1)/2)+1)%%10=0 THEN 'B' ELSE 'A' END,'PUBLIC'"
+                   " FROM generate_series(1,%s) AS s(i) WHERE i%%13=0", (lots,))
     with conn() as db:
         for table in ("material_lot","product_lot","work_order","customer_order",
                       "quality_event","lot_workorder","workorder_order"):
