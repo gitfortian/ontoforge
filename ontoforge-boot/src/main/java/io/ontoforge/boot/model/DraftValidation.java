@@ -150,7 +150,7 @@ public final class DraftValidation {
             else if (!API_NAME.matcher(api).matches()) {issues.add(new Issue(path + "/apiName", "INVALID_API_NAME", "API 名格式错误"));invalid=true;}
             if (api != null && !objectApis.add(api)) {issues.add(new Issue(path + "/apiName", "DUPLICATE_API_NAME", "模型包中的 API 名称重复"));invalid=true;}
             String label=get(obj,"label");
-            if (label!=null && label.isEmpty()) {issues.add(new Issue(path + "/label","INVALID_LABEL","显示名不能为空字符串"));invalid=true;}
+            // Blank optional display labels in a WIP mean "not supplied", not a published value.
             JsonNode props = obj.get("properties");
             if (props == null || !props.isArray() || props.isEmpty()) {
                 issues.add(new Issue(path + "/properties", "REQUIRED", "至少定义一个属性"));continue;
@@ -167,7 +167,7 @@ public final class DraftValidation {
                 else if (!API_NAME.matcher(pa).matches()) {issues.add(new Issue(pp+"/apiName","INVALID_API_NAME","属性 API 名格式错误"));invalid=true;}
                 if (pa!=null && !propertyApis.add(pa)) {issues.add(new Issue(pp+"/apiName","DUPLICATE_API_NAME","当前对象类型内属性 API 名重复"));invalid=true;}
                 String pl=get(p,"label");
-                if(pl!=null && pl.isEmpty()){issues.add(new Issue(pp+"/label","INVALID_LABEL","显示名不能为空字符串"));invalid=true;}
+                // WIP optional display labels are removed from the complete Candidate when empty.
                 String type=get(p,"valueType");
                 if (type==null || type.isBlank()) issues.add(new Issue(pp+"/valueType","REQUIRED","请选择字段类型"));
                 else if (!TYPES.contains(type)) {issues.add(new Issue(pp+"/valueType","UNKNOWN_TYPE","不支持的字段类型"));invalid=true;}
@@ -213,10 +213,13 @@ public final class DraftValidation {
         ArrayNode cleanTypes=mapper.createArrayNode();
         for(JsonNode object:objects){
             ObjectNode clean=(ObjectNode)object.deepCopy();
+            if(clean.has("label") && clean.path("label").asText().isBlank()) clean.remove("label");
+            if(clean.has("description") && clean.path("description").asText().isBlank()) clean.remove("description");
             ArrayNode cleanProperties=mapper.createArrayNode();
             for(JsonNode prop:object.get("properties")){
                 ObjectNode cp=(ObjectNode)prop.deepCopy();
-                if(cp.has("enumValues") && !"ENUM".equals(get(cp,"valueType")) && cp.get("enumValues").isArray() && cp.get("enumValues").isEmpty())cp.remove("enumValues");
+                if(cp.has("label") && cp.path("label").asText().isBlank()) cp.remove("label");
+                if(cp.has("enumValues") && !"ENUM".equals(get(cp,"valueType"))) cp.remove("enumValues");
                 cleanProperties.add(cp);
             }
             clean.set("properties",cleanProperties);
