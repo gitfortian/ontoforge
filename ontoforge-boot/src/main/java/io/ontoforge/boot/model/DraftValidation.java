@@ -199,7 +199,7 @@ public final class DraftValidation {
                 if(matched==null){issues.add(new Issue(path+"/primaryKeyRef","PK_NOT_FOUND","主键必须引用本类型内的属性"));invalid=true;}
                 else {
                     if(!matched.path("required").asBoolean(false)){issues.add(new Issue(path+"/primaryKeyRef","PK_REQUIRED","主键属性必须是必填"));invalid=true;}
-                    if(!Set.of("STRING","INTEGER").contains(get(matched,"valueType"))){issues.add(new Issue(path+"/primaryKeyRef","PK_TYPE","主键只允许 STRING 或 INTEGER"));invalid=true;}
+                    if(!"STRING".equals(get(matched,"valueType")) && !"INTEGER".equals(get(matched,"valueType"))){issues.add(new Issue(path+"/primaryKeyRef","PK_TYPE","主键只允许 STRING 或 INTEGER"));invalid=true;}
                 }
             }
         }
