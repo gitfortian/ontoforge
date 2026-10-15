@@ -54,7 +54,7 @@ class ArchitectureDocsTests(unittest.TestCase):
     def test_one_current_architecture_document(self):
         self.assertTrue(CURRENT.is_file())
         self.assertEqual(
-            [p.name for p in DOC.glob("*架构设计_v*.md") if re.search(r"v1\\.[012]\\.md$", p.name)], [],
+            [p.name for p in DOC.glob("*架构设计_v*.md") if re.search(r"v1\.[012]\.md$", p.name)], [],
             "Retired V1.0-V1.2 architecture drafts must not compete with V1.3",
         )
         v13 = CURRENT.read_text(encoding="utf-8")
