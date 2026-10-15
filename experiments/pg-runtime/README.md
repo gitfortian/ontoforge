@@ -14,7 +14,7 @@
 
 此分支 push 或 PR 更新后应启动 GitHub Actions，使用 PostgreSQL 17 Service Container 和 Python 3.12 + psycopg 3。成功后输出的实验记录保存在 experiments/pg-runtime/artifacts/results.json 并上传为 Workflow Artifact。
 
-也可以对该工作流 workflow_dispatch 手工运行，设置 lots = 20000 / 50000 / 200000。GitHub Actions 成功才代表相应工作负载执行通过；本地开发容器没有 PostgreSQL 安装条件。
+该工作流以 Matrix 在相同 PostgreSQL 17 镜像上分别运行 20,000 与 100,000 条产品批次规模；workflow_dispatch 将再次运行这两种固定规模。更多规模须调整矩阵并保留独立验收记录。GitHub Actions 成功才代表对应负载实际执行通过。
 
 ## 独立实验复现
 
