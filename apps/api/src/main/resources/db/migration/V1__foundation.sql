@@ -1,22 +1,9 @@
--- PostgreSQL-only S0 migration. Do not reuse Yak Ops' MySQL schema.
-CREATE TABLE app_user (
- id UUID PRIMARY KEY,
- username VARCHAR(80) NOT NULL UNIQUE,
- password_hash VARCHAR(100) NOT NULL,
- enabled BOOLEAN NOT NULL DEFAULT TRUE,
- created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+-- S0 v0.1 has no user, role, membership or business models.
+-- A persisted marker is enough to prove real PostgreSQL migration and restart behavior.
+CREATE TABLE platform_installation (
+  id SMALLINT PRIMARY KEY CHECK (id = 1),
+  installation_id UUID NOT NULL,
+  installed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE TABLE app_workspace (
- id UUID PRIMARY KEY,
- name VARCHAR(80) NOT NULL,
- created_by UUID NOT NULL REFERENCES app_user(id),
- created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE TABLE app_workspace_member (
- workspace_id UUID NOT NULL REFERENCES app_workspace(id) ON DELETE CASCADE,
- user_id UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
- role VARCHAR(16) NOT NULL CHECK (role IN ('OWNER','MEMBER')),
- joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
- PRIMARY KEY(workspace_id,user_id)
-);
-CREATE INDEX idx_workspace_member_user ON app_workspace_member(user_id, workspace_id);
+INSERT INTO platform_installation (id, installation_id)
+VALUES (1, '00000000-0000-0000-0000-000000000001');
