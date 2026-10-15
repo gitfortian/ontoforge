@@ -30,7 +30,7 @@
 | 文件 | 状态与用途 |
 | --- | --- |
 | [OFIP-0001：需求提案、文档治理与 CI 证据门禁](./proposals/OFIP-0001-需求提案文档治理与CI证据门禁.md) | **Accepted / 分阶段实施**：重大设计审批、单一文档权威、PR 证据；当前实施开发规范/模板，可信 CI 门禁将在独立 PR 实施，尚未完成 |
-| [OFIP-0002：Native ObjectType 草稿建模 MVP](./proposals/OFIP-0002-ObjectType-草稿建模MVP.md) | **Discussion / Domain-Gate-1 已通过 / Contract-Gate-2 待审议**：DG1–DG9 全部 A 已记录；现正在评审 typed WIP、Property 上下文引用、修订后的 Native 候选合同、API、PG、revision 和校验状态；未进入原型/应用代码 |
+| [OFIP-0002：Native ObjectType 草稿建模 MVP](./proposals/OFIP-0002-ObjectType-草稿建模MVP.md) | **Discussion / Domain 与 Contract Gate 均已通过 / UX-Gate-Low 待评审**：DG1–DG9、TC1–TC10 均为 A；已提供[可点击低保真交互原型](./prototypes/ofip-0002-objecttype-lowfi.html)，仅内存模拟，无真实 API/持久化，待交互签收后再做高保真 |
 | [Yak Ops YOIP、文档体系和 CI 研究](./research/2026-10-15-Yak-Ops-YOIP-文档治理与CI蒸馏.md) | 外部工程治理蒸馏及 OntoForge 适配建议；仅研究证据，不能取代 V1.3 或已实现代码 |
 
 **状态区分**：设计是否 Accepted、代码是否 Implemented、测试是否 Passed、产品是否 Released 是不同事实。OFIP-0001 的明确接受只针对研发治理方向，**不会自动签收 V1.3 总体架构和 Native V0.2 产品合同**。规范入口见 [AGENTS.md](../AGENTS.md)、[贡献指南](../.github/CONTRIBUTING.md)、[OFIP 模板](../.github/OFIP_TEMPLATE.md)、[PR 模板](../.github/PULL_REQUEST_TEMPLATE.md)。
