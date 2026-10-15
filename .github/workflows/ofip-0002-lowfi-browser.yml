@@ -1,0 +1,40 @@
+name: OFIP-0002 Prototype UX Browser Review
+
+# Design-review browser evidence only. Not a production application gate.
+on:
+  pull_request:
+    paths:
+      - 'doc/prototypes/**'
+      - 'doc/proposals/OFIP-0002-ObjectType-草稿建模MVP.md'
+      - '.github/workflows/ofip-0002-lowfi-browser.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  prototype-chromium:
+    name: High/Low Fidelity Real Chromium UX
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser test dependency
+        run: python -m pip install playwright==1.57.0
+      - name: Install real Chromium for Playwright
+        run: python -m playwright install --with-deps chromium
+      - name: Run full real-Chromium prototype and independent reviewer regression suite
+        env:
+          UX_CAPTURE_SCREENSHOTS: '1'
+          UX_SCREENSHOT_DIR: '${{ runner.temp }}/ofip-ux-shots'
+        run: python -m unittest discover -s doc/prototypes/tests -p 'test_*.py' -v
+      - name: Upload browser screenshots on success and failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ofip-0002-ux-chromium-screenshots
+          path: '${{ runner.temp }}/ofip-ux-shots'
+          if-no-files-found: warn
+          retention-days: 14

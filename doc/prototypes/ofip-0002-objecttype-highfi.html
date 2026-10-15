@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>OntoForge · 砺元｜ObjectType 高保真交互原型 — UX-Gate-High</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#252525;background:#f4f4f4}
+*{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit;font-size:13px}button{cursor:pointer;border:1px solid #777;background:#fff;color:#242424;padding:8px 12px;border-radius:3px}button:hover{background:#ededed}button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:#303030;color:#fff;border-color:#303030}button.primary:hover{background:#525252}button.ghost{border-color:#ccc}button.danger{border-color:#8d8d8d;background:#f8f8f8}
+input,select,textarea{width:100%;padding:8px;border:1px solid #a3a3a3;border-radius:3px;background:#fff;color:#252525}input:focus,select:focus,textarea:focus{outline:2px solid #888;outline-offset:1px}
+input[type=checkbox]{width:auto;margin:0 6px 0 0}textarea{resize:vertical;min-height:66px}
+label{display:block;font-size:12px;font-weight:650;margin-bottom:5px;color:#333}
+.wrap{min-height:100vh;display:flex}.aside{width:216px;min-width:216px;background:#efefef;border-right:1px solid #c7c7c7;padding:22px 13px}.brand{font-size:17px;font-weight:750;line-height:1.4;padding:3px 9px 22px;border-bottom:1px solid #d2d2d2}.brand small{display:block;font-size:11px;font-weight:normal;color:#777}.asidelabel{color:#888;font-size:11px;letter-spacing:.06em;padding:22px 10px 8px}
+.navbtn{display:block;width:100%;border:none;text-align:left;border-radius:3px;padding:11px 10px;background:transparent}.navbtn.current{border:1px solid #b5b5b5;background:#fff;font-weight:700}.navbtn:disabled{background:transparent}
+.content{flex:1;min-width:0;padding:0 32px 60px}.topbar{padding:15px 0;border-bottom:1px solid #d3d3d3;display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;color:#666;font-size:12px}.chip{display:inline-block;font-size:11px;border:1px solid #a6a6a6;border-radius:30px;padding:4px 8px;color:#555;background:#fafafa}
+.page{max-width:1170px;margin:auto}.head{margin:28px 0 22px}.head .eyebrow{font-size:12px;color:#777;margin-bottom:8px}.head h1{margin:0 0 10px;font-size:24px;font-weight:750}.head p{margin:0;font-size:13px;color:#666;line-height:1.8}
+.panel{border:1px solid #bbb;background:#fff;border-radius:4px;padding:20px;margin:14px 0}.panelhead{display:flex;justify-content:space-between;gap:10px;align-items:start;flex-wrap:wrap;border-bottom:1px solid #e1e1e1;padding-bottom:13px;margin-bottom:16px}.panelhead h2{font-size:16px;margin:0 0 5px}.panelhead p{font-size:12px;color:#777;margin:0}.actions{display:flex;gap:8px;flex-wrap:wrap}.fieldgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.fieldgroup{margin:0}.caption{font-size:11px;color:#777;line-height:1.65}.muted{color:#777}.labelpill{font-size:11px;padding:3px 7px;background:#ededed;border:1px solid #ccc;border-radius:3px;white-space:nowrap}
+.empty{border:1px dashed #bbb;padding:30px;text-align:center;background:#fafafa}.empty strong{display:block;font-size:15px}.empty p{font-size:12px;color:#777}
+.tablewrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:12px 9px;border-bottom:1px solid #ddd;vertical-align:middle}th{background:#f1f1f1;color:#666;font-weight:600}td .sm{display:block;color:#777;font-size:11px;margin-top:3px}
+.link{border:none;background:none;text-decoration:underline;padding:3px;color:#333} .link:hover{background:#eee}
+.notice{border:1px solid #aaa;background:#eee;padding:12px 14px;font-size:12px;line-height:1.7;margin:12px 0;white-space:pre-line}
+.notice strong{display:block}.notice.error{border-style:dashed;background:#f7f7f7}.notice.success{border-style:solid;background:#efefef}.notice.warning{border-left:5px solid #555}
+.stepper{display:flex;gap:0;margin:8px 0 20px;flex-wrap:wrap}.stepper span{border:1px solid #b5b5b5;padding:8px 13px;font-size:12px;background:#fff;margin-right:-1px}.stepper .active{font-weight:700;background:#ddd}
+.small{font-size:12px}.micro{font-size:11px;color:#888}.space{margin-top:14px}.topgap{margin-top:25px}
+.prop{border:1px solid #d3d3d3;padding:14px 15px;margin-bottom:10px;background:#fafafa}.prophead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.prophead strong{font-size:13px}.propgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.propgrid .two{grid-column:span 2}
+.ckrow{display:flex;align-items:center;gap:16px;padding:7px 0}.ckrow label{display:flex;align-items:center;gap:3px;font-weight:400;margin:0}
+.footer-actions{position:sticky;bottom:0;padding:12px 0;background:#f4f4f4;border-top:1px solid #cfcfcf;display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+.validation li{padding:4px 0}.validation code{font-size:11px}.columns{display:grid;grid-template-columns:1fr 330px;gap:16px;align-items:start}
+.diagram{border:1px dashed #aaa;padding:14px;background:#fafafa;line-height:2}
+.diagram b{display:block}.ar{color:#777}
+hr{border:none;border-top:1px solid #ddd;margin:18px 0}
+details{font-size:12px;line-height:1.7}summary{cursor:pointer;font-weight:650}.banner{background:#e1e1e1;border-bottom:1px solid #bbb;padding:8px 20px;font-size:12px;text-align:center;color:#333}
+@media(max-width:1050px){.columns{grid-template-columns:1fr}.propgrid{grid-template-columns:repeat(2,minmax(0,1fr))}.propgrid .two{grid-column:span 2}.content{padding:0 20px}}
+@media(max-width:680px){.wrap{display:block}.aside{width:100%;min-width:0;border-right:0;border-bottom:1px solid #bbb;padding:9px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}.brand{font-size:13px;padding:3px 10px;border:0}.brand small,.asidelabel{display:none}.navbtn{width:auto;padding:9px}.fieldgrid{grid-template-columns:1fr}.propgrid{grid-template-columns:1fr}.propgrid .two{grid-column:span 1}.content{padding:0 12px}.topbar{gap:6px}.panel{padding:13px}}
+
+/* Visually derived from ontoforge-ui/src/style.css (S0); this does not modify the production UI */
+:root{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#263246;background:#f6f8fb}
+body{background:#f6f8fb;color:#263246}
+.banner{background:#173657;color:#dbe8f6;border:0;padding:9px 17px;line-height:1.6;font-size:11px;letter-spacing:.2px}
+.aside{width:260px;min-width:260px;background:#fff;border-right:1px solid #e8edf4;padding:26px 16px;display:flex;flex-direction:column;gap:3px}
+.brand{display:flex;gap:12px;align-items:center;margin:0 0 24px;padding:4px 8px 15px;border:0;font-size:14px;line-height:1.3}
+.brand strong{display:block;font-size:15px;color:#263246}.brand small{display:block;color:#5e7188;margin-top:4px}
+.brand-icon{background:#173657;color:white;border-radius:11px;display:grid;place-items:center;width:40px;height:40px;min-width:40px;font-size:26px}
+.asidelabel{font-size:11px;color:#52677c;letter-spacing:1.3px;padding:14px 13px 7px}
+.navbtn{font-size:13px;text-align:left;border:0;border-radius:8px;padding:13px;min-height:43px;color:#5e7188;background:transparent}
+.navbtn.current{background:#e9f1fc;color:#1f5aa3;border:0;font-weight:700}
+.navbtn:hover:not(:disabled){background:#f2f6fc}.navbtn:disabled{opacity:.55}
+.nav-foot{margin-top:auto;border-top:1px solid #eef1f5;padding:16px 13px;color:#5e7188;font-size:12px;line-height:1.7}
+.nav-foot small{display:block;color:#5e7188}
+.content{padding:0 47px 44px;max-width:1560px}.topbar{height:69px;padding:0;border-bottom:1px solid #e5eaf1;color:#5e7188}
+.chip{background:#edf1f6;border:0;border-radius:5px;padding:7px 9px;letter-spacing:.6px;color:#52677c;font-size:10px}
+.page{max-width:1200px}.head{margin:38px 0 25px}.head .eyebrow{font-size:11px;font-weight:700;letter-spacing:1.4px;color:#3f689c}
+.head h1{font-weight:700;font-size:28px;letter-spacing:-.4px;color:#263246}.head p{font-size:12.5px;line-height:1.85;color:#5e7188}
+.panel{border:1px solid #e6ebf2;border-radius:12px;background:#fff;padding:24px 26px;margin:16px 0;box-shadow:0 6px 24px #13233e07}
+.panelhead{padding-bottom:16px;margin-bottom:17px;border-color:#edf1f5;align-items:center}
+.panelhead h2{font-size:16px;font-weight:680;color:#2a3c55}.panelhead p{font-size:12px;color:#5e7188}
+button,.panel button{border:1px solid #dce4ee;border-radius:7px;background:#fff;color:#506881;font-size:12px;font-weight:560;padding:9px 13px}
+button:hover,.panel button:hover{background:#f4f8fd}
+button.primary,.panel button.primary{background:#225f9f;color:white;border-color:#225f9f;box-shadow:0 3px 9px #225f9f21}
+button.primary:hover,.panel button.primary:hover{background:#1a518b}
+button:disabled{opacity:.48;cursor:not-allowed}
+button.link{border:0;background:transparent;color:#2768a9;text-decoration:none;padding:3px;font-weight:650}
+button.link:hover{text-decoration:underline;background:transparent}
+input,select,textarea{color:#2e445e;background:#fff;border:1px solid #dce4ee;border-radius:7px;min-height:38px;padding:9px 11px;font-size:12px}
+input:focus,textarea:focus,select:focus{outline:2px solid #8ab5e4;outline-offset:1px;border-color:#568fc8}
+input[type=checkbox]{min-height:0;accent-color:#2264a7}input:disabled,select:disabled{background:#f3f5f8;color:#a3afbc;cursor:not-allowed}
+label{color:#596b83;font-size:11.5px}.fieldgrid{gap:18px}
+ .caption,.muted{color:#5e7188;font-size:11.5px;line-height:1.75}
+.labelpill{background:#f2f6fb;border:1px solid #e4ebf4;border-radius:5px;padding:5px 9px;color:#52677c;font-size:11px}
+.empty{background:linear-gradient(135deg,#fbfcff,#f2f7fd);border:1px dashed #cbd8e8;border-radius:9px;padding:43px 25px}
+.empty strong{font-size:16px;color:#395374}.empty p{color:#5e7188}
+.tablewrap{border:1px solid #e9eef5;border-radius:9px}
+th{background:#f7f9fc;color:#52677c;font-size:11px}
+td,th{padding:14px 12px;border-color:#eef2f7}td{color:#465b74}td .sm{color:#5e7188}
+.notice{background:#f0f6fd;border:1px solid #cde0f7;border-radius:8px;color:#436784;font-size:12px;padding:12px 14px}
+.notice.warning{background:#fffaf0;border-color:#ebddbd;border-left:4px solid #caab67;color:#8d723e}
+.notice.success{background:#f1faf6;border-color:#cbe9d9;color:#32745a}
+.notice.error{background:#fff7f8;border-color:#edcdd2;color:#a15361}
+.stepper{border:1px solid #e7edf5;border-radius:9px;overflow:hidden;gap:0;background:#fff;box-shadow:0 3px 10px #172c4a07}
+.stepper span{flex:1;min-width:130px;background:#fff;border:0;border-right:1px solid #e9eef5;margin:0;padding:12px 14px;color:#5e7188}
+.stepper .active{background:#eaf2fd;color:#2765a1;font-weight:700}
+.prop{background:#fbfcfe;border:1px solid #e4eaf3;border-radius:9px;padding:18px;margin-bottom:12px}
+.prophead{border-bottom:1px solid #eef2f7;padding-bottom:12px;margin-bottom:15px}
+.prophead strong{color:#3c5675}.propgrid{gap:13px}
+.columns{grid-template-columns:minmax(0,1fr) 328px;gap:17px}
+.footer-actions{background:rgba(246,248,251,.97);backdrop-filter:blur(6px);border-top:1px solid #e2e9f2;box-shadow:0 -5px 18px #16315008;z-index:9;padding:14px 0}
+.diagram{border:1px solid #e5ebf4;border-radius:8px;background:#f8fafc}.diagram b{color:#315377}
+.review-help{box-shadow:none;margin-top:30px}.review-help summary{color:#52677c}
+.validation{padding:0;list-style:none}.validation li{padding:0;margin:0 0 10px}
+.panel button.issue-link{display:block;text-align:left;background:#fff8f9;color:#98505e;border:1px solid #f0d8dd;border-radius:8px;padding:11px 13px;width:100%;line-height:1.65;white-space:normal}
+.panel button.issue-link:hover{background:#fff1f4}
+.issue-link code{display:block;color:#a36c7c;font-size:10px;word-break:break-all;margin-bottom:3px}
+.field-error{color:#943649;font-size:11px;background:#fff2f4;padding:5px 8px;border-radius:5px;margin-top:5px;line-height:1.5}
+input[aria-invalid=true],select[aria-invalid=true]{border-color:#bd6370;background:#fffbfc}
+.issue-target{scroll-margin-top:110px;box-shadow:0 0 0 3px #f4cdd4!important}
+.side-callout{padding:12px;background:#f1f6fc;color:#56799c;border-radius:8px;font-size:11px;line-height:1.7;margin-top:13px}
+.revision-compare{display:grid;grid-template-columns:1fr;gap:8px;margin:10px 0}
+.compare-cell{background:white;border:1px solid #eadde1;border-radius:7px;padding:9px;word-break:break-all}
+.compare-cell strong{display:block;font-size:11px;color:#8b6170;margin-bottom:6px}
+.compare-cell span{font-size:11px;color:#44536a}
+@media(max-width:1120px){.content{padding:0 24px}.columns{grid-template-columns:1fr}.propgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:680px){.wrap{display:block}.aside{width:100%;min-width:0;display:flex;flex-direction:row;gap:6px;flex-wrap:wrap;padding:10px;border:0;border-bottom:1px solid #edf1f5}
+.brand{margin:0;width:100%;padding:4px}.asidelabel,.nav-foot{display:none}.navbtn{width:auto;min-height:37px;padding:10px}
+.content{padding:0 13px}.topbar{height:auto;min-height:55px;padding:9px 0}.head{margin-top:26px}.head h1{font-size:24px}
+.fieldgrid,.propgrid{grid-template-columns:1fr}.propgrid .two{grid-column:span 1}.revision-compare{grid-template-columns:1fr}
+.stepper span{min-width:48%;flex:1}.panel{padding:16px}}
+</style>
+</head>
+<body>
+<div class="banner">OFIP-0002 · UX-Gate-High｜高保真交互评审，所有保存/校验/并发均为浏览器内存模拟，不连接 API / PostgreSQL；刷新会清空原型数据</div>
+<div class="wrap">
+<aside class="aside">
+<div class="brand"><span class="brand-icon" aria-hidden="true">⌘</span><span><strong>OntoForge · 砺元</strong><small>工业运营本体平台</small></span></div>
+<div class="asidelabel">本体设计</div>
+<button class="navbtn" id="nav-pkg" onclick="go('packages')">▣ 模型包</button>
+<button class="navbtn" id="nav-types" onclick="go('types')">□ 对象类型</button>
+<button class="navbtn" disabled title="后续设计与开发">⇄ 关系类型 · 后续</button>
+<div class="nav-foot">S0 · 本地交互设计评审<small>仅模型定义 · 无生产授权</small></div>
+</aside>
+<main class="content">
+  <div class="topbar"><span>本体设计 / <span id="breadcrumb">模型包</span></span><span class="chip">UX-GATE-HIGH · DESIGN REVIEW</span></div>
+  <div class="page">
+    <div id="flash"></div>
+    <div id="view"></div>
+    <div class="panel review-help">
+      <details><summary>高保真交互评审 · 6 条验收路径</summary>
+        <ol>
+          <li>从空状态创建 <code>manufacturing.production</code> 模型包，确认进入包后能创建第一个类型。</li>
+          <li>只填写 ProductionBatch 标识就点“保存编辑进度”；返回列表，再打开，确认未完成内容仍在<strong>本原型当前会话内</strong>。</li>
+          <li>点击“校验模型”，观察 INCOMPLETE；添加 batch-id 等属性、选择主键，保存后再次校验 VALID。</li>
+          <li>在 VALID 后修改描述并保存：旧校验应立即变成 NOT_RUN。</li>
+          <li>编辑时点“模拟另一标签页已保存”，再保存应提示 revision 冲突、保留输入，并提供安全恢复动作。</li>
+          <li>打开“模拟断网”，尝试保存；不得显示成功。恢复网络后重试，检查保存结果。</li>
+        </ol>
+        <p>**重要**：浏览器刷新会重置所有数据；“重开”是原型内跳转，真实持久化、重启校验和服务端事务都留给后续功能 PR 验收。</p>
+      </details>
+    </div>
+  </div>
+</main>
+</div>
+<script>
+'use strict';
+const state={view:'packages',records:[],selected:null,editor:null,openedRev:null,dirty:false,offline:false,message:null,validationLocal:null,conflict:false,showCreate:false};
+const $=(id)=>document.getElementById(id);
+const esc=(v)=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
+const clone=(x)=>JSON.parse(JSON.stringify(x));
+const record=()=>state.records.find(x=>x.id===state.selected);
+const now=()=>new Date().toLocaleString('zh-CN',{hour12:false});
+const marker=(status)=>({NOT_RUN:'未校验',INCOMPLETE:'未完成',INVALID:'校验不通过',VALID:'校验通过'}[status]||status);
+const status=(r)=>!r.validation?'未校验':marker(r.validation.status);
+function say(text,kind='warning'){state.message={text,kind};renderMessage()}
+function renderMessage(){ $('flash').innerHTML=state.message?'<div class="notice '+state.message.kind+'">'+esc(state.message.text)+'</div>':'' }
+function guard(){if(state.view==='editor'&&state.dirty)return confirm('存在未保存的本地编辑。离开会放弃这些编辑，是否继续？');return true}
+function go(view){if(!guard())return;state.view=view;state.editor=null;state.dirty=false;state.validationLocal=null;state.conflict=false;state.message=null;render()}
+function newPackageForm(){state.showCreate=true;render()}
+function createPackage(){
+ const input=$('package-id');const id=input?input.value.trim():'';
+ if(!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/.test(id)){say('模型包坐标格式不正确。示例：manufacturing.production','error');return}
+ if(state.records.some(x=>x.packageId===id)){say('409 · PACKAGE_DRAFT_EXISTS：该模型包已有当前草稿，请打开已有记录。','error');return}
+ const o={id:'mock-'+(state.records.length+1),packageId:id,revision:1,objectTypes:[],links:[],validation:null,updatedAt:now()};
+ state.records.push(o);state.selected=o.id;state.view='package';state.showCreate=false;state.message=null;render();
+}
+function openPackage(id){if(!guard())return;state.selected=id;state.view='package';state.dirty=false;state.message=null;render()}
+function beginEdit(){let r=record();if(!r)return;state.view='editor';state.editor=r.objectTypes.length?clone(r.objectTypes[0]):{id:'',apiName:'',label:'',description:'',primaryKeyRef:null,properties:[]};state.openedRev=r.revision;state.dirty=false;state.conflict=false;state.message=null;render()}
+function readRow(i){
+ let pre='p'+i+'-';return {id:$(pre+'id').value,apiName:$(pre+'api').value,label:$(pre+'label').value,valueType:$(pre+'type').value,required:$(pre+'required').checked,searchable:$(pre+'searchable').checked,classification:$(pre+'class').value,enumValues:$(pre+'type').value==='ENUM'?$(pre+'enum').value.split(',').map(s=>s.trim()).filter(Boolean):[]};
+}
+function syncEditor(){
+ if(state.view!=='editor'||!state.editor||!$('obj-id'))return;
+ const ed=state.editor;
+ ed.id=$('obj-id').value;ed.apiName=$('obj-api').value;ed.label=$('obj-label').value;ed.description=$('obj-desc').value;
+ ed.properties=ed.properties.map((_,i)=>readRow(i));
+ ed.primaryKeyRef=$('primary-ref').value||null;
+}
+function refreshPkChoices(){
+ const select=$('primary-ref');if(!select||!state.editor)return;
+ const selected=select.value;
+ const ids=state.editor.properties.map((_,i)=>({id:$('p'+i+'-id')?.value||'',type:$('p'+i+'-type')?.value||'',required:!!$('p'+i+'-required')?.checked})).filter(x=>x.id && x.required && ['STRING','INTEGER'].includes(x.type));
+ select.innerHTML='<option value="">尚未选择主键</option>'+ids.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.id)+' · '+esc(p.type)+'</option>').join('');
+ if(ids.some(x=>x.id===selected))select.value=selected;
+ else select.value='';
+}
+function changeEditor(){
+ state.dirty=true;state.validationLocal=null;
+ const el=$('dirty-mark');if(el)el.textContent='● 未保存编辑';
+ const validationButton=$('validate-current');if(validationButton){validationButton.disabled=true;validationButton.title='请先保存编辑进度，再校验最新 revision';}
+ const badge=$('validation-current-state');if(badge)badge.textContent='本地编辑待保存';
+ const list=$('validation-issues-wrap');if(list)list.innerHTML='<div class="caption">你已修改表单。上一次校验只针对已保存的旧版本；保存后请重新校验当前内容。</div>';
+ document.querySelectorAll('.field-error').forEach(n=>n.remove());
+ document.querySelectorAll('[aria-invalid]').forEach(n=>{n.removeAttribute('aria-invalid');n.removeAttribute('aria-describedby')});
+}
+function toggleEnumField(i){
+ const type=$('p'+i+'-type'),field=$('p'+i+'-enum');
+ if(!type||!field)return;
+ field.disabled=type.value!=='ENUM';
+ if(field.disabled)field.value='';
+ field.title=field.disabled?'仅当值类型选择 ENUM 才能设置枚举值':'请输入逗号分隔的枚举值';
+}
+function addProp(){syncEditor();state.editor.properties.push({id:'',apiName:'',label:'',valueType:'STRING',required:false,searchable:false,classification:'INTERNAL',enumValues:[]});state.dirty=true;render()}
+function removeProp(i){syncEditor();const removed=state.editor.properties.splice(i,1)[0];if(removed&&removed.id===state.editor.primaryKeyRef)state.editor.primaryKeyRef=null;state.dirty=true;render()}
+function toggleOffline(){if(state.view==='editor')syncEditor();state.offline=!state.offline;say(state.offline?'模拟网络已断开：后续保存/校验将失败，但本地输入保留。':'模拟网络恢复：可以重试保存/校验。');render()}
+function simulateConflict(){
+ let r=record();if(!r)return;syncEditor();r.revision+=1;r.updatedAt=now();r.validation=null;state.dirty=true;state.conflict=true;say('模拟另一个标签页已经保存：服务端 revision 变为 '+r.revision+'。本编辑器仍基于 revision '+state.openedRev+'；尝试保存将返回 409。','warning');render()
+}
+function reloadRemote(){
+ if(!confirm('将丢弃当前未保存的本地编辑，并读取模拟服务器的最新草稿。确认？'))return;
+ let r=record();state.editor=r.objectTypes.length?clone(r.objectTypes[0]):{id:'',apiName:'',label:'',description:'',primaryKeyRef:null,properties:[]};state.openedRev=r.revision;state.dirty=false;state.conflict=false;state.validationLocal=null;say('已载入模拟服务器 revision '+r.revision+'。旧的本地编辑已按你的确认放弃。','success');render()
+}
+function saveDraft(){
+ syncEditor();let r=record();if(!r)return;
+ if(state.offline){say('模拟网络异常：保存结果未确认。本地编辑仍保留；请恢复网络并核对 revision 后重试。','error');return}
+ if(state.openedRev!==r.revision){state.conflict=true;say('409 · DRAFT_REVISION_CONFLICT：编辑器基于 revision '+state.openedRev+'，服务器已是 '+r.revision+'。本地输入保留；请先检查最新版本，不能静默覆盖。','error');render();return}
+ // Deliberately minimal bounded editing checks: this is a wireframe, not real server validation.
+ if(state.editor.id.length>64||state.editor.properties.length>100){say('422 · EDITOR_DOCUMENT_INVALID：输入超出原型编辑长度/数量限制。','error');return}
+ if(r.objectTypes.length>1||r.links.length){say('此原型不支持修改包含多个对象类型或关系类型的包。为防止覆盖其他定义，已阻止保存。','error');return}
+ r.objectTypes=[clone(state.editor)];r.revision+=1;r.updatedAt=now();r.validation=null;state.openedRev=r.revision;state.dirty=false;state.conflict=false;state.validationLocal=null;say('模拟保存编辑进度成功 · revision '+r.revision+'。这不代表模型已校验或发布；本原型数据不会写入 PostgreSQL。','success');render()
+}
+function checkModel(o){
+ const issues=[];let invalid=false;
+ function issue(path,code,msg,bad=false){issues.push({path,code,msg});if(bad)invalid=true}
+ if(!o.id)issue('/objectTypes/0/id','REQUIRED','请填写对象类型 ID');
+ else if(!/^[a-z][a-z0-9-]{1,63}$/.test(o.id))issue('/objectTypes/0/id','INVALID_ID','ID 应由小写字母、数字、短横线组成',true);
+ if(!o.apiName)issue('/objectTypes/0/apiName','REQUIRED','请填写 API 名称');
+ else if(!/^[A-Za-z][A-Za-z0-9]{1,80}$/.test(o.apiName))issue('/objectTypes/0/apiName','INVALID_API_NAME','API 名称只允许英文字母与数字',true);
+ if(!o.properties.length)issue('/objectTypes/0/properties','REQUIRED','至少定义一个属性');
+ const ids=new Set(),names=new Set();
+ o.properties.forEach((p,i)=>{
+  const base='/objectTypes/0/properties/'+i;
+  if(!p.id)issue(base+'/id','REQUIRED','属性 ID 未填写');
+  else if(!/^[a-z][a-z0-9-]{1,63}$/.test(p.id))issue(base+'/id','INVALID_ID','属性 ID 格式不正确',true);
+  if(ids.has(p.id)&&p.id)issue(base+'/id','DUPLICATE_ID','当前 ObjectType 内属性 ID 重复',true);
+  ids.add(p.id);
+  if(!p.apiName)issue(base+'/apiName','REQUIRED','属性 API 名未填写');
+  else if(!/^[A-Za-z][A-Za-z0-9]{1,80}$/.test(p.apiName))issue(base+'/apiName','INVALID_API_NAME','属性 API 名格式不正确',true);
+  if(names.has(p.apiName)&&p.apiName)issue(base+'/apiName','DUPLICATE_API_NAME','当前 ObjectType 内属性 API 名重复',true);
+  names.add(p.apiName);
+  if(p.valueType==='ENUM'){
+   if(!p.enumValues.length)issue(base+'/enumValues','REQUIRED','枚举值不能为空');
+   if(new Set(p.enumValues).size!==p.enumValues.length)issue(base+'/enumValues','DUPLICATE_ENUM','枚举值重复',true);
+  }
+ });
+ if(!o.primaryKeyRef)issue('/objectTypes/0/primaryKeyRef','REQUIRED','请选定主键');
+ else {
+  const pk=o.properties.find(x=>x.id===o.primaryKeyRef);
+  if(!pk)issue('/objectTypes/0/primaryKeyRef','PK_NOT_FOUND','所选主键属性不存在',true);
+  else {if(!pk.required)issue('/objectTypes/0/primaryKeyRef','PK_REQUIRED','主键属性应为必填',true);
+  if(!['STRING','INTEGER'].includes(pk.valueType))issue('/objectTypes/0/primaryKeyRef','PK_TYPE','主键只能使用 STRING / INTEGER 属性',true)}
+ }
+ return {status:invalid?'INVALID':issues.length?'INCOMPLETE':'VALID',issues};
+}
+function validateDraft(){
+ syncEditor();const r=record();if(!r)return;
+ if(state.dirty){say('请先保存当前编辑进度，再校验确定的 revision。','warning');return}
+ if(state.offline){say('模拟网络异常：校验请求未完成。不会保留虚假的 VALID 结果。','error');return}
+ if(state.openedRev!==r.revision){say('409 · 需要重新载入最新 revision 后再校验。','error');return}
+ const result=checkModel(r.objectTypes[0]||{id:'',apiName:'',properties:[],primaryKeyRef:null});
+ r.validation={status:result.status,validatedRevision:r.revision,issues:result.issues};
+ state.validationLocal=result;
+ say('模拟校验完成：'+marker(result.status)+' · revision '+r.revision+'。仅演示交互，不代替真实 Native V0.2 服务端验证。',result.status==='VALID'?'success':'warning');
+ render();
+}
+function showPackages(){
+ const records=state.records.map(r=>'<tr><td><button class="link" onclick="openPackage(\''+esc(r.id)+'\')">'+esc(r.packageId)+'</button><span class="sm">本地草稿 · 未发布</span></td><td>'+r.objectTypes.length+' 个对象类型</td><td><span class="labelpill">'+esc(status(r))+'</span></td><td>'+r.revision+'</td><td>'+esc(r.updatedAt)+'</td><td><button onclick="openPackage(\''+esc(r.id)+'\')">打开包 →</button></td></tr>').join('');
+ return '<div class="head"><div class="eyebrow">阶段 1 / 找到或新建模型包</div><h1>模型包</h1><p>模型包是对象类型、关系类型等定义的组织与未来交付边界。当前原型仅展示本机草稿，不提供发布。</p></div>'+
+ '<div class="panel"><div class="panelhead"><div><h2>模型包草稿</h2><p>真实产品应从 API 加载；以下为当前原型会话的模拟记录。</p></div><div class="actions"><button class="primary" onclick="newPackageForm()">＋ 创建模型包</button></div></div>'+
+ (state.showCreate?'<div class="fieldgrid"><div class="fieldgroup"><label for="package-id">模型包 ID（必填）</label><input id="package-id" placeholder="manufacturing.production" value="manufacturing.production"/></div><div class="fieldgroup"><label>下一步</label><button class="primary" onclick="createPackage()">创建空草稿并进入 →</button> <button class="ghost" onclick="state.showCreate=false;render()">取消</button></div></div><p class="caption">创建后可先保存未完成编辑，并在模型包中添加首个 ObjectType。</p><hr/>':'')+
+ (!state.records.length?'<div class="empty"><strong>暂无模型包草稿</strong><p>从创建模型包开始，不自动生成演示模型或业务数据。</p><button onclick="newPackageForm()">新建第一个模型包</button></div>':'<div class="tablewrap"><table><thead><tr><th>包坐标</th><th>类型数量</th><th>校验</th><th>revision</th><th>更新时间</th><th></th></tr></thead><tbody>'+records+'</tbody></table></div>')+'</div>';
+}
+function showTypes(){
+ const rows=state.records.flatMap(r=>r.objectTypes.map(t=>({r,t}))).map(({r,t})=>'<tr><td><b>'+esc(t.label||t.apiName||'未命名类型')+'</b><span class="sm">'+esc(t.id||'尚未填写 ID')+'</span></td><td>'+esc(r.packageId)+'</td><td>'+t.properties.length+'</td><td><span class="labelpill">'+esc(status(r))+'</span></td><td><button onclick="openPackage(\''+esc(r.id)+'\')">进入包 →</button></td></tr>').join('');
+ return '<div class="head"><div class="eyebrow">辅助入口 / 已有对象类型</div><h1>对象类型</h1><p>直接找到已有 ObjectType；首次创建从模型包入口推进。不把“关系类型”作为首次建模前置操作。</p></div><div class="panel"><div class="panelhead"><div><h2>对象类型列表</h2><p>从当前模拟草稿聚合，不构成真实数据资产目录。</p></div><button onclick="go(\'packages\')">去模型包创建 →</button></div>'+(rows?'<div class="tablewrap"><table><thead><tr><th>对象类型</th><th>所属模型包</th><th>属性数</th><th>校验状态</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty"><strong>暂无对象类型</strong><p>先创建模型包，添加第一个业务对象类型定义。</p><button onclick="go(\'packages\')">打开模型包</button></div>')+'</div>';
+}
+function showPackage(){
+ const r=record();if(!r)return showPackages();
+ const rows=r.objectTypes.map(x=>'<tr><td><b>'+esc(x.label||x.apiName||'未完成的对象类型')+'</b><span class="sm">'+esc(x.id||'ID 尚未填写')+'</span></td><td>'+x.properties.length+'</td><td><span class="labelpill">'+esc(status(r))+'</span></td><td><button onclick="beginEdit()">继续编辑 →</button></td></tr>').join('');
+ return '<div class="head"><div class="eyebrow"><button class="link" onclick="go(\'packages\')">← 模型包</button> / '+esc(r.packageId)+'</div><h1>'+esc(r.packageId)+'</h1><p>模型包草稿 · revision '+r.revision+' · 更新时间 '+esc(r.updatedAt)+'。草稿保存不代表模型校验、审核或发布。</p></div>'+
+ '<div class="columns"><div class="panel"><div class="panelhead"><div><h2>对象类型</h2><p>一个包在领域模型中可拥有多个 ObjectType / LinkType。</p></div><div class="actions">'+(!r.objectTypes.length?'<button class="primary" onclick="beginEdit()">＋ 新建首个对象类型</button>':'<button class="primary" onclick="beginEdit()">继续编辑</button>')+'</div></div>'+
+ (rows?'<table><thead><tr><th>名称</th><th>属性</th><th>状态</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="empty"><strong>尚无对象类型</strong><p>先定义 ProductionBatch，未来可继续添加其他类型和关系。</p><button onclick="beginEdit()">新建对象类型 →</button></div>')+
+ '<div class="notice">关系类型编辑器：后续交付。仅定义 LinkType 不会产生任何业务 LinkFact。</div></div>'+
+ '<div class="panel"><div class="panelhead"><div><h2>包状态</h2><p>三个容易混淆的事实</p></div></div><div class="diagram"><b>工作副本：DRAFT</b><span class="ar">↓ 可反复保存编辑进度</span><b>结构校验：'+esc(status(r))+'</b><span class="ar">↓ 未来独立评审与发布</span><b>正式发布：尚未实现</b></div><p class="caption">当前包内只有一份可写草稿；不是“一个包永久只能有一个对象类型”。</p></div></div>';
+}
+function options(items,value){return items.map(x=>'<option value="'+esc(x)+'" '+(x===value?'selected':'')+'>'+esc(x)+'</option>').join('')}
+function showEditor(){
+ const r=record();if(!r)return showPackages();
+ const ed=state.editor;const validPK=ed.properties.filter(p=>p.id && p.required && ['STRING','INTEGER'].includes(p.valueType));
+ let opts='<option value="">尚未选择主键</option>'+validPK.map(p=>'<option value="'+esc(p.id)+'" '+(p.id===ed.primaryKeyRef?'selected':'')+'>'+esc(p.id)+' · '+esc(p.valueType)+'</option>').join('');
+ const rows=ed.properties.map((p,i)=>{
+   const base='p'+i+'-';return '<div class="prop" data-prop="'+i+'"><div class="prophead"><strong>属性 #'+(i+1)+'</strong><button class="ghost" onclick="removeProp('+i+')">删除属性</button></div>'+
+   '<div class="propgrid">'+
+   '<div><label for="'+base+'id">ID</label><input id="'+base+'id" value="'+esc(p.id)+'" placeholder="batch-id"></div>'+
+   '<div><label for="'+base+'api">API 名</label><input id="'+base+'api" value="'+esc(p.apiName)+'" placeholder="batchId"></div>'+
+   '<div><label for="'+base+'label">显示名</label><input id="'+base+'label" value="'+esc(p.label)+'" placeholder="批次编号"></div>'+
+   '<div><label for="'+base+'type">值类型</label><select id="'+base+'type">'+options(['STRING','INTEGER','DECIMAL','BOOLEAN','DATETIME','ENUM'],p.valueType)+'</select></div>'+
+   '<div><label for="'+base+'class">数据分类</label><select id="'+base+'class">'+options(['PUBLIC','INTERNAL','CONFIDENTIAL','RESTRICTED'],p.classification)+'</select></div>'+
+   '<div class="two"><label for="'+base+'enum">ENUM 值（仅 ENUM，逗号分隔）</label><input id="'+base+'enum" placeholder="PLANNED, RUNNING, COMPLETED" value="'+esc((p.enumValues||[]).join(', '))+'" '+(p.valueType!=='ENUM'?'disabled':'')+'></div>'+
+   '<div><label>字段配置</label><div class="ckrow"><label><input id="'+base+'required" type="checkbox" '+(p.required?'checked':'')+'>必填</label><label><input id="'+base+'searchable" type="checkbox" '+(p.searchable?'checked':'')+'>可搜索</label></div></div>'+
+   '</div></div>';
+ }).join('');
+ const report=r.validation;
+ const list=report&&report.issues.length?'<ol class="validation">'+report.issues.map(i=>'<li><button type="button" class="issue-link" onclick="focusIssue(\''+esc(i.path)+'\')"><code>'+esc(i.path)+'</code><b>'+esc(i.code)+'</b> · '+esc(i.msg)+'　↗ 定位并修复</button></li>').join('')+'</ol>':'<div class="caption">当前没有未解决的校验问题。注意未校验不等于通过。</div>';
+ return '<div class="head"><div class="eyebrow"><button class="link" onclick="go(\'packages\')">模型包</button> / <button class="link" onclick="openPackage(\''+esc(r.id)+'\')">'+esc(r.packageId)+'</button> / 对象类型编辑</div>'+
+ '<h1>编辑对象类型 <span class="labelpill">草稿</span></h1><p>先定义对象，再配置属性与主键。可以先保存未完成内容；完整校验是独立操作。</p></div>'+
+ '<div class="stepper"><span>① 模型包 ✓</span><span class="active">② 类型与属性</span><span>③ 保存编辑进度</span><span>④ 完整校验</span></div>'+
+ '<div class="columns"><div><div class="panel"><div class="panelhead"><div><h2>基本信息</h2><p>ObjectType 是模型定义，不是数据库中的真实业务实例</p></div><span id="dirty-mark" class="labelpill">'+(state.dirty?'● 未保存编辑':'已同步当前草稿')+'</span></div>'+
+ '<div class="fieldgrid"><div class="fieldgroup"><label for="obj-id">对象类型 ID</label><input id="obj-id" value="'+esc(ed.id)+'" placeholder="production-batch"></div>'+
+ '<div class="fieldgroup"><label for="obj-api">API 名称</label><input id="obj-api" value="'+esc(ed.apiName)+'" placeholder="ProductionBatch"></div>'+
+ '<div class="fieldgroup"><label for="obj-label">中文名称</label><input id="obj-label" value="'+esc(ed.label)+'" placeholder="生产批次"></div>'+
+ '<div class="fieldgroup"><label for="primary-ref">主键属性</label><select id="primary-ref">'+opts+'</select><p class="caption">建议选择属于当前类型、required=true 的 STRING / INTEGER 属性。</p></div>'+
+ '<div class="fieldgroup" style="grid-column:1/-1"><label for="obj-desc">业务定义</label><textarea id="obj-desc" placeholder="解释这个对象在工厂业务中的含义">'+esc(ed.description)+'</textarea></div></div></div>'+
+ '<div class="panel"><div class="panelhead"><div><h2>属性定义 <span class="labelpill">'+ed.properties.length+' 个</span></h2><p>按业务需要新增 Property。未完成配置可以先保存。</p></div><button id="add-prop-target" onclick="addProp()">＋ 添加属性</button></div>'+
+ (rows||'<div class="empty"><strong>尚未添加属性</strong><p>保存编辑进度可以没有属性，但完整校验会返回 INCOMPLETE。</p><button onclick="addProp()">＋ 添加第一个属性</button></div>')+'</div>'+
+ '</div><div>'+
+ '<div class="panel"><div class="panelhead"><div><h2>校验与修复</h2><p>与保存进度分开</p></div></div>'+
+ '<div class="fieldgrid" style="gap:10px"><div><label>服务端 revision（模拟）</label><div class="labelpill">'+r.revision+'</div></div><div><label>打开时 revision</label><div class="labelpill">'+state.openedRev+'</div></div><div><label>校验状态</label><div class="labelpill" id="validation-current-state">'+(state.dirty?'本地编辑待保存':esc(status(r)))+'</div></div><div><label>受检 revision</label><div class="labelpill">'+(report?report.validatedRevision:'—')+'</div></div></div>'+
+ '<p class="caption topgap">保存当前编辑进度后，才能校验明确的 revision。VALID 不等于审核/发布。</p><button id="validate-current" class="primary" onclick="validateDraft()" '+(state.dirty?'disabled title="先保存编辑进度"':'')+'>检查模型完整性</button><div class="side-callout">建议顺序：编辑 → 保存进度 → 完整校验 → 继续完善 / 返回模型包。</div><hr><div id="validation-issues-wrap">'+(state.dirty?'<div class="caption">表单已修改，请先保存并重新校验；旧结果不适用于本地编辑。</div>':list)+'</div></div>'+
+ '<div class="panel"><h2 style="font-size:14px">异常场景演练</h2><p class="caption">模拟后端结果，用于评审提示与操作恢复，绝非真实网络调用。</p>'+
+ '<div class="actions"><button onclick="simulateConflict()">模拟另一标签页保存</button><button onclick="toggleOffline()">'+(state.offline?'恢复模拟网络':'模拟断网')+'</button><button onclick="inspectServerRevision()">核对服务端 revision</button></div>'+
+ (state.conflict?'<div class="notice error"><b>409 · 编辑版本冲突</b><p>本地内容已保留，不会自动覆盖服务器。请先对照两个版本。</p><div class="revision-compare"><div class="compare-cell"><strong>本地未提交 · revision '+state.openedRev+'</strong><span>'+esc(state.editor?.description||'（无描述）')+'</span></div><div class="compare-cell"><strong>模拟服务器 · revision '+r.revision+'</strong><span>'+esc(r.objectTypes[0]?.description||'（无描述）')+'</span></div></div><div class="actions space"><button onclick="inspectServerRevision()">检查服务器版本</button><button onclick="reloadRemote()">确认放弃本地编辑并载入最新</button></div><p class="caption">如仍需本地修改，请先保留内容并手动对比。</p></div>':'')+
+ '</div></div></div>'+
+ '<div class="footer-actions"><div class="caption">编辑 revision '+state.openedRev+' · '+(state.dirty?'有未保存更改':'没有未保存更改')+' · '+(state.offline?'模拟网络离线':'模拟网络在线')+'</div><div class="actions"><button class="ghost" onclick="openPackage(\''+esc(r.id)+'\')">返回模型包</button><button class="primary" onclick="saveDraft()">保存编辑进度</button></div></div>';
+}
+
+function fieldForIssue(path){
+ if(path==='/objectTypes/0/id')return 'obj-id';
+ if(path==='/objectTypes/0/apiName')return 'obj-api';
+ if(path==='/objectTypes/0/primaryKeyRef')return 'primary-ref';
+ const m=path.match(/^\/objectTypes\/0\/properties\/(\d+)\/(id|apiName|enumValues)$/);
+ if(m)return 'p'+m[1]+'-'+({id:'id',apiName:'api',enumValues:'enum'}[m[2]]);
+ if(path==='/objectTypes/0/properties')return 'add-prop-target';
+ return null;
+}
+function focusIssue(path){
+ const id=fieldForIssue(path),node=id?$(id):null;if(!node)return;
+ node.scrollIntoView({behavior:'smooth',block:'center'});
+ node.focus({preventScroll:true});node.classList.add('issue-target');
+ window.setTimeout(()=>node.classList.remove('issue-target'),2300);
+}
+function decorateValidation(){
+ if(state.view!=='editor')return;
+ const r=record();if(!r||!r.validation||r.validation.validatedRevision!==r.revision)return;
+ for(const issue of r.validation.issues){
+  const id=fieldForIssue(issue.path),target=id?$(id):null;if(!target)continue;
+  target.setAttribute('aria-invalid','true');
+  if($('issue-'+id))continue;
+  const note=document.createElement('div');note.id='issue-'+id;note.className='field-error';note.textContent=issue.msg;
+  target.setAttribute('aria-describedby',note.id);target.insertAdjacentElement('afterend',note);
+ }
+}
+function inspectServerRevision(){
+ if(state.view==='editor')syncEditor();
+ const r=record();if(!r)return;
+ if(state.offline){say('模拟网络仍离线，无法核对服务端 revision；请先恢复网络。','warning');return}
+ const same=r.revision===state.openedRev;
+ say(same?'已核对模拟服务端 revision '+r.revision+'：与打开时一致。确认后可重新尝试保存。':'模拟服务器 revision '+r.revision+'，本地打开时 '+state.openedRev+'。版本不同，请先对比再操作。',same?'success':'warning');
+ render();
+}
+
+function render(){
+ $('nav-pkg').className='navbtn'+(['packages','package','editor'].includes(state.view)?' current':'');
+ $('nav-types').className='navbtn'+(state.view==='types'?' current':'');
+ $('breadcrumb').textContent=state.view==='editor'?'对象类型编辑':state.view==='package'?'模型包详情':state.view==='types'?'对象类型':'模型包';
+ $('view').innerHTML=state.view==='packages'?showPackages():state.view==='types'?showTypes():state.view==='package'?showPackage():showEditor();
+ renderMessage();
+ decorateValidation();
+}
+document.addEventListener('input',e=>{if(state.view==='editor'&&e.target.closest('#view')){changeEditor();if(/^p\d+-id$/.test(e.target.id))refreshPkChoices()}});
+document.addEventListener('change',e=>{if(state.view==='editor'&&e.target.closest('#view')){changeEditor();if(/^p\d+-(type|required)$/.test(e.target.id)){const i=Number(e.target.id.match(/^p(\d+)-/)[1]);if(e.target.id.endsWith('-type'))toggleEnumField(i);refreshPkChoices()}}});
+render();
+</script>
+</body>
+</html>
