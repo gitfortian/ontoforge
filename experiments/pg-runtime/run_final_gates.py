@@ -209,6 +209,24 @@ class OutboxRaceGates(unittest.TestCase):
         self.assertEqual(core.dispatch(*new,self.base),"VERIFIED")
         self.assertEqual(core.http_json("GET",self.base+"/stats")[1]["unique_writes"],1)
 
+    def test_stale_network_error_cannot_overwrite_new_owner(self):
+        aid=core.create_attempt();core.approve(aid);core.queue(aid)
+        previous=core.claim("worker-old")
+        with core.conn() as db:
+            db.execute("UPDATE poc.action_outbox "
+                       "SET lease_until=clock_timestamp()-interval '1 second' WHERE attempt_id=%s",(aid,))
+        next_owner=core.claim("worker-new")
+        self.assertEqual(next_owner[0],aid)
+        self.assertFalse(core.mark_state(aid,"UNKNOWN",token=previous[1]))
+        self.assertFalse(core.mark_state(aid,"UNKNOWN"))
+        with core.conn() as db:
+            row=db.execute("SELECT state,claim_token FROM poc.action_outbox "
+                           "WHERE attempt_id=%s",(aid,)).fetchone()
+        self.assertEqual(row["state"],"LEASED")
+        self.assertEqual(row["claim_token"],next_owner[1])
+        self.assertEqual(core.dispatch(*next_owner,self.base),"VERIFIED")
+        self.assertEqual(core.http_json("GET",self.base+"/stats")[1]["unique_writes"],1)
+
     def test_late_unknown_cannot_erase_receipt(self):
         aid=core.create_attempt();core.approve(aid);core.queue(aid)
         slot=core.claim("worker")
