@@ -1,0 +1,47 @@
+{
+  "queryVersion": "0.2.0",
+  "schemaReleaseRef": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "rootTypeRef": "quality-event",
+  "objectSetRef": "held-quality-events",
+  "steps": [
+    {
+      "kind": "Filter",
+      "propertyRef": "inspection-status",
+      "operator": "EQ",
+      "value": "HELD"
+    },
+    {
+      "kind": "Traverse",
+      "linkTypeRef": "quality-affects-material",
+      "direction": "OUT",
+      "maxDepth": 1
+    },
+    {
+      "kind": "Traverse",
+      "linkTypeRef": "material-used-by-product",
+      "direction": "OUT",
+      "maxDepth": 1
+    },
+    {
+      "kind": "Traverse",
+      "linkTypeRef": "product-built-by-workorder",
+      "direction": "OUT",
+      "maxDepth": 1
+    },
+    {
+      "kind": "Traverse",
+      "linkTypeRef": "workorder-fulfills-order",
+      "direction": "OUT",
+      "maxDepth": 1
+    },
+    {
+      "kind": "Aggregate",
+      "aggregation": "COUNT_DISTINCT"
+    }
+  ],
+  "limits": {
+    "timeoutMs": 8000,
+    "maxVisitedObjects": 100000,
+    "maxResults": 50000
+  }
+}
