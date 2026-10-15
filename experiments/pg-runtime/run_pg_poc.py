@@ -193,6 +193,16 @@ def queue(aid):
         if a is None or a["state"]!="APPROVED":
             raise ValueError("NOT_APPROVED")
         check_contract(db,a)
+        # Serialize admission for one operational target, not merely one idem key.
+        # This is POC-level coarse locking; production scope must be policy-defined.
+        db.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
+                   (a["workspace_id"]+":"+a["lot_id"],))
+        competing=db.execute(
+            "SELECT id FROM poc.action_attempt WHERE workspace_id=%s AND lot_id=%s "
+            "AND id<>%s AND state IN ('QUEUED','DISPATCHING','UNKNOWN') LIMIT 1",
+            (a["workspace_id"],a["lot_id"],aid)).fetchone()
+        if competing:
+            raise ValueError("TARGET_OPERATION_IN_PROGRESS")
         db.execute("UPDATE poc.action_attempt SET state='QUEUED' WHERE id=%s",(aid,))
         db.execute("INSERT INTO poc.action_outbox(attempt_id,state) VALUES(%s,'QUEUED')",(aid,))
         db.execute("INSERT INTO poc.action_event(attempt_id,event_type) VALUES(%s,'QUEUED')",(aid,))
@@ -409,8 +419,8 @@ class OutboxTests(unittest.TestCase):
         with sqlite3.connect(self.erp_path) as db:
             db.execute("DELETE FROM receipt")
 
-    def prepare(self,key=None):
-        aid=create_attempt(idem=key)
+    def prepare(self,key=None,lot="LOT-001"):
+        aid=create_attempt(lot=lot,idem=key)
         approve(aid)
         queue(aid)
         return aid
@@ -425,7 +435,12 @@ class OutboxTests(unittest.TestCase):
             self.assertEqual(get_attempt(aid)["state"],"QUEUED")
 
     def test_concurrent_claim_skips_locked_jobs(self):
-        aids=[self.prepare() for _ in range(4)]
+        with conn() as db:
+            for i in range(4):
+                db.execute("INSERT INTO poc.source_fact "
+                           "(lot_id,workspace_id,status,revision) VALUES(%s,'A','READY',1)",
+                           (f"LOT-{i:03d}",))
+        aids=[self.prepare(lot=f"LOT-{i:03d}") for i in range(4)]
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             claims=list(pool.map(lambda i:claim(f"worker-{i}"),range(8)))
         got=[c[0] for c in claims if c]
