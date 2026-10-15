@@ -1,9 +1,9 @@
 .idea/
 .vscode/
 *.iml
-apps/api/target/
-apps/web/node_modules/
-apps/web/dist/
+ontology-system-boot/target/
+ontology-system-ui/node_modules/
+ontology-system-ui/dist/
 .env
 .env.*
 !.env.example

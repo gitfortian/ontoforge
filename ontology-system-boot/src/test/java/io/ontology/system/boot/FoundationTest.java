@@ -1,4 +1,4 @@
-package io.ontology.system;
+package io.ontology.system.boot;
 
 import java.net.URI;
 import java.util.Map;

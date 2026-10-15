@@ -14,11 +14,13 @@
 
 准备：Java 21、Maven、Node.js 22、Docker Desktop。
 
-1. 在仓库根目录执行：`docker compose -f infra/compose.dev.yml up -d`，启动只绑定本地端口的 PostgreSQL 17。
-2. 另开终端执行：`mvn -f apps/api/pom.xml spring-boot:run`，启动 Spring Boot 与 Flyway 迁移。
-3. 再开终端，在 `apps/web` 执行 `npm install` 和 `npm run dev`，浏览器访问 [http://127.0.0.1:5173](http://127.0.0.1:5173)。
+1. 在仓库根目录执行：`docker compose up -d`，启动只绑定本地端口的 PostgreSQL 17。
+2. 另开终端执行：`mvn -pl ontology-system-boot spring-boot:run`，启动 Spring Boot 与 Flyway 迁移。
+3. 再开终端，在 `ontology-system-ui` 执行 `npm install` 和 `npm run dev`，浏览器访问 [http://127.0.0.1:5173](http://127.0.0.1:5173)。
 4. 页面应实时显示 API 与 PostgreSQL 连接成功，真实状态接口为 `http://127.0.0.1:8080/api/system/status`；停止后端后刷新会显示连接错误，而不是伪造数据。
 
 详细阶段说明：[S0 极简 MVP 迭代与验收计划](./doc/implementation/S0-MVP-迭代计划.md)。
 
 **安全范围**：此版本没有认证与权限控制，仅适合隔离的本地开发环境；数据库密码为开发演示固定值，不得直接对外开放服务或接入生产数据。
+
+工程目录与长期模块命名规范：[S0 模块规划](./doc/implementation/S0-工程模块规划与命名规范.md)。

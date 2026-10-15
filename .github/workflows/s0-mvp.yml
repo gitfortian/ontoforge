@@ -2,11 +2,13 @@ name: S0 MVP foundation
 on:
   push:
     branches:
-      - feature/s0-runnable-platform-foundation-20261015
+      - refactor/s0-yakops-style-project-layout-20261015
   pull_request:
     paths:
-      - "apps/**"
-      - "infra/compose.dev.yml"
+      - "ontology-system-boot/**"
+      - "ontology-system-ui/**"
+      - "pom.xml"
+      - "compose.yaml"
       - ".github/workflows/s0-mvp.yml"
   workflow_dispatch:
 permissions:
@@ -40,9 +42,19 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-          cache-dependency-path: apps/api/pom.xml
+          cache-dependency-path: |
+            pom.xml
+            ontology-system-boot/pom.xml
+      - name: Verify canonical Yak Ops-style layout
+        run: |
+          test ! -d apps
+          test ! -d infra
+          test -f pom.xml
+          test -f ontology-system-boot/pom.xml
+          test -f ontology-system-ui/package.json
+          grep -q '<module>ontology-system-boot</module>' pom.xml
       - name: Real PostgreSQL startup and Flyway integration tests
-        run: mvn -B -f apps/api/pom.xml verify
+        run: mvn -B -pl ontology-system-boot -am verify
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -52,7 +64,7 @@ jobs:
           node-version: "22"
       - name: Install pinned UI dependencies
         run: npm install --no-audit --no-fund
-        working-directory: apps/web
+        working-directory: ontology-system-ui
       - name: Type-check and production build
         run: npm run build
-        working-directory: apps/web
+        working-directory: ontology-system-ui

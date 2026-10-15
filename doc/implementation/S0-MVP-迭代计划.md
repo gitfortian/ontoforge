@@ -20,9 +20,9 @@
 
 ### 验收
 
-1. 启动本地数据库：`docker compose -f infra/compose.dev.yml up -d`。
-2. 使用 Java 21/Maven：`mvn -f apps/api/pom.xml spring-boot:run`。
-3. 使用 Node.js 22：进入 `apps/web` 后运行 `npm install`，再执行 `npm run dev`，浏览器访问 http://127.0.0.1:5173 。
+1. 启动本地数据库：`docker compose up -d`。
+2. 使用 Java 21/Maven：`mvn -pl ontology-system-boot spring-boot:run`。
+3. 使用 Node.js 22：进入 `ontology-system-ui` 后运行 `npm install`，再执行 `npm run dev`，浏览器访问 http://127.0.0.1:5173 。
 4. 实际调用 http://127.0.0.1:8080/api/system/status，返回 S0-MVP-0.1、数据库 CONNECTED 与持久 installationId。
 5. 关闭后端再刷新前端：应展示连接失败；重启后端应恢复且 installationId 不变。
 6. CI 必须运行 Maven PostgreSQL/Flyway 集成测试及 React/TypeScript build；其他旧 POC 测试不得受到影响。

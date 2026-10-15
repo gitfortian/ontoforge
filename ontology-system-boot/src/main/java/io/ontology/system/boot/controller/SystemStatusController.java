@@ -1,4 +1,4 @@
-package io.ontology.system.platform;
+package io.ontology.system.boot.controller;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -8,9 +8,9 @@ import org.springframework.web.bind.annotation.RestController;
 /** S0 MVP: a factual, read-only health overview. Never returns invented model metrics. */
 @RestController
 @RequestMapping("/api/system")
-public class SystemController {
+public class SystemStatusController {
     private final JdbcTemplate jdbc;
-    public SystemController(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    public SystemStatusController(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     public record PlatformStatus(String service, String version, String database,
                                  String installationId, String modelModule,
