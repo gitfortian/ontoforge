@@ -312,11 +312,18 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 200
+        },
+        "authority": {
+          "enum": [
+            "AUTHORITATIVE",
+            "SUPPLEMENTAL"
+          ]
         }
       },
       "required": [
         "propertyRef",
-        "sourceField"
+        "sourceField",
+        "authority"
       ]
     },
     "identity": {
@@ -391,12 +398,6 @@
             "ON_DEMAND"
           ]
         },
-        "sourceAuthority": {
-          "enum": [
-            "AUTHORITATIVE",
-            "SUPPLEMENTAL"
-          ]
-        },
         "completeness": {
           "type": "object",
           "additionalProperties": false,
@@ -428,7 +429,6 @@
         "fieldMappings",
         "identity",
         "refreshMode",
-        "sourceAuthority",
         "completeness"
       ]
     },
@@ -767,6 +767,52 @@
       "required": [
         "operation",
         "targetTypeRef"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "EXTERNAL_COMMAND"
+              }
+            },
+            "required": [
+              "operation"
+            ]
+          },
+          "then": {
+            "required": [
+              "executorRef"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "UPDATE_OBJECT"
+              }
+            },
+            "required": [
+              "operation"
+            ]
+          },
+          "then": {
+            "required": [
+              "propertyRefs"
+            ],
+            "properties": {
+              "propertyRefs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/propertyRef"
+                },
+                "uniqueItems": true,
+                "minItems": 1
+              }
+            }
+          }
+        }
       ]
     },
     "action": {
@@ -881,6 +927,10 @@
           }
         }
       ]
+    },
+    "propertyRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$"
     }
   }
 }
