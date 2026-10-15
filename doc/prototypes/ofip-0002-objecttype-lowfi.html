@@ -113,7 +113,7 @@ function refreshPkChoices(){
 function changeEditor(){state.dirty=true;state.validationLocal=null;const el=$('dirty-mark');if(el)el.textContent='● 未保存编辑';}
 function addProp(){syncEditor();state.editor.properties.push({id:'',apiName:'',label:'',valueType:'STRING',required:false,searchable:false,classification:'INTERNAL',enumValues:[]});state.dirty=true;render()}
 function removeProp(i){syncEditor();const removed=state.editor.properties.splice(i,1)[0];if(removed&&removed.id===state.editor.primaryKeyRef)state.editor.primaryKeyRef=null;state.dirty=true;render()}
-function toggleOffline(){state.offline=!state.offline;say(state.offline?'模拟网络已断开：后续保存/校验将失败，但本地输入保留。':'模拟网络恢复：可以重试保存/校验。');render()}
+function toggleOffline(){if(state.view==='editor')syncEditor();state.offline=!state.offline;say(state.offline?'模拟网络已断开：后续保存/校验将失败，但本地输入保留。':'模拟网络恢复：可以重试保存/校验。');render()}
 function simulateConflict(){
  let r=record();if(!r)return;syncEditor();r.revision+=1;r.updatedAt=now();r.validation=null;state.dirty=true;state.conflict=true;say('模拟另一个标签页已经保存：服务端 revision 变为 '+r.revision+'。本编辑器仍基于 revision '+state.openedRev+'；尝试保存将返回 409。','warning');render()
 }
