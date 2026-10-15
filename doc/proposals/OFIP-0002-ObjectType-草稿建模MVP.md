@@ -10,7 +10,7 @@
 
 **Release:** Not Released
 
-**Review gate:** Domain-Gate-1 **Passed**；Contract-Gate-2 **Passed (design only)**；UX-Gate-Low **Discussion / Pending**；UX-Gate-High **Not Started**。本轮仅交付交互评审材料，不开发业务代码
+**Review gate:** Domain-Gate-1 **Passed**；Contract-Gate-2 **Passed (design only)**；UX-Gate-Low **独立 Chromium 评审建议通过（维护者待确认）**；UX-Gate-High **设计与独立浏览器验证进行中 / 待维护者签收**。本轮无业务代码
 
 **Related:** [OFIP-0001 治理规范](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [总体架构 V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2 结构合同候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md) · [S0 迭代计划](../implementation/S0-MVP-迭代计划.md)
 
@@ -486,6 +486,60 @@ flowchart TD
 **本轮未验证/不应冒充通过**：Windows 本机实际 PostgreSQL/Flyway V2、Spring Boot Draft CRUD、Native V0.2 新 Property 作用域、真实 React 页面、刷新后持久化、生产权限/多租户/工业 Action。原型内存模拟就是原型，不存在“真实保存成功”。
 
 **状态边界**：助手作为独立审查者认为 UX1–UX9 在低保真阶段**可进入高保真优化**；仍请维护者在 PR #6 对交互方向明确签收或给出修改意见，随后才进入 UX-Gate-High。保持 `Status: Discussion` / `Implementation: Not Started`，不因 10/10 绿灯改为完整 Accepted。
+
+### UX-Gate-High：高保真原型与前端交付合同（当前待维护者签收）
+
+> **可操作文件**：[OFIP-0002 高保真原型](../prototypes/ofip-0002-objecttype-highfi.html)。GitHub 中使用 **Raw/Download** 保存到 Windows 本机后，可直接用 Edge/Chrome 打开。该文件独立于 \`ontoforge-ui\`，**不是产品代码**；保存、校验、并发、离线、页面状态仅使用浏览器内存模拟，刷新会清空原型数据，**没有 API/PG/真实鉴权**。
+>
+> **风格依据**：已对照当前 main 中实际 React \`ontoforge-ui/src/main.tsx\` 和 \`ontoforge-ui/src/style.css\` 的白色侧栏、深蓝品牌标识（#173657）、浅灰蓝背景（#f6f8fb）、蓝色任务高亮与卡片边框/阴影；不是把独立工业产品重新设计成一套与 OntoForge 不同的界面，也不修改当前已运行的 S0 页面。
+
+#### 一、页面信息架构
+
+| 页面 | 主要任务 | 默认突出行动 | 成功/失败返回路径 |
+| --- | --- | --- | --- |
+| 模型包列表 | 确认进入哪个业务定义包 | 空态「新建第一个模型包」，非空态「创建模型包」 | 进入包详情，重复 ID 引导打开已有包 |
+| 模型包详情 | 了解当前包内对象定义和校验状况 | 「新建首个对象类型」/「继续编辑」 | 返回包列表；未来多类型/Link 在产品信息架构中有位置 |
+| 对象类型列表 | 从对象名称定位所属模型包 | 「进入包」而非立即要求配置技术字段 | 返回包详情继续建模 |
+| 对象类型编辑 | 定义 ID、名称、属性、主键 | **底部主操作仅「保存编辑进度」**；右侧按条件提供「检查模型完整性」 | 保存确认后可返回模型包/继续编辑 |
+| 版本与校验信息面板 | 解释 DRAFT、revision、VALID/INCOMPLETE/INVALID | 点击具体错误→自动滚动定位字段、聚焦并展示就地提示 | 修复后保存新 revision 再校验 |
+| 异常恢复 | 解决 409 和未知保存结果 | 「核对服务器 revision」「确认放弃本地编辑并载入最新」（高风险操作） | 保留输入、不静默覆盖；回到当前编辑任务 |
+
+**首版不开发正式 Relation/Link 编辑、审核、发布、真实生产系统绑定页面**。原型中的禁用导航用于解释后续能力，不等于后端已支持。
+
+#### 二、视觉与组件约束（为未来 React 交付服务）
+
+- **品牌与导航**：实际 OntoForge S0 的品牌名、白色侧栏和深蓝品牌底色；不擅自重命名功能模块，不套用第三方 UI 套件。左侧导航保留「模型包」「对象类型」，顶层只提示本体设计领域。
+- **版式**：顶部面包屑/当前评审环境，页面标题+辅助解释，卡片容纳业务配置，桌面采用「编辑主区 + 右侧状态/校验」布局；窄屏将右侧区域移到下方，侧栏改横向入口。主布局在 1365px 桌面和 390px 窄屏用例验证。
+- **表单**：字段名、ID、API 名称、值类型、分类和 Required/Searchable 保持与 Native V0.2 提案合同一致；统一明确 focus、disabled、error、empty、unsaved 的视觉语义。高保真 HTML 代码仅说明表现，后续 React 应复用正式样式令牌与真实表单组件，不直接复制/嵌入原型 JS。
+- **层级**：保存进度为一次主任务的唯一主要提交动作，校验是右侧下一步；编辑器尚有未保存输入时，校验按钮必须**立即禁用**并解释原因，防止用户把未提交的本地内容当作服务端已校验。
+- **状态真实性**：\`DRAFT\`/revision 与 \`VALID/INCOMPLETE/INVALID\` 两条状态轴永不混为一谈，VALID 不命名为“已发布”。网络请求失败不能显示已保存成功。
+
+#### 三、九类关键交互及新增高保真验收点
+
+| 编号 | 用户动作 | 高保真合同 |
+| --- | --- | --- |
+| H1 | 初次访问及从空态创建包 | 无假模型、单一高优先级入口、提示合理的 packageId 格式 |
+| H2 | 模型包详情进入 ObjectType | 不让用户在第一次定义类型前选择 LinkType/数据映射 |
+| H3 | 部分输入后保存并重开 | 未填主键也可保存 WIP、返回列表后继续编辑；只模拟同页状态 |
+| H4 | 完整校验得到问题列表 | 列表项可点击，定位对应输入，\`aria-invalid=true\`，字段旁显示可读中文原因 |
+| H5 | 定义属性和主键 | 输入 Property ID 后主键候选实时更新；ENUM/数据分类可读，不默认伪造权限 |
+| H6 | 编辑已 VALID 类型 | 输入后校验入口立即不可用；保存 revision+1 后旧结论清除为 NOT_RUN |
+| H7 | 未保存离开或键盘操作 | 当前原型确认弹窗有效；真实 React 需支持地址栏刷新、Back、前进与可访问性焦点恢复 |
+| H8 | 模拟并发冲突 | 本地与服务器 revision/描述**并排显示**，保留本地输入；丢弃本地内容必须再次确认 |
+| H9 | 断网与恢复 | 未提交输入不丢，提示保存结果未知；允许恢复网络后**先核对服务器 revision**再重试 |
+
+**未支持的真正产品状态**（需在实施 PR 提供专业处理，不用演示成功替代）：数据库读取 Loading、空列表、后台 API 500、真实网络重连、列表分页游标、跨页面 URL/Draft ID、浏览器 Back/Refresh、权限限制/禁用、正式发布后的只读状态、复杂多类型模型包安全降级。高保真当前的设计表达不构成这些状态已经在产品中实现。
+
+#### 四、独立高保真测试、证据和验收阈值
+
+- [高保真真实浏览器回归源码](../prototypes/tests/test_objecttype_highfi_browser.py)：**14 项 Chromium**，沿用低保真的 10 项实际输入/点击测试，并增加 4 项高保真专项检查（字段错误定位、重复 Property 精确定位、保存/校验按钮实时可用状态、冲突双方内容展示）。
+- [低保真浏览器回归源码](../prototypes/tests/test_objecttype_lowfi_browser.py)：**10 项 Chromium** 保留为不可回退的 UX1–UX9 基线。新高保真改动不能破坏旧版的已验证交互方向。
+- [原型浏览器 CI 工作流](../../.github/workflows/ofip-0002-lowfi-browser.yml) 在原型改动时使用真实 Chromium 执行两套测试、捕获截图；所有输出属于**Mock 页面 UX 自动化**，不能证明 Spring Boot API、PostgreSQL Draft V2、生产权限或真实业务验收。
+- 合并前最低证据：24 项实际 Chromium 测试全部 PASS、GitHub Required Quality Gate 与架构合同工作流真实执行成功；存在失败需修复后重新提交完整 head SHA，并在 PR 中区分 PASS / NOT SELECTED / NOT RUN。
+- 设计评审结论需单独由维护者确认。**视觉可用性（页面对齐、密度、标签、文案）和用户故事有效性不能由 Playwright 绿色直接代替**。提交高保真评审确认前，OFIP-0002 保持 Discussion/Implementation Not Started。
+- Windows 11 本地原生 PostgreSQL、Java Draft API、Flyway V2、真实刷新后重开、安全/身份、工业语义计算均待实施 PR 实际验收。
+
+**高保真签收建议**：审 H1–H9，重点看当前项目既有视觉的一致性、字段错误可达性、修订对比和下一步行动指引。若通过，可明确回复「UX-Gate-High 通过」；然后在 OFIP-0002 中明确完整设计是否 Accepted，才开始一个真实前后端功能 PR。签收阶段与实施阶段不能合并成一个状态。
 
 ### Domain-Gate-1：已签收的领域决策（DG1–DG9 全部 A）
 
