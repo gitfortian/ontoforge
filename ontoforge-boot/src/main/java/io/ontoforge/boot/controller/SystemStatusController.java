@@ -22,7 +22,7 @@ public class SystemStatusController {
                 "SELECT installation_id::text FROM platform_installation WHERE id = 1",
                 String.class);
         if (installationId == null) throw new IllegalStateException("Migration is incomplete");
-        return new PlatformStatus("ontoforge", "S0-MVP-0.1", "CONNECTED",
-                installationId, "NOT_IMPLEMENTED", "NOT_IMPLEMENTED");
+        return new PlatformStatus("ontoforge", "S0-MVP-0.2", "CONNECTED",
+                installationId, "DRAFT_AVAILABLE", "NOT_IMPLEMENTED");
     }
 }
