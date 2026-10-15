@@ -25,7 +25,7 @@
 | 输入模型包 | [Native Package JSON Schema](./schema/ontology-package-v0.2.schema.json)、[制造质量模型包](./examples/manufacturing-quality-v0.2.json) |
 | 规范化 AST | [Typed AST Schema](./schema/ontology-ast-v0.2.schema.json)、[制造质量 AST](./examples/manufacturing-quality-ast-v0.2.json) |
 | ObjectSet 逻辑查询 | [Query Schema](./schema/objectset-query-v0.2.schema.json)、[质量影响四跳查询](./examples/manufacturing-impact-query-v0.2.json) |
-| QueryResult 证据 | [Result Schema](./schema/objectset-result-v0.2.schema.json)、[部分来源查询样例](./examples/manufacturing-impact-partial-result-v0.2.json) |
+| QueryResult 证据 | [Result Schema](./schema/objectset-result-v0.2.schema.json)、[部分来源查询样例](./examples/manufacturing-impact-partial-result-v0.2.json)、[执行失败但不伪造数据的样例](./examples/manufacturing-impact-failed-result-v0.2.json) |
 | 运营执行证据 | [Semantic Execution Record Schema](./schema/semantic-execution-record-v0.2.schema.json)、[UNKNOWN 样例](./examples/manufacturing-action-unknown-v0.2.json) |
 | 验收 | [正反例及局部语义检查](./tests/test_native_v02.py)；GitHub Actions native-contract-v02.yml |
 
@@ -55,7 +55,7 @@ ObjectSetDefinition 记录可复用集合资源的 rootType；QuerySpec 负责�
 
 QuerySpec 不接受 rawSql 或由用户自填的 AuthorizationContext；服务器负责解决主体、Policy、SchemaRelease、BindingVersion。Filter 的类型、非 searchable 字段、Traverse 方向和目标、Aggregate 字段、运算顺序及预算需在查询编译时检查。金额等指标必须按业务对象 Identity 去重，不能按多条 Link 路径重复汇总。
 
-ObjectSetResult 分开标记 Accuracy(EXACT/APPROXIMATE/UNKNOWN)、Completeness(COMPLETE/PARTIAL/UNKNOWN)、Freshness(FRESH/STALE/UNKNOWN)、answerScope(REQUESTED_SCOPE/KNOWN_SUBSET)。**对已知子集的精确计数，不代表整个企业的完整计数**；PARTIAL 必须标明 KNOWN_SUBSET。近似聚合必须给误差范围，不可把未授权对象存在性泄露给客户端。
+ObjectSetResult 分开标记 Accuracy(EXACT/APPROXIMATE/UNKNOWN)、Completeness(COMPLETE/PARTIAL/UNKNOWN)、Freshness(FRESH/STALE/UNKNOWN)、answerScope(REQUESTED_SCOPE/KNOWN_SUBSET)。**对已知子集的精确计数，不代表整个企业的完整计数**；PARTIAL 必须标明 KNOWN_SUBSET；宣称 COMPLETE 时所有列明的来源 Checkpoint 也必须 COMPLETE。COUNT_DISTINCT 必须为非负整数，近似聚合必须给误差范围。执行 FAILED 时返回安全错误代码而不是捏造一个空集合或数值 0，不可把未授权对象存在性泄露给客户端。
 
 PR #8/#9 通过 PostgreSQL 17 的 80 万与 600 万高扇出关联查询、RLS、去重和竞态 POC，说明其可作为 P0 基础存储候选。真实规模的成本/容量/冷热缓存及 Agent 端到端 SLA 仍未签收，必须保留 Logical Query AST 与 Physical Plan 的分离。
 
