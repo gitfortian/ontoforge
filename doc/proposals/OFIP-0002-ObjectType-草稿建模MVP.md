@@ -392,6 +392,43 @@ flowchart TD
 
 每个阶段能一轮通过就一轮通过；发现真实问题才返工，不以文档数量或流程时长为质量目标。**只有所有设计 Gate 签收后才开始功能 PR**；这不等于 P0-A 的所有未来功能都要一次性实现。
 
+---
+
+
+### Domain-Gate-1：已签收的领域决策（DG1–DG9 全部 A）
+
+| 决策 | 推荐 A | 备选 B / 风险 |
+| --- | --- | --- |
+| **DG1 Package 基数** | Package 1:N ObjectType、1:N LinkType；首版 UI 先做第一个类型 | 一包永久一类型：未来关系建模需要返工 |
+| **DG2 草稿保存** | Save WIP 与 Validate 完整 Native Package 分离，WIP 可以未选主键 | 只能完整后保存：长表单编辑易丢失进度 |
+| **DG3 Property 身份** | 逻辑上以 ObjectType 为作用域；下轮必须显式处理 V0.2 的跨类型 ID 约束与兼容 | 延续 Package 全局唯一，实施最省改动但模型语义较僵硬 |
+| **DG4 主键规则** | PK 引用自身 Property.id，完整候选要求 required=true 且 STRING/INTEGER | 用展示名、任意复合字段或物理数据库自增键充当主键 |
+| **DG5 编辑/发布身份** | draftId + revision + schemaVersion + package.version + future ReleaseDigest 完全分离 | 合并版本概念导致并发/审核语义混乱 |
+| **DG6 LinkType 定位** | 领域先定义端点、基数与来源证据；首版无 Link 编辑器，不生成 LinkFact | 要么不考虑关系，要么首版把关系实例也做进去 |
+| **DG7 验证状态** | WIP / INCOMPLETE / INVALID / VALID 分离；未来 REVIEWED/PUBLISHED 另设 Gate | 校验绿灯直接标“发布” |
+| **DG8 MVP 范围** | 一个功能 PR 做首个 ObjectType 的真实创建、WIP 保存、重开、编辑、完整校验及失败恢复；未来多类型不受底层硬约束 | 首版把多类型/Link/Release 全部开发，会明显膨胀 |
+| **DG9 研发顺序** | 本轮领域签收 → 下轮技术合同 → 低保真 → 高保真 → 完整前后端 PR → Windows 实测 | 直接开发或机械地为了轮次生成多份重复文档 |
+
+**签收记录**：[PR #6 评审评论](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)。DG1–DG9 按推荐 A 作为领域约束，但 **OFIP-0002 仍是 Discussion；Contract-Gate-2、交互/视觉、完整设计和实施状态继续独立审议**。
+
+### Contract-Gate-2：待维护者评审的技术决策（本轮 TC1–TC10，尚未批准）
+
+| 议题 | 推荐 A：建议通过 | B / 代价或风险 |
+| --- | --- | --- |
+| **TC1 Draft 文档** | `DraftEditingContent(editorSchemaVersion=0.1.0)` 与 Native V0.2 Candidate 严格分离；WIP 可缺 PK 但有服务端安全边界 | 把未完成内容硬写成 Native Package，会稀释现行 Schema |
+| **TC2 Property ID** | 使用 Type-scoped 复合引用；同步修订当前未签收 Native 语义及正反例，对缺上下文消费者必须升版本/补迁移 | 直接删除包级 ID 校验会造成引用歧义 |
+| **TC3 验证状态** | DRAFT 资源生命周期与 NOT_RUN/INCOMPLETE/INVALID/VALID 校验轴独立，校验绑定 revision，修改即失效 | 将 WIP/VALID/PUBLISHED 混为一谈 |
+| **TC4 API** | 列表、创建空草稿、读取、完整编辑文档 PUT、按 revision 校验五个端点；暂不提供发布 API | 过早做复杂 Registry，或只建接口不形成业务闭环 |
+| **TC5 错误/恢复** | 请求错误/数据契约错误/冲突/校验不通过分离；VALIDATE 业务不通过返回 200+issues，网络未知不假报保存成功 | 全部用 500/422 或客户端自动覆盖，导致用户无法恢复 |
+| **TC6 PG/Flyway** | V2 单表保存 typed WIP JSONB、revision、校验快照；条件写入且 V1 安装 ID 不变 | 每个 Property 一张表或改写历史 V1，增加迁移与竞态风险 |
+| **TC7 Candidate 构造** | 服务器从同 revision WIP 转换出完整 V0.2 Candidate；额外至少一 ObjectType 完整，候选版本不代表 Release | 允许空包“VALID”或把校验自动当作发布 |
+| **TC8 CI/验收** | 增加实际 Java/PG 集成、真实 API 正反例、浏览器黄金故事和用户 Windows 实测；升级现有只检查 FoundationTest 的证据门 | 旧 S0 CI 绿灯代替 ObjectType 测试，形成假完成 |
+| **TC9 兼容性** | 本 PR 不碰 Native Schema；下个受审合同 PR 明确旧 Property 唯一性变化、上下文规则、版本/迁移矩阵 | 仍用 0.2.0 名称暗改语义，不可追溯 |
+| **TC10 交付纪律** | TC1–TC9 单独评审通过后再做低保真→高保真→一次性纵向交付，不在技术合同评审 PR 开发 | 先堆 Controller/SQL/前端，再让原型追着代码跑 |
+
+**建议本次评审通过的方式**：维护者可明确回复“TC1–TC10 全部 A”或逐项提出修改。在这之前只承认 **DG1–DG9 已批准**，不得改为 `Status: Accepted`，不得以 PR merge / CI success 代替技术合同的真实签收，也不得开始业务功能代码。
+
+
 ## Compatibility, Deprecation, and Migration Plan
 
 1. **本提案不修改 V0.2 Schema、任何代码或 Flyway V1**；领域决议确认后下一轮才能提出机器合同变更。尤其 Property ID 作用域与 Draft WIP 结构须先确定，再修改 Python 正反例。
@@ -430,38 +467,3 @@ flowchart TD
 6. **以 draftId、package.version 或伪 digest 互相替代**：拒绝；编辑、语义版本、发布身份不可互换。
 7. **一轮直接写 SQL/API/页面、后续再评审用户故事**：拒绝；先冻结领域和合同，再做低保真/高保真，最后一个可验收功能 PR。
 8. **为未来 Workspace/审批/图引擎创建无消费方的空服务/通用模块**：拒绝；保留领域边界但不提前堆工程结构。
-
----
-
-### Domain-Gate-1：已签收的领域决策（DG1–DG9 全部 A）
-
-| 决策 | 推荐 A | 备选 B / 风险 |
-| --- | --- | --- |
-| **DG1 Package 基数** | Package 1:N ObjectType、1:N LinkType；首版 UI 先做第一个类型 | 一包永久一类型：未来关系建模需要返工 |
-| **DG2 草稿保存** | Save WIP 与 Validate 完整 Native Package 分离，WIP 可以未选主键 | 只能完整后保存：长表单编辑易丢失进度 |
-| **DG3 Property 身份** | 逻辑上以 ObjectType 为作用域；下轮必须显式处理 V0.2 的跨类型 ID 约束与兼容 | 延续 Package 全局唯一，实施最省改动但模型语义较僵硬 |
-| **DG4 主键规则** | PK 引用自身 Property.id，完整候选要求 required=true 且 STRING/INTEGER | 用展示名、任意复合字段或物理数据库自增键充当主键 |
-| **DG5 编辑/发布身份** | draftId + revision + schemaVersion + package.version + future ReleaseDigest 完全分离 | 合并版本概念导致并发/审核语义混乱 |
-| **DG6 LinkType 定位** | 领域先定义端点、基数与来源证据；首版无 Link 编辑器，不生成 LinkFact | 要么不考虑关系，要么首版把关系实例也做进去 |
-| **DG7 验证状态** | WIP / INCOMPLETE / INVALID / VALID 分离；未来 REVIEWED/PUBLISHED 另设 Gate | 校验绿灯直接标“发布” |
-| **DG8 MVP 范围** | 一个功能 PR 做首个 ObjectType 的真实创建、WIP 保存、重开、编辑、完整校验及失败恢复；未来多类型不受底层硬约束 | 首版把多类型/Link/Release 全部开发，会明显膨胀 |
-| **DG9 研发顺序** | 本轮领域签收 → 下轮技术合同 → 低保真 → 高保真 → 完整前后端 PR → Windows 实测 | 直接开发或机械地为了轮次生成多份重复文档 |
-
-**签收记录**：[PR #6 评审评论](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)。DG1–DG9 按推荐 A 作为领域约束，但 **OFIP-0002 仍是 Discussion；Contract-Gate-2、交互/视觉、完整设计和实施状态继续独立审议**。
-
-### Contract-Gate-2：待维护者评审的技术决策（本轮 TC1–TC10，尚未批准）
-
-| 议题 | 推荐 A：建议通过 | B / 代价或风险 |
-| --- | --- | --- |
-| **TC1 Draft 文档** | `DraftEditingContent(editorSchemaVersion=0.1.0)` 与 Native V0.2 Candidate 严格分离；WIP 可缺 PK 但有服务端安全边界 | 把未完成内容硬写成 Native Package，会稀释现行 Schema |
-| **TC2 Property ID** | 使用 Type-scoped 复合引用；同步修订当前未签收 Native 语义及正反例，对缺上下文消费者必须升版本/补迁移 | 直接删除包级 ID 校验会造成引用歧义 |
-| **TC3 验证状态** | DRAFT 资源生命周期与 NOT_RUN/INCOMPLETE/INVALID/VALID 校验轴独立，校验绑定 revision，修改即失效 | 将 WIP/VALID/PUBLISHED 混为一谈 |
-| **TC4 API** | 列表、创建空草稿、读取、完整编辑文档 PUT、按 revision 校验五个端点；暂不提供发布 API | 过早做复杂 Registry，或只建接口不形成业务闭环 |
-| **TC5 错误/恢复** | 请求错误/数据契约错误/冲突/校验不通过分离；VALIDATE 业务不通过返回 200+issues，网络未知不假报保存成功 | 全部用 500/422 或客户端自动覆盖，导致用户无法恢复 |
-| **TC6 PG/Flyway** | V2 单表保存 typed WIP JSONB、revision、校验快照；条件写入且 V1 安装 ID 不变 | 每个 Property 一张表或改写历史 V1，增加迁移与竞态风险 |
-| **TC7 Candidate 构造** | 服务器从同 revision WIP 转换出完整 V0.2 Candidate；额外至少一 ObjectType 完整，候选版本不代表 Release | 允许空包“VALID”或把校验自动当作发布 |
-| **TC8 CI/验收** | 增加实际 Java/PG 集成、真实 API 正反例、浏览器黄金故事和用户 Windows 实测；升级现有只检查 FoundationTest 的证据门 | 旧 S0 CI 绿灯代替 ObjectType 测试，形成假完成 |
-| **TC9 兼容性** | 本 PR 不碰 Native Schema；下个受审合同 PR 明确旧 Property 唯一性变化、上下文规则、版本/迁移矩阵 | 仍用 0.2.0 名称暗改语义，不可追溯 |
-| **TC10 交付纪律** | TC1–TC9 单独评审通过后再做低保真→高保真→一次性纵向交付，不在技术合同评审 PR 开发 | 先堆 Controller/SQL/前端，再让原型追着代码跑 |
-
-**建议本次评审通过的方式**：维护者可明确回复“TC1–TC10 全部 A”或逐项提出修改。在这之前只承认 **DG1–DG9 已批准**，不得改为 `Status: Accepted`，不得以 PR merge / CI success 代替技术合同的真实签收，也不得开始业务功能代码。
