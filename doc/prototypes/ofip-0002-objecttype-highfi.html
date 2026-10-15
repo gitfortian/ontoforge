@@ -181,7 +181,7 @@ function refreshPkChoices(){
  if(ids.some(x=>x.id===selected))select.value=selected;
  else select.value='';
 }
-function changeEditor(){state.dirty=true;state.validationLocal=null;const el=$('dirty-mark');if(el)el.textContent='● 未保存编辑';}
+function changeEditor(){state.dirty=true;state.validationLocal=null;const el=$('dirty-mark');if(el)el.textContent='● 未保存编辑';const validationButton=$('validate-current');if(validationButton){validationButton.disabled=true;validationButton.title='请先保存编辑进度，再校验最新 revision';}}
 function addProp(){syncEditor();state.editor.properties.push({id:'',apiName:'',label:'',valueType:'STRING',required:false,searchable:false,classification:'INTERNAL',enumValues:[]});state.dirty=true;render()}
 function removeProp(i){syncEditor();const removed=state.editor.properties.splice(i,1)[0];if(removed&&removed.id===state.editor.primaryKeyRef)state.editor.primaryKeyRef=null;state.dirty=true;render()}
 function toggleOffline(){if(state.view==='editor')syncEditor();state.offline=!state.offline;say(state.offline?'模拟网络已断开：后续保存/校验将失败，但本地输入保留。':'模拟网络恢复：可以重试保存/校验。');render()}
@@ -298,7 +298,7 @@ function showEditor(){
  '</div><div>'+
  '<div class="panel"><div class="panelhead"><div><h2>校验与修复</h2><p>与保存进度分开</p></div></div>'+
  '<div class="fieldgrid" style="gap:10px"><div><label>服务端 revision（模拟）</label><div class="labelpill">'+r.revision+'</div></div><div><label>打开时 revision</label><div class="labelpill">'+state.openedRev+'</div></div><div><label>校验状态</label><div class="labelpill">'+esc(status(r))+'</div></div><div><label>受检 revision</label><div class="labelpill">'+(report?report.validatedRevision:'—')+'</div></div></div>'+
- '<p class="caption topgap">保存当前编辑进度后，才能校验明确的 revision。VALID 不等于审核/发布。</p><button class="primary" onclick="validateDraft()" '+(state.dirty?'disabled title="先保存编辑进度"':'')+'>检查模型完整性</button><div class="side-callout">建议顺序：编辑 → 保存进度 → 完整校验 → 继续完善 / 返回模型包。</div><hr>'+list+'</div>'+
+ '<p class="caption topgap">保存当前编辑进度后，才能校验明确的 revision。VALID 不等于审核/发布。</p><button id="validate-current" class="primary" onclick="validateDraft()" '+(state.dirty?'disabled title="先保存编辑进度"':'')+'>检查模型完整性</button><div class="side-callout">建议顺序：编辑 → 保存进度 → 完整校验 → 继续完善 / 返回模型包。</div><hr>'+list+'</div>'+
  '<div class="panel"><h2 style="font-size:14px">异常场景演练</h2><p class="caption">模拟后端结果，用于评审提示与操作恢复，绝非真实网络调用。</p>'+
  '<div class="actions"><button onclick="simulateConflict()">模拟另一标签页保存</button><button onclick="toggleOffline()">'+(state.offline?'恢复模拟网络':'模拟断网')+'</button><button onclick="inspectServerRevision()">核对服务端 revision</button></div>'+
  (state.conflict?'<div class="notice error"><b>409 · 编辑版本冲突</b><p>本地内容已保留，不会自动覆盖服务器。请先对照两个版本。</p><div class="revision-compare"><div class="compare-cell"><strong>本地未提交 · revision '+state.openedRev+'</strong><span>'+esc(state.editor?.description||'（无描述）')+'</span></div><div class="compare-cell"><strong>模拟服务器 · revision '+r.revision+'</strong><span>'+esc(r.objectTypes[0]?.description||'（无描述）')+'</span></div></div><div class="actions space"><button onclick="inspectServerRevision()">检查服务器版本</button><button onclick="reloadRemote()">确认放弃本地编辑并载入最新</button></div><p class="caption">如仍需本地修改，请先保留内容并手动对比。</p></div>':'')+
