@@ -6,4 +6,4 @@ CREATE TABLE platform_installation (
   installed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 INSERT INTO platform_installation (id, installation_id)
-VALUES (1, '00000000-0000-0000-0000-000000000001');
+VALUES (1, gen_random_uuid());
