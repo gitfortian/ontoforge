@@ -4,13 +4,13 @@
 
 **Discussion:** [PR #6 — OFIP-0002 评审](https://github.com/gitfortian/ontoforge/pull/6)
 
-**Decision:** **[VOTE] Accepted — 2026-10-15（[实施授权记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6193022402)）**。已通过 **Domain-Gate-1：DG1–DG9 全部 A**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)）；**Contract-Gate-2：TC1–TC10 全部 A 已通过**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191277696)）。**UX-Gate-Low / UX-Gate-High：受托独立审核通过**（[实际验收结论](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6192752743)）；**实施获准，业务功能代码尚待独立 PR 交付**
+**Decision:** **[VOTE] Accepted — 2026-10-15（[实施授权记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6193022402)）**。已通过 **Domain-Gate-1：DG1–DG9 全部 A**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)）；**Contract-Gate-2：TC1–TC10 全部 A 已通过**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191277696)）。**UX-Gate-Low / UX-Gate-High：受托独立审核通过**（[实际验收结论](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6192752743)）；**实施获准，真实纵向功能在 [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 中实施及验收**
 
-**Implementation:** Pending — 已正式授权另开真实功能 PR，尚未实现；不因设计通过声称可用
+**Implementation:** In Progress — [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 包含真实 Flyway V2、Spring Boot、React 和 PG17+Chromium 证据，仍待 PR CI、合并和 Windows 实机验收；设计签收不等于完成
 
 **Release:** Not Released
 
-**Review gate:** Domain-Gate-1 **Passed**；Contract-Gate-2 **Passed (design only)**；UX-Gate-Low **Passed (delegated independent review)**；UX-Gate-High **Passed (delegated independent review; mock UI only)**；OFIP-0002 已获 `[VOTE] Accepted`（[决议](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6193022402)），业务代码/真实运行验收仍未完成
+**Review gate:** Domain-Gate-1 **Passed**；Contract-Gate-2 **Passed (design only)**；UX-Gate-Low **Passed (delegated independent review)**；UX-Gate-High **Passed (delegated independent review; mock UI only)**；OFIP-0002 已获 `[VOTE] Accepted`（[决议](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6193022402)），业务运行与用户本机验收仍待独立完成
 
 **Related:** [OFIP-0001 治理规范](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [总体架构 V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2 结构合同候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md) · [S0 迭代计划](../implementation/S0-MVP-迭代计划.md)
 
