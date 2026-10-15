@@ -1,0 +1,10 @@
+.idea/
+.vscode/
+*.iml
+apps/api/target/
+apps/web/node_modules/
+apps/web/dist/
+.env
+.env.*
+!.env.example
+.DS_Store
