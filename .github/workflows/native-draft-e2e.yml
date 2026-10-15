@@ -1,0 +1,97 @@
+name: OntoForge Native Draft Real Browser E2E
+
+# REAL PostgreSQL 17 + Spring Boot + Vite + Chromium; not a mock-page test.
+on:
+  pull_request:
+    paths:
+      - 'ontoforge-boot/**'
+      - 'ontoforge-ui/**'
+      - 'doc/design/tests/test_native_v02.py'
+      - '.github/workflows/native-draft-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  objecttype-browser:
+    name: Real PG17 + API + React Chromium Golden Story
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: ontology
+          POSTGRES_USER: ontology
+          POSTGRES_PASSWORD: ontology_dev_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ontology -d ontology"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      DB_URL: jdbc:postgresql://127.0.0.1:5432/ontology
+      DB_USERNAME: ontology
+      DB_PASSWORD: ontology_dev_only
+      S0_HOST: 127.0.0.1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install and run actual Java application
+        run: |
+          mvn -B -pl ontoforge-boot -am -DskipTests package
+          nohup java -jar ontoforge-boot/target/ontoforge-boot-0.1.0-SNAPSHOT.jar > /tmp/ontoforge-api.log 2>&1 &
+          echo $! > /tmp/ontoforge-api.pid
+          for i in $(seq 1 70); do
+            if curl -fsS http://127.0.0.1:8080/api/system/status >/tmp/model-status.json; then break; fi
+            sleep 2
+          done
+          cat /tmp/model-status.json || true
+          curl -fsS http://127.0.0.1:8080/api/system/status
+      - name: Launch real Vite React application
+        working-directory: ontoforge-ui
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          nohup npm run dev > /tmp/ontoforge-vite.log 2>&1 &
+          echo $! > /tmp/ontoforge-vite.pid
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:5173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:5173/ >/dev/null
+      - name: Install real Playwright Chromium
+        run: |
+          python -m pip install playwright==1.57.0
+          python -m playwright install --with-deps chromium
+      - name: Test ObjectType golden story, refresh, 409 and network failures
+        env:
+          E2E_SHOTS: '${{ runner.temp }}/ontoforge-native-e2e-shots'
+        run: python -m unittest discover -s ontoforge-ui/e2e -p 'test_*.py' -v
+      - name: Keep real service logs and screenshots for review
+        if: always()
+        run: |
+          mkdir -p /tmp/ontoforge-e2e-evidence
+          cp /tmp/ontoforge-api.log /tmp/ontoforge-e2e-evidence/backend.log 2>/dev/null || true
+          cp /tmp/ontoforge-vite.log /tmp/ontoforge-e2e-evidence/vite.log 2>/dev/null || true
+          cp -r '${{ runner.temp }}/ontoforge-native-e2e-shots' /tmp/ontoforge-e2e-evidence/screenshots 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ontoforge-native-real-e2e
+          path: /tmp/ontoforge-e2e-evidence/
+          if-no-files-found: warn
+          retention-days: 14
