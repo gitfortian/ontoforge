@@ -1,0 +1,58 @@
+name: S0 MVP foundation
+on:
+  push:
+    branches:
+      - feature/s0-runnable-platform-foundation-20261015
+  pull_request:
+    paths:
+      - "apps/**"
+      - "infra/compose.dev.yml"
+      - ".github/workflows/s0-mvp.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ontology
+          POSTGRES_PASSWORD: ontology_dev_only
+          POSTGRES_DB: ontology
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ontology -d ontology"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      DB_URL: jdbc:postgresql://127.0.0.1:5432/ontology
+      DB_USERNAME: ontology
+      DB_PASSWORD: ontology_dev_only
+      S0_HOST: 127.0.0.1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: apps/api/pom.xml
+      - name: Real PostgreSQL startup and Flyway integration tests
+        run: mvn -B -f apps/api/pom.xml verify
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install pinned UI dependencies
+        run: npm install --no-audit --no-fund
+        working-directory: apps/web
+      - name: Type-check and production build
+        run: npm run build
+        working-directory: apps/web

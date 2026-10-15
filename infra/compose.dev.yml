@@ -1,0 +1,19 @@
+# Local-only database for S0 MVP. Never expose this dev configuration publicly.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ontology
+      POSTGRES_USER: ontology
+      POSTGRES_PASSWORD: ontology_dev_only
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ontology_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ontology -d ontology"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+volumes:
+  ontology_pgdata:
