@@ -232,10 +232,10 @@ class OutboxRaceGates(unittest.TestCase):
         with core.conn() as db:
             for n in range(14):
                 db.execute("INSERT INTO poc.source_fact VALUES(%s,'A','READY',1)",
-                           (f"LOT-{n:03}",))
+                           (f"LOT-STRESS-{n:03}",))
         ids=[]
         for n in range(14):
-            aid=core.create_attempt(lot=f"LOT-{n:03}")
+            aid=core.create_attempt(lot=f"LOT-STRESS-{n:03}")
             core.approve(aid);core.queue(aid)
             ids.append(aid)
         with concurrent.futures.ThreadPoolExecutor(max_workers=18) as pool:
