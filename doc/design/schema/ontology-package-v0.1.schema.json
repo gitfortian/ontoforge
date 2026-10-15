@@ -1,0 +1,358 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/ontology/contracts/v0.1/ontology-package.schema.json",
+  "title": "Ontology Package Declarative DSL v0.1 (design candidate)",
+  "description": "This schema validates structure only. Cross-reference, ownership, semantic compatibility, OWL and SHACL semantics need compiler gates. Example.org is documentation-only.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "packageId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$"
+    },
+    "namespaceIri": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "[#/]$"
+    },
+    "imports": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/import"
+      },
+      "uniqueItems": true
+    },
+    "entityTypes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entityType"
+      }
+    },
+    "dataProperties": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dataProperty"
+      }
+    },
+    "objectProperties": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/objectProperty"
+      }
+    },
+    "axioms": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/axiom"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "packageId",
+    "version",
+    "namespaceIri",
+    "imports",
+    "entityTypes",
+    "dataProperties",
+    "objectProperties",
+    "axioms"
+  ],
+  "$defs": {
+    "labels": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "import": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "packageId": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "packageId",
+        "version",
+        "digest"
+      ]
+    },
+    "dataConstraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "allowedValues": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": [
+              "string",
+              "boolean",
+              "number"
+            ]
+          }
+        },
+        "minInclusive": {
+          "type": "number"
+        },
+        "maxInclusive": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "relationConstraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "entityType": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "EntityType"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{2,63}$"
+        },
+        "iri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+        },
+        "labels": {
+          "$ref": "#/$defs/labels"
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subClassOf": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "uniqueItems": true
+        },
+        "equivalentClass": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "iri",
+        "name",
+        "labels",
+        "definition"
+      ]
+    },
+    "dataProperty": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "DataProperty"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{2,63}$"
+        },
+        "iri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+        },
+        "labels": {
+          "$ref": "#/$defs/labels"
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain": {
+          "type": "string",
+          "format": "uri"
+        },
+        "datatype": {
+          "enum": [
+            "string",
+            "boolean",
+            "integer",
+            "decimal",
+            "date",
+            "dateTime",
+            "uri"
+          ]
+        },
+        "constraints": {
+          "$ref": "#/$defs/dataConstraints"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "iri",
+        "name",
+        "labels",
+        "definition",
+        "domain",
+        "datatype"
+      ]
+    },
+    "objectProperty": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "ObjectProperty"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{2,63}$"
+        },
+        "iri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+        },
+        "labels": {
+          "$ref": "#/$defs/labels"
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain": {
+          "type": "string",
+          "format": "uri"
+        },
+        "range": {
+          "type": "string",
+          "format": "uri"
+        },
+        "inverseOf": {
+          "type": "string",
+          "format": "uri"
+        },
+        "characteristics": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "functional",
+              "inverseFunctional",
+              "symmetric",
+              "transitive"
+            ]
+          }
+        },
+        "constraints": {
+          "$ref": "#/$defs/relationConstraints"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "iri",
+        "name",
+        "labels",
+        "definition",
+        "domain",
+        "range"
+      ]
+    },
+    "axiom": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "DisjointClasses"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{2,63}$"
+        },
+        "classes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "minItems": 2,
+          "uniqueItems": true
+        },
+        "rationale": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "classes"
+      ]
+    }
+  }
+}
