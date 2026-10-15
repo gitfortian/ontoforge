@@ -14,17 +14,29 @@
 
 > **现阶段为 S0-MVP-0.1 本地工程验证**，不是可生产使用的本体产品。用户/权限/工作空间/业务系统连接尚未实现；所有架构选择仍以 V1.3 和阶段 Gate 为准。
 
-## S0-MVP-0.1：最小启动路径（本地开发）
+## S0-MVP-0.1：Windows 11 本机 PostgreSQL（默认开发方式）
 
-准备：Java 21、Maven、Node.js 22、Docker Desktop。
+准备：Java 21、Maven、Node.js 22、已安装运行的**本机 PostgreSQL**，不需要 Docker Desktop。
 
-1. 在仓库根目录执行：`docker compose up -d`，启动只绑定本地端口的 PostgreSQL 17。
-2. 另开终端执行：`mvn -pl ontoforge-boot spring-boot:run`，启动 Spring Boot 与 Flyway 迁移。
-3. 再开终端，在 `ontoforge-ui` 执行 `npm install` 和 `npm run dev`，浏览器访问 [http://127.0.0.1:5173](http://127.0.0.1:5173)。
-4. 页面应实时显示 API 与 PostgreSQL 连接成功，真实状态接口为 `http://127.0.0.1:8080/api/system/status`；停止后端后刷新会显示连接错误，而不是伪造数据。
+1. 在 Windows PowerShell 中确认 PostgreSQL 服务运行，并创建或复用本机数据库 `ontoforge`（默认 `127.0.0.1:5432`，用户 `postgres`）；**已有数据库不要重建**。
+2. 在启动后端的同一个 PowerShell 窗口设置 `DB_PASSWORD`，它**没有代码内置的默认值**：
 
-详细阶段说明：[S0 极简 MVP 迭代与验收计划](./doc/implementation/S0-MVP-迭代计划.md)。
+   ```powershell
+   $env:DB_URL = 'jdbc:postgresql://127.0.0.1:5432/ontoforge'
+   $env:DB_USERNAME = 'postgres'
+   $env:DB_PASSWORD = [System.Net.NetworkCredential]::new('', (Read-Host 'PostgreSQL password' -AsSecureString)).Password
+   mvn -pl ontoforge-boot spring-boot:run
+   ```
 
-**安全范围**：此版本没有认证与权限控制，仅适合隔离的本地开发环境；数据库密码为开发演示固定值，不得直接对外开放服务或接入生产数据。
+3. 另开 PowerShell 进入 `ontoforge-ui`，运行 `npm install` 和 `npm run dev`；访问 [http://127.0.0.1:5173](http://127.0.0.1:5173)。
+4. 新开 PowerShell，重新设置相同的 DB_* 环境变量，并在仓库根目录运行 `.\scripts\verify-s0.ps1`（`psql` 未加入 PATH 时传 `-PsqlPath`）。脚本只读校验 Flyway V1、数据库 UUID 与真实 API 是否一致；重启后端后可通过 `-ExpectedInstallationId` 验证持久化。
+
+**完整分步骤、psql 安装目录用法、失败排查与重启验收**：[Windows 11 本机 PostgreSQL 启动与验收](./doc/implementation/S0-Windows11-本机PostgreSQL-启动与验收.md)。
+
+根目录 `compose.yaml` 仍保留为**可选 Docker 方式**，使用它时必须自行明确对应的 DB_URL/DB_USERNAME/DB_PASSWORD；其 `ontology` 测试库与 Windows 默认 `ontoforge` 库不是同一环境，不应在本机 5432 上同时启动两个 PostgreSQL 实例。CI 采用独立 PostgreSQL 服务及 CI 专用环境变量。
+
+详细版本范围：[S0 极简 MVP 迭代与验收计划](./doc/implementation/S0-MVP-迭代计划.md)。
+
+**安全范围**：本版本没有认证与权限控制，仅适合隔离的本地开发环境；不在仓库中保存数据库密码，不得直接对外开放服务或接入生产数据。
 
 工程目录与长期模块命名规范：[S0 模块规划](./doc/implementation/S0-工程模块规划与命名规范.md)；品牌及兼容性说明：[OntoForge · 砺元命名约定](./doc/implementation/OntoForge-品牌与工程命名约定.md)。
