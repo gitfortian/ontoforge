@@ -273,7 +273,8 @@ class NativeV02ContractTests(unittest.TestCase):
         self.invalid_semantic(self.pkg, "PRIMARY_KEY_MISSING")
 
     def test_cross_type_property_id_collision(self):
-        self.pkg["objectTypes"][1]["properties"][0]["id"] = "event-id"
+        target = next(t for t in self.pkg["objectTypes"] if t["id"] == "material-lot")
+        next(p for p in target["properties"] if p["id"] == "source-quality-status")["id"] = "event-id"
         self.invalid_semantic(self.pkg, "CROSS_TYPE_PROPERTY_ID_COLLISION")
 
     def test_unknown_link_endpoint(self):
@@ -281,7 +282,8 @@ class NativeV02ContractTests(unittest.TestCase):
         self.invalid_semantic(self.pkg, "LINK_SOURCE_UNKNOWN")
 
     def test_mapping_cannot_claim_unowned_property(self):
-        self.pkg["bindings"][0]["fieldMappings"][0]["propertyRef"] = "amount-cents"
+        binding = next(b for b in self.pkg["bindings"] if b["id"] == "qms-event-binding")
+        binding["fieldMappings"][0]["propertyRef"] = "amount-cents"
         self.invalid_semantic(self.pkg, "BINDING_PROPERTY_NOT_OWNED")
 
     def test_cross_source_identity_without_evidence(self):
@@ -324,7 +326,8 @@ class NativeV02ContractTests(unittest.TestCase):
         self.invalid_structure("package", self.pkg)
 
     def test_invalid_enum_missing_values(self):
-        del self.pkg["objectTypes"][0]["properties"][1]["enumValues"]
+        target = next(t for t in self.pkg["objectTypes"] if t["id"] == "quality-event")
+        del next(p for p in target["properties"] if p["id"] == "inspection-status")["enumValues"]
         self.invalid_structure("package", self.pkg)
 
     def test_no_secrets_implicit_in_model(self):
