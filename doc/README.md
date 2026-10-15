@@ -34,6 +34,10 @@
 
 **状态区分**：设计是否 Accepted、代码是否 Implemented、测试是否 Passed、产品是否 Released 是不同事实。OFIP-0001 的明确接受只针对研发治理方向，**不会自动签收 V1.3 总体架构和 Native V0.2 产品合同**。规范入口见 [AGENTS.md](../AGENTS.md)、[贡献指南](../.github/CONTRIBUTING.md)、[OFIP 模板](../.github/OFIP_TEMPLATE.md)、[PR 模板](../.github/PULL_REQUEST_TEMPLATE.md)。
 
+## CI 验证证据（OFIP-0001 第二阶段）
+
+[可信质量门禁范围、结果解释及验收手册](./implementation/S0-CI-可信质量门禁.md) 描述提议的新固定 `Required Quality Gate`、完整差异选择器、PostgreSQL/Flyway、Native Schema、前端和研究 POC 的独立证据。此阶段属于 CI 实施 PR，**不能因 YAML 提交就认为 GitHub 分支保护已配置**；浏览器/本机/生产验收仍须另行执行。
+
 ## 历史文件与清理原则
 
 - V1.0、V1.1、V1.2 总体架构 Markdown 均被 V1.3 统一替代；旧的 OWL-first V0.1 设计说明与旧版验收说明不再作为现行技术依据。
