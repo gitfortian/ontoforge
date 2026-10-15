@@ -379,6 +379,61 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "QUEUED",
+              "DISPATCHING",
+              "UNKNOWN",
+              "RECEIPT_CONFIRMED",
+              "VERIFIED_SUCCESS"
+            ]
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "authorization": {
+            "properties": {
+              "authorizationDecision": {
+                "const": "PERMIT"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "RECEIPT_CONFIRMED"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "required": [
+          "externalReceipt"
+        ],
+        "properties": {
+          "externalReceipt": {
+            "properties": {
+              "receiptStatus": {
+                "const": "ACCEPTED"
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }
