@@ -57,5 +57,5 @@ From repository root:
 - Never disable a failing check, reduce assertions or change workflows solely to obtain a green badge. Correct the failure or report it.
 - CI status must distinguish `PASS`, `FAIL`, `NOT SELECTED`, and `NOT RUN`; use exact scope (docs, native contract, JDBC/Flyway, frontend, UI E2E, release). No skipped case is passed.
 - Include reviewed `base`/`head` SHA and actual tests in a PR; review affected callers/contracts and the full relevant diff.
-- Current workflows are **not yet** an enforced unified required quality gate; OFIP-0001 plans that as a **separate implementation PR**. Do not claim repository branch protection just because a YAML file exists.
+- OFIP-0001 Phase 2 proposes `.github/workflows/quality-gate.yml` with a stable `Required Quality Gate`, tested scope selection and genuine PASS / FAIL / NOT SELECTED evidence. See [S0 CI trust and roll-out runbook](doc/implementation/S0-CI-可信质量门禁.md). GitHub branch protection is a separate setting and is **not** automatically enabled by the workflow.
 - Keep AI-assisted changes human-reviewable and explicitly disclose assistance per the PR template.
