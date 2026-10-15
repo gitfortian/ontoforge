@@ -97,6 +97,10 @@ class NativeDraftTest {
         assertThat(call(HttpMethod.GET,"/"+UUID.randomUUID(),null,404).path("code").asText()).isEqualTo("DRAFT_NOT_FOUND");
         assertThat(call(HttpMethod.GET,"?pageSize=100",null,400).path("code").asText()).isEqualTo("MALFORMED_REQUEST");
         assertThat(call(HttpMethod.GET,"?pageSize=1",null,200).path("items").size()).isEqualTo(1);
+        String invalidTimestampCursor=java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+                "not-a-time|00000000-0000-0000-0000-000000000000".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        JsonNode invalidTimestamp=call(HttpMethod.GET,"?cursor="+invalidTimestampCursor,null,400);
+        assertThat(invalidTimestamp.path("code").asText()).isEqualTo("MALFORMED_REQUEST");
     }
 
     @Test void nativeDraftRejectsUnsafeEditorAndInvalidNativeProperties() throws Exception {
@@ -133,5 +137,26 @@ class NativeDraftTest {
         // Type-scoped property IDs: same Property.id in DIFFERENT ObjectTypes is valid.
         JsonNode cross=call(HttpMethod.POST,"/"+id+"/validate",revision(4),200);
         assertThat(cross.path("status").asText()).isEqualTo("VALID");
+        // P2: nullable WIP-only display labels must be omitted from the
+        // normalized V0.2 candidate, never accepted as schema-invalid null.
+        ObjectNode nullable=editor();
+        ObjectNode nullableType=obj("production-batch","ProductionBatch");
+        nullableType.putNull("label");
+        nullableType.putNull("description");
+        ObjectNode nullableProperty=property("batch-id","batchId","STRING",true);
+        nullableProperty.putNull("label");
+        ((ArrayNode)nullableType.get("properties")).add(nullableProperty);
+        nullableType.put("primaryKeyRef","batch-id");
+        ((ArrayNode)nullable.get("objectTypes")).add(nullableType);
+        call(HttpMethod.PUT,"/"+id,saveBody(4,nullable),200);
+        JsonNode nullLabels=call(HttpMethod.POST,"/"+id+"/validate",revision(5),200);
+        assertThat(nullLabels.path("status").asText()).isEqualTo("VALID");
+        var result=io.ontoforge.boot.model.DraftValidation.validate(
+                "manufacturing.production",nullable,mapper);
+        assertThat(result.nativeCandidate()).isNotNull();
+        assertThat(result.nativeCandidate().path("objectTypes").get(0).has("label")).isFalse();
+        assertThat(result.nativeCandidate().path("objectTypes").get(0).has("description")).isFalse();
+        assertThat(result.nativeCandidate().path("objectTypes").get(0).path("properties").get(0).has("label")).isFalse();
+        assertThat(io.ontoforge.boot.model.NativePackageSchema.validate(result.nativeCandidate())).isEmpty();
     }
 }
