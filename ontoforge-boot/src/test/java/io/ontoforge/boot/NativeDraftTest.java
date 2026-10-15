@@ -51,7 +51,7 @@ class NativeDraftTest {
     }
     private ObjectNode revision(long n) {ObjectNode o=mapper.createObjectNode();o.put("expectedRevision",n);return o;}
     private ObjectNode saveBody(long n,JsonNode editor) {ObjectNode o=revision(n);o.set("editingContent",editor);return o;}
-    private String freshName() {return "manufacturing."+UUID.randomUUID().toString().replace("-","");}
+    private String freshName() {return "manufacturing.p"+UUID.randomUUID().toString().replace("-","");}
 
     @Test void nativeDraftRealPostgresCreateWipSaveReloadValidateAndInvalidate() throws Exception {
         String installationBefore=jdbc.queryForObject("SELECT installation_id::text FROM platform_installation WHERE id=1",String.class);
