@@ -150,7 +150,7 @@ class LowFiBrowserUX(unittest.TestCase):
 
     def test_conflicting_package_id_not_silently_overwritten(self):
         self.create_package()
-        self.page.get_by_role("button", name="模型包", exact=True).first.click()
+        self.page.locator("#nav-pkg").click()
         self.page.get_by_role("button", name="＋ 创建模型包").click()
         self.page.locator("#package-id").fill("manufacturing.production")
         self.page.get_by_role("button", name="创建空草稿并进入").click()
