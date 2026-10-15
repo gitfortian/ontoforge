@@ -439,8 +439,8 @@ class OutboxTests(unittest.TestCase):
             for i in range(4):
                 db.execute("INSERT INTO poc.source_fact "
                            "(lot_id,workspace_id,status,revision) VALUES(%s,'A','READY',1)",
-                           (f"LOT-{i:03d}",))
-        aids=[self.prepare(lot=f"LOT-{i:03d}") for i in range(4)]
+                           (f"LOT-CLAIM-{i:03d}",))
+        aids=[self.prepare(lot=f"LOT-CLAIM-{i:03d}") for i in range(4)]
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             claims=list(pool.map(lambda i:claim(f"worker-{i}"),range(8)))
         got=[c[0] for c in claims if c]
