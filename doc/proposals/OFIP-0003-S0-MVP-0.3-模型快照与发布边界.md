@@ -3,7 +3,7 @@
 **Status:** Accepted  
 **Discussion:** [PR #10 — OFIP-0003 首轮产品/领域评审](https://github.com/gitfortian/ontoforge/pull/10)  
 **Decision:** [VOTE] Accepted — 2026-10-16（[授权与审批来源声明](https://github.com/gitfortian/ontoforge/pull/10#issuecomment-6210133413)）。DG1–DG9 / TC1–TC12 推荐 A 与 UX-Gate-Low/High 方向已采纳；由助手按用户继续实施的指示受托记录，不冒充第三方 GitHub 审批人。仅授权本地不可变 Snapshot + 历史 / Diff，正式 Review/Release/Activation 仍禁止  
-**Implementation:** Authorized / Not Yet Delivered — 已允许独立真实功能 PR；本设计 PR 仍只有方案、原型与测试，不包含 Flyway V3 / Java Snapshot / React 正式功能  
+**Implementation:** In Progress — [真实纵向实施 PR #11](https://github.com/gitfortian/ontoforge/pull/11) 已提交 Flyway V3、Java 事务快照/JCS/Diff、正式 React UI 与真实 PG/HTTP/Chromium 自动化。PR 仍处于 Draft 待完成/审核，Windows 用户实机验收 NOT RUN，任何 CI 绿色不等于 Released  
 **Release:** Not Released
 
 **Review gate:** Domain-Gate-1、Contract-Gate-2 与 UX-Gate-Low/High 已有独立评审证据；[受托实施授权](https://github.com/gitfortian/ontoforge/pull/10#issuecomment-6210133413)；**设计 Accepted ≠ 0.3 代码实现或 Windows/生产验收通过**。  
