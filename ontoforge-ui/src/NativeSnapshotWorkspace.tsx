@@ -169,6 +169,9 @@ export default function NativeSnapshotWorkspace({route,navigate}:{route:string;n
  const matchHistory=route.match(/^#\/model\/packages\/([^/?]+)\/snapshots$/);
  const matchDiff=route.match(/^#\/model\/snapshot-diffs\?(.+)$/);
  const pkg=matchHistory?decodeURIComponent(matchHistory[1]):null;
+ // A history route always starts with the first page; pagination then appends
+ // already-loaded snapshot choices so users can compare across page boundaries.
+ useEffect(()=>{setCursor(null)},[route]);
  useEffect(()=>{
    let cancelled=false;
    setLoading(true);setError(null);setSnapshot(null);setPage(null);setDiff(null);
@@ -176,8 +179,13 @@ export default function NativeSnapshotWorkspace({route,navigate}:{route:string;n
      try{
        if(matchDetail){const d=await request<Snapshot>('/snapshots/'+matchDetail[1]);if(!cancelled)setSnapshot(d)}
        else if(pkg){const d=await request<Page>('/packages/'+encode(pkg)+'/snapshots?pageSize=20'+
-                    (cursor?'&cursor='+encode(cursor):''));if(!cancelled){setPage(d);
-         if(d.items.length>1){setFrom(d.items[1].snapshotId);setTo(d.items[0].snapshotId);}}}
+                    (cursor?'&cursor='+encode(cursor):''));if(!cancelled){
+          setPage(prev=>cursor&&prev
+            ? {items:[...prev.items,...d.items.filter(x=>!prev.items.some(y=>y.snapshotId===x.snapshotId))],
+               nextCursor:d.nextCursor}
+            : d);
+          if(!cursor&&d.items.length>1){setFrom(d.items[1].snapshotId);setTo(d.items[0].snapshotId);}
+        }}}
        else if(matchDiff){
          const q=new URLSearchParams(matchDiff[1]);
          const a=q.get('from'),b=q.get('to');
@@ -238,7 +246,7 @@ export default function NativeSnapshotWorkspace({route,navigate}:{route:string;n
            <td>{new Date(x.createdAt).toLocaleString('zh-CN')}</td>
            <td><button className="model-link" onClick={()=>navigate('#/model/snapshots/'+x.snapshotId)}>只读查看</button></td></tr>)}</tbody>
          </table></div>}
-       {page.nextCursor&&<button className="model-btn" onClick={()=>setCursor(page.nextCursor)}>下一页</button>}
+       {page.nextCursor&&<button className="model-btn" onClick={()=>setCursor(page.nextCursor)}>加载更多历史快照</button>}
      </section>
      {page.items.length>=2&&<section className="model-panel"><h2>对照两份快照</h2>
        <p>按对象类型与属性身份比较；风险标签不等于下游兼容性认证。</p>
