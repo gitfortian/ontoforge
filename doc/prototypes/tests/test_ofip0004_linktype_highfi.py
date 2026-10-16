@@ -138,7 +138,7 @@ class LinkTypeHighFiBrowserReview(unittest.TestCase):
         self.page.locator("#tab-check").click()
         self.page.locator("button[data-action=otherEditor]").click()
         self.act("save")
-        self.assertTrue(self.page.evaluate("S.conflict and S.dirty"))
+        self.assertTrue(self.page.evaluate("S.conflict && S.dirty"))
         self.assertEqual("本地关系草稿", self.page.evaluate("S.local.linkTypes[0].label"))
         self.assertIn("保存冲突", self.page.locator("#view").inner_text())
 
