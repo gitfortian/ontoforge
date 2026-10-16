@@ -11,6 +11,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@org.springframework.test.context.ActiveProfiles("integration-test")
+@org.springframework.test.context.ContextConfiguration(initializers=IsolatedPostgresTestDatabase.class)
 class FoundationTest {
     @LocalServerPort int port;
     @Autowired TestRestTemplate http;

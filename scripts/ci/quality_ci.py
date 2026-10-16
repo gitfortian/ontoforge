@@ -14,7 +14,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-LANES = ("docs", "native", "backend", "frontend", "poc")
+LANES = ("docs", "native", "backend", "frontend", "poc", "e2e")
+RUNTIME_SCHEMA = "doc/design/schema/ontology-package-v0.2.schema.json"
 
 
 def full_scope() -> dict[str, bool]:
@@ -33,13 +34,19 @@ def select_paths(paths: list[str]) -> dict[str, bool]:
             return full_scope()
         if p.startswith((".github/workflows/", "scripts/ci/")):
             return full_scope()
-        if p in {"pom.xml", "compose.yaml", "scripts/verify-s0.ps1"} or p.startswith(("ontoforge-boot/", ".mvn/")):
+        if p in {"pom.xml", "compose.yaml"} or p.startswith(("ontoforge-boot/", ".mvn/")):
             selected["backend"] = True
+            selected["e2e"] = True
+        elif p.startswith("scripts/verify-") and p.endswith(".ps1"):
+            selected["e2e"] = True
+            if p == "scripts/verify-s0.ps1":
+                selected["backend"] = True
         elif p.startswith("ontoforge-ui/"):
             if p.endswith(".md"):
                 selected["docs"] = True
             else:
                 selected["frontend"] = True
+                selected["e2e"] = True
         elif p.startswith("experiments/pg-runtime/"):
             if p.endswith(".md"):
                 selected["docs"] = True
@@ -49,6 +56,14 @@ def select_paths(paths: list[str]) -> dict[str, bool]:
             selected["docs"] = True
             if p.startswith("doc/design/"):
                 selected["native"] = True
+            if p == RUNTIME_SCHEMA:
+                selected["backend"] = True
+                selected["e2e"] = True
+            elif p == "doc/design/fixtures/ofip-0003-jcs-fixtures.json":
+                selected["backend"] = True
+                selected["e2e"] = True
+            elif p == "doc/design/tests/test_native_v02.py":
+                selected["e2e"] = True
         elif p in {"README.md", "AGENTS.md", ".github/CONTRIBUTING.md",
                    ".github/OFIP_TEMPLATE.md", ".github/PULL_REQUEST_TEMPLATE.md",
                    "LICENSE", ".gitignore"}:
@@ -149,6 +164,7 @@ def require_foundation_reports(root: Path = ROOT) -> None:
             "nativeDraftRealPostgresCreateWipSaveReloadValidateAndInvalidate",
             "nativeDraftConcurrentSaveDuplicatePackageAndReadFailures",
             "nativeDraftRejectsUnsafeEditorAndInvalidNativeProperties",
+            "saveResponseRetainsOwnRevisionWhenAnotherWriterCommitsImmediatelyAfter",
         }
         seen_draft = set()
         for file in files:
@@ -248,7 +264,7 @@ def main() -> None:
     report += "| Suite | Selected | Result |\n| --- | --- | --- |\n"
     for lane, result in rows:
         report += f"| {lane} | {selected.get(lane, 'MISSING')} | {result} |\n"
-    report += "\nNOT SELECTED does not mean a test passed. Browser/manual and release tests are NOT RUN by this gate.\n"
+    report += "\nNOT SELECTED does not mean a test passed. Selected E2E uses real PG/API/React/Chromium; Windows manual and release acceptance remain NOT RUN.\n"
     report += f"\nCheckout SHA: {os.getenv('GITHUB_SHA', 'N/A')}; PR head SHA: {os.getenv('CI_HEAD_SHA', 'N/A')}\n"
     print(report)
     if summary:

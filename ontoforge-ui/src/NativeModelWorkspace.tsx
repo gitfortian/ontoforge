@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, FilePlus2, Layers3, LoaderCircle, Plus, RefreshCw, Save, ShieldAlert, Trash2 } from 'lucide-react';
 import './model.css';
 import NativeSnapshotWorkspace, {SnapshotActions} from './NativeSnapshotWorkspace';
@@ -64,6 +64,15 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
   const [readOnly,setReadOnly]=useState(false);
   const [listPage,setListPage]=useState(1);
   const [validated,setValidated]=useState<Report|null>(null);
+  const view=useRef({route,generation:0});
+  if(view.current.route!==route) view.current={route,generation:view.current.generation+1};
+  const stillCurrent=(generation:number)=>view.current.generation===generation;
+  const detailAbort=useRef<AbortController|null>(null);
+
+  useEffect(()=>()=>{
+    view.current.generation++;
+    detailAbort.current?.abort();
+  },[]);
 
   useEffect(()=>{onDirtyChange(dirty)},[dirty,onDirtyChange]);
   useEffect(()=>{
@@ -76,12 +85,14 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
     return {code:x.code??'API_ERROR',message:x.message??'操作失败',issues:x.issues??[]};
   };
   async function loadList(nextCursor:string|null=null, page=1) {
+    const generation=view.current.generation;
     setListLoading(true);setMessage(null);
     try {
       const result=await call<Page>('?pageSize=20'+(nextCursor?'&cursor='+encodeURIComponent(nextCursor):''));
+      if(!stillCurrent(generation))return;
       setItems(result.items);setCursor(result.nextCursor);setListPage(page);
-    } catch(e){const err=explain(e);alert(err.code+' · '+err.message,'error')}
-    finally {setListLoading(false)}
+    } catch(e){if(stillCurrent(generation)){const err=explain(e);alert(err.code+' · '+err.message,'error')}}
+    finally {if(stillCurrent(generation))setListLoading(false)}
   }
   function applyOpened(d:Draft,discard=false) {
     setOpened(d);
@@ -95,15 +106,24 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
     setDirty(false);onDirtyChange(false);if(discard)alert('已按你的确认载入最新服务器版本，原本未提交的本地编辑已放弃。','success');
   }
   async function loadDetail(id:string) {
+    const generation=view.current.generation;
+    detailAbort.current?.abort();
+    const controller=new AbortController();detailAbort.current=controller;
     setBusy(true);setMessage(null);
-    try { const d=await call<Draft>('/'+id);applyOpened(d); }
-    catch(e){const er=explain(e);alert(er.code+' · '+er.message,'error');setOpened(null);}
-    finally {setBusy(false) }
+    try {
+      const d=await call<Draft>('/'+id,{signal:controller.signal});
+      if(stillCurrent(generation)&&!controller.signal.aborted)applyOpened(d);
+    }
+    catch(e){if(stillCurrent(generation)&&!controller.signal.aborted){const er=explain(e);alert(er.code+' · '+er.message,'error');setOpened(null);}}
+    finally {if(stillCurrent(generation)&&!controller.signal.aborted)setBusy(false)}
   }
   useEffect(()=>{
+    detailAbort.current?.abort();
+    setOpened(null);setBusy(false);setDirty(false);onDirtyChange(false);setServerLatest(null);setValidated(null);setCreating(false);
     const match=route.match(/^#\/model\/drafts\/([a-f0-9-]{36})$/i);
-    if(match) { if(opened?.draftId!==match[1]) void loadDetail(match[1]); }
-    else {setOpened(null);void loadList();}
+    if(match) void loadDetail(match[1]);
+    else if(route==='#/model/packages') void loadList();
+    return ()=>detailAbort.current?.abort();
     // The hash can be opened directly and refreshed without losing the draft ID.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[route]);
@@ -113,13 +133,15 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
     else navigate(hash);
   };
   async function createPackage() {
+    const generation=view.current.generation;
     setBusy(true);setMessage(null);
     try {
       const d=await call<Draft>('',post({packageId:packageId.trim()}));
+      if(!stillCurrent(generation))return;
       setCreating(false);applyOpened(d);window.location.hash='#/model/drafts/'+d.draftId;
       alert('模型包草稿已创建。现在可以添加第一个对象类型。','success');
-    } catch(e){const er=explain(e);alert(er.code+' · '+er.message,'error');}
-    finally{setBusy(false)}
+    } catch(e){if(stillCurrent(generation)){const er=explain(e);alert(er.code+' · '+er.message,'error');}}
+    finally{if(stillCurrent(generation))setBusy(false)}
   }
   const markDirty=()=>{
     setDirty(true);onDirtyChange(true);setMessage(null);setServerLatest(null);setValidated(null);
@@ -167,40 +189,48 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
   };
   async function save() {
     if(!opened||readOnly||busy)return;
+    const generation=view.current.generation;
     setBusy(true);setMessage(null);
     const editingContent:EditorDoc=structuredClone(editorDoc);
     try {
       const next=await call<Draft>('/'+opened.draftId,put({expectedRevision:opened.revision,editingContent}));
+      if(!stillCurrent(generation))return;
       applyOpened(next);alert('已写入 PostgreSQL · revision '+next.revision+'。仍是未校验草稿，并非已发布模型。','success');
     } catch(e) {
+      if(!stillCurrent(generation))return;
       const er=explain(e);alert(er.code+' · '+er.message,'error');
       if(er.code==='DRAFT_REVISION_CONFLICT'||er.code==='NETWORK_UNKNOWN') {
-        try {setServerLatest(await call<Draft>('/'+opened.draftId))}
+        try {const latest=await call<Draft>('/'+opened.draftId);if(stillCurrent(generation))setServerLatest(latest)}
         catch {/* Keep local edit untouched; unknown result is not success. */}
       }
-    } finally {setBusy(false)}
+    } finally {if(stillCurrent(generation))setBusy(false)}
   }
   async function validate() {
     if(!opened||dirty||readOnly||busy)return;
+    const generation=view.current.generation;
     setBusy(true);setMessage(null);
     try {
       const result=await call<Report>('/'+opened.draftId+'/validate',post({expectedRevision:opened.revision}));
+      if(!stillCurrent(generation))return;
       setValidated(result);
       alert(result.status==='VALID'?'完整结构与本阶段语义校验通过。仍是草稿，不代表已审核或发布。':
         '校验完成：'+(statusLabel[result.status]??result.status)+'。请根据右侧问题修复，再保存并重新校验。',
         result.status==='VALID'?'success':'warning');
-    } catch(e){const er=explain(e);alert(er.code+' · '+er.message,'error')}
-    finally{setBusy(false)}
+    } catch(e){if(stillCurrent(generation)){const er=explain(e);alert(er.code+' · '+er.message,'error')}}
+    finally{if(stillCurrent(generation))setBusy(false)}
   }
   async function inspect() {
     if(!opened)return;setBusy(true);
+    const generation=view.current.generation;
     try {
-      const last=await call<Draft>('/'+opened.draftId);setServerLatest(last);
+      const last=await call<Draft>('/'+opened.draftId);
+      if(!stillCurrent(generation))return;
+      setServerLatest(last);
       alert(last.revision===opened.revision?
         '服务器仍为 revision '+last.revision+'。请核对本地编辑后再决定重试。':
         '服务器 revision '+last.revision+' 与本地打开时的 '+opened.revision+' 不同。已保留本地输入。','warning');
-    }catch(e){const er=explain(e);alert(er.code+' · '+er.message,'error')}
-    finally{setBusy(false)}
+    }catch(e){if(stillCurrent(generation)){const er=explain(e);alert(er.code+' · '+er.message,'error')}}
+    finally{if(stillCurrent(generation))setBusy(false)}
   }
   const highlight=(path:string)=>{
     const link=path.match(/^\/linkTypes\/(\d+)\/(.+)$/);

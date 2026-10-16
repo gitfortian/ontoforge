@@ -1,5 +1,7 @@
 # OntoForge S0-MVP-0.4｜多对象与 LinkType 真实功能实施及验收报告
 
+> **历史记录**：本报告保留 PR #13 交付时的代码和环境证据；下文 Windows NOT RUN 描述当时状态。后续工程加固及环境结果统一见[产品进度总账](./OntoForge-MVP-产品功能全景与成熟度矩阵.md)。
+
 > **实施 PR**：[PR #13](https://github.com/gitfortian/ontoforge/pull/13) 已合并至 `main`（`605b9976747dcab676b982f7a544a224c2c5ff28`）；[0.3 PR #11](https://github.com/gitfortian/ontoforge/pull/11) 已合并（`9b0f802f`）。**Windows 11 用户本机 PostgreSQL 真实停启复验尚未执行、0.4 尚未正式发布**。  
 > **产品方案和交互**：[PR #12（OFIP-0004 四轮设计）](https://github.com/gitfortian/ontoforge/pull/12) 已按受托产品阶段决议 Accepted 并合并 `main`；不代表第三方 GitHub 审核人亲自签署，更不等于正式发布。  
 > **报告性质**：0.4 代码已合并开发主线，隔离真实 PG17/Java/React/Chromium 主流程通过；本报告不等于 Windows 11 本机验收或生产发布认证。

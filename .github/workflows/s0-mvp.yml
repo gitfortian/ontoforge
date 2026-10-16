@@ -26,19 +26,20 @@ jobs:
         env:
           POSTGRES_USER: ontology
           POSTGRES_PASSWORD: ontology_dev_only
-          POSTGRES_DB: ontology
+          POSTGRES_DB: ontoforge_test_ci
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ontology -d ontology"
+          --health-cmd "pg_isready -U ontology -d ontoforge_test_ci"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 15
     env:
       # CI uses an isolated service DB, never developer machine credentials.
-      DB_URL: jdbc:postgresql://127.0.0.1:5432/ontology
-      DB_USERNAME: ontology
-      DB_PASSWORD: ontology_dev_only
+      TEST_DB_URL: jdbc:postgresql://127.0.0.1:5432/ontoforge_test_ci
+      TEST_DB_USERNAME: ontology
+      TEST_DB_PASSWORD: ontology_dev_only
+      TEST_DB_ALLOW_FAULT_INJECTION: 'true'
       S0_HOST: 127.0.0.1
     steps:
       - uses: actions/checkout@v4
@@ -78,7 +79,7 @@ jobs:
         with:
           node-version: "22"
       - name: Install pinned UI dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
         working-directory: ontoforge-ui
       - name: Type-check and production build
         run: npm run build

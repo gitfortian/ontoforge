@@ -27,12 +27,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** REAL PG17 + HTTP contracts, separate from the HTML mock UX gate. */
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
+@org.springframework.test.context.ActiveProfiles("integration-test")
+@org.springframework.test.context.ContextConfiguration(initializers=IsolatedPostgresTestDatabase.class)
 class NativeSnapshotTest {
     @LocalServerPort int port;
     @Autowired TestRestTemplate http;
     @Autowired ObjectMapper mapper;
     @Autowired JdbcTemplate jdbc;
     @Autowired NativeSnapshotService service;
+    @Autowired org.springframework.core.env.Environment environment;
     private String api(String path){return "http://127.0.0.1:"+port+"/api/model"+path;}
     private ResponseEntity<String> call(HttpMethod method,String path,JsonNode body){
         HttpHeaders headers=new HttpHeaders();
@@ -277,6 +280,7 @@ class NativeSnapshotTest {
      * Never use this helper against a user / production database.
      */
     private void injectCorruptionForIsolatedTest(String update, Object... args) {
+        IsolatedPostgresTestDatabase.requireFaultInjection(environment);
         jdbc.execute("ALTER TABLE native_schema_snapshot DISABLE TRIGGER native_snapshot_immutable");
         try {
             jdbc.update(update,args);

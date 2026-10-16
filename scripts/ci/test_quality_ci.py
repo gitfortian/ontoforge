@@ -19,12 +19,31 @@ spec.loader.exec_module(quality_ci)
 class ScopeTests(unittest.TestCase):
     def test_docs_only_no_runtime_pass_claim(self):
         s = quality_ci.select_paths(["doc/proposals/OFIP-0001.md", "AGENTS.md"])
-        self.assertEqual(s, dict(docs=True, native=False, backend=False, frontend=False, poc=False))
+        self.assertEqual(s, dict(docs=True, native=False, backend=False, frontend=False, poc=False, e2e=False))
 
     def test_native_contract_always_includes_docs(self):
         s = quality_ci.select_paths(["doc/design/schema/ontology-ast-v0.2.schema.json"])
         self.assertTrue(s["docs"] and s["native"])
         self.assertFalse(s["backend"] or s["frontend"] or s["poc"])
+
+    def test_runtime_schema_and_shared_vectors_select_actual_consumers(self):
+        for path in (quality_ci.RUNTIME_SCHEMA, "doc/design/fixtures/ofip-0003-jcs-fixtures.json"):
+            with self.subTest(path=path):
+                s = quality_ci.select_paths([path])
+                self.assertTrue(all(s[lane] for lane in ("docs", "native", "backend", "e2e")))
+
+    def test_actual_product_changes_and_acceptance_scripts_require_e2e(self):
+        for path in ("ontoforge-ui/src/main.tsx", "pom.xml", "scripts/verify-linktype.ps1"):
+            with self.subTest(path=path):
+                self.assertTrue(quality_ci.select_paths([path])["e2e"])
+
+    def test_selected_e2e_failure_cancel_skip_or_missing_blocks_gate(self):
+        s = quality_ci.select_paths(["ontoforge-ui/src/main.tsx"])
+        results = {lane: "success" if enabled else "skipped" for lane, enabled in s.items()}
+        self.assertIn(("e2e", "PASS (selected)"), quality_ci.evaluate_results(s, results, "success"))
+        for result in ("failure", "cancelled", "skipped", ""):
+            with self.subTest(result=result), self.assertRaises(ValueError):
+                quality_ci.evaluate_results(s, {**results, "e2e": result}, "success")
 
     def test_backend_flyway_and_frontend(self):
         s = quality_ci.select_paths(["ontoforge-boot/src/main/resources/db/migration/V2__model.sql",
@@ -70,7 +89,7 @@ class ScopeTests(unittest.TestCase):
 
     def test_selected_jobs_must_actually_succeed_skipped_cannot_pass(self):
         s = quality_ci.select_paths(["README.md"])
-        r = dict(docs="success", native="skipped", backend="skipped", frontend="skipped", poc="skipped")
+        r = dict(docs="success", native="skipped", backend="skipped", frontend="skipped", poc="skipped", e2e="skipped")
         self.assertIn(("docs", "PASS (selected)"), quality_ci.evaluate_results(s, r, "success"))
         self.assertIn(("backend", "NOT SELECTED"), quality_ci.evaluate_results(s, r, "success"))
         with self.assertRaises(ValueError):

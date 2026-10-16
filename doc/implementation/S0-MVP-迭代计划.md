@@ -10,10 +10,11 @@
 | --- | --- | --- |
 | **S0-MVP-0.1（已完成基座）** | 本机 PostgreSQL、Spring Boot/Flyway V1、React 真实读取状态；刷新及后端重启可复验 | 登录、用户、角色、权限、工作空间、Native Model、对象查询、Action；界面只显示未实现占位 |
 | **S0-MVP-0.2（PR #7 已合并 / Windows 实测待完成）** | 真正的模型包与 ObjectType/Property 编辑、WIP 保存、校验、刷新重开和 revision 并发保护；Flyway V2/Java/React/真实 PG17+Chromium 验证 | 复杂 Registry、跨包引用、多人审批 |
-| **S0-MVP-0.3（[PR #11](https://github.com/gitfortian/ontoforge/pull/11) 实施候选）** | PG V3 真正不可变 SchemaSnapshot、revision/幂等冻结、JCS/SHA-256 可复核、真实历史、结构 Diff、React 原工作台与浏览器/W11 验收 | 无可信身份时不做人员审批、正式 Release/Activation、多工作空间与工业 Action |
+| **S0-MVP-0.3（[PR #11](https://github.com/gitfortian/ontoforge/pull/11) 已合并）** | PG V3 不可变 SchemaSnapshot、revision/幂等冻结、JCS/SHA-256、真实历史及结构 Diff | 正式 Review/Release/Activation |
+| **S0-MVP-0.4（[PR #13](https://github.com/gitfortian/ontoforge/pull/13) 已合并）** | 同包多对象/LinkType、整包保存校验、关系历史和结构风险 | 跨包引用、真实 LinkFact、企业权限 |
 | S0→P0-A 演进 | 草稿、审核、不可变发布、版本读取分批完成，每版本有明确功能和安全门禁 | 一次性铺完完整产品 |
 
-> S0-MVP-0.2 已依据 **[Accepted OFIP-0002](../proposals/OFIP-0002-ObjectType-草稿建模MVP.md)** 获实施授权，且已通过 [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 合并到 main；**本机 Windows 实测仍 NOT RUN，Release 仍 Not Released**，二者不得借 GitHub CI 绿色替代。0.3 已依据 [Accepted OFIP-0003](../proposals/OFIP-0003-S0-MVP-0.3-模型快照与发布边界.md) 授权在独立 [PR #11](https://github.com/gitfortian/ontoforge/pull/11) 实施，但**仍未合并、未发布，Windows 实机 NOT RUN**。
+> 0.2/0.3/0.4 已按各自 Accepted OFIP 合并开发主线，均不代表正式发布。**当前成熟度及环境验收统一见[产品进度总账](./OntoForge-MVP-产品功能全景与成熟度矩阵.md)**；下文旧版本故事保留其当时范围，不作为当前功能上限。
 
 ## MVP-0.1 用户故事
 

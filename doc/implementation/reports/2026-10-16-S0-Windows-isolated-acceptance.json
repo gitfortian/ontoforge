@@ -1,0 +1,183 @@
+{
+  "schemaVersion": "s0-isolated-windows-acceptance-v1",
+  "date": "2026-10-16",
+  "timezone": "Asia/Shanghai",
+  "baseSha": "40eceee1364b3c62714aa1d4e03eb37a92730aa4",
+  "testedRuntimeCommit": "4896a1743dafe0660905fcb5dfe7fc1bd5539813",
+  "runtimeTree": "6105adf3531f48ed9c0c9eabd4a6a2616ebc0b9f",
+  "environment": {
+    "os": "Windows 11",
+    "java": "21.0.11",
+    "maven": "3.9.16",
+    "node": "22.23.3",
+    "postgresql": "17.11",
+    "powershell": "5.1.26100.9711 (parser and Recheck); 7.6.5 (Exercise)",
+    "database": "isolated ontoforge_test_local on 127.0.0.1:55432",
+    "vite": "7.3.7",
+    "chromium": "143.0.7499.4 / Playwright 1.57.0"
+  },
+  "junit": [
+    {
+      "class": "io.ontoforge.boot.FoundationTest",
+      "tests": 2,
+      "cases": [
+        "migrationVersionOneExists",
+        "realPostgresMigrationAndApiStatus"
+      ],
+      "result": "PASS"
+    },
+    {
+      "class": "io.ontoforge.boot.IsolatedPostgresTestDatabaseTest",
+      "tests": 2,
+      "cases": [
+        "rejectsDevelopmentRemoteAndAmbiguousConnectionsBeforeConnecting",
+        "faultInjectionRequiresExplicitOptInAsWellAsIsolatedDatabase"
+      ],
+      "result": "PASS"
+    },
+    {
+      "class": "io.ontoforge.boot.NativeDraftTest",
+      "tests": 4,
+      "cases": [
+        "nativeDraftConcurrentSaveDuplicatePackageAndReadFailures",
+        "nativeDraftRealPostgresCreateWipSaveReloadValidateAndInvalidate",
+        "saveResponseRetainsOwnRevisionWhenAnotherWriterCommitsImmediatelyAfter",
+        "nativeDraftRejectsUnsafeEditorAndInvalidNativeProperties"
+      ],
+      "result": "PASS"
+    },
+    {
+      "class": "io.ontoforge.boot.NativeMigrationUpgradeTest",
+      "tests": 1,
+      "cases": [
+        "upgradePreservesExistingInstallationAndDraft"
+      ],
+      "result": "PASS"
+    },
+    {
+      "class": "io.ontoforge.boot.NativeSnapshotTest",
+      "tests": 15,
+      "cases": [
+        "snapshotSharedRfc8785GoldenFixtures",
+        "snapshotRealPostgresFreezeIdempotentReloadAndIntegrity",
+        "snapshotCanonicalJcsReferenceDeterminism",
+        "snapshotConcurrentWorkersSameKeyExactlyOneSnapshot",
+        "snapshotConcurrentDifferentKeysSameRevisionRejectsSecond",
+        "snapshotKeysetPaginationPreservesRevisionOrderAndBadBodyIsRejected",
+        "snapshotUnsupportedAssetsAreRejectedNotSilentlyDropped",
+        "snapshotRevisionCasUnsupportedAndValidationFailures",
+        "linkIdentityAndPureArrayReorderingHaveStableStructuralDiff",
+        "snapshotDiffEnumSetPolicyRequiredTypeAndPrimaryKeyBoundaries",
+        "snapshotDiffTypeScopedRiskAndRejectedCrossPackage",
+        "multiObjectLinksPersistValidateFreezeAndDiffWithoutDroppingAssets",
+        "snapshotCorruptedDigestAndJsonMirrorFailClosedOverHttp",
+        "snapshotDatabaseImmutableAndBadRequests",
+        "incompleteDanglingDuplicateAndUnknownLinksFailClosed"
+      ],
+      "result": "PASS"
+    }
+  ],
+  "realBrowser": {
+    "result": "PASS",
+    "tests": 17,
+    "cases": [
+      "test_late_detail_cannot_reopen_a_draft_after_navigation",
+      "test_late_save_cannot_replace_a_different_drafts_local_edits",
+      "test_narrow_screen_keeps_both_actionable_navigation_entries",
+      "test_p1_browser_back_forward_protects_unsaved_draft",
+      "test_p1_slow_post_commit_response_locks_fields_without_losing_edits",
+      "test_p2_enum_typing_preserves_comma_before_server_save",
+      "test_real_api_network_error_never_claims_save_success",
+      "test_real_pg_wip_refresh_validate_edit_and_409_recovery",
+      "test_freeze_dialog_traps_keyboard_focus_and_restores_trigger",
+      "test_s03_history_paging_keeps_compare_choices_across_pages",
+      "test_s03_network_uncertainty_same_key_recovery_no_duplicates",
+      "test_s03_real_postgresql_two_freezes_diff_readonly_refresh",
+      "test_s03_server_commits_but_browser_loses_reply_recovers_same_snapshot",
+      "test_s03_unknown_freeze_refresh_preserves_original_key",
+      "test_s04_delete_referenced_object_keeps_dangling_link_for_manual_repair",
+      "test_s04_missing_link_target_wip_and_invalid_reference_preserve_data",
+      "test_s04_real_three_objects_two_links_reopen_and_compare"
+    ],
+    "initialFailure": "Modal Tab focus test failed initially; explicit boundary trapping fixed implementation, assertions unchanged; all 17 then passed."
+  },
+  "restart": {
+    "os": "Windows 11",
+    "postgres": "17.11",
+    "java": "21.0.11",
+    "oldPid": 14964,
+    "newPid": 27060,
+    "installationId": "b92baff8-6535-40af-8ec6-8073176aff6b",
+    "database": "ontoforge_test_local",
+    "port": 55432,
+    "recheck": "PASS",
+    "time": "2026-10-16T22:09:41.6866537+08:00"
+  },
+  "acceptance": {
+    "objecttype": {
+      "packageId": "acceptance.p801dc94deeab41afac7c0d75724fe008",
+      "apiBase": "http://127.0.0.1:8080",
+      "draftId": "197fee3d-f00e-4830-ad64-94ba5f17a707",
+      "revision": 4,
+      "windowsRestartRecheck": "NOT_RUN",
+      "schemaVersion": "S0-MVP-0.2-acceptance-v1",
+      "checkedAtUtc": "2026-10-16T14:09:09.5082175Z",
+      "description": "Accepted test description 801dc94deeab41afac7c0d75724fe008",
+      "installationId": "b92baff8-6535-40af-8ec6-8073176aff6b"
+    },
+    "snapshot": {
+      "installationId": "b92baff8-6535-40af-8ec6-8073176aff6b",
+      "snapshots": [
+        {
+          "revision": 2,
+          "sha256": "2220f9a2c6c31f48160eff1fe6b4fb49efbe65fbb80e4fe79ba191eaaa798e09",
+          "id": "a23ce2c6-3216-4e90-a272-eaa414794ec5"
+        },
+        {
+          "revision": 3,
+          "sha256": "e88145e11702c35148443165775c60f7e8882880ce3e1ca7ba2bd259899478a4",
+          "id": "bc6cd1c1-f20a-444f-b163-6be8fbb021f8"
+        }
+      ],
+      "schemaVersion": "S0-MVP-0.3-snapshot-acceptance-v1",
+      "createdUtc": "2026-10-16T14:09:09.7318103Z",
+      "packageId": "acceptance.pfbc7cc74f4194f7c8aa9bc0872748ba2",
+      "draftId": "3a054e8e-3cf0-494e-98e9-1ec04eb798b4",
+      "windowsRestartRecheck": "NOT_RUN"
+    },
+    "linktype": {
+      "installationId": "b92baff8-6535-40af-8ec6-8073176aff6b",
+      "snapshots": [
+        {
+          "revision": 2,
+          "sha256": "20ee32fdb5cf3a3c6d0f4982cfb586420572a6ecd8962dee8ea2789ec60ad1a8",
+          "id": "3acc8eca-a679-4932-9bce-15d3187964e3"
+        },
+        {
+          "revision": 3,
+          "sha256": "4c6c38e289ed8b22575bfdfb2987b563e5a1812a65a6ed083a1bd300afa9bbe2",
+          "id": "af7c4de2-4bbd-464a-b57a-519f8bcc2097"
+        }
+      ],
+      "schemaVersion": "S0-MVP-0.4-linktype-acceptance-v1",
+      "createdUtc": "2026-10-16T14:09:09.8973773Z",
+      "packageId": "acceptance.p2629608013574ba8b0e419da9fe4e215",
+      "draftId": "26b5453d-27f3-4603-a736-f11a4883e1b0",
+      "nativeWindowsPostgresRestart": "NOT_RUN"
+    }
+  },
+  "sourceSha256": {
+    "ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeDraftService.java": "bb03d09f5a12a5a525e0ef152cbdc8ade9e7284ad0ff432b756f310a13be9543",
+    "ontoforge-ui/src/NativeModelWorkspace.tsx": "f48995c92e021173ca6e950907662e387145bc5d85f63f9544c57464fbbd631e",
+    "ontoforge-ui/src/NativeSnapshotWorkspace.tsx": "e49fbaee0bcbcadfeda94039bf1b532241f0928fe4ad8fa37791dd2d53a0750b",
+    "ontoforge-ui/src/main.tsx": "67e172dba8a5f789fb80a682d1a38f9ace43231112fb5f3eec38629214d2be75",
+    "ontoforge-ui/package-lock.json": "b0bdff53185cc02e8bfc5b025b9b1cc0fc454d899b26debd5ce41af41eff14e0"
+  },
+  "boundaries": [
+    "All models are generated test fixtures; no existing user database accessed or cleared.",
+    "This records isolated automated Windows acceptance, not acceptance of the user existing PostgreSQL service or human product sign-off.",
+    "SchemaRelease, authentication/authorization, industrial queries and Actions remain unimplemented; not a production release.",
+    "GitHub ruleset activation and failing-PR merge rejection remain NOT RUN; template/explicit application script only.",
+    "Runtime tested at testedRuntimeCommit; subsequent evidence-only commit does not change runtime code."
+  ]
+}

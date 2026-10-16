@@ -25,6 +25,7 @@ jobs:
       backend: ${{ steps.choose.outputs.backend }}
       frontend: ${{ steps.choose.outputs.frontend }}
       poc: ${{ steps.choose.outputs.poc }}
+      e2e: ${{ steps.choose.outputs.e2e }}
       selected: ${{ steps.choose.outputs.selected }}
     steps:
       - uses: actions/checkout@v4
@@ -81,20 +82,21 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_DB: ontology
+          POSTGRES_DB: ontoforge_test_ci
           POSTGRES_USER: ontology
           POSTGRES_PASSWORD: ontology_dev_only
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ontology -d ontology"
+          --health-cmd "pg_isready -U ontology -d ontoforge_test_ci"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 15
     env:
-      DB_URL: jdbc:postgresql://127.0.0.1:5432/ontology
-      DB_USERNAME: ontology
-      DB_PASSWORD: ontology_dev_only
+      TEST_DB_URL: jdbc:postgresql://127.0.0.1:5432/ontoforge_test_ci
+      TEST_DB_USERNAME: ontology
+      TEST_DB_PASSWORD: ontology_dev_only
+      TEST_DB_ALLOW_FAULT_INJECTION: 'true'
       S0_HOST: 127.0.0.1
     steps:
       - uses: actions/checkout@v4
@@ -141,13 +143,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      # A committed package-lock.json is not present in S0. Do not claim npm ci/reproducible lockfile verification.
-      - name: Install S0 frontend dependencies
+      - name: Install locked frontend dependencies
         working-directory: ontoforge-ui
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: TypeScript check and Vite production build
         working-directory: ontoforge-ui
         run: npm run build
+      - name: Report dependency advisories and reject high or critical findings
+        working-directory: ontoforge-ui
+        run: npm run audit:dependencies
       - name: Record exact tested checkout identity
         run: echo "React TypeScript build PASS on $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
 
@@ -195,10 +199,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  e2e:
+    name: Real Product User Stories
+    needs: scope
+    if: ${{ needs.scope.outputs.e2e == 'true' }}
+    uses: ./.github/workflows/native-draft-e2e.yml
+
   required-quality-gate:
     name: Required Quality Gate
     if: ${{ always() }}
-    needs: [scope, docs, native, backend, frontend, poc]
+    needs: [scope, docs, native, backend, frontend, poc, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -212,5 +222,6 @@ jobs:
           CI_BACKEND_RESULT: ${{ needs.backend.result }}
           CI_FRONTEND_RESULT: ${{ needs.frontend.result }}
           CI_POC_RESULT: ${{ needs.poc.result }}
+          CI_E2E_RESULT: ${{ needs.e2e.result }}
           CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: python3 scripts/ci/quality_ci.py check

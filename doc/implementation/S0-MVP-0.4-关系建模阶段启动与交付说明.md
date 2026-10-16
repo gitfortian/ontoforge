@@ -1,5 +1,7 @@
 # OntoForge S0-MVP-0.4（候选）｜关系建模阶段启动交付说明
 
+> **历史记录**：本文件保留该轮交付/评审基线，文中的 Draft、待合并、未验收等不覆盖后续决定。当前功能和环境状态统一见[产品进度总账](./OntoForge-MVP-产品功能全景与成熟度矩阵.md)。
+
 > **交付性质**：产品领域方案第一轮评审提交，**不是功能代码已开发**。本阶段名称与范围待 OFIP-0004 审核；0.3 [PR #11](https://github.com/gitfortian/ontoforge/pull/11) 仍 Draft / 未合并 / Windows 本机验收 NOT RUN。没有新用户页面可投入使用，也不能宣布 0.4 开发完成。
 >
 > 对应设计：[OFIP-0004｜多对象与 LinkType 关系建模 MVP](../proposals/OFIP-0004-多对象与LinkType关系建模MVP.md)；[设计评审 PR #12](https://github.com/gitfortian/ontoforge/pull/12)。

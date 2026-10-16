@@ -26,7 +26,7 @@
 5. 只有 Accepted 的设计才能成为后续多个实现 PR 的依据。每个实现 PR 链接相关 OFIP 并完成一个可操作用户故事、必要的反例和完整的实际验收路径。
 6. 重大改变既有 Accepted 公共合同需要重新讨论或新 OFIP；拒绝的提案保留 PR 讨论，不作为有效产品规则发布。不要把每个实现 PR 的过程日志追加到 OFIP 中。
 
-对现有 OFIP-0001 的阶段性批准见 [PR #3 决定记录](https://github.com/gitfortian/ontoforge/pull/3#issuecomment-6189658540)。当前只启动规范治理；CI 体系重构是**后续单独 PR**。
+对现有 OFIP-0001 的阶段性批准见 [PR #3 决定记录](https://github.com/gitfortian/ontoforge/pull/3#issuecomment-6189658540)。治理规范与稳定 CI 已分别实施；[CI 手册](../doc/implementation/S0-CI-可信质量门禁.md)负责当前门禁和仓库保护的真实证据。
 
 ## 实现 PR 的质量与审查
 
@@ -45,8 +45,8 @@
 开发入口以 [README](../README.md) 为准；Windows 11 原生 PostgreSQL 见 [启动与验收指南](../doc/implementation/S0-Windows11-本机PostgreSQL-启动与验收.md)。
 
 ```text
-mvn -pl ontoforge-boot -am verify          # 需可连接的 PostgreSQL 和 DB_PASSWORD
-cd ontoforge-ui && npm install && npm run build
+mvn -pl ontoforge-boot -am verify          # 独立 ontoforge_test_* 库及 TEST_DB_*；故障注入显式授权
+cd ontoforge-ui && npm ci && npm run build
 python -m unittest discover -s doc/tests -p 'test_*.py' -v
 python -m unittest discover -s doc/design/tests -p test_native_v02.py -v
 ```
@@ -72,6 +72,10 @@ Native 测试依赖 `jsonschema==4.25.1`，按需安装。以上是命令参考�
 
 目前仓库的 S0、Native V0.2、架构文档和 PG 研究检查均为不同覆盖范围。**未运行 = NOT RUN，未选择 = NOT SELECTED，只有真正执行且成功才是 PASS。**
 
-未来统一 Quality Gate 的范围选择应 unknown fail closed、绑定实际测试提交和报告；本阶段还没有强制实现这一门禁。GitHub Ruleset/Required Checks 设置应单独确认；不要通过仓库 YAML 假装保护已开启。
+统一 Quality Gate 已实现 unknown fail closed、完整差异范围选择及实际测试报告核验；被选择的真实产品 E2E 同样必须成功。GitHub Ruleset/Required Checks 是否生效必须单独核验，不能用 YAML 存在代替保护证据。
+
+每个交付明确一名责任人（可由同一维护者承担多个职责）、一个用户任务及成功/关键失败验收条件。重大交互可先做原型；普通修复直接提交聚焦 PR。高风险合同指定复核责任；受托设计授权、代码审查和目标用户试用分别记录。
+
+当前进度只在[产品进度总账](../doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)维护；历史评审注明其基线，不逐处复制当前进度。普通修复在 PR 描述交付，不强制新增报告；重要里程碑或操作变化才更新相应操作文档。
 
 PR 模板见 [PULL_REQUEST_TEMPLATE](PULL_REQUEST_TEMPLATE.md)，应逐项如实填写适用项目，不适用的部分写 N/A 和理由。提交者需根据已知风险决定是否请维护者额外评审，不要自动绕过。

@@ -63,8 +63,8 @@ function App() {
     <aside className="sidebar">
       <div className="brand"><div className="brand-icon"><Blocks size={20}/></div><div><strong>OntoForge · 砺元</strong><small>工业运营本体平台</small></div></div>
       <p className="nav-heading">平台与建模</p>
-      <button className={model?'nav-disabled nav-link':'nav-active nav-link'} onClick={()=>navigate('#/system')}><Activity size={17}/> 系统概览</button>
-      <button className={model?'nav-active nav-link':'nav-disabled nav-link'} onClick={()=>navigate('#/model/packages')}><Blocks size={17}/> Native 本体建模</button>
+      <button className={model?'nav-inactive nav-link':'nav-active nav-link'} onClick={()=>navigate('#/system')}><Activity size={17}/> 系统概览</button>
+      <button className={model?'nav-active nav-link':'nav-inactive nav-link'} onClick={()=>navigate('#/model/packages')}><Blocks size={17}/> Native 本体建模</button>
       <p className="nav-heading secondary-label">规划模块</p>
       {planned.map(item=><div key={item.title} className="nav-disabled" title="当前版本暂不开放"><item.icon size={16}/>{item.title}<span>规划中</span></div>)}
       <div className="sidebar-bottom">S0 · ObjectType 草稿与快照<br/><small>本地开发验证 · 无认证/发布</small></div>
