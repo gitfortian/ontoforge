@@ -8,6 +8,8 @@ import java.net.URI;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -21,6 +23,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /** Actual HTTP on random Spring Boot port AND CI PostgreSQL 17, not mocks/in-memory database. */
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
+@Import(B0TestSecurityConfiguration.class)
 class NativeDraftTest {
     @LocalServerPort int port;
     @Autowired TestRestTemplate http;
