@@ -50,7 +50,7 @@ try {
     [Environment]::SetEnvironmentVariable('PGPASSWORD', $previousPgPassword, 'Process')
 }
 
-$dbResult = [regex]::Match(($rawResult -join "`n").Trim(), '^1\|1\|1\|([0-9a-fA-F-]{36})
+$dbResult = [regex]::Match(($rawResult -join "`n").Trim(), '^1\|1\|1\|([0-9a-fA-F-]{36})$')
 if (-not $dbResult.Success) {
     throw 'Expected Flyway V1/V2/V3 and one persisted platform_installation UUID.'
 }
