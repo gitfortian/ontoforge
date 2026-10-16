@@ -86,4 +86,9 @@ function ok(app,code){return Boolean(app.eval(code));}
   a.eval('S.local.linkTypes[0].evidenceRequired=false;changed();save();validate();freeze()');
   check('放松证据要求必须标记治理复核',ok(a,'diffRows(S.snapshots[0].doc,S.snapshots[1].doc).some(x=>x.path.includes("evidenceRequired") && x.risk==="需治理复核")'));
 }
+{
+  const a=makeApp();a.click('seed');a.eval('save();validate();freeze()');
+  a.eval('S.local.linkTypes.splice(0,1);changed();save();validate();freeze()');
+  check('删除关系对应潜在破坏性差异',ok(a,'diffRows(S.snapshots[0].doc,S.snapshots[1].doc).some(x=>x.path==="/linkTypes/batch-to-workorder" && x.risk==="潜在破坏")'));
+}
 console.log('UX-Low mock state checks: '+n+'/'+n+' PASS. No browser, backend or PG was involved.');
