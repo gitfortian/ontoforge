@@ -140,6 +140,26 @@ def require_foundation_reports(root: Path = ROOT) -> None:
     required = {"realPostgresMigrationAndApiStatus", "migrationVersionOneExists"}
     if not required <= found:
         raise ValueError(f"FAIL: missing or skipped S0 tests: {sorted(required - found)}")
+    # Enforce NEW product evidence whenever its implementation is in this checkout.
+    # Previously the gate only knew FoundationTest and could misreport a green
+    # backend lane without executing any ObjectType PG/HTTP tests.
+    draft_source = root / "ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeDraftService.java"
+    if draft_source.exists():
+        required_draft = {
+            "nativeDraftRealPostgresCreateWipSaveReloadValidateAndInvalidate",
+            "nativeDraftConcurrentSaveDuplicatePackageAndReadFailures",
+            "nativeDraftRejectsUnsafeEditorAndInvalidNativeProperties",
+        }
+        seen_draft = set()
+        for file in files:
+            doc = ET.parse(file).getroot()
+            suites = [doc] if doc.tag == "testsuite" else doc.findall("testsuite")
+            for suite in suites:
+                for test in suite.findall("testcase"):
+                    if test.attrib.get("classname", "").endswith(".NativeDraftTest"):
+                        seen_draft.add(test.attrib.get("name", ""))
+        if not required_draft <= seen_draft:
+            raise ValueError(f"FAIL: missing real PostgreSQL ObjectType tests: {sorted(required_draft - seen_draft)}")
 
 
 def evaluate_results(selected: dict[str, bool], results: dict[str, str], scope_result: str) -> list[tuple[str, str]]:

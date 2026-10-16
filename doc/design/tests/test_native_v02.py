@@ -101,13 +101,18 @@ def semantic_validate_package(p):
         require(len(set(ids)) == len(ids), f"DUPLICATE_ID:{collection}")
         symbols[collection] = {x["id"]: x for x in p[collection]}
 
+    # OFIP-0002 (Accepted): Property ID is scoped to its owning ObjectType.
+    # Bindings/ActionEffects resolve by (objectTypeRef|targetTypeRef, propertyRef);
+    # a package-wide Property ID registry would reject valid industrial models.
     type_properties = {}
-    property_ids = set()
+    type_apis = set()
     for t in p["objectTypes"]:
+        require(t["apiName"] not in type_apis, "DUPLICATE_OBJECT_API_NAME")
+        type_apis.add(t["apiName"])
         ps = {x["id"]: x for x in t["properties"]}
         require(len(ps) == len(t["properties"]), "DUPLICATE_PROPERTY")
-        require(not (set(ps) & property_ids), "CROSS_TYPE_PROPERTY_ID_COLLISION")
-        property_ids.update(ps)
+        property_apis = [x["apiName"] for x in t["properties"]]
+        require(len(set(property_apis)) == len(property_apis), "DUPLICATE_PROPERTY_API_NAME")
         require(t["primaryKeyRef"] in ps, "PRIMARY_KEY_MISSING")
         require(ps[t["primaryKeyRef"]]["required"], "PRIMARY_KEY_NOT_REQUIRED")
         require(ps[t["primaryKeyRef"]]["valueType"] in ("STRING", "INTEGER"), "PRIMARY_KEY_TYPE")
@@ -272,10 +277,28 @@ class NativeV02ContractTests(unittest.TestCase):
         self.pkg["objectTypes"][0]["primaryKeyRef"] = "not-a-field"
         self.invalid_semantic(self.pkg, "PRIMARY_KEY_MISSING")
 
-    def test_cross_type_property_id_collision(self):
+    def test_property_identity_is_scoped_to_owning_object_type(self):
+        # Two types may define the same Property.id; refs resolve via Type context.
+        # Strip unrelated consumers so this isolated identity positive case does not
+        # invalidate a binding still pointing to the field we renamed below.
+        for kind in ("bindings", "linkBindings", "objectSets", "functions",
+                     "rules", "decisionStrategies", "policies", "actions", "linkTypes"):
+            self.pkg[kind] = []
         target = next(t for t in self.pkg["objectTypes"] if t["id"] == "material-lot")
         next(p for p in target["properties"] if p["id"] == "source-quality-status")["id"] = "event-id"
-        self.invalid_semantic(self.pkg, "CROSS_TYPE_PROPERTY_ID_COLLISION")
+        semantic_validate_package(self.pkg)
+
+    def test_duplicate_property_within_one_type_rejected(self):
+        target = self.pkg["objectTypes"][0]
+        target["properties"].append(copy.deepcopy(target["properties"][0]))
+        self.invalid_semantic(self.pkg, "DUPLICATE_PROPERTY")
+
+    def test_duplicate_property_api_name_within_one_type_rejected(self):
+        target = self.pkg["objectTypes"][0]
+        cloned = copy.deepcopy(target["properties"][0])
+        cloned["id"] = "another-safe-property"
+        target["properties"].append(cloned)
+        self.invalid_semantic(self.pkg, "DUPLICATE_PROPERTY_API_NAME")
 
     def test_unknown_link_endpoint(self):
         self.pkg["linkTypes"][0]["sourceTypeRef"] = "missing-type"
