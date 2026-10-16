@@ -395,4 +395,93 @@ class NativeSnapshotTest {
             Integer.class,UUID.fromString(p.draft))).isZero();
     }
 
+    private ObjectNode newLink(String id,String api,String source,String target,String cardinality,boolean evidence){
+        ObjectNode x=mapper.createObjectNode();
+        x.put("id",id);x.put("apiName",api);x.put("sourceTypeRef",source);
+        x.put("targetTypeRef",target);x.put("cardinality",cardinality);
+        x.put("evidenceRequired",evidence);return x;
+    }
+    private ObjectNode multiDocument(ObjectNode start){
+        ObjectNode doc=start.deepCopy();
+        ObjectNode work=obj("work-order","WorkOrder");
+        ((ArrayNode)work.get("properties")).add(prop("batch-id","batchId","STRING",true,true));
+        ObjectNode order=obj("customer-order","CustomerOrder");
+        ((ArrayNode)order.get("properties")).add(prop("batch-id","batchId","STRING",true,true));
+        ((ArrayNode)doc.get("objectTypes")).add(work).add(order);
+        ((ArrayNode)doc.get("linkTypes"))
+            .add(newLink("batch-to-workorder","BatchToWorkOrder","production-batch","work-order","MANY_TO_ONE",true))
+            .add(newLink("workorder-to-order","WorkOrderToOrder","work-order","customer-order","MANY_TO_MANY",true));
+        return doc;
+    }
+    @Test void multiObjectLinksPersistValidateFreezeAndDiffWithoutDroppingAssets()throws Exception{
+        Prepared p=prepared();
+        ObjectNode full=multiDocument(p.doc);
+        call(HttpMethod.PUT,"/drafts/"+p.draft,body(2,full),200);
+        assertThat(call(HttpMethod.POST,"/drafts/"+p.draft+"/validate",revise(3),200)
+            .path("status").asText()).isEqualTo("VALID");
+        String first=frozen(p,3,UUID.randomUUID(),201).path("snapshotId").asText();
+        JsonNode initial=call(HttpMethod.GET,"/snapshots/"+first,null,200);
+        assertThat(initial.path("snapshotContent").path("objectTypes").size()).isEqualTo(3);
+        assertThat(initial.path("snapshotContent").path("linkTypes").size()).isEqualTo(2);
+        assertThat(initial.path("lifecycle").asText()).isEqualTo("LOCAL_SNAPSHOT_ONLY");
+        ObjectNode changed=full.deepCopy();
+        ObjectNode relation=(ObjectNode)changed.path("linkTypes").get(0);
+        relation.put("cardinality","ONE_TO_ONE");
+        relation.put("evidenceRequired",false);
+        call(HttpMethod.PUT,"/drafts/"+p.draft,body(3,changed),200);
+        assertThat(call(HttpMethod.POST,"/drafts/"+p.draft+"/validate",revise(4),200)
+            .path("status").asText()).isEqualTo("VALID");
+        String second=frozen(p,4,UUID.randomUUID(),201).path("snapshotId").asText();
+        String diff=call(HttpMethod.GET,"/snapshot-diffs?from="+first+"&to="+second,null,200)
+            .path("changes").toString();
+        assertThat(diff).contains("LINK_TYPE","/linkTypes/batch-to-workorder/cardinality",
+            "POTENTIALLY_BREAKING","/linkTypes/batch-to-workorder/evidenceRequired",
+            "POLICY_REVIEW_REQUIRED");
+        JsonNode original=call(HttpMethod.GET,"/snapshots/"+first,null,200);
+        assertThat(original.path("snapshotContent").path("linkTypes").get(0)
+            .path("cardinality").asText()).isEqualTo("MANY_TO_ONE");
+        assertThat(original.path("payloadSha256").asText()).isEqualTo(initial.path("payloadSha256").asText());
+    }
+    @Test void incompleteDanglingDuplicateAndUnknownLinksFailClosed()throws Exception{
+        Prepared p=prepared();
+        ObjectNode full=multiDocument(p.doc);
+        ObjectNode broken=(ObjectNode)full.path("linkTypes").get(0);
+        broken.remove("targetTypeRef");
+        call(HttpMethod.PUT,"/drafts/"+p.draft,body(2,full),200);
+        JsonNode incomplete=call(HttpMethod.POST,"/drafts/"+p.draft+"/validate",revise(3),200);
+        assertThat(incomplete.path("status").asText()).isEqualTo("INCOMPLETE");
+        assertThat(incomplete.path("issues").toString()).contains("LINK_TARGET_REQUIRED");
+        assertThat(frozen(p,3,UUID.randomUUID(),409).path("code").asText()).isEqualTo("VALIDATION_NOT_CURRENT");
+        broken.put("targetTypeRef","ghost-object");
+        ((ArrayNode)full.path("linkTypes")).add(newLink("batch-to-workorder","BatchToWorkOrder",
+            "production-batch","work-order","ONE_TO_ONE",true));
+        call(HttpMethod.PUT,"/drafts/"+p.draft,body(3,full),200);
+        JsonNode invalid=call(HttpMethod.POST,"/drafts/"+p.draft+"/validate",revise(4),200);
+        assertThat(invalid.path("status").asText()).isEqualTo("INVALID");
+        assertThat(invalid.path("issues").toString()).contains("LINK_TARGET_UNKNOWN","DUPLICATE_LINK_ID","DUPLICATE_LINK_API_NAME");
+        ObjectNode polluted=full.deepCopy();
+        ((ObjectNode)polluted.path("linkTypes").get(0)).put("fakeAction","deleteFactoryRecord");
+        assertThat(call(HttpMethod.PUT,"/drafts/"+p.draft,body(4,polluted),422)
+            .path("code").asText()).isEqualTo("EDITOR_DOCUMENT_INVALID");
+        assertThat(call(HttpMethod.GET,"/drafts/"+p.draft,null,200)
+            .path("editingContent").path("linkTypes").size()).isEqualTo(3);
+    }
+    @Test void linkIdentityAndPureArrayReorderingHaveStableStructuralDiff()throws Exception{
+        Prepared p=prepared();
+        ObjectNode full=multiDocument(p.doc);
+        call(HttpMethod.PUT,"/drafts/"+p.draft,body(2,full),200);
+        call(HttpMethod.POST,"/drafts/"+p.draft+"/validate",revise(3),200);
+        String first=frozen(p,3,UUID.randomUUID(),201).path("snapshotId").asText();
+        ObjectNode reordered=full.deepCopy();
+        ArrayNode links=(ArrayNode)reordered.get("linkTypes");
+        JsonNode old=links.get(0).deepCopy();links.remove(0);links.add(old);
+        call(HttpMethod.PUT,"/drafts/"+p.draft,body(3,reordered),200);
+        call(HttpMethod.POST,"/drafts/"+p.draft+"/validate",revise(4),200);
+        String second=frozen(p,4,UUID.randomUUID(),201).path("snapshotId").asText();
+        assertThat(call(HttpMethod.GET,"/snapshot-diffs?from="+first+"&to="+second,null,200)
+            .path("changes").size()).isZero();
+        assertThat(call(HttpMethod.GET,"/snapshots/"+first,null,200)
+            .path("snapshotContent").path("linkTypes").size()).isEqualTo(2);
+    }
+
 }
