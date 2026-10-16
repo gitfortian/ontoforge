@@ -1,10 +1,12 @@
 # OFIP-0003：S0-MVP-0.3 Native 模型版本冻结、差异与发布安全边界
 
-**Status:** Discussion  
+**Status:** Accepted  
 **Discussion:** [PR #10 — OFIP-0003 首轮产品/领域评审](https://github.com/gitfortian/ontoforge/pull/10)  
-**Decision:** Pending — 用户已确认按 DG1–DG9 推荐方向继续第二轮；**Contract-Gate-2：TC1–TC12 均为独立审核推荐 A / 待正式签收**，完整 OFIP 尚未获得实施授权  
-**Implementation:** Not Started — 仅方案评审；不涉及 SQL / Java / React / Native Schema 的实现更改  
-**Release:** Not Released  
+**Decision:** [VOTE] Accepted — 2026-10-16（[授权与审批来源声明](https://github.com/gitfortian/ontoforge/pull/10#issuecomment-6210133413)）。DG1–DG9 / TC1–TC12 推荐 A 与 UX-Gate-Low/High 方向已采纳；由助手按用户继续实施的指示受托记录，不冒充第三方 GitHub 审批人。仅授权本地不可变 Snapshot + 历史 / Diff，正式 Review/Release/Activation 仍禁止  
+**Implementation:** Authorized / Not Yet Delivered — 已允许独立真实功能 PR；本设计 PR 仍只有方案、原型与测试，不包含 Flyway V3 / Java Snapshot / React 正式功能  
+**Release:** Not Released
+
+**Review gate:** Domain-Gate-1、Contract-Gate-2 与 UX-Gate-Low/High 已有独立评审证据；[受托实施授权](https://github.com/gitfortian/ontoforge/pull/10#issuecomment-6210133413)；**设计 Accepted ≠ 0.3 代码实现或 Windows/生产验收通过**。  
 **Owner / Reference:** OntoForge 产品评审；[OFIP-0002（Accepted）](./OFIP-0002-ObjectType-草稿建模MVP.md)、[现行架构 V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md)、[Native DSL/AST V0.2 候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md)  
 **Background:** S0-MVP-0.2 [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 已合并（真实 Flyway V2 / Native 草稿 Java API / React / PG17+Chromium CI）；[Windows 验收工具 PR #9](https://github.com/gitfortian/ontoforge/pull/9) 已合并。**用户 Windows 11 本机 PostgreSQL 重启复验仍未提供，不得声称已通过或已发布。**
 
@@ -140,7 +142,7 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 未来正式发布另建 `SchemaRelease(packageId,releaseVersion,releaseDigest,reviewDecision,dependencyLock,...)` 与 `Activation`：**不可原地把已有 Snapshot status 改为 PUBLISHED**；应通过新 Release 事务验证并生成新的可审计资产。发布失败不得出现 Active 指针。回滚只能切换到经允许的历史 Release 或新建修复 Release，不修改旧不可变证据。Schema Release 不自动激活 Binding、对象索引或 Action。
 
 
-### 3.7 第二轮 Contract-Gate-2：权威版本化技术合同审查（TC1–TC12，建议 A / 待正式签收）
+### 3.7 第二轮 Contract-Gate-2：权威版本化技术合同（TC1–TC12，设计已接受）
 
 **本轮性质**：依据用户确认推荐方向继续技术评审，**不冒充维护者的 GitHub `[VOTE] Accepted`**。本节给出可以直接指导下一阶段 API/PG/Canonicalizer/前端研发的**候选合同**，不是已运行的实现；保留 `Status: Discussion / Implementation: Not Started`，任何草稿快照、V3 表、Java 编译器现在都**尚不存在**。
 
@@ -450,7 +452,7 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 
 ---
 
-## 第一轮独立审核：DG1–DG9 待决策清单（推荐 A，尚未签收）
+## 第一轮独立审核：DG1–DG9 决策依据（推荐 A，现已签收）
 
 | 决策 | A：建议 | B：替代方向及代价 | 审核风险 |
 | --- | --- | --- | --- |
@@ -467,3 +469,5 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 **独立预审意见**：V1.3 总体方向与 DG1–DG9 的 A 路线一致；但 **DG1 的安全边界、DG4 的规范化摘要和 DG8 的无损子集是阻断条件**。本提案可以进入正式产品讨论，**不能在当前 PR 中标为 Accepted**。
 
 **第二轮推进记录（2026-10-16）**：用户确认沿 DG1–DG9 推荐路线继续，现已完成 TC1–TC12 技术合同审查候选，涉及 V3 字节存储/JCS、API 幂等恢复、事务与兼容差异风险，**尚未取得正式技术签收或实施授权**。下一步建议维护者 review TC1–TC12，明确批准/调整后进入 UX-Gate-Low；任何单个 Gate 通过都不自动代表完整 OFIP Accepted。
+
+**后续决议（2026-10-16）**：第一轮与第二轮曾长期保持 Pending，现已根据 [受托产品负责人决定](https://github.com/gitfortian/ontoforge/pull/10#issuecomment-6210133413) 将本 OFIP 设计标记 Accepted。原独立评审意见作为历史不覆盖；下一步独立功能 PR 必须验证 V3、JCS、真实 PG/浏览器，不得将 Mock 33/33 冒充功能验收。
