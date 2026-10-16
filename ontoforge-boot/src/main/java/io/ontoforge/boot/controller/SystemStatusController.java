@@ -23,6 +23,6 @@ public class SystemStatusController {
                 String.class);
         if (installationId == null) throw new IllegalStateException("Migration is incomplete");
         return new PlatformStatus("ontoforge", "S0-MVP-0.3", "CONNECTED",
-                installationId, "DRAFT_AVAILABLE", "LOCAL_SNAPSHOT_AVAILABLE", "NOT_IMPLEMENTED");
+                installationId, "DRAFT_AVAILABLE", "LOCAL_SNAPSHOT_AVAILABLE", "JWT_PACKAGE_AUTHORIZATION");
     }
 }
