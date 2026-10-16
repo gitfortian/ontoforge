@@ -46,10 +46,10 @@ function Call([string]$path,[string]$verb='GET',[object]$data=$null){
   return Invoke-RestMethod @arg
 }
 function Post([string]$path,[object]$data){return Call $path 'POST' $data}
-function Link([string]$id,[string]$api,[string]$source,[string]$target,[string]$card,[bool]$evidence){
+function New-LinkTypeSpec([string]$id,[string]$api,[string]$source,[string]$target,[string]$card,[bool]$evidence){
   return @{id=$id;apiName=$api;sourceTypeRef=$source;targetTypeRef=$target;cardinality=$card;evidenceRequired=$evidence}
 }
-function Type([string]$id,[string]$api){
+function New-ObjectTypeSpec([string]$id,[string]$api){
   return @{id=$id;apiName=$api;label=$api;primaryKeyRef='business-id';properties=@(
     @{id='business-id';apiName='businessId';valueType='STRING';required=$true;searchable=$true;classification='INTERNAL'}
   )}
@@ -109,10 +109,10 @@ Must ($new.packageId -eq $package -and [long]$new.revision -eq 1) 'Draft create 
 $id=$new.draftId
 $doc=@{
   editorSchemaVersion='0.1.0'
-  objectTypes=@((Type 'production-batch' 'ProductionBatch'),(Type 'work-order' 'WorkOrder'),(Type 'customer-order' 'CustomerOrder'))
+  objectTypes=@((New-ObjectTypeSpec 'production-batch' 'ProductionBatch'),(New-ObjectTypeSpec 'work-order' 'WorkOrder'),(New-ObjectTypeSpec 'customer-order' 'CustomerOrder'))
   linkTypes=@(
-    (Link 'batch-to-workorder' 'BatchToWorkOrder' 'production-batch' 'work-order' 'MANY_TO_ONE' $true),
-    (Link 'workorder-to-order' 'WorkOrderToOrder' 'work-order' 'customer-order' 'MANY_TO_MANY' $true)
+    (New-LinkTypeSpec 'batch-to-workorder' 'BatchToWorkOrder' 'production-batch' 'work-order' 'MANY_TO_ONE' $true),
+    (New-LinkTypeSpec 'workorder-to-order' 'WorkOrderToOrder' 'work-order' 'customer-order' 'MANY_TO_MANY' $true)
   )
 }
 $save=Call ('/api/model/drafts/'+$id) 'PUT' @{expectedRevision=1;editingContent=$doc}
