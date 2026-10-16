@@ -293,4 +293,4 @@ P0-B 不是一个孤立的“审批模块”。它补齐的是 P0 建模产品�
 | main 强制保护 | 配置模板与显式应用/回读脚本已准备，**启用及失败 PR 阻断验证待管理员执行** | 合并新门禁并确认 main CI 成功后再应用；不因提交 JSON 宣称已生效 |
 | 用户既有 Windows 安装、Chrome/Edge 人工抽检、目标用户任务验证、生产发行 | **NOT RUN / NOT RELEASED** | 不用本轮隔离自动化代替这些独立条件 |
 
-证据文件包括本次 Surefire XML、`e2e.log`、三份 `*-acceptance.json` 和 `windows-restart-evidence.json`，无数据库密码或工业真实数据；实际提交身份与证据入口在交付 PR 中记录。
+本次[机读 Windows 隔离验收记录](./reports/2026-10-16-S0-Windows-isolated-acceptance.json)绑定实际受测运行时代码 `4896a1743dafe0660905fcb5dfe7fc1bd5539813`，包含24项JUnit/17条真实浏览器故事、三份验收记录和真重启身份；后续证据提交不修改运行时代码。原始 Surefire XML、`e2e.log` 和截图保留于本次任务证据目录，无数据库密码或工业真实数据；最终提交和远程 CI 身份在交付 PR 中记录。
