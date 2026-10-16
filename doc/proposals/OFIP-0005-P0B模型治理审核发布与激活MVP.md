@@ -4,7 +4,7 @@
 
 **Decision:** Pending — DG-1 十项产品/领域决策推荐方案已提交审议；**未获得维护者正式 Accepted、未批准修改生产 API/Flyway 或开发安全敏感代码**。
 
-**Discussion:** [P0-B 第一轮设计评审 PR（OFIP-0005）](https://github.com/gitfortian/ontoforge/pulls)
+**Discussion:** [PR #16 — P0-B OFIP-0005 第一轮 DG-1 领域评审](https://github.com/gitfortian/ontoforge/pull/16)
 
 **Implementation:** Not Started — 仅领域方案、用户故事和未来验收合同；无真实身份、审核、发行、激活功能代码。
 
