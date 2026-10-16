@@ -303,7 +303,7 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 
 
 
-### 3.8 第三轮 UX-Gate-Low：模型快照冻结、历史及差异（交互审核中，未签收）
+### 3.8 第三轮 UX-Gate-Low：模型快照冻结、历史及差异（独立 Mock 功能评审通过；维护者正式签收待定）
 
 > **[可点击低保真原型](../prototypes/ofip-0003-snapshot-lowfi.html)** · [真实 Chromium 回归源码](../prototypes/tests/test_ofip0003_snapshot_lowfi.py) · [独立浏览器测试工作流](../../.github/workflows/ofip-0003-lowfi-browser.yml)。
 > 
@@ -352,7 +352,9 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 
 **实现 PR 必须新增而原型无法证明**：GitHub CI 的真实 PG17 行锁和 Flyway V3、不重复的数据库快照、RFC 8785 官方跨语言 fixture、SHA-256 双重验证、服务端单 ObjectType fail-closed、两 Worker 竞态、浏览器导航/刷新后的真实 URL/可寻址 Snapshot、真实断网/HTTP 500/503、正式 Windows 11 PostgreSQL 重启后重开与摘要验证、生产准入的身份授权（本期严格后置）。
 
-**评审 Gate**：低保真可用性与用户故事签收和 Chromium 测试通过是两个独立证据。测试绿色证明这些 Mock 状态能走通，不证明场景下的业务 API 已开发；高保真设计/整个 OFIP 的 Accepted/功能 PR 开发需要后续明确批准。
+**独立 UX-Gate-Low 评审结果（2026-10-16）**：[真实 Chromium 13/13 PASS](https://github.com/gitfortian/ontoforge/actions/runs/38861950361)、[13 张可复查实际浏览器截图](https://github.com/gitfortian/ontoforge/actions/runs/38861950361/artifacts/12029154636)，并已保留 OFIP-0002 的既有原型回归。第一轮 12/13 的失败为“快照详情缺少明确中文「非 SHA-256」声明”，修复文本后重新验证 13/13，并没有放宽断言或跳过测试。测试只覆盖 Mock 交互，**0.3 Flyway V3/Java Snapshot/React/真实 PG/Windows 全部 NOT RUN**。
+
+**审核意见**：用户任务线（WIP→VALID→冻结→历史→Diff→继续编辑）及 UX1–UX13 的异常恢复路径，建议低保真独立评审 **PASS（Mock 设计范围）**。低保真可以作为高保真/正式 React 交互设计的输入；本次没有可信摘要、后端冻结、事务或审核发布证据。**维护者对 Gate 和整体 OFIP 的正式签收仍待明确记录**；后续高保真设计与业务功能开发不能仅凭 Chromium 绿色自动授权。
 
 
 ## Compatibility, Deprecation, and Migration Plan
