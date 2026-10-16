@@ -10,7 +10,7 @@
 
 > 本提案特意区分 **Working Draft → Validated Revision → Immutable Local Snapshot** 与未来 **ChangeSet → Trusted Review → Approved Release → Activation**。本轮建议的 S0.3 是**本地研发语义模型快照与版本对照能力**，不是企业可审计的发布/部署系统，更不是可供生产 Agent 或工业 Action 直接消费的 SchemaRelease。
 
-## 1. Motivation
+## Motivation
 
 ### 用户是谁、要解决什么
 
@@ -42,7 +42,9 @@
 4. 设计者从模型包“历史快照”进入差异页，看到 ObjectType/Property 的新增、移除、类型、主键、必填、可搜索、分类与枚举变更，并查看不可变的旧快照。
 5. 重启 Java，继续读取 Snapshot #1，它与产生时**字节规范化后的内容摘要完全一致**。切换快照查看不改变当前草稿；没有对生产消费者的激活操作。
 
-## 2. Public Interfaces（候选，不是已签收 API）
+## Public Interfaces
+
+> 本节为候选 API 与领域合同，需后续 Contract-Gate 才能签收。
 
 ### 领域身份与状态
 
@@ -72,7 +74,7 @@
 
 推荐错误码：`DRAFT_REVISION_CONFLICT`、`VALIDATION_NOT_CURRENT`、`CANDIDATE_INVALID`、`SNAPSHOT_ALREADY_EXISTS`（如请求幂等语义不能安全返回原结果时）、`PACKAGE_MISMATCH`、`SNAPSHOT_NOT_FOUND`、`UNSUPPORTED_DEFINITION`、`PERSISTENCE_UNAVAILABLE`。**返回 HTTP 200 的 VALID 不等于发布。**
 
-## 3. Proposed Changes
+## Proposed Changes
 
 ### 3.1 S0.3 子集与安全前提
 
@@ -137,7 +139,7 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 
 未来正式发布另建 `SchemaRelease(packageId,releaseVersion,releaseDigest,reviewDecision,dependencyLock,...)` 与 `Activation`：**不可原地把已有 Snapshot status 改为 PUBLISHED**；应通过新 Release 事务验证并生成新的可审计资产。发布失败不得出现 Active 指针。回滚只能切换到经允许的历史 Release 或新建修复 Release，不修改旧不可变证据。Schema Release 不自动激活 Binding、对象索引或 Action。
 
-## 4. Compatibility, Deprecation, and Migration Plan
+## Compatibility, Deprecation, and Migration Plan
 
 1. Flyway V2 的 `native_package_draft` 和数据不改、不删除；建议 V3 纯新增 Snapshot 表、索引与数据库层不可变保护。若以后真正需要扩展当前草稿 editorSchemaVersion 或多类型/Link，另评审迁移。
 2. Native V0.2 Package Schema 不因“快照”增加字段。Snapshot metadata 放**外围受管资源**，不是偷偷塞进 `objectTypes[]` 或 Native Package 根节点，否则 JSON Schema additionalProperties 会拒绝。
@@ -147,7 +149,9 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 6. Windows 11 原生 PostgreSQL 是默认本机环境，不能把用户必须安装 Docker 作为产品前置条件。CI PG17 仍独立且不等于用户本机验收。
 7. 发布与审批尚无公共消费者，因此不存在从假发布状态“迁移成真”的捷径；0.3 只能交付 Snapshot，与正式 Approval/Release 的语义隔离是前向兼容基础。
 
-## 5. Test Plan（本轮规划验收，不是已运行的结果）
+## Test Plan
+
+> 以下为计划验收范围；相关 0.3 API 和 E2E 尚未开发或运行。
 
 | Gate / 情景 | 必须有的可复验证据 | 失败时不能误报 |
 | --- | --- | --- |
@@ -166,7 +170,7 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 
 **实际开发必须只用一个完整、可运行的功能 PR**，包含 PG V3、Java Transaction/Canonicalization/Diff、正式 React UI 和真实 E2E。独立设计 PR 中**不得混入开发代码**。如果经过领域评审确认 0.3 应改成真正可信审批/发布，则必须先签收最低身份/授权合同，扩大范围与验收，不得绕过安全边界。
 
-## 6. Rejected Alternatives
+## Rejected Alternatives
 
 1. **“0.3 一步交付审批 + 正式版本 + 激活”**：当前没有 IAM/工作空间/依赖锁；审核人可被客户端任意填入，缺少权限审核与可信凭据。拒绝伪正式发布。
 2. **把 `VALID` 直接改成 `PUBLISHED`**：完整性校验不是业务审批或兼容评估；会误导 Agent/消费者。拒绝。
