@@ -183,7 +183,7 @@ return '<div class="heading"><div><button class="link" onclick="go(\'editor\')">
 }
 function drawDetail(){const snap=state.snapshots.find(x=>x.id===state.opened);if(!snap)return drawHistory();
  return '<div class="heading"><div><button class="link" onclick="go(\'history\')">← 历史快照</button><h1>只读快照 '+esc(snap.id)+'</h1><p>本地模型快照 · 未审核 · 未发布 · 未激活</p></div><span class="mark">READ ONLY</span></div>'+
- '<section class="panel"><h2>冻结证据（模拟）</h2><p>来自 revision '+snap.rev+' · 指纹 '+esc(snap.digestLabel)+'</p><p>真正产品需 RFC 8785/JCS + SHA-256 + 原始规范化字节。此处不是可信内容摘要。</p><h3>Native Candidate 展示（内存模拟）</h3><pre id="snapshot-content">'+esc(JSON.stringify(snap.doc,null,2))+'</pre><div class="row"><button onclick="go(\'editor\')">回到当前草稿</button><button onclick="go(\'history\')">返回历史</button></div></section>'
+ '<section class="panel"><h2>冻结证据（模拟）</h2><div class="notice">模拟指纹，非 SHA-256。不能作为内容完整性、正式发行或审计证据。</div><p>来自 revision '+snap.rev+' · 指纹 '+esc(snap.digestLabel)+'</p><p>真正产品需 RFC 8785/JCS + SHA-256 + 原始规范化字节。此处不是可信内容摘要。</p><h3>Native Candidate 展示（内存模拟）</h3><pre id="snapshot-content">'+esc(JSON.stringify(snap.doc,null,2))+'</pre><div class="row"><button onclick="go(\'editor\')">回到当前草稿</button><button onclick="go(\'history\')">返回历史</button></div></section>'
 }
 function drawDiff(){const a=state.snapshots.at(-2),b=state.snapshots.at(-1);if(!a||!b)return drawHistory();
  const diffs=diffRows(a,b);
