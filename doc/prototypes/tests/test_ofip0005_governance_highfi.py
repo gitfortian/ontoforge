@@ -39,7 +39,7 @@ class OFIP0005GovernanceHighFiBrowserTests(unittest.TestCase):
         body = self.page.locator("body").inner_text()
         self.assertIn("模型包概览", body)
         self.assertIn("当前生效版本", body)
-        self.assertIn("需要我处理", body)
+        self.assertIn("待发行变更", body)
         self.assertNotIn("ChangeSet", body)
         self.assertNotIn("SchemaRelease", body)
         self.assertNotIn("ActivationEvent", body)
@@ -118,6 +118,7 @@ class OFIP0005GovernanceHighFiBrowserTests(unittest.TestCase):
         self.assertIn("不会自动让任何业务范围使用它", self.page.locator("#releaseModal").inner_text())
         self.page.get_by_role("button", name="确认创建正式版本").click()
         self.assertIn("正式版本 0.5.0 已创建", self.page.locator("body").inner_text())
+        self.assertIn("选择生效范围", self.page.locator("#screen-releases").inner_text())
 
     def test_h12_activation_requires_reason(self):
         self.nav("生效范围")
@@ -145,6 +146,8 @@ class OFIP0005GovernanceHighFiBrowserTests(unittest.TestCase):
 
     def test_h15_release_list_can_enter_activation_without_merging_the_two_actions(self):
         self.nav("正式版本")
+        self.page.get_by_role("button", name="创建正式版本").first.click()
+        self.page.get_by_role("button", name="确认创建正式版本").click()
         self.page.get_by_role("button", name="选择生效范围").click()
         self.assertIn("生效范围", self.page.locator("body").inner_text())
         self.assertIn("让 0.5.0 生效", self.page.locator("body").inner_text())
