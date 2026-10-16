@@ -24,6 +24,8 @@ public final class DraftValidation {
     private static final Set<String> ROOT = Set.of("editorSchemaVersion", "objectTypes", "linkTypes");
     private static final Set<String> OBJECT = Set.of("id", "apiName", "label", "description", "primaryKeyRef", "properties");
     private static final Set<String> PROPERTY = Set.of("id", "apiName", "label", "valueType", "required", "searchable", "classification", "enumValues");
+    private static final Set<String> LINK = Set.of("id","apiName","label","sourceTypeRef","targetTypeRef","cardinality","evidenceRequired");
+    private static final Set<String> CARDINALITY = Set.of("ONE_TO_ONE","ONE_TO_MANY","MANY_TO_ONE","MANY_TO_MANY");
 
     public record Issue(String path, String code, String message) {}
     public record Result(String status, List<Issue> issues, JsonNode nativeCandidate) {}
@@ -60,8 +62,23 @@ public final class DraftValidation {
             issues.add(new Issue("/objectTypes", "EXPECTED_ARRAY", "对象类型必须是数组"));
             return issues;
         }
-        if (links == null || !links.isArray() || !links.isEmpty()) {
-            issues.add(new Issue("/linkTypes", "UNSUPPORTED_LINK_EDITOR", "当前编辑器不支持修改 LinkType；不允许覆盖未知关系"));
+        if (links == null || !links.isArray()) {
+            issues.add(new Issue("/linkTypes","EXPECTED_ARRAY","关系类型必须是数组"));
+        } else {
+            if(links.size()>200)issues.add(new Issue("/linkTypes","LIMIT_EXCEEDED","最多允许 200 种关系类型"));
+            for(int i=0;i<links.size()&&i<201;i++){
+                JsonNode link=links.get(i);
+                String path="/linkTypes/"+i;
+                if(!link.isObject()){issues.add(new Issue(path,"EXPECTED_OBJECT","关系必须是对象"));continue;}
+                unknown(link,LINK,path,issues);
+                boundedString(link,"id",64,path,issues);
+                boundedString(link,"apiName",81,path,issues);
+                boundedString(link,"label",150,path,issues);
+                boundedString(link,"sourceTypeRef",64,path,issues);
+                boundedString(link,"targetTypeRef",64,path,issues);
+                boundedString(link,"cardinality",24,path,issues);
+                bool(link,"evidenceRequired",path,issues);
+            }
         }
         if (objects.size() > 50) issues.add(new Issue("/objectTypes", "LIMIT_EXCEEDED", "最多 50 个对象类型"));
         int totalProperties = 0;
@@ -133,7 +150,7 @@ public final class DraftValidation {
     private static String text(JsonNode node) {return node != null && node.isTextual() ? node.textValue() : null;}
     private static String get(JsonNode node, String key) {return text(node.path(key));}
 
-    /** Current S0 profile: one or more complete ObjectTypes, zero LinkTypes, no runtime entities. */
+    /** S0-0.4 supports complete same-package ObjectType and LinkType definitions. */
     public static Result validate(String packageId, JsonNode doc, ObjectMapper mapper) {
         List<Issue> issues = new ArrayList<>();
         List<Issue> malformed = checkEditor(doc, mapper);
@@ -206,6 +223,36 @@ public final class DraftValidation {
                 }
             }
         }
+        ArrayNode links=(ArrayNode)doc.get("linkTypes");
+        Set<String> linkIds=new HashSet<>(),linkApis=new HashSet<>();
+        for(int i=0;i<links.size();i++){
+            JsonNode link=links.get(i);
+            String path="/linkTypes/"+i;
+            String id=get(link,"id"),api=get(link,"apiName");
+            if(id==null||id.isBlank())issues.add(new Issue(path+"/id","LINK_ID_REQUIRED","请填写关系 ID"));
+            else if(!DEFINITION_ID.matcher(id).matches()){issues.add(new Issue(path+"/id","INVALID_ID","关系 ID 格式错误"));invalid=true;}
+            if(id!=null&&!id.isBlank()&&!linkIds.add(id)){issues.add(new Issue(path+"/id","DUPLICATE_LINK_ID","同包关系 ID 重复"));invalid=true;}
+            if(api==null||api.isBlank())issues.add(new Issue(path+"/apiName","REQUIRED","请填写关系 API 名"));
+            else if(!API_NAME.matcher(api).matches()){issues.add(new Issue(path+"/apiName","INVALID_API_NAME","关系 API 名格式错误"));invalid=true;}
+            if(api!=null&&!api.isBlank()&&!linkApis.add(api)){issues.add(new Issue(path+"/apiName","DUPLICATE_LINK_API_NAME","同包关系 API 名重复"));invalid=true;}
+            for(String key:List.of("sourceTypeRef","targetTypeRef")){
+                String ref=get(link,key);
+                if(ref==null||ref.isBlank())issues.add(new Issue(path+"/"+key,
+                    "sourceTypeRef".equals(key)?"LINK_SOURCE_REQUIRED":"LINK_TARGET_REQUIRED",
+                    "请先选择关联对象"));
+                else if(!objectIds.contains(ref)){issues.add(new Issue(path+"/"+key,
+                    "sourceTypeRef".equals(key)?"LINK_SOURCE_UNKNOWN":"LINK_TARGET_UNKNOWN",
+                    "关联对象在当前包中不存在，必须人工修复"));invalid=true;}
+            }
+            String cardinality=get(link,"cardinality");
+            if(cardinality==null||cardinality.isBlank())
+                issues.add(new Issue(path+"/cardinality","LINK_CARDINALITY_REQUIRED","请选择关联基数"));
+            else if(!CARDINALITY.contains(cardinality)){
+                issues.add(new Issue(path+"/cardinality","LINK_CARDINALITY_INVALID","不支持的关联基数"));invalid=true;
+            }
+            if(!link.has("evidenceRequired"))
+                issues.add(new Issue(path+"/evidenceRequired","LINK_EVIDENCE_REQUIRED","请明确是否需要来源证据"));
+        }
         if(!issues.isEmpty()) return new Result(invalid?"INVALID":"INCOMPLETE",issues,null);
         // Build the deterministic complete Native V0.2 candidate; never imply publish/approval.
         ObjectNode candidate=mapper.createObjectNode();
@@ -229,7 +276,14 @@ public final class DraftValidation {
             cleanTypes.add(clean);
         }
         candidate.set("objectTypes",cleanTypes);
-        for(String key:List.of("linkTypes","bindings","linkBindings","objectSets","functions","rules","decisionStrategies","policies","actions"))
+        ArrayNode cleanLinks=mapper.createArrayNode();
+        for(JsonNode link:links){
+            ObjectNode clean=(ObjectNode)link.deepCopy();
+            if(optionalMissing(clean.get("label")))clean.remove("label");
+            cleanLinks.add(clean);
+        }
+        candidate.set("linkTypes",cleanLinks);
+        for(String key:List.of("bindings","linkBindings","objectSets","functions","rules","decisionStrategies","policies","actions"))
             candidate.set(key,mapper.createArrayNode());
         List<Issue> schemaIssues=NativePackageSchema.validate(candidate);
         if(!schemaIssues.isEmpty())
