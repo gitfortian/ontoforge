@@ -206,6 +206,51 @@ class NativeSnapshotTest {
         }
     }
 
+    @Test void snapshotConcurrentDifferentKeysSameRevisionRejectsSecond()throws Exception {
+        Prepared p=prepared();
+        UUID draftId=UUID.fromString(p.draft);
+        CountDownLatch start=new CountDownLatch(1);
+        try(var pool=Executors.newFixedThreadPool(2)){
+            java.util.concurrent.Callable<String> worker=()->{
+                if(!start.await(10,TimeUnit.SECONDS))throw new IllegalStateException("Workers never started");
+                try{
+                    return service.freeze(draftId,2,UUID.randomUUID()).created()?"201":"200";
+                }catch(io.ontoforge.boot.model.NativeDraftService.DraftFailure e){
+                    return e.http+":"+e.code;
+                }
+            };
+            Future<String> first=pool.submit(worker);
+            Future<String> second=pool.submit(worker);
+            start.countDown();
+            var result=java.util.Set.of(first.get(20,TimeUnit.SECONDS),second.get(20,TimeUnit.SECONDS));
+            assertThat(result).containsExactlyInAnyOrder("201","409:SNAPSHOT_REVISION_ALREADY_FROZEN");
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM native_schema_snapshot WHERE source_draft_id=?",
+                    Integer.class,draftId)).isEqualTo(1);
+        }
+    }
+
+    @Test void snapshotKeysetPaginationPreservesRevisionOrderAndBadBodyIsRejected()throws Exception {
+        Prepared p=prepared();
+        String one=frozen(p,2,UUID.randomUUID(),201).path("snapshotId").asText();
+        ObjectNode changed=p.doc.deepCopy();
+        ((ObjectNode)changed.path("objectTypes").get(0)).put("description","second version");
+        call(HttpMethod.PUT,"/drafts/"+p.draft,body(2,changed),200);
+        call(HttpMethod.POST,"/drafts/"+p.draft+"/validate",revise(3),200);
+        String two=frozen(p,3,UUID.randomUUID(),201).path("snapshotId").asText();
+        JsonNode firstPage=call(HttpMethod.GET,"/packages/"+p.pkg+"/snapshots?pageSize=1",null,200);
+        assertThat(firstPage.path("items").size()).isEqualTo(1);
+        assertThat(firstPage.path("items").get(0).path("snapshotId").asText()).isEqualTo(two);
+        String next=firstPage.path("nextCursor").asText();
+        assertThat(next).isNotEmpty();
+        JsonNode secondPage=call(HttpMethod.GET,"/packages/"+p.pkg+"/snapshots?pageSize=1&cursor="+next,null,200);
+        assertThat(secondPage.path("items").size()).isEqualTo(1);
+        assertThat(secondPage.path("items").get(0).path("snapshotId").asText()).isEqualTo(one);
+        ObjectNode illegal=freezeReq(3,UUID.randomUUID());
+        illegal.put("approvedBy","fake-admin");
+        assertThat(call(HttpMethod.POST,"/drafts/"+p.draft+"/snapshots",illegal,400)
+                .path("code").asText()).isEqualTo("MALFORMED_REQUEST");
+    }
+
     @Test void snapshotCanonicalJcsReferenceDeterminism() {
         String input="{\"b\":2,\"a\":1,\"nested\":{\"z\":true,\"x\":\"hello\"}}";
         String expected="{\"a\":1,\"b\":2,\"nested\":{\"x\":\"hello\",\"z\":true}}";
