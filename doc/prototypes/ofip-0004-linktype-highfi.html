@@ -129,6 +129,33 @@ function inspect(doc){
  });
  return {status:issues.length?issues.some(i=>i.hard)?"INVALID":"INCOMPLETE":"VALID",issues,rev:S.rev};
 }
+
+function highFiInspect(doc){
+ const old=inspect(doc),errors=[...old.issues];
+ const add=(path,message,hard)=>errors.push({path,message,hard});
+ doc.objectTypes.forEach((o,i)=>{
+  const pre="/objectTypes/"+i,ids=new Set(),names=new Set();
+  o.properties.forEach((p,j)=>{
+   const base=pre+"/properties/"+j;
+   if(p.id&&ids.has(p.id))add(base+"/id","属性 ID 在当前对象内重复",true);ids.add(p.id);
+   if(p.apiName&&names.has(p.apiName))add(base+"/apiName","属性程序名在当前对象内重复",true);names.add(p.apiName);
+   if(p.id&&!/^[a-z][a-z0-9-]{1,63}$/.test(p.id))add(base+"/id","属性 ID 不符合规范",true);
+   if(p.apiName&&!/^[A-Za-z][A-Za-z0-9]{1,80}$/.test(p.apiName))add(base+"/apiName","属性程序名不符合规范",true);
+   if(!DATA_TYPES.some(v=>v[0]===p.valueType))add(base+"/valueType","不支持的数据类型",true);
+   if(!CLASSES.some(v=>v[0]===p.classification))add(base+"/classification","不支持的数据分类",true);
+   if(typeof p.required!=="boolean"||typeof p.searchable!=="boolean")add(base+"/required","必填与可搜索选项不合法",true);
+   if(p.valueType==="ENUM"){
+     const vals=p.enumValues||[];
+     if(!vals.length)add(base+"/enumValues","至少填写一个枚举值",false);
+     else if(vals.some(v=>!v||v.length>150)||new Set(vals).size!==vals.length)add(base+"/enumValues","枚举值重复、空值或超长",true);
+   }else if((p.enumValues||[]).length)add(base+"/enumValues","非枚举字段不允许枚举取值",true);
+  });
+  const pk=o.properties.find(p=>p.id===o.primaryKeyRef);
+  if(pk&&(!pk.required||!["STRING","INTEGER"].includes(pk.valueType)))add(pre+"/primaryKeyRef","主键必须是必填文本或整数",true);
+ });
+ doc.linkTypes.forEach((l,i)=>{if(typeof l.evidenceRequired!=="boolean")add("/linkTypes/"+i+"/evidenceRequired","需要明确是否要求未来关系证据",true)});
+ return {status:errors.length?(errors.some(e=>e.hard)?"INVALID":"INCOMPLETE"):"VALID",issues:errors,rev:S.rev};
+}
 function drawCheck(){
  let v=S.validation;
  let content='<div class="panel"><h2>保存与检查</h2><p>先保存整个模型包，再检查当前修订是否完整。未完成的关系可以保存编辑进度，但不能留存“有效历史”。</p><div class="row"><span class="badge">服务器修订 '+S.rev+'</span><span class="badge">本地基于修订 '+S.baseRev+'</span><span class="badge">检查结果 '+(S.dirty?'未保存，不可作为检查依据':v.status)+'</span></div><div class="row space"><button data-action="save">① 保存编辑进度</button><button class="primary" data-action="validate">② 检查当前修订</button><button data-action="freeze">③ 留存只读历史</button></div></div>';
@@ -171,7 +198,7 @@ function save(lose=false){
 }
 function validate(){
  if(S.dirty||S.baseRev!==S.rev){S.tab="check";msg("必须先确认当前草稿已经保存到服务器，再执行完整性检查。","warning");render();return}
- S.validation=inspect(S.server);S.tab="check";msg("模拟完整性检查："+S.validation.status+"；发现 "+S.validation.issues.length+" 个问题。",S.validation.status==="VALID"?"success":"warning");render();
+ S.validation=highFiInspect(S.server);S.tab="check";msg("模拟完整性检查："+S.validation.status+"；发现 "+S.validation.issues.length+" 个问题。",S.validation.status==="VALID"?"success":"warning");render();
 }
 function freeze(lose=false){
  if(S.dirty||S.baseRev!==S.rev||S.validation.status!=="VALID"||S.validation.rev!==S.rev){S.tab="check";msg("不能留存历史：请先保存并对当前修订通过完整性检查。","error");render();return}
@@ -185,6 +212,7 @@ function freeze(lose=false){
 function go(t){S.tab=t;render()}
 function render(){
  for(const t of ["objects","links","check","history"]){let b=$("tab-"+t);b.setAttribute("aria-selected",String(S.tab===t));b.setAttribute("tabindex",S.tab===t?"0":"-1")}
+ for(const k of ["objects","links","check","history"]){const el=$("step-"+k);if(el)el.classList?.toggle("active",S.tab===k)}
  $("revBadge").textContent="草稿修订 "+S.rev;
  $("statusBadge").textContent=S.dirty?"本地未保存":S.validation.status==="VALID"&&S.validation.rev===S.rev?"当前修订已检查":"待检查／待完善";
  $("footerState").textContent=(S.dirty?"● 有未保存修改":"✓ 与模拟服务器同步")+" · "+S.local.objectTypes.length+" 类对象 · "+S.local.linkTypes.length+" 类关系";
