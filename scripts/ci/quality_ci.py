@@ -162,6 +162,27 @@ def require_foundation_reports(root: Path = ROOT) -> None:
             raise ValueError(f"FAIL: missing real PostgreSQL ObjectType tests: {sorted(required_draft - seen_draft)}")
 
 
+    snapshot_source = root / "ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeSnapshotService.java"
+    if snapshot_source.exists():
+        must_run = {
+            "snapshotRealPostgresFreezeIdempotentReloadAndIntegrity",
+            "snapshotRevisionCasUnsupportedAndValidationFailures",
+            "snapshotDiffTypeScopedRiskAndRejectedCrossPackage",
+            "snapshotDatabaseImmutableAndBadRequests",
+            "snapshotCanonicalJcsReferenceDeterminism",
+        }
+        seen = set()
+        for file in files:
+            doc = ET.parse(file).getroot()
+            suites = [doc] if doc.tag == "testsuite" else doc.findall("testsuite")
+            for suite in suites:
+                for case in suite.findall("testcase"):
+                    if case.attrib.get("classname", "").endswith(".NativeSnapshotTest"):
+                        seen.add(case.attrib.get("name", ""))
+        if not must_run <= seen:
+            raise ValueError(f"FAIL: missing real PostgreSQL Snapshot tests: {sorted(must_run - seen)}")
+
+
 def evaluate_results(selected: dict[str, bool], results: dict[str, str], scope_result: str) -> list[tuple[str, str]]:
     if scope_result != "success":
         raise ValueError(f"FAIL: selection job {scope_result}")
