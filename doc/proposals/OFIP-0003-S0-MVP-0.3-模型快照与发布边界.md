@@ -2,7 +2,7 @@
 
 **Status:** Discussion  
 **Discussion:** [PR #10 — OFIP-0003 首轮产品/领域评审](https://github.com/gitfortian/ontoforge/pull/10)  
-**Decision:** Pending — 第一轮 Domain / Scope Gate 产品与技术独立预审，**DG1–DG9 均为推荐意见，尚非维护者签收**  
+**Decision:** Pending — 用户已确认按 DG1–DG9 推荐方向继续第二轮；**Contract-Gate-2：TC1–TC12 均为独立审核推荐 A / 待正式签收**，完整 OFIP 尚未获得实施授权  
 **Implementation:** Not Started — 仅方案评审；不涉及 SQL / Java / React / Native Schema 的实现更改  
 **Release:** Not Released  
 **Owner / Reference:** OntoForge 产品评审；[OFIP-0002（Accepted）](./OFIP-0002-ObjectType-草稿建模MVP.md)、[现行架构 V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md)、[Native DSL/AST V0.2 候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md)  
@@ -139,6 +139,169 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 
 未来正式发布另建 `SchemaRelease(packageId,releaseVersion,releaseDigest,reviewDecision,dependencyLock,...)` 与 `Activation`：**不可原地把已有 Snapshot status 改为 PUBLISHED**；应通过新 Release 事务验证并生成新的可审计资产。发布失败不得出现 Active 指针。回滚只能切换到经允许的历史 Release 或新建修复 Release，不修改旧不可变证据。Schema Release 不自动激活 Binding、对象索引或 Action。
 
+
+### 3.7 第二轮 Contract-Gate-2：权威版本化技术合同审查（TC1–TC12，建议 A / 待正式签收）
+
+**本轮性质**：依据用户确认推荐方向继续技术评审，**不冒充维护者的 GitHub `[VOTE] Accepted`**。本节给出可以直接指导下一阶段 API/PG/Canonicalizer/前端研发的**候选合同**，不是已运行的实现；保留 `Status: Discussion / Implementation: Not Started`，任何草稿快照、V3 表、Java 编译器现在都**尚不存在**。
+
+#### TC1 · 冻结资格与证据的单一权威
+
+**A（推荐）**：服务端从 PostgreSQL 当前 Draft 派生，不接收客户端上传的完整 Native Package / 已审核状态。冻结事务需同时满足：
+
+1. URL 的 `draftId` 存在；请求 `expectedRevision` 等于 DB 当前 `revision` 且大于零。
+2. `validated_revision = revision`、`validation_report.status = "VALID"`、报告绑定的 `validatedRevision` 一致；以上只属于前置状态校验。
+3. 在同一个数据库事务内，重新调用经过受审的 `DraftValidation.validate` 和权威 `NativePackageSchema.validate` 构建完整 Candidate；**重算成功才允许冻结**。重算与历史校验矛盾须拒绝，不得用旧 `VALID` 硬闯。
+4. **S0.3 支持子集恰好一个 ObjectType**、该类型可有多个 Property，`linkTypes` 为空。服务端还必须断言原始 WIP 编辑结构没有任何未知资产/未支持数据，并断言最终 Candidate 的 `imports/linkTypes/bindings/linkBindings/objectSets/functions/rules/decisionStrategies/policies/actions` 都为空；不能依赖 Candidate 生成器“默认补空数组”就断定不存在被丢弃的定义。
+5. 只有真实服务端读取的 `editing_document` 可以冻结；浏览器刚填写但尚未保存的数据禁止冻结，UI 明确要求先保存、再校验。
+
+失败规则：revision 不一致 `409 DRAFT_REVISION_CONFLICT`；校验状态旧/未通过 `409 VALIDATION_NOT_CURRENT` 或 `422 CANDIDATE_INVALID`（区分已过期与完整性错误）；含不支持资产 `422 UNSUPPORTED_DEFINITION` 并提供稳定 JSON Pointer 路径。不能“修剪字段以让校验通过”。
+
+#### TC2 · PostgreSQL Flyway V3 表与快照身份
+
+**A（推荐）：纯新增迁移 V3，0.2 的 V1/V2 保持原样，绝不重建或复制旧 draft。**
+
+建议表 `native_schema_snapshot`（精确数据类型/DDL 留最终签收）：
+
+| 列 / 约束 | 建议 | 不变量 |
+| --- | --- | --- |
+| `snapshot_id UUID PRIMARY KEY` | 服务端生成 | 永不复用；不是 releaseId |
+| `package_id TEXT NOT NULL` | 冻结时从 Draft 取值 | 对应同一个真实包，不由客户端自由填写 |
+| `source_draft_id UUID NOT NULL REFERENCES native_package_draft(draft_id) ON DELETE RESTRICT` | 源编辑聚合 | 防止无来源历史快照 |
+| `source_revision BIGINT NOT NULL CHECK (> 0)` | 实际冻结修订号 | 不是 releaseVersion |
+| `idempotency_key UUID NOT NULL` | 请求幂等身份 | 同键不同语义拒绝 |
+| `candidate_schema_version TEXT NOT NULL` | 例如 `0.2.0` | 不是 editorSchemaVersion |
+| `canonicalization_profile TEXT NOT NULL` | 例如 `jcs-rfc8785-v1` | 不得靠将来程序默认值解释历史 |
+| `canonical_payload BYTEA NOT NULL` | 冻结时 JCS 的确定性 UTF-8 原始字节 | **此列是哈希和还原的权威字节** |
+| `snapshot_document JSONB NOT NULL` | 由相同字节解码的查询副本 | 仅供查询/展示；不是重新摘要的权威字节 |
+| `payload_sha256 CHAR(64) NOT NULL` | canonical bytes 的小写 hex | 内容摘要 ≠ ReleaseDigest |
+| `created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()` | 服务端时间 | 不作为内容摘要输入 |
+
+**唯一约束**：`UNIQUE(source_draft_id,source_revision)`、`UNIQUE(source_draft_id,idempotency_key)`。建议稳定分页索引 `(package_id,created_at DESC,snapshot_id DESC)`。**不要 `UNIQUE(package_id,payload_sha256)`**：在不同 sourceRevision 再次冻结内容相同的草稿，其历史身份仍不同，摘要相同是正常情况。
+
+为真正防业务错误覆盖，**禁止任何业务 UPDATE/DELETE 快照**：服务不暴露更新/删除 API；V3 建立拒绝 UPDATE/DELETE 的触发器或受限数据库权限（建议两者互补）；回归以应用连接执行直接 SQL 写入验证失败。注意本机 PostgreSQL 的数据库超级用户最终可禁用触发器/修改记录，不能宣称具备合规防篡改审计或密码学签名能力。
+
+#### TC3 · 规范化与 SHA-256：不允许隐式 Jackson 近似
+
+**A（推荐）**：Profile 固定 `jcs-rfc8785-v1`，严格遵守 [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785.html) 的 JCS；计算 `lowercaseHex(SHA-256(canonical UTF-8 bytes))`。摘要输入是**完整已校验 Native Candidate**（包括其约束要求的 `schemaVersion/packageId/version` 与各空数组），不包含 draftId、创建时刻、审核状态、sourceRevision 或 idempotencyKey；外围身份/出处字段独立存储。
+
+1. **对象键按 UTF-16 code unit 无区域排序**，嵌套对象也排序；数组元素顺序不重排。不能按 UTF-8 codepoint、Java `HashMap` 遍历或本地化排序规则替代。
+2. JSON 字符串保留原始 Unicode 语义，符合 JCS 的转义规则；不做暗中的 NFC/NFD Unicode 正规化。未配对 surrogate 必须拒绝；不得“替换成问号继续生成摘要”。
+3. RFC 8785 数字使用 ECMAScript/IEEE-754 double 的明确序列化规则。当前受限快照子集的 Native 候选主要是字符串、布尔值与数组，**不得因此宣称普通任意 JSON 数字可直接哈希**；未来扩充更多数值字段前必须有独立 golden fixtures，超出可无损表达的整数/精确十进制应改用受审字符串 Profile 或拒绝。
+4. 要求候选生成器产生受控对象、拒绝重复 JSON key/非法 Unicode；但**已有 WIP 是 JSONB，原始输入可能已被解析归一**，不能声称能从旧 JSONB 反推原输入是否包含重复 key。冻结只保证对**服务端已验证的 Candidate** 计算可重现摘要，不伪称复原原始 HTTP 原文。
+5. 保存 `canonical_payload BYTEA` + `canonicalization_profile`；读详情时对**存储的相同字节**重新 SHA-256 并核对元数据，然后解析并检查其对应 JSONB 镜像。任何不匹配返回有明确代码的服务端完整性故障，不可以静默返回“已验证”。
+6. 升级算法必须新增 Profile 标识和解释器；**绝不按新 Profile 重算覆盖已有快照哈希**。内容相同的不同 revision 可以有相同摘要但不同 snapshotId。
+
+**阻断测试**：引用 RFC 8785 官方 fixtures 及 Java/Python/JavaScript 跨语言字节一致性，覆盖嵌套属性顺序、UTF-16 排序、emoji、转义、负零/大指数/小数、重复键拒绝、非法 surrogate、Profile 未知与 SHA 不匹配。若本轮依赖库未通过这些 fixtures，则**不可声称实现了 JCS**；应另议限定 Profile，而不是为了赶版本篡改声称的算法。
+
+#### TC4 · 冻结事务、并发、幂等与 UNKNOWN 恢复
+
+**A（推荐）**：Spring `@Transactional`、PostgreSQL **`SELECT ... FOR UPDATE`** 行级锁以当前 Draft 作为并发序列化权威：
+
+1. **先查幂等索引** `(draftId,idempotencyKey)`：如已存在且保存的 `sourceRevision` 等于请求 revision，返回同一 Snapshot（HTTP 200），即使 Draft 此刻又被修改，也能安全查询先前成功回执；同键搭配不同 revision 返回 409 `IDEMPOTENCY_KEY_REUSED`。
+2. 不存在该键：锁 Draft；校验 expectedRevision、当前 VALID 报告、受支持的完整内容；重建 Candidate → JCS → SHA-256 → 在**同一事务**插入独立快照。一旦任一步失败，事务整体回滚，未产生快照。
+3. 同 revision 不同 key 的并发请求，只有第一个产生快照；另一个必须返回 `409 SNAPSHOT_REVISION_ALREADY_FROZEN` 并可按 sourceRevision 找回历史；不允许多建。
+4. 数据库唯一性约束是最终裁判；事务冲突（包括两个请求同时查不到键）必须在事务边界按唯一键正确分类，不能将 `DataIntegrityViolationException` 当作 500 或捕获后不回滚。重试读现有记录不得使用已失败/已回滚的事务继续查询。
+5. HTTP 超时、连接中断意味着**结果未知**，客户端必须保留 request key：先调用只读按键查询，再决定是否重试**相同 key + 同 revision**；不能生成新 key 无限重试。
+6. 测试必须覆盖真正并行 Worker、锁等待/超时、事务回滚后的零半成品、服务端 commit 成功但 HTTP 响应丢失，不能用单线程假装竞态消失。
+
+这一设计不允许通过前端先调用 `validate` 后立刻另一个未加锁的 `INSERT` 充当事务保证。
+
+#### TC5 · REST 资源合同与响应矩阵
+
+接口路径仍属候选，但推荐 0.3 固定如下最小集合：
+
+| 方法 / 资源 | 请求或响应要点 | 成功与边界 |
+| --- | --- | --- |
+| `POST /api/model/drafts/{draftId}/snapshots` | body 只有 `expectedRevision: positive long`、`idempotencyKey: UUID`；不允许未知字段 | **201 新建**，`Location` 指向只读详情；**200 相同键重放**；409/422 失败 |
+| `GET /api/model/drafts/{draftId}/snapshots/by-key/{idempotencyKey}` | 只读查询请求键；验证 UUID | 200 同一 Snapshot，404 不存在；支持结果未知恢复 |
+| `GET /api/model/drafts/{draftId}/snapshots/by-revision/{revision}` | 已冻结修订的归属查询 | 200/404；用于不同 key 争抢时找回已有历史 |
+| `GET /api/model/packages/{packageId}/snapshots?pageSize=&cursor=` | 默认 20，上限 50；createdAt DESC, snapshotId DESC 的稳定 keyset cursor | `items[]` 和 `nextCursor`，无历史为空数组 |
+| `GET /api/model/snapshots/{snapshotId}` | immutable payload、sourceRevision、profile、digest、createdAt，明确未审核/未发布 | 200 / 404 / 完整性异常，不可修改 |
+| `GET /api/model/snapshot-diffs?from={uuid}&to={uuid}` | 同包，两个快照都经过完整性核验 | 200（可为空的变更数组）；包不符 422 |
+| 不存在的 `/approve`、`/publish`、`/activate` | S0.3 禁止提供（包括隐藏入口） | 404/未注册，不能用“成功”Mock |
+
+**统一失败响应** `{code, message, issues?}`（issues 带 JSON Pointer），不泄露 SQL、密钥或整个模型正文。建议明确：
+- `400 MALFORMED_REQUEST`：请求 JSON/UUID/游标格式错误；
+- `404 DRAFT_NOT_FOUND/SNAPSHOT_NOT_FOUND`：资源或幂等查询不存在；
+- `409 DRAFT_REVISION_CONFLICT/VALIDATION_NOT_CURRENT/IDEMPOTENCY_KEY_REUSED/SNAPSHOT_REVISION_ALREADY_FROZEN`：前提或并发冲突；
+- `422 CANDIDATE_INVALID/UNSUPPORTED_DEFINITION/PACKAGE_MISMATCH`：模型/比较的领域约束不符；
+- `500 SNAPSHOT_INTEGRITY_FAILURE`：存储摘要与权威字节不一致、算法 Profile 无法识别等内部数据完整性错误，须明确告警并拒绝出具有效快照；
+- `503 PERSISTENCE_UNAVAILABLE`：数据库不可用；
+- 网络失败：浏览器显示 `RESULT_UNKNOWN` **仅为客户端本地分类**，不虚构这是后端返回的 HTTP 状态。
+
+详情响应只读，明确 `approvalStatus: NOT_AVAILABLE`、`publicationStatus: NOT_PUBLISHED`、`activationStatus: NOT_ACTIVE` 属于**固定安全事实**；更安全的替代方案是只显示一条统一 `lifecycle: LOCAL_SNAPSHOT_ONLY`，不提前设计伪正式审批状态机。**推荐后者**。
+
+#### TC6 · 结构 Diff 合同：身份、排序、风险而不是字符比较
+
+比较必须从经过完整性验证的**快照权威内容**构造，不读取最新 Draft。内容语义路径与 Identity 使用：
+
+- `ObjectType` 键 `objectType.id`；`Property` 键 `(objectType.id,property.id)`。`apiName`、`label` 是属性，不是物理对象身份。
+- ID 改名在没有显式 Rename Map 的情况下输出 **REMOVED + ADDED**，附潜在破坏风险；禁止猜测两个同名业务标签“就是同一实体”。
+- 响应每条字段 `{entityKind, objectTypeId, propertyId?, path, changeKind, before?, after?, riskLevel, reasonCode}`；`changeKind` 是 `ADDED/REMOVED/MODIFIED`，`riskLevel` 建议 `DOC_ONLY/ADDITIVE/POTENTIALLY_BREAKING/POLICY_REVIEW_REQUIRED`。
+- 按 `objectTypeId`、`propertyId`、path 形成**跨页稳定顺序**，不能按 JSON 数组索引对齐。S0.3 只需 bounded 同包 Diff（约束由 0.2 DTO 上限推导），无需图布局/自动兼容迁移。
+- 新增**必填属性**不能自动标 `ADDITIVE`：它可能影响已有实例的数据完整性，建议 `POTENTIALLY_BREAKING`；新增可选字段仅标“结构性新增”。
+- 主键、值类型、API 名变化、字段删除、required false→true、searchable true→false 标 `POTENTIALLY_BREAKING`。
+- classification 双向变化均为 `POLICY_REVIEW_REQUIRED`，不允许说提高/降低等级就自动放权；ENUM 删除或值变化需风险标注，纯顺序变化需说明是否业务有序，默认为集合语义（顺序不影响枚举值集合比较）。
+- 有旧内容但不再有消费者/Binding 运行信息，**一律不输出“兼容性检查通过/可直接升级”**。风险标签仅做审查提示，不是真实 Dependency Lock/CompatibilityReport。
+
+`fromSnapshotId=toSnapshotId` 推荐返回 200 空变更并注明 `sameSnapshot=true`；跨包返回 422 `PACKAGE_MISMATCH`；任一 digest 不一致返回 500 且**不渲染 Diff**。
+
+#### TC7 · 当前草稿、快照与未来 Release 的版本分离
+
+- **当前编辑**：`draftId+revision`，任意保存使先前 ValidationReport 失效；
+- **Native 候选**：`schemaVersion=0.2.0`，`version=0.1.0` 只为了满足既有候选格式，不是包的正式发行号；
+- **S0.3 Snapshot**：`snapshotId + sourceRevision + canonicalizationProfile + payloadSha256`；可以同一内容出现在两个不同修订中；
+- **未来 SchemaRelease**：明确的 ReleaseVersion+SignedReview/DependencyLock+ReleaseDigest，**绝不通过修改旧 Snapshot 的状态实现**；Release/Activation 尚无服务端实体或 API。
+- 数据中的 `createdAt` 表示“本地快照被创建”，不能改写成“已发布于”。
+
+如果将来 `NativeCandidate.version` 需要由用户指定或由 Registry 授予，必须形成新的 OFIP/Version Profile，确保旧 Profile 的快照仍可读取和校验。
+
+#### TC8 · 数据访问与部署安全边界
+
+1. S0.3 继续限定 `127.0.0.1` loopback 开发环境；默认 PostgreSQL 原生安装场景允许当前开发用户，但不把它冒充为安全隔离、多租户或企业授权。
+2. 所有快照写入依赖服务端逻辑 + SQL 层拒绝更新/删除；**独立数据库应用角色**与最小权限是推荐补强，但涉及 Windows 旧配置迁移，必须在本轮合同明确是否要求、如何无损升级。即使超级用户可以绕过约束，也不能省去正常业务更新拒绝的测试。
+3. 不能直接用请求体传 `approvedBy`、`releaseVersion`、`active=true` 等字段；Unknown Properties 必须拒绝。
+4. 暂不建立“本机管理员”假身份，不开放模型快照供远程 Agent/生产系统消费；如果范围变化，先补可信身份与授权合同、审计与发布 Gate。
+
+#### TC9 · 错误与恢复 UX 的技术约束
+
+- 模型包“当前草稿”与“历史快照”为**不同资源**；历史快照只读。回到草稿后显示其最新 revision/validation，不从快照覆盖草稿。
+- `freeze` 的按钮同时受本地 `dirty=false`、服务端 `VALID validatedRevision=currentRevision`、`busy=false` 限制；点击之后请求期间禁止再次点击，保留固定 request key。
+- 响应失败时区分：明确 409（刷新核对当前草稿）、422（展示校验问题）、`RESULT_UNKNOWN`（显示“查询冻结结果”并保留 request key），而不是统一“请重试”。
+- 列表稳定分页、空状态、loading、只读详情、版本比较差异都沿用现有 OntoForge 视觉体系；不新增独立的“专业工具”菜单，不把高保真 HTML 原型直接复制成业务页。
+- 不能把 Snapshot 标“发布成功”；建议副标题固定说明“本机模型历史版本，不含审批/发布/激活”。
+
+#### TC10 · 跨语言、数据库与真正不可变的验收证据
+
+- **Java unit**：JCS golden fixture、哈希一致性、Profile 升级拒绝、非法 surrogate/数字拒绝、Object/Property 结构 Diff 与风险；
+- **真实 PG17**：Flyway V1/V2/V3，历史安装 UUID 与旧 WIP 不变，事务锁/rollback/并行 Worker 幂等、应用更新删除触发器拒绝、同 revision 不同 key 冲突；
+- **真实 HTTP**：201/200 幂等重放/409/422/404/500 完整性失败/503 数据库断连，不得只用 MockMvc/Mock Repository；
+- **真实 Chromium + Vite + Spring Boot + PG17**：两轮冻结/只读历史/结构 Diff/刷新重开、提交响应丢失查询、旧 revision 409、浏览器 Back 未保存警告；
+- **Windows 11 原生 PostgreSQL 实机**：脚本生成独立测试 package/draft/snapshots，真正停止并重启 Spring Boot 后按原 ID 读取摘要与内容；**脚本执行结果由用户本机记录，CI PASS 不等于 Windows PASS**；
+- CI Required Quality Scope 必须覆盖 `Flyway V3`、版本治理业务 API 的新 JUnit、浏览器 E2E 与文档；未执行则不能写 PASS。
+
+#### TC11 · 一次性 PR 交付边界
+
+设计签收后正式功能 PR 必须至少同时提供：
+
+1. Flyway V3 **仅新增不可变快照数据表和安全约束**；
+2. Java transactional Snapshot API、真正 JCS canonicalizer/SHA-256、结构差异服务；
+3. React 原生建模工作台集成快照入口、历史/只读详情与 Diff；
+4. 真实 PG/HTTP/Chromium 正反例及与 Windows 验收脚本衔接；
+5. 同 PR 的用户黄金故事与故障恢复记录。
+
+**不得把仅有数据库表、单个 Digest 工具函数或空页面分别叫成“已完成 0.3”**。也不能为完成 0.3 把 S0.4 审核/身份/发布/Agent 隐含实现进来。
+
+#### TC12 · 合同尚需验证的风险与决策保持开放
+
+- RFC 8785/JCS Java 实现与 Jackson/PG JSONB 的互操作以**跨语言 byte fixture** 为准；未找到合格实现之前不得“选一个库直接上”。官方规范：[RFC 8785 §3](https://www.rfc-editor.org/rfc/rfc8785.html#section-3)。
+- V2 当前数据库账号默认可使用 `postgres` 超级用户；因此 S0.3 的不可变只能宣称**普通产品操作/正常 SQL 触发器的约束**，不是安全审计不可篡改。若要宣称更强，必须单独设计受限 DB 角色、审计和备份。
+- S0.3 限定单 ObjectType 是**用户交互安全子集**，不能推论本体领域模型从此一包仅支持一类型；未来多类型/Link 冻结必须版本化扩展 Contract Gate，保持历史可读。
+- 查询摘要失败时如何保留现场、后台告警与是否要提供原始 canonical 字节下载必须在实施评审内明确，避免错误“自动修复”覆写历史。默认**拒绝出具已校验结果**，不导出未经许可的全文。
+
+**第二轮初步审核：TC1–TC12 的 A 方案原则成立，可作为 Contract-Gate-2 签收候选；目前未运行任何 0.3 实现或测试。核心 P0 锁是 TC1、TC3、TC4、TC6、TC8；保留决策 Pending 直到维护者评审。**
+
+
 ## Compatibility, Deprecation, and Migration Plan
 
 1. Flyway V2 的 `native_package_draft` 和数据不改、不删除；建议 V3 纯新增 Snapshot 表、索引与数据库层不可变保护。若以后真正需要扩展当前草稿 editorSchemaVersion 或多类型/Link，另评审迁移。
@@ -198,4 +361,4 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 
 **独立预审意见**：V1.3 总体方向与 DG1–DG9 的 A 路线一致；但 **DG1 的安全边界、DG4 的规范化摘要和 DG8 的无损子集是阻断条件**。本提案可以进入正式产品讨论，**不能在当前 PR 中标为 Accepted**。
 
-**建议下一轮优先顺序**：先让维护者确认 DG1–DG9 中对 Snapshot 而非正式 Release 的分期选择；之后在本 OFIP 下完成 Contract-Gate-2（PG V3 事务与不可变约束、Canonicalization fixture/版本、请求幂等和 Diff 类型），再做精简用户路径原型及真实代码。任何单个 Gate 通过，都不自动代表完整 OFIP Accepted。
+**第二轮推进记录（2026-10-16）**：用户确认沿 DG1–DG9 推荐路线继续，现已完成 TC1–TC12 技术合同审查候选，涉及 V3 字节存储/JCS、API 幂等恢复、事务与兼容差异风险，**尚未取得正式技术签收或实施授权**。下一步建议维护者 review TC1–TC12，明确批准/调整后进入 UX-Gate-Low；任何单个 Gate 通过都不自动代表完整 OFIP Accepted。
