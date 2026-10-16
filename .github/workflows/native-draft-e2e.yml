@@ -8,12 +8,35 @@ on:
       - 'ontoforge-ui/**'
       - 'doc/design/tests/test_native_v02.py'
       - '.github/workflows/native-draft-e2e.yml'
+      - 'scripts/verify-objecttype.ps1'
+      - 'scripts/verify-s0.ps1'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  windows-powershell-parser:
+    name: Windows PowerShell 5.1 Acceptance Script Syntax
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse the acceptance scripts using native Windows PowerShell
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($script in @('scripts/verify-s0.ps1', 'scripts/verify-objecttype.ps1')) {
+            $tokens = $null
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $script).Path, [ref]$tokens, [ref]$parseErrors)
+            if ($parseErrors.Count -gt 0) {
+              throw "$script failed Windows PowerShell 5.1 parse: $($parseErrors | Out-String)"
+            }
+            Write-Host "[PASS] Windows PowerShell parser: $script"
+          }
+          Write-Host 'Syntax only: this job does NOT claim an actual Windows PostgreSQL runtime test.'
   objecttype-browser:
     name: Real PG17 + API + React Chromium Golden Story
     runs-on: ubuntu-latest
@@ -81,12 +104,18 @@ jobs:
         env:
           E2E_SHOTS: '${{ runner.temp }}/ontoforge-native-e2e-shots'
         run: python -m unittest discover -s ontoforge-ui/e2e -p 'test_*.py' -v
+      - name: Run Windows-compatible PowerShell real HTTP acceptance (exercise + recheck)
+        shell: pwsh
+        run: |
+          ./scripts/verify-objecttype.ps1 -Mode Exercise -AllowCreateTestDraft -EvidencePath '${{ runner.temp }}/ontoforge-objecttype-acceptance.json'
+          ./scripts/verify-objecttype.ps1 -Mode Recheck -EvidencePath '${{ runner.temp }}/ontoforge-objecttype-acceptance.json'
       - name: Keep real service logs and screenshots for review
         if: always()
         run: |
           mkdir -p /tmp/ontoforge-e2e-evidence
           cp /tmp/ontoforge-api.log /tmp/ontoforge-e2e-evidence/backend.log 2>/dev/null || true
           cp /tmp/ontoforge-vite.log /tmp/ontoforge-e2e-evidence/vite.log 2>/dev/null || true
+          cp '${{ runner.temp }}/ontoforge-objecttype-acceptance.json' /tmp/ontoforge-e2e-evidence/windows-acceptance-script-on-linux.json 2>/dev/null || true
           cp -r '${{ runner.temp }}/ontoforge-native-e2e-shots' /tmp/ontoforge-e2e-evidence/screenshots 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         if: always()

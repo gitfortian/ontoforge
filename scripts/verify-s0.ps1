@@ -67,7 +67,7 @@ try {
     throw "Cannot reach $apiUrl. Start the Spring Boot backend before running this check. $($_.Exception.Message)"
 }
 if ($status.service -ne 'ontoforge' -or $status.version -ne 'S0-MVP-0.2' -or $status.database -ne 'CONNECTED') {
-    throw 'The status API did not report the expected real S0-MVP-0.1 service and PostgreSQL connection.'
+    throw 'The status API did not report the expected real S0-MVP-0.2 service and PostgreSQL connection.'
 }
 if ($status.modelModule -ne 'DRAFT_AVAILABLE' -or $status.authModule -ne 'NOT_IMPLEMENTED') {
     throw 'Expected draft modeling available, and auth honestly not implemented.'
@@ -95,4 +95,4 @@ if (-not [string]::IsNullOrWhiteSpace($ExpectedDraftId)) {
 Write-Host "[OK] PostgreSQL: $pgHost`:$pgPort/$pgDatabase (Flyway V1 + V2 applied)"
 Write-Host "[OK] API: $apiUrl"
 Write-Host "[OK] Installation ID: $databaseInstallationId"
-Write-Host 'To verify persistence: restart Spring Boot, then run this script with -ExpectedInstallationId <UUID>.'
+Write-Host 'To verify persistence after a restart, use -ExpectedInstallationId <UUID> and optionally -ExpectedDraftId <UUID>.'

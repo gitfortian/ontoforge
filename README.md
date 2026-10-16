@@ -12,7 +12,7 @@
 - [文档目录、研究证据与历史清理说明](./doc/README.md)
 - [PostgreSQL ObjectSet / Action Outbox 研究实验](./experiments/pg-runtime/README.md)
 
-> **现阶段为 S0-MVP-0.2 本地 ObjectType 草稿建模候选（[PR #7](https://github.com/gitfortian/ontoforge/pull/7) 待合并/用户实测）**，不是可生产使用的本体产品。用户/权限/工作空间/业务系统连接尚未实现；所有架构选择仍以 V1.3 和阶段 Gate 为准。
+> **S0-MVP-0.2 ObjectType 草稿建模代码已由 [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 合并到 main；Windows 11 原生 PostgreSQL 实机验收仍待完成，版本未发布。**，不是可生产使用的本体产品。用户/权限/工作空间/业务系统连接尚未实现；所有架构选择仍以 V1.3 和阶段 Gate 为准。
 
 ## S0-MVP-0.2：Windows 11 本机 PostgreSQL（默认开发方式）
 
@@ -30,6 +30,24 @@
 
 3. 另开 PowerShell 进入 `ontoforge-ui`，运行 `npm install` 和 `npm run dev`；访问 [http://127.0.0.1:5173](http://127.0.0.1:5173)。
 4. 新开 PowerShell，重新设置相同的 DB_* 环境变量，并在仓库根目录运行 `.\scripts\verify-s0.ps1`（`psql` 未加入 PATH 时传 `-PsqlPath`）。脚本只读校验 Flyway V1/V2、数据库 UUID、`DRAFT_AVAILABLE` 与真实 API 是否一致；重启后端后可用 `-ExpectedInstallationId` 及 `-ExpectedDraftId` 验证既有安装和草稿均被保留。
+
+### Windows 11 一键实际验收（建议优先执行）
+
+在本机 PostgreSQL、Spring Boot 启动后，可以**直接由脚本执行真实 HTTP 建模黄金故事**，不需要反复手工填页面。脚本只连接 `127.0.0.1 / localhost`，使用一个**随机独立模型包**，不会修改或删除已有模型；由于当前没有删除 API，创建的验收草稿会留在测试数据库中。建议使用独立的开发/测试数据库。
+
+```powershell
+# 仅查看数据库和已运行 API（只读）：与现有 Flyway V1/V2/installationId 核验互补
+.\scripts\verify-s0.ps1
+
+# 明确同意创建一个可追溯的、唯一命名的验收草稿（会写入当前测试数据库）
+.\scripts\verify-objecttype.ps1 -Mode Exercise -AllowCreateTestDraft
+```
+
+第一次运行将依次实测：模型包创建、未完成 WIP 保存与重开、INCOMPLETE、补齐主键后 VALID、revision 增长与旧校验失效，以及旧版本 PUT 必须得到 HTTP 409。末尾会打印一条带 `-EvidencePath` 的复验命令，并将草稿 UUID、installationId、revision 和预期描述写入**本机临时 JSON**（不含密码）。
+
+**保留 PostgreSQL 数据库，重启 Spring Boot 后执行刚才输出的 `-Mode Recheck -EvidencePath "..." ` 命令。** 只有复验确认原 draftId、installationId 和描述不变，才能把 Windows 持久化验收记为 PASS。
+
+脚本可在 GitHub Actions 的 Linux PowerShell 7 环境中进行自动回归，但这**不等于用户 Windows 11 本机通过**。Edge 页面、菜单和键盘使用体验仍应做最终人工抽检；正式记录规则见 [S0-MVP-0.2 Windows 验收记录](./doc/implementation/S0-MVP-0.2-Windows-验收.md)。
 
 ### ObjectType 真实黄金故事（使用测试模型，不要连接工厂生产数据）
 

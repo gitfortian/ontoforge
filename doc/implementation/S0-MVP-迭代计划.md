@@ -9,11 +9,11 @@
 | 版本 | 本轮必须亲自看到的结果 | 本轮明确不做 |
 | --- | --- | --- |
 | **S0-MVP-0.1（已完成基座）** | 本机 PostgreSQL、Spring Boot/Flyway V1、React 真实读取状态；刷新及后端重启可复验 | 登录、用户、角色、权限、工作空间、Native Model、对象查询、Action；界面只显示未实现占位 |
-| **S0-MVP-0.2（PR #7 实施中）** | 真正的模型包与 ObjectType/Property 编辑、WIP 保存、校验、刷新重开和 revision 并发保护；Flyway V2/Java/React/真实 PG17+Chromium 验证 | 复杂 Registry、跨包引用、多人审批 |
+| **S0-MVP-0.2（PR #7 已合并 / Windows 实测待完成）** | 真正的模型包与 ObjectType/Property 编辑、WIP 保存、校验、刷新重开和 revision 并发保护；Flyway V2/Java/React/真实 PG17+Chromium 验证 | 复杂 Registry、跨包引用、多人审批 |
 | S0-MVP-0.3（候选未来） | 审核与不可变只读版本的独立 OFIP/安全合同；不重复开发 0.2 已交付的完整性校验 | 完整权限、多工作空间、多租户 |
 | S0→P0-A 演进 | 草稿、审核、不可变发布、版本读取分批完成，每版本有明确功能和安全门禁 | 一次性铺完完整产品 |
 
-> S0-MVP-0.2 已依据 **[Accepted OFIP-0002](../proposals/OFIP-0002-ObjectType-草稿建模MVP.md)** 获实施授权，并在 [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 交付评审中；PR merge、Windows 本机验收和 Release 必须分别记录。0.3 仍是候选，不代表获准开发。
+> S0-MVP-0.2 已依据 **[Accepted OFIP-0002](../proposals/OFIP-0002-ObjectType-草稿建模MVP.md)** 获实施授权，且已通过 [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 合并到 main；**本机 Windows 实测仍 NOT RUN，Release 仍 Not Released**，二者不得借 GitHub CI 绿色替代。0.3 仍是候选，不代表获准开发。
 
 ## MVP-0.1 用户故事
 
@@ -24,7 +24,7 @@
 1. 本机 PostgreSQL 服务运行；在 `127.0.0.1:5432` 创建或复用数据库 `ontoforge`，不删除现有数据；本地默认 DB_USERNAME=`postgres`。
 2. 在启动后端的 PowerShell 窗口安全输入 DB_PASSWORD 环境变量（必须设置，不能使用代码内置默认密码）；运行 `mvn -pl ontoforge-boot spring-boot:run`。
 3. 使用 Node.js 22：进入 `ontoforge-ui` 后运行 `npm install`，再执行 `npm run dev`，浏览器访问 http://127.0.0.1:5173。
-4. 新 PowerShell 设置相同的 DB_* 参数，执行 `.\scripts\verify-s0.ps1`，验证 `/api/system/status` 返回 S0-MVP-0.1 / CONNECTED，且 Flyway V1 成功、数据库 installationId 与 API 一致。
+4. 新 PowerShell 设置相同的 DB_* 参数，执行 `.\scripts\verify-s0.ps1`，核验**当前 0.2** 的状态、Flyway V1/V2 与数据库 installationId 一致（保留 0.1 的历史验收记录，不把当前系统错误写回 0.1）。
 5. 记录 installationId，停止后端时 UI 应展示连接失败；重启后运行脚本带 `-ExpectedInstallationId`，确保保持同一 UUID。
 6. CI 必须运行独立 PostgreSQL/Flyway 集成测试及 React/TypeScript build，且不依赖开发机的 PostgreSQL 密码；其他旧 POC 测试不得受到影响。
 
@@ -40,6 +40,12 @@
 - Java/真实 PG17 JUnit 自动测试新旧 Flyway、合法 WIP、VALID、错 PK、Type-scoped Property、并发 409 和恶意字段 422；独立真实 Chromium E2E 经过 Vite → Spring Boot → PG17 测试保存、刷新、校验、两标签页写冲突和断网。
 - Windows 11 本机依然使用既有原生 PostgreSQL（非强制 Docker），从 [README 黄金故事](../../README.md) 和 `.\scripts\verify-s0.ps1` 执行独立验收；**没有用户本机报告则记为 NOT RUN**。
 - 明确仍未实现 Auth/Workspace/Link 编辑、数据绑定、审核/发布、生产实例和工业 Action；不准作为联网生产服务开放。
+
+### 0.2 发布前必须明确的两类证据
+
+- **已实际完成的 CI**：PR #7 在 Linux 隔离 PostgreSQL17 上通过 Java/Flyway/JUnit、React TS、Native Schema 以及真实 Chromium/Vite/Spring Boot E2E，并修复 2×P1、3×P2 审核问题；只说明 Linux CI 中的真实功能路径通过。
+- **未完成的 Windows 实机验收**：操作者在 Windows 11 原生 PG 上执行 [双阶段 PowerShell 验收脚本](../../scripts/verify-objecttype.ps1)，实际执行 Exercise，重启 Spring Boot 而不重建数据库，再执行 Recheck；连同 [本机验收记录](./S0-MVP-0.2-Windows-验收.md) 提交证据后，方可标注 Windows PASS。未实际执行一律 NOT RUN。
+- **产品安全限制**：没有认证、工作空间与授权，不可在非 loopback 主机/端口暴露，不能连接真实 MES 或生产制造数据，且 Draft VALID 不是发布。
 
 ## 安全与未来扩展
 
