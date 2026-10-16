@@ -22,6 +22,7 @@ class OFIP0005GovernanceHighFiBrowserTests(unittest.TestCase):
 
     def setUp(self):
         self.page = self.browser.new_page(viewport={"width": 1440, "height": 1000})
+        self.page.set_default_timeout(8000)
         self.page.goto(HTML.as_uri())
         self.page.wait_for_load_state("domcontentloaded")
 
