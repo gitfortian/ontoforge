@@ -133,8 +133,8 @@ public class B0AuthorizationService {
                 rs -> rs.next() ? rs.getString(1) : null,
                 draftId);
         if (packageId == null) {
-            // Preserve resource-not-found behavior while never authorizing by client input.
-            throw new AccessDeniedException("当前身份无法访问该模型草稿");
+            // Preserve the existing resource-not-found contract. No resource metadata is returned.
+            return;
         }
         requirePackage(authentication, packageId, operation);
     }
@@ -148,7 +148,8 @@ public class B0AuthorizationService {
                 rs -> rs.next() ? rs.getString(1) : null,
                 snapshotId);
         if (packageId == null) {
-            throw new AccessDeniedException("当前身份无法访问该模型快照");
+            // Preserve the existing resource-not-found contract. No snapshot metadata is returned.
+            return;
         }
         requirePackage(authentication, packageId, operation);
     }
