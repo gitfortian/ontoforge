@@ -10,6 +10,8 @@
 
 - [现行 Native DSL/AST V0.2 技术合同](./doc/design/核心本体元模型与Native-DSL-AST契约_v0.2.md)
 - [文档目录、研究证据与历史清理说明](./doc/README.md)
+- [S0-MVP-0.3 本轮交付说明与下一步进度](./doc/implementation/S0-MVP-0.3-交付说明-20261016.md)
+- [每轮交付说明模板（新增功能 / 证据 / 风险 / 下一步）](./doc/implementation/交付说明模板.md)
 - [S0-MVP-0.3 功能说明与全面 Review 验收矩阵](./doc/implementation/S0-MVP-0.3-功能说明与全面Review验收矩阵.md)
 - [PostgreSQL ObjectSet / Action Outbox 研究实验](./experiments/pg-runtime/README.md)
 
