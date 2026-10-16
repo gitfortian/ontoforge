@@ -357,6 +357,56 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 **审核意见**：用户任务线（WIP→VALID→冻结→历史→Diff→继续编辑）及 UX1–UX13 的异常恢复路径，建议低保真独立评审 **PASS（Mock 设计范围）**。低保真可以作为高保真/正式 React 交互设计的输入；本次没有可信摘要、后端冻结、事务或审核发布证据。**维护者对 Gate 和整体 OFIP 的正式签收仍待明确记录**；后续高保真设计与业务功能开发不能仅凭 Chromium 绿色自动授权。
 
 
+### 3.9 第四轮 UX-Gate-High：OntoForge 风格的快照版本治理交互（独立评审）
+
+**可点击产物**：[高保真原型](../prototypes/ofip-0003-snapshot-highfi.html) / [19 条高保真 Chromium 测试](../prototypes/tests/test_ofip0003_snapshot_highfi.py) / [高低保真联合 CI](../../.github/workflows/ofip-0003-lowfi-browser.yml)。
+
+> 本原型仍是浏览器内存模拟，**不是正式 React / Spring Boot / PostgreSQL**。刷新会清空；模拟指纹标注“非 SHA-256”，不是 ReleaseDigest、可信审批或发布记录。0.3 Flyway V3、Java Snapshot/JCS/Diff、PG 事务与 Windows 实机 **NOT RUN**。
+
+#### 3.9.1 统一信息架构
+
+基于现有 OntoForge 主导航、模型包、白色卡片、蓝灰工具配色、表单和反馈层级改进，不为 Snapshot 新增孤立的发布中心、专业工具菜单或独立发布向导；**原型的 CSS 不能直接替换生产组件**。
+
+| 界面 | 展示及主动作 | 返回 / 保护 |
+| --- | --- | --- |
+| 模型包 / 空态 | 当前模型包、进入工作台、历史入口 | 仍以当前 Draft 为主要任务对象 |
+| 草稿工作台 | 主区编辑、侧区 revision/VALID/冻结/恢复 | dirty 禁止校验/冻结，离开询问 |
+| 冻结前确认弹窗 | 显示 packageId、修订号、VALID、“本地只读非发布” | 取消/ESC 没有副作用；确认后仍由服务器重新检查 |
+| 历史列表 | snapshotId、sourceRevision、只读及未发布标识 | 查看只读详情，允许自选 From/To |
+| 只读 Snapshot | 内容、来源与摘要证据（真实系统需验证） | 无编辑/审批/发布/激活按钮，能回草稿 |
+| 语义 Diff | 按 Type/Property 的前后值、风险标签 | 同包/不同 ID；不宣称已验证下游兼容 |
+
+#### 3.9.2 H1–H12 交互验收合同
+
+| H | 检验重点 | 通过条件 |
+| --- | --- | --- |
+| H1 | 空态创建/进入草稿 | 入口清楚，无伪造数据 |
+| H2 | INCOMPLETE | 字段错误可跳转，冻结不可用 |
+| H3 | VALID 后修改 | dirty 立即让旧校验失效，保存后 NOT_RUN |
+| H4 | 冻结确认 | 说明修订、结果和只读含义；取消/ESC 零快照 |
+| H5 | 冻结后只读 | 详情不可编辑，历史永远不等同发布 |
+| H6 | 自选两份历史 | From/To 对应真实选择；相同 ID 禁止比较 |
+| H7 | 风险差异 | description DOC_ONLY、searchable 降级潜在破坏性、classification 需策略复核 |
+| H8 | 并发修订 409 | 无新快照；核对两边内容、确认后才放弃本地修改 |
+| H9 | 网络结果 UNKNOWN | 保留原幂等键，先查结果，不因重试生成第二份 |
+| H10 | Unsupported Definition | 明确 422 拒绝多类型/Link/Binding，不能静默裁剪 |
+| H11 | 窄屏与键盘 | 390px 无横向溢出、弹窗及历史可达、ESC 可取消 |
+| H12 | 证据真实性 | 显示 Mock、非 SHA-256、未审核/发布/激活，没有假 ReleaseDigest 或“审批通过”按钮 |
+
+#### 3.9.3 高保真与正式 React 的实现差异
+
+- 现有页面按真实 draftId、revision、validatedRevision 读写；冻结资格以**服务端复查**为准，按钮禁用只是辅助。
+- 弹窗打开/关闭需要合理焦点处理；真正提交中锁定二次操作。HTTP 409、422、500、503 和回执 UNKNOWN 必须有分级恢复路径。
+- 正式历史/差异 URL 可直达并经刷新重新读取 PostgreSQL；原型基于内存，**没有持久化证据**。
+- Diff 按语义对象 ID 而非数组位置绑定，不猜测重命名；跨包、相同 ID 与摘要损坏一律拒绝并解释。
+- 正式文件应使用项目现有 React 组件与设计 Token，**不能把高保真 HTML 直接拷贝进工作台**。
+
+#### 3.9.4 独立评审和测试边界
+
+[**真实 Chromium #38863583358**](https://github.com/gitfortian/ontoforge/actions/runs/38863583358)：**32/32 PASS**，其中低保真 13 条、高保真 19 条。[实际浏览器截图](https://github.com/gitfortian/ontoforge/actions/runs/38863583358/artifacts/12029584766)。高保真新增覆盖确认取消/ESC、三份快照中自选两份、同一快照比较拒绝、390px 弹窗、真实摘要/发布能力防误导；既有 13 条故事亦在高保真复测。
+
+**受托独立 UX-Gate-High 结论：建议 PASS（仅设计模拟范围）**。工作任务连贯、视觉系统匹配、异常恢复可理解，未发现阻断该阶段设计的 P0/P1；但维护者正式 Gate / 整体 OFIP Accepted 仍未记录。**生产 API/PG/Java/Windows 全部 NOT RUN**。后续仍应先完成正式设计签收，才可用一个完整 PR 交付真实实现。
+
 ## Compatibility, Deprecation, and Migration Plan
 
 1. Flyway V2 的 `native_package_draft` 和数据不改、不删除；建议 V3 纯新增 Snapshot 表、索引与数据库层不可变保护。若以后真正需要扩展当前草稿 editorSchemaVersion 或多类型/Link，另评审迁移。
