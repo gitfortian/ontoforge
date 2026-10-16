@@ -44,6 +44,8 @@ class LinkTypeHighFiBrowserReview(unittest.TestCase):
 
     def act(self, name):
         self.page.locator(".footer button[data-action='" + name + "']").click()
+        if name == "freeze" and self.page.locator("#freezeDialog").is_visible():
+            self.page.locator("button[data-action=confirmFreeze]").click()
 
     def seed(self):
         self.page.locator("button[data-action=seed]").click()
