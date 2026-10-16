@@ -9,12 +9,34 @@ on:
       - 'doc/design/tests/test_native_v02.py'
       - '.github/workflows/native-draft-e2e.yml'
       - 'scripts/verify-objecttype.ps1'
+      - 'scripts/verify-s0.ps1'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  windows-powershell-parser:
+    name: Windows PowerShell 5.1 Acceptance Script Syntax
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse the acceptance scripts using native Windows PowerShell
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($script in @('scripts/verify-s0.ps1', 'scripts/verify-objecttype.ps1')) {
+            $tokens = $null
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $script).Path, [ref]$tokens, [ref]$parseErrors)
+            if ($parseErrors.Count -gt 0) {
+              throw "$script failed Windows PowerShell 5.1 parse: $($parseErrors | Out-String)"
+            }
+            Write-Host "[PASS] Windows PowerShell parser: $script"
+          }
+          Write-Host 'Syntax only: this job does NOT claim an actual Windows PostgreSQL runtime test.'
   objecttype-browser:
     name: Real PG17 + API + React Chromium Golden Story
     runs-on: ubuntu-latest
