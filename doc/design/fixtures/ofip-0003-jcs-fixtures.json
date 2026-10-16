@@ -1,0 +1,30 @@
+{
+  "profile": "jcs-rfc8785-v1",
+  "source": "RFC 8785 Section 3 / Appendix B",
+  "vectors": [
+    {
+      "name": "object_order_numbers",
+      "raw": "{\"z\":-0,\"a\":1e30,\"m\":0.000001}",
+      "canonical": "{\"a\":1e+30,\"m\":0.000001,\"z\":0}",
+      "sha256": "b3b10f0b24a7659a9c35d042912c7d48fc6270fd6535342a7d294fcb5bdacf66"
+    },
+    {
+      "name": "utf16_order",
+      "raw": "{\"\\uE000\":2,\"\\uD83D\\uDE00\":1}",
+      "canonical": "{\"😀\":1,\"\":2}",
+      "sha256": "04208f6cdb854e2ab1b07dd3633a39dec854344fe72824cf7f2fdb4e2e33129e"
+    },
+    {
+      "name": "nested_unicode",
+      "raw": "{\"z\":[{\"b\":true,\"a\":null}],\"a\":\"\\u20ac\\n\"}",
+      "canonical": "{\"a\":\"€\\n\",\"z\":[{\"a\":null,\"b\":true}]}",
+      "sha256": "d1a7dcd5f7343deb5a85e3d8ef1fc4fa273e1f5c0e0fbe57b0719ba25b3acd73"
+    },
+    {
+      "name": "same_semantics_reordered",
+      "raw": "{\"literals\":[null,true,false],\"numbers\":[4.50,2e-3],\"string\":\"a\"}",
+      "canonical": "{\"literals\":[null,true,false],\"numbers\":[4.5,0.002],\"string\":\"a\"}",
+      "sha256": "dbb3189202080200b5bff5a03d074eeeb7181c65a661485ce357aded1fec22a9"
+    }
+  ]
+}
