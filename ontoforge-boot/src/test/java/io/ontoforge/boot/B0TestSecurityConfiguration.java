@@ -61,13 +61,18 @@ public class B0TestSecurityConfiguration {
     }
 
     public static String token(JwtEncoder encoder, String subject) {
+        return token(encoder, subject, ISSUER, List.of(AUDIENCE), Instant.now().plusSeconds(300));
+    }
+
+    public static String token(
+            JwtEncoder encoder, String subject, String issuer, List<String> audience, Instant expiresAt) {
         Instant now = Instant.now();
         JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer(ISSUER)
+                .issuer(issuer)
                 .subject(subject)
-                .audience(List.of(AUDIENCE))
+                .audience(audience)
                 .issuedAt(now)
-                .expiresAt(now.plusSeconds(300))
+                .expiresAt(expiresAt)
                 .id(UUID.randomUUID().toString())
                 .build();
         JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).keyId("b0-test").build();
