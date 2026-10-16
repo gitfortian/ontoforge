@@ -71,16 +71,30 @@ function renderNotice(){const n=$("notice");n.innerHTML=S.notice?'<div class="ba
 function changed(){S.dirty=true;S.validation={status:"NOT_RUN",issues:[],rev:null};S.pendingSave=false;S.conflict=false}
 function same(a,b){return JSON.stringify(a)===JSON.stringify(b)}
 function options(items,val){return items.map(([v,label])=>'<option value="'+esc(v)+'"'+(v===val?' selected':'')+'>'+esc(label)+'</option>').join("")}
-function field(title,kind,index,key,value,extra=""){return '<div class="field"><label>'+esc(title)+'</label><input data-kind="'+kind+'" data-index="'+index+'" data-field="'+key+'" value="'+esc(value)+'" '+extra+'></div>'}
-function sel(title,kind,index,key,val,opts){return '<div class="field"><label>'+esc(title)+'</label><select data-kind="'+kind+'" data-index="'+index+'" data-field="'+key+'">'+options(opts,val)+'</select></div>'}
+function field(title,kind,index,key,value,extra=""){return '<div class="field"><label>'+esc(title)+'</label><input aria-label="'+esc(title)+'" data-kind="'+kind+'" data-index="'+index+'" data-field="'+key+'" value="'+esc(value)+'" '+extra+'></div>'}
+function sel(title,kind,index,key,val,opts){return '<div class="field"><label>'+esc(title)+'</label><select aria-label="'+esc(title)+'" data-kind="'+kind+'" data-index="'+index+'" data-field="'+key+'">'+options(opts,val)+'</select></div>'}
 function objectOptions(){return [["","请选择对象类型"],...S.local.objectTypes.map(o=>[o.id,o.label?o.label+"（"+o.id+"）":o.id])]}
+const DATA_TYPES=[["STRING","文本 STRING"],["INTEGER","整数 INTEGER"],["DECIMAL","精度数值 DECIMAL"],["BOOLEAN","布尔 BOOLEAN"],["DATETIME","时间 DATETIME"],["ENUM","枚举 ENUM"]];
+const CLASSES=[["PUBLIC","公开 PUBLIC"],["INTERNAL","内部 INTERNAL"],["CONFIDENTIAL","机密 CONFIDENTIAL"],["RESTRICTED","受限 RESTRICTED"]];
+const YESNO=[["true","是"],["false","否"]];
 function drawObjects(){
  const arr=S.local.objectTypes;
- let sidebar='<section class="panel"><div class="row between"><h2>对象类型（'+arr.length+'）</h2><button data-action="addObject">＋ 新增</button></div><div class="list">'+arr.map((o,i)=>'<button class="entry '+(i===S.selectedObject?'active':'')+'" data-action="selectObject" data-index="'+i+'"><strong>'+esc(o.label||o.apiName||"未命名对象")+'</strong><br><span class="minor mono">'+esc(o.id||"未填写 ID")+'</span></button>').join("")+'</div></section>';
+ let sidebar='<section class="panel"><div class="row between"><div><h2>业务对象 <span class="badge">'+arr.length+'</span></h2><p>一个模型包可以包含多个业务对象类型。</p></div><button data-action="addObject">＋ 新增</button></div><div class="list">'+arr.map((o,i)=>{
+ const used=S.local.linkTypes.filter(l=>l.sourceTypeRef===o.id||l.targetTypeRef===o.id).length;
+ return '<button class="entry '+(i===S.selectedObject?'active':'')+'" data-action="selectObject" data-index="'+i+'"><strong>'+esc(o.label||o.apiName||"未命名对象")+'</strong><span class="minor mono">'+esc(o.id||"待填写稳定 ID")+'</span><span class="minor">被 '+used+' 条关系定义引用</span></button>';
+ }).join("")+'</div></section>';
  let o=arr[S.selectedObject];
- if(!o)return '<div class="empty">尚无对象类型。点击“新增对象”开始。</div>';
- let form='<section class="panel"><div class="row between"><div><h2>对象定义 · '+esc(o.label||"新对象")+'</h2><p>业务身份由稳定 ID 决定；仅修改显示名称不会切断关系。</p></div><button data-action="delObject" data-index="'+S.selectedObject+'">删除对象</button></div><div class="formgrid">'+field("对象标识 ID","object",S.selectedObject,"id",o.id)+field("程序名称 API Name","object",S.selectedObject,"apiName",o.apiName)+field("业务显示名","object",S.selectedObject,"label",o.label||"")+sel("主键字段","object",S.selectedObject,"primaryKeyRef",o.primaryKeyRef,[["","请选择主键"],...o.properties.map(p=>[p.id,p.id||"尚未命名字段"])])+'</div><div class="row between space"><h3>属性（'+o.properties.length+'）</h3><button data-action="addProp" data-index="'+S.selectedObject+'">＋ 新增属性</button></div>';
- form+=o.properties.map((p,i)=>'<div class="card"><div class="row between"><b>属性 '+(i+1)+'</b><button data-action="delProp" data-index="'+i+'">删除属性</button></div><div class="formgrid space">'+field("字段 ID","prop",i,"id",p.id)+field("字段 API 名","prop",i,"apiName",p.apiName)+sel("数据类型","prop",i,"valueType",p.valueType,[["STRING","文本"],["INTEGER","整数"],["DECIMAL","小数"],["BOOLEAN","布尔"],["DATETIME","日期时间"]])+'</div><span class="minor">本原型默认新增属性为必填字符串；专业字段选项将在高保真阶段完善，实际合同仍以 Native V0.2 为准。</span></div>').join("");
+ if(!o)return '<div class="panel empty">暂无对象定义。<button data-action="addObject">新建第一个对象</button></div>';
+ const refs=S.local.linkTypes.map((l,i)=>({l,i})).filter(x=>x.l.sourceTypeRef===o.id||x.l.targetTypeRef===o.id);
+ let form='<section class="panel"><div class="row between"><div><h2>对象定义 · '+esc(o.label||"新建业务对象")+'</h2><p>定义稳定业务身份、主键及属性；显示名称可修改，ID 变动会影响关联引用。</p></div><button class="danger" data-action="delObject" data-index="'+S.selectedObject+'">删除对象</button></div>';
+ if(refs.length)form+='<div class="bar warning notice-sticky"><strong>引用影响提醒：有 '+refs.length+' 条关系引用这个对象。</strong><div class="row space">'+refs.map(x=>'<button data-action="jumpLink" data-index="'+x.i+'">查看 '+esc(x.l.label||x.l.id)+'</button>').join("")+'</div><span class="minor">删除对象不会自动删除关系。保存后必须逐一修复悬空引用才能通过完整校验。</span></div>';
+ form+='<div class="formgrid">'+field("稳定标识 ID","object",S.selectedObject,"id",o.id||"")+field("程序名称 API Name","object",S.selectedObject,"apiName",o.apiName||"")+field("业务显示名称","object",S.selectedObject,"label",o.label||"")+sel("主键属性","object",S.selectedObject,"primaryKeyRef",o.primaryKeyRef||"",[["","选择本对象必填的 STRING / INTEGER 属性"],...o.properties.filter(p=>p.required&&["STRING","INTEGER"].includes(p.valueType)).map(p=>[p.id,p.label? p.label+" · "+p.id:p.id])])+field("业务解释","object",S.selectedObject,"description",o.description||"")+'</div>';
+ form+='<div class="row between sectionline"><div><h3>属性定义 <span class="badge">'+o.properties.length+'</span></h3><p>沿用 0.2 的专业属性合同：名称、类型、枚举、分类、必填、可检索。</p></div><button data-action="addProp" data-index="'+S.selectedObject+'">＋ 增加属性</button></div>';
+ form+=o.properties.map((p,i)=>'<article class="card"><div class="row between"><strong>属性 '+(i+1)+' · '+esc(p.label||p.apiName||"待命名")+'</strong><button class="danger" data-action="delProp" data-index="'+i+'">移除属性</button></div><div class="formgrid space">'+
+   field("属性标识 ID","prop",i,"id",p.id||"")+field("程序属性名","prop",i,"apiName",p.apiName||"")+field("业务显示名称","prop",i,"label",p.label||"")+sel("字段数据类型","prop",i,"valueType",p.valueType||"STRING",DATA_TYPES)+
+   sel("数据分类","prop",i,"classification",p.classification||"INTERNAL",CLASSES)+sel("是否必填","prop",i,"required",String(Boolean(p.required)),YESNO)+sel("可否搜索","prop",i,"searchable",String(Boolean(p.searchable)),YESNO)+
+   (p.valueType==="ENUM"?field("枚举取值（逗号分隔）","prop",i,"enumValues",(p.enumValues||[]).join(", ")):"")+
+   '</div><div class="minor space">属性 ID 仅需在所属对象内部唯一；需要作为主键的属性必须是必填的 STRING 或 INTEGER。</div></article>').join("");
  form+='</section>';
  return '<div class="grid">'+sidebar+form+'</div>';
 }
@@ -183,7 +197,7 @@ document.addEventListener("change",e=>{
  if(kind==="pick"){S[key]=value;render();return}
  if(kind==="object"){let o=S.local.objectTypes[i];if(!o)return;o[key]=value}
  else if(kind==="link"){let l=S.local.linkTypes[i];if(!l)return;l[key]=key==="evidenceRequired"?value==="true":value}
- else if(kind==="prop"){let o=S.local.objectTypes[S.selectedObject];if(!o||!o.properties[i])return;o.properties[i][key]=value}
+ else if(kind==="prop"){let o=S.local.objectTypes[S.selectedObject];if(!o||!o.properties[i])return;const prop=o.properties[i];if(key==="required"||key==="searchable")prop[key]=value==="true";else if(key==="enumValues")prop.enumValues=value.split(",").map(v=>v.trim()).filter(Boolean);else{prop[key]=value;if(key==="valueType"&&value!=="ENUM")prop.enumValues=[];}}
  changed();render();
 });
 document.addEventListener("click",e=>{
@@ -194,9 +208,10 @@ document.addEventListener("click",e=>{
  if(action==="addObject"){S.local.objectTypes.push(obj("","","","",""));S.selectedObject=S.local.objectTypes.length-1;changed();go("objects");return}
  if(action==="selectObject"){S.selectedObject=i;render();return}
  if(action==="delObject"){let o=S.local.objectTypes[i];let refs=S.local.linkTypes.filter(l=>l.sourceTypeRef===o.id||l.targetTypeRef===o.id);if(!confirm("确定删除对象 "+(o.label||o.id)+"？"+(refs.length?"\n注意：有 "+refs.length+" 条关系引用它。关系会保留并在检查时报告错误，必须手工修复。":"")))return;S.local.objectTypes.splice(i,1);S.selectedObject=Math.max(0,Math.min(S.selectedObject,S.local.objectTypes.length-1));changed();msg(refs.length?"已删除对象但保留关联定义；关系现在需要手工修复。":"已删除对象。","warning");render();return}
- if(action==="addProp"){S.local.objectTypes[i].properties.push(prop("",""));changed();render();return}
+ if(action==="addProp"){let p=prop("","");p.required=false;p.searchable=false;p.label="";p.enumValues=[];S.local.objectTypes[i].properties.push(p);changed();render();return}
  if(action==="delProp"){let o=S.local.objectTypes[S.selectedObject];o.properties.splice(i,1);changed();render();return}
  if(action==="addLink"){S.local.linkTypes.push({id:"",apiName:"",label:"",sourceTypeRef:"",targetTypeRef:"",cardinality:"",evidenceRequired:true});S.selectedLink=S.local.linkTypes.length-1;changed();go("links");return}
+ if(action==="jumpLink"){S.selectedLink=i;S.tab="links";msg("已定位引用此对象的关系；如端点已改变，请人工修复。","warning");render();return}
  if(action==="selectLink"){S.selectedLink=i;render();return}
  if(action==="delLink"){if(!confirm("确认删除这条关系定义？已留存的旧版历史不受影响。"))return;S.local.linkTypes.splice(i,1);S.selectedLink=Math.max(0,Math.min(S.selectedLink,S.local.linkTypes.length-1));changed();render();return}
  if(action==="save"){save();return}if(action==="validate"){validate();return}if(action==="freeze"){freeze();return}
