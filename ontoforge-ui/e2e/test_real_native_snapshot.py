@@ -140,6 +140,28 @@ class NativeSnapshotRealE2ETest(unittest.TestCase):
         self.assertEqual(self.page.url.split("/")[-1],done[0])
         self.assertEqual(len(api("/packages/"+self.pkg+"/snapshots")[1]["items"]),1)
 
+    def test_s03_unknown_freeze_refresh_preserves_original_key(self):
+        self.prepare()
+        self.page.route("**/api/model/drafts/*/snapshots",
+                         lambda route:route.abort() if route.request.method=="POST" else route.continue_())
+        self.page.locator("#snapshot-freeze").click()
+        self.page.locator("#snapshot-confirm").click()
+        self.page.get_by_text("RESULT_UNKNOWN",exact=False).first.wait_for()
+        self.assertTrue(self.page.locator("#snapshot-reconcile").is_visible())
+        key_before=self.page.evaluate("""() => Object.keys(sessionStorage).filter(
+          k=>k.startsWith('ontoforge-local-snapshot-pending:'))[0]""")
+        self.assertTrue(key_before)
+        self.page.unroute("**/api/model/drafts/*/snapshots")
+        self.page.reload()
+        self.page.locator("#snapshot-reconcile").wait_for(timeout=10000)
+        self.assertTrue(self.page.locator("#snapshot-freeze").is_disabled())
+        self.assertEqual(self.page.evaluate("""() => Object.keys(sessionStorage).filter(
+          k=>k.startsWith('ontoforge-local-snapshot-pending:'))[0]"""),key_before)
+        self.page.get_by_role("button",name=re.compile("使用原键重试")).click()
+        self.page.locator("#snapshot-sha").wait_for(timeout=12000)
+        self.assertEqual(len(api("/packages/"+self.pkg+"/snapshots")[1]["items"]),1)
+        self.assertIsNone(self.page.evaluate("""() => sessionStorage.getItem('ontoforge-local-snapshot-pending:"+self.draft+"')"""))
+
     def test_s03_network_uncertainty_same_key_recovery_no_duplicates(self):
         self.prepare()
         self.page.route("**/api/model/drafts/*/snapshots",
