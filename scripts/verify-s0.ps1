@@ -38,7 +38,7 @@ if ($PsqlPath -ne 'psql' -and -not (Test-Path -LiteralPath $PsqlPath -PathType L
     throw "psql executable not found at: $PsqlPath"
 }
 
-$sql = "SELECT (SELECT count(*)::text FROM flyway_schema_history WHERE version='1' AND success) || '|' || (SELECT count(*)::text FROM flyway_schema_history WHERE version='2' AND success) || '|' || (SELECT installation_id::text FROM platform_installation WHERE id=1);"
+$sql = "SELECT (SELECT count(*)::text FROM flyway_schema_history WHERE version='1' AND success) || '|' || (SELECT count(*)::text FROM flyway_schema_history WHERE version='2' AND success) || '|' || (SELECT count(*)::text FROM flyway_schema_history WHERE version='3' AND success) || '|' || (SELECT installation_id::text FROM platform_installation WHERE id=1);"
 $previousPgPassword = [Environment]::GetEnvironmentVariable('PGPASSWORD', 'Process')
 try {
     [Environment]::SetEnvironmentVariable('PGPASSWORD', $env:DB_PASSWORD, 'Process')
@@ -50,9 +50,9 @@ try {
     [Environment]::SetEnvironmentVariable('PGPASSWORD', $previousPgPassword, 'Process')
 }
 
-$dbResult = [regex]::Match(($rawResult -join "`n").Trim(), '^1\|1\|([0-9a-fA-F-]{36})$')
+$dbResult = [regex]::Match(($rawResult -join "`n").Trim(), '^1\|1\|1\|([0-9a-fA-F-]{36})$')
 if (-not $dbResult.Success) {
-    throw 'Expected successful Flyway V1, Flyway V2 and one persisted platform_installation UUID.'
+    throw 'Expected Flyway V1/V2/V3 and one persisted platform_installation UUID.'
 }
 $databaseInstallationId = $dbResult.Groups[1].Value
 
@@ -66,10 +66,10 @@ try {
 } catch {
     throw "Cannot reach $apiUrl. Start the Spring Boot backend before running this check. $($_.Exception.Message)"
 }
-if ($status.service -ne 'ontoforge' -or $status.version -ne 'S0-MVP-0.2' -or $status.database -ne 'CONNECTED') {
-    throw 'The status API did not report the expected real S0-MVP-0.2 service and PostgreSQL connection.'
+if ($status.service -ne 'ontoforge' -or $status.version -ne 'S0-MVP-0.3' -or $status.database -ne 'CONNECTED') {
+    throw 'The status API did not report the expected real S0-MVP-0.3 service and PostgreSQL connection.'
 }
-if ($status.modelModule -ne 'DRAFT_AVAILABLE' -or $status.authModule -ne 'NOT_IMPLEMENTED') {
+if ($status.modelModule -ne 'DRAFT_AVAILABLE' -or $status.snapshotModule -ne 'LOCAL_SNAPSHOT_AVAILABLE' -or $status.authModule -ne 'NOT_IMPLEMENTED') {
     throw 'Expected draft modeling available, and auth honestly not implemented.'
 }
 if ($status.installationId -ne $databaseInstallationId) {
@@ -92,7 +92,7 @@ if (-not [string]::IsNullOrWhiteSpace($ExpectedDraftId)) {
     Write-Host "[OK] Persisted ObjectType draft: $ExpectedDraftId (revision $($draft.revision))"
 }
 
-Write-Host "[OK] PostgreSQL: $pgHost`:$pgPort/$pgDatabase (Flyway V1 + V2 applied)"
+Write-Host "[OK] PostgreSQL: $pgHost`:$pgPort/$pgDatabase (Flyway V1 + V2 + V3 applied)"
 Write-Host "[OK] API: $apiUrl"
 Write-Host "[OK] Installation ID: $databaseInstallationId"
 Write-Host 'To verify persistence after a restart, use -ExpectedInstallationId <UUID> and optionally -ExpectedDraftId <UUID>.'

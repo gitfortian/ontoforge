@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, FilePlus2, Layers3, LoaderCircle, Plus, RefreshCw, Save, ShieldAlert, Trash2 } from 'lucide-react';
 import './model.css';
+import NativeSnapshotWorkspace, {SnapshotActions} from './NativeSnapshotWorkspace';
 
 type Issue = {path: string; code: string; message: string};
 type Report = {status: 'NOT_RUN'|'INCOMPLETE'|'INVALID'|'VALID'; validatedRevision: number|null; issues: Issue[]};
@@ -174,6 +175,10 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
   const validPk=editor.properties.filter(p=>p.id&&p.required&&(p.valueType==='STRING'||p.valueType==='INTEGER'));
   const compare=serverLatest&&(serverLatest.revision!==opened?.revision||dirty);
 
+  // Snapshot history/detail/diff live in the same product workspace and route shell.
+  // A direct URL refresh must refetch the persisted PostgreSQL resource.
+  if(/^#\/model\/(snapshots\/|packages\/[^/?]+\/snapshots|snapshot-diffs\?)/.test(route))
+    return <NativeSnapshotWorkspace route={route} navigate={navigate}/>;
   if(!opened) return <div className="model-page">
     <div className="model-head"><div><div className="model-eyebrow">ONTOLOGY DESIGN / NATIVE MODEL</div><h1>模型包</h1>
       <p>从业务概念出发定义本体。这里展示真实 PostgreSQL 草稿；保存进度、校验与发布是不同操作。</p></div>
@@ -243,6 +248,8 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
           <button className="model-btn model-primary model-full" disabled={busy||dirty||readOnly} onClick={()=>void validate()}><CheckCircle2 size={16}/> 检查模型完整性</button>
           <div className="model-issues">{dirty?<p>当前有未保存修改，旧校验结果不适用于本地表单。</p>:(validated?.issues?.length??0)>0?<><b>发现 {validated!.issues.length} 个问题</b>{validated!.issues.map((x,i)=><button className="model-issue-link" key={i} onClick={()=>highlight(x.path)}><span>{x.message}</span><small>{x.path}</small></button>)}</>:<p>{validated?.status==='VALID'?'当前修订已通过本阶段模型校验。':'尚无待修复问题；未校验不等于通过。'}</p>}</div>
         </section>
+        <SnapshotActions key={opened.draftId} draft={opened} validation={validated}
+                         dirty={dirty} locked={readOnly||busy} navigate={navigate}/>
         <section className="model-panel"><header className="model-panel-head"><div><h2>异常恢复</h2><p>当保存结果未知或发生并发更新时</p></div></header>
           <button className="model-btn model-full" disabled={busy} onClick={()=>void inspect()}><RefreshCw size={15}/> 核对服务器最新版</button>
           {compare&&<div className="model-conflict"><div className="model-alert warning"><AlertCircle size={15}/> 注意：本地与服务器版本可能不同。下面仅供对照，不会自动覆盖。</div><div><b>本地 · 基于 revision {opened.revision}</b><pre>{JSON.stringify(editor,null,2)}</pre></div><div><b>服务器 · revision {serverLatest.revision}</b><pre>{JSON.stringify(serverLatest.editingContent.objectTypes[0]??{},null,2)}</pre></div>
