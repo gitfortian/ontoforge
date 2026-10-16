@@ -163,6 +163,41 @@ class NativeSnapshotRealE2ETest(unittest.TestCase):
         self.assertEqual(len(api("/packages/"+self.pkg+"/snapshots")[1]["items"]),1)
         self.assertIsNone(self.page.evaluate("(id) => sessionStorage.getItem('ontoforge-local-snapshot-pending:'+id)",self.draft))
 
+    def test_s03_history_paging_keeps_compare_choices_across_pages(self):
+        # Real PG17 + Java: 22 immutable revisions make two keyset pages.
+        # The browser must preserve earlier choices after loading more.
+        self.prepare()
+        snapshots=[]
+        for revision in range(2,24):
+            if revision>2:
+                _,draft=api("/drafts/"+self.draft)
+                content=draft["editingContent"]
+                content["objectTypes"][0]["description"]="Batch release candidate "+str(revision)
+                status,updated=api("/drafts/"+self.draft,"PUT",
+                    {"expectedRevision":revision-1,"editingContent":content})
+                self.assertEqual(status,200)
+                self.assertEqual(updated["revision"],revision)
+                status,report=api("/drafts/"+self.draft+"/validate","POST",
+                    {"expectedRevision":revision})
+                self.assertEqual(status,200)
+                self.assertEqual(report["status"],"VALID")
+            status,frozen=api("/drafts/"+self.draft+"/snapshots","POST",
+                {"expectedRevision":revision,"idempotencyKey":str(uuid.uuid4())})
+            self.assertEqual(status,201)
+            snapshots.append(frozen["snapshotId"])
+        self.page.evaluate("(pkg)=>{window.location.hash='#/model/packages/'+pkg+'/snapshots'}",self.pkg)
+        self.page.get_by_role("heading",name="历史模型快照").wait_for()
+        self.assertEqual(self.page.locator("#snapshot-from option").count(),20)
+        self.page.get_by_role("button",name="加载更多历史快照").click()
+        self.page.wait_for_function(
+            "() => document.querySelectorAll('#snapshot-from option').length===22",timeout=20000)
+        self.page.locator("#snapshot-from").select_option(snapshots[0])
+        self.page.locator("#snapshot-to").select_option(snapshots[-1])
+        self.page.locator("#snapshot-compare").click()
+        self.page.locator("#snapshot-diff-table").wait_for()
+        self.assertIn("说明变更",self.page.locator("#snapshot-diff-table").inner_text())
+        self.assertEqual(len(api("/packages/"+self.pkg+"/snapshots?pageSize=50")[1]["items"]),22)
+
     def test_s03_network_uncertainty_same_key_recovery_no_duplicates(self):
         self.prepare()
         self.page.route("**/api/model/drafts/*/snapshots",
