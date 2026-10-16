@@ -1,14 +1,14 @@
 # OFIP-0004｜P0-A 下一阶段：多对象与 LinkType 关系建模的真实闭环
 
-**Status:** Discussion
+**Status:** Accepted
 
-**Review Phase:** DG-1 产品方向、TC-2 合同、UX-Low 和 UX-High 四轮设计候选已提交；均待正式维护者签收（非 Accepted）
+**Review Phase:** DG-1 / TC-2 / UX-Low / UX-High 已完成受托产品决议；独立第三方代码审核及 Windows 实机验收仍各自有独立门禁
 
-**Discussion:** [PR #12 — OFIP-0004 第一轮产品/领域设计评审](https://github.com/gitfortian/ontoforge/pull/12)（Draft）
+**Design Review:** [PR #12 — OFIP-0004 四轮设计与原型](https://github.com/gitfortian/ontoforge/pull/12)；产品设计决议 Accepted，不等于功能发布
 
-**Decision:** Pending。本文的推荐方案不是维护者已签收合同；没有 `[VOTE] Accepted` 不得进入正式功能实现 PR。
+**Decision:** [VOTE] Accepted（由 ChatGPT 按本次会话产品负责人连续指示继续实施受托记录；并非声称第三方 GitHub 审核人亲自批准）。本次仅批准 DG1–DG6 推荐 A、TC1–TC14 和 UX-Low/High 的既定 0.4 范围；不授权真实工业数据连接、Release、权限或 Action。
 
-**Implementation:** Not Started。此 PR 只提交设计和评审证据，不修改生产模型/数据库/API/前端。
+**Implementation:** In Progress / [真实功能 Draft PR #13](https://github.com/gitfortian/ontoforge/pull/13)（stacked on PR #11，未合并）。本设计 PR 仍只包含方案、模拟原型及评审证据，不提交生产功能代码。
 
 **Release:** Not Released
 
@@ -17,6 +17,14 @@
 > 本轮对产品负责人的一句话解释：**不仅能定义“生产批次有哪些字段”，还可以定义“生产批次与工单、订单存在什么类型的业务关系”，并像对象模型一样保存、检查、留存历史和比较变更。**
 >
 > **只定义关系类型，不生成真实业务关系**。例如设定「生产批次关联生产工单」不代表系统已经知道任何一条真实工单，也不能声称“查出了订单”。真实关系必须等 P1 Data Binding、身份解析与投影索引另行实现。
+
+## 受托设计决议记录｜2026-10-16
+
+- **依据**：产品负责人在四轮设计与低/高保真验证后，连续指示“继续实施”“继续下一阶段”，授权进入完整真实功能开发及集成收口。本条是**ChatGPT 受托产品阶段记录**，不是伪称某位第三方审核人提交 GitHub Approve Review。
+- **批准范围**：DG1–DG6 全部推荐 A；TC1–TC14 的同包 typed identity、WIP/VALID、关系端点/基数/证据、CAS、不丢资产、原 0.3 快照不变量和结构风险合同；UX-Low/High 的同一 Studio 工作台、对象/关系切换和恢复路径。
+- **依据证据**：低保真 17 项 Mock 状态逻辑；高保真 12/12 独立 Chromium；真实功能候选见 [PR #13](https://github.com/gitfortian/ontoforge/pull/13) 的隔离 PostgreSQL/Java/React/Chromium；功能验收与设计签收不互相替代。
+- **禁止范围**：跨包 LinkType、数据绑定/真实 LinkFact、企业安全授权、正式审查/发布/激活、Agent、Action 或任何面向实际工厂生产数据的操作。
+- **独立未完成门禁**：先合并 0.3 PR #11 的可信基线、正确处理 PR #12 / PR #13 的主线集成冲突、完成正式代码评审；Windows 11 本机 PostgreSQL 的真重启与持久化证据仍 NOT RUN，不能由 Linux CI 代替。
 
 ## Motivation｜为什么是下一阶段
 
@@ -415,4 +423,4 @@ ID 改名 = REMOVED + ADDED；相同快照比较 = sameSnapshot true 和空 chan
 
 ---
 
-**Decision Gate：本文包含 DG-1、TC-2、UX-Low、UX-High 四轮设计与原型候选，均未由维护者正式 Accepted；本 PR 新增的是独立浏览器内存 Mock 原型、自动化评审用例和文档，**不包含生产关系建模代码**；0.3 PR #11 仍 Draft、Windows NOT RUN，进入正式开发前需完成依赖收口。**
+**Decision Gate：DG-1、TC-2、UX-Low、UX-High 四轮方案已依据会话授权形成受托 Accepted 决议；本设计 PR 仍只交付 Mock 原型及合同，不包含正式功能代码；实现已在 PR #13 Draft 通过隔离环境真实验收，PR #11 依赖未合并，Windows 11 原生 PostgreSQL 重启 NOT RUN，**不得称为正式发布或生产可用**。**
