@@ -12,7 +12,7 @@ type Snapshot={snapshotId:string;packageId:string;sourceDraftId:string;sourceRev
 type Summary={snapshotId:string;packageId:string;sourceRevision:number;
   payloadSha256:string;createdAt:string;lifecycle:'LOCAL_SNAPSHOT_ONLY'};
 type Page={items:Summary[];nextCursor:string|null};
-type Difference={entityKind:string;objectTypeId:string;propertyId:string|null;path:string;
+type Difference={entityKind:string;objectTypeId:string|null;propertyId:string|null;path:string;
   changeKind:string;before?:unknown;after?:unknown;riskLevel:string;reasonCode:string};
 type Diff={fromSnapshotId:string;toSnapshotId:string;packageId:string;
   sameSnapshot:boolean;changes:Difference[];compatibilityStatus:string};
@@ -276,7 +276,7 @@ export default function NativeSnapshotWorkspace({route,navigate}:{route:string;n
        <div className="model-table-wrap"><table id="snapshot-diff-table" className="model-table">
          <thead><tr><th>对象 / 属性</th><th>变化</th><th>原值</th><th>新值</th><th>结构风险</th></tr></thead>
          <tbody>{diff.changes.map((x,i)=><tr key={x.path+x.changeKind+i}>
-           <td><b>{x.objectTypeId}</b><small>{x.propertyId??'ObjectType'}</small><small>{x.path}</small></td>
+           <td><b>{x.entityKind==='LINK_TYPE'?'关系类型 '+x.path.split('/')[2]:(x.objectTypeId??'对象类型')}</b><small>{x.entityKind==='LINK_TYPE'?'LinkType 结构变更':(x.propertyId??'ObjectType')}</small><small>{x.path}</small></td>
            <td>{x.changeKind}</td><td>{safeValue(x.before)}</td><td>{safeValue(x.after)}</td>
            <td><span className={'snapshot-risk '+x.riskLevel.toLowerCase()}>{riskText[x.riskLevel]??x.riskLevel}</span></td>
          </tr>)}</tbody></table></div>}
