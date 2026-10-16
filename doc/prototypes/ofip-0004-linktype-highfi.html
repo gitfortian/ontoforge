@@ -43,6 +43,8 @@ details{font-size:12px;margin:12px 0}summary{cursor:pointer;font-weight:650}pre{
 @media(max-width:1000px){.rail{width:205px}.grid{grid-template-columns:1fr}.steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.shell{display:block}.rail{width:100%;padding:10px 14px;border-bottom:1px solid #e8edf4}.rail p,.rail:after,.navtitle,.railbtn{display:none}.brand{border:0;padding:0;font-size:13px}.brand:before{width:30px;height:30px;font-size:17px}main{padding:15px 12px 35px}.head{margin:19px 0}h1{font-size:22px}.panel{padding:17px}.formgrid{grid-template-columns:1fr}.wide{grid-column:auto}.footer{position:relative}.tab{padding:9px 10px;font-size:11px}th,td{font-size:11px;padding:7px 5px;overflow-wrap:anywhere}}
 
+
+dialog#freezeDialog{width:min(480px,calc(100vw - 28px));border:1px solid #d5e4f1;border-radius:13px;box-shadow:0 23px 70px #17325360;padding:26px;color:#294866}dialog#freezeDialog::backdrop{background:#18334d85}dialog#freezeDialog h2{font-size:19px}dialog#freezeDialog .row{justify-content:flex-end;margin-top:21px}
 </style>
 </head>
 <body>
@@ -56,6 +58,7 @@ details{font-size:12px;margin:12px 0}summary{cursor:pointer;font-weight:650}pre{
 <div id="view"></div>
 <div class="footer"><span class="hint" id="footerState"></span><div class="row"><button data-action="save">保存编辑进度</button><button data-action="validate">检查模型完整性</button><button class="primary" data-action="freeze">留存本地历史版本</button></div></div>
 <p class="endnote">本页面为对齐 OntoForge 现有视觉语言的高保真 Mock：所有修订、冲突、历史和差异均仅在当前浏览器内存模拟；刷新后清空，不调用 PostgreSQL/API，不生成 JCS 摘要，不执行审批/正式发布/激活、工业查询或 Action。产品真实实施还未开始。</p></main></div>
+<dialog id="freezeDialog" aria-labelledby="freezeTitle"><h2 id="freezeTitle">确认留存本地模型历史</h2><p>将当前已保存且校验通过的整个模型包（包括全部对象和关系定义）留存为只读历史。本操作仅在浏览器内存中模拟；不是审批、正式发布或激活。</p><div class="bar warning">历史留存后不会修改旧版内容。若需要继续编辑，请返回草稿并保存新的修订。</div><div class="row"><button data-action="cancelFreeze">返回编辑</button><button class="primary" data-action="confirmFreeze">确认留存本地历史（Mock）</button></div></dialog>
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
@@ -250,7 +253,7 @@ document.addEventListener("click",e=>{
  if(action==="jumpLink"){S.selectedLink=i;S.tab="links";msg("已定位引用此对象的关系；如端点已改变，请人工修复。","warning");render();return}
  if(action==="selectLink"){S.selectedLink=i;render();return}
  if(action==="delLink"){if(!confirm("确认删除这条关系定义？已留存的旧版历史不受影响。"))return;S.local.linkTypes.splice(i,1);S.selectedLink=Math.max(0,Math.min(S.selectedLink,S.local.linkTypes.length-1));changed();render();return}
- if(action==="save"){save();return}if(action==="validate"){validate();return}if(action==="freeze"){freeze();return}
+ if(action==="save"){save();return}if(action==="validate"){validate();return}if(action==="confirmFreeze"){$("freezeDialog").close();freeze();return}if(action==="cancelFreeze"){$("freezeDialog").close();return}if(action==="freeze"){if(!S.dirty&&S.validation.status==="VALID"&&S.validation.rev===S.rev&&!S.snapshots.some(s=>s.rev===S.rev)){$("freezeDialog").showModal();return}freeze();return}
  if(action==="otherEditor"){S.server.objectTypes[0].label="其他标签页更新的批次";S.rev++;S.validation={status:"NOT_RUN",issues:[],rev:null};S.tab="check";msg("已模拟另一标签页修改服务端。当前编辑保持原样，再保存应出现冲突。","warning");render();return}
  if(action==="reload"){if(!confirm("这将丢弃当前浏览器的全部未保存修改；确定载入模拟服务器版本？"))return;S.local=clone(S.server);S.baseRev=S.rev;S.dirty=false;S.conflict=false;S.pendingSave=false;S.tab="objects";msg("已明确选择放弃本地编辑，并载入服务器最新版。","success");render();return}
  if(action==="showLocal"){S.tab="check";msg("本地未保存的完整草稿："+JSON.stringify(S.local,null,2),"warning");render();return}
