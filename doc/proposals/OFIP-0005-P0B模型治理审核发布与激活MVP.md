@@ -103,7 +103,7 @@
 
 ### TC-2｜第二轮：受信身份、资源状态、发布与激活的详细合同（评审候选）
 
-> **阶段状态：Contract Review / Decision Pending。** 本节把 DG-1 目标收敛到可编码、可拒绝、可测试的合同。所有新增 JSON 字段、REST 路径、数据库结构及安全策略均是**推荐方案**，当前不在 `main`、不具备生产能力。既有 S0 API 的实际实现以当前代码为准。DG-1 与 TC-2 应明确记录独立评审决议后，再进入 UX-Low/High；不能因本章通过文档 CI 就自动 Accepted。
+> **阶段状态：Contract Review / Decision Pending。** **不能把本地 SchemaSnapshot 当成经过可信审查的 SchemaRelease**；本节把 DG-1 目标收敛到可编码、可拒绝、可测试的合同。所有新增 JSON 字段、REST 路径、数据库结构及安全策略均是**推荐方案**，当前不在 `main`、不具备生产能力。既有 S0 API 的实际实现以当前代码为准。DG-1 与 TC-2 应明确记录独立评审决议后，再进入 UX-Low/High；不能因本章通过文档 CI 就自动 Accepted。
 
 #### TC01 · 与现有 0.4 可运行代码的衔接事实
 
