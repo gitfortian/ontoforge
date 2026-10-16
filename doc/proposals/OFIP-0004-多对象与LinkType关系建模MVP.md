@@ -195,7 +195,7 @@
 
 #### TC8｜关系结构差异与风险级别
 
-以 LinkType.id 对齐两版关系，不依赖位置。新增 entityKind = LINK_TYPE，path 采用 /linkTypes/{stableId} 或 /linkTypes/{stableId}/{field}。建议新增可选 linkTypeId 字段，objectTypeId/propertyId 对关系行保持 null；**新增字段的向后兼容必须由当前前端和真实 HTTP 回归确认，不能假装绝对无影响**。若旧消费方拒绝未知字段，必须选择显式版本化合同。
+以 LinkType.id 对齐两版关系，不依赖位置。新增 entityKind = LINK_TYPE，path 采用 /linkTypes/{stableId} 或 /linkTypes/{stableId}/{field}。建议新增可选 linkTypeId 字段，objectTypeId/propertyId 对关系行保持 null；**新增字段的向后兼容必须由当前前端和真实 HTTP 回归确认，不能假装绝对无影响**。若旧消费方拒绝未知字段，必须选择显式版本化合同。若新客户端依赖 linkTypeId，服务器必须总为 LINK_TYPE 行提供准确值，并为旧 OBJECT_TYPE/PROPERTY 行显式保留 null，不得复用 objectTypeId 假装关系身份。
 
 | 变化 | changeKind | riskLevel | 用户理解 |
 | --- | --- | --- | --- |
@@ -246,7 +246,7 @@ ID 改名 = REMOVED + ADDED；相同快照比较 = sameSnapshot true 和空 chan
 | C02 | 关系目标未选择 | 200 保存 WIP；校验 INCOMPLETE+定位 path；冻结拒绝 |
 | C03 | Link 引用不存在对象 | INVALID + LINK_SOURCE_UNKNOWN 或 TARGET_UNKNOWN，不裁剪 |
 | C04 | 重复 Link id/apiName、重复对象 ID | INVALID，定位每个重复错误，原数据保留 |
-| C05 | 基数错误、伪 boolean、未知审批字段、200+ 超限关系 | 422 或明确 INVALID，不能产生合法快照 |
+| C05 | cardinality 为未知枚举字符串、evidenceRequired 错写为字符串、未知审批字段、201 条关系 | 枚举未知值：WIP 可暂存但完整校验返回 200 INVALID；伪 boolean / 未知字段 / 超限：保存直接 422；均不能产生快照 |
 | C06 | 删除/重命名被关系引用的对象 | 保留关联、提示修复，未修复不 VALID |
 | C07 | 两次冻结包含关系的完整历史 | 摘要复核，旧版本完整且不可变，幂等不重复 |
 | C08 | 旧版一个对象零 Link vs 新版多对象多 Link | 可正常查看与比较新增差异，不触碰旧 SHA |
