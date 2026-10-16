@@ -7,6 +7,8 @@ on:
       - 'ontoforge-boot/**'
       - 'ontoforge-ui/**'
       - 'doc/design/tests/test_native_v02.py'
+      - 'doc/design/fixtures/ofip-0003-jcs-fixtures.json'
+      - 'scripts/ci/check_jcs_vectors.mjs'
       - '.github/workflows/native-draft-e2e.yml'
       - 'scripts/verify-objecttype.ps1'
       - 'scripts/verify-s0.ps1'
@@ -71,6 +73,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verify shared Java/ECMAScript RFC 8785 golden vectors
+        run: node scripts/ci/check_jcs_vectors.mjs
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
