@@ -65,7 +65,7 @@ footer{font-size:10px;color:#9aa6b3;line-height:1.7;margin:28px 0 0;padding-top:
 <main>
  <div class="topline"><span>本体设计 / 模型治理 / manufacturing.production</span><span class="env">UX-HIGH · MOCK</span></div>
  <div class="page">
-  <section id="screen-overview" class="screen">
+  <section id="screen-overview" class="screen" aria-hidden="false">
    <div class="intro"><div><div class="eyebrow">MODEL GOVERNANCE</div><h1>模型包概览</h1><p>把模型从“正在设计”推进到“经过审核、形成正式版本、按范围受控使用”。先看当前状态，再处理需要你做的事情。</p></div><div class="meta"><span class="status blue">当前生效版本 · 0.4.0</span></div></div>
    <div class="kpis">
     <div class="kpi"><span class="label">当前生效版本</span><b>0.4.0</b><small>production-core 正在使用</small></div>
@@ -90,7 +90,7 @@ footer{font-size:10px;color:#9aa6b3;line-height:1.7;margin:28px 0 0;padding-top:
     <div class="grid3">
      <div class="list-item"><div class="title"><h3>继续处理我的变更</h3><span class="status warn">1 项待审核</span></div><p>查看提交内容和审核进度。</p><button class="link" data-screen="changes">查看我的变更 →</button></div>
      <div class="list-item"><div class="title"><h3>处理待我审核</h3><span class="status blue">1 项</span></div><p>先看具体变化，再决定批准、退回或拒绝。</p><button class="link" data-screen="review">进入审核 →</button></div>
-     <div class="list-item"><div class="title"><h3>查看正式版本</h3><span class="status ok">3 个</span></div><p>正式版本和当前生效版本分别管理。</p><button class="link" data-screen="releases">查看版本 →</button></div>
+     <div class="list-item"><div class="title"><h3>查看正式版本</h3><span class="status ok">2 个</span></div><p>正式版本和当前生效版本分别管理。</p><button class="link" data-screen="releases">查看版本 →</button></div>
     </div>
    </section>
   </section>
@@ -148,7 +148,7 @@ footer{font-size:10px;color:#9aa6b3;line-height:1.7;margin:28px 0 0;padding-top:
    <div class="intro"><div><div class="eyebrow">RELEASES</div><h1>正式版本</h1><p>正式版本是经过审核、内容固定的模型版本。创建正式版本不会自动让任何业务范围切换。</p></div><button class="primary" id="openRelease">创建正式版本</button></div>
    <div class="callout">这里始终区分两个状态：<b>正式版本</b>代表“已经经过治理，可以使用”；<b>当前生效版本</b>代表“哪个业务范围正在使用”。两者不是一回事。</div>
    <section class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>版本</th><th>状态</th><th>审核与变更</th><th>生效范围</th><th>操作</th></tr></thead><tbody>
-    <tr><td><strong>0.5.0</strong><small>生产批次关系调整</small></td><td><span class="status warn">待创建</span></td><td>领域审核通过<br><small>今天 18:55</small></td><td><span class="status">尚未形成正式版本</span></td><td><button class="primary" id="openReleaseRow">创建正式版本</button></td></tr>
+    <tr><td><strong>0.5.0</strong><small>生产批次关系调整</small></td><td id="release050Status"><span class="status warn">待创建</span></td><td>领域审核通过<br><small>今天 18:55</small></td><td id="release050Scope"><span class="status">尚未形成正式版本</span></td><td id="release050Action"><button class="primary" id="openReleaseRow">创建正式版本</button></td></tr>
     <tr><td><strong>0.4.0</strong><small>当前稳定版本</small></td><td><span class="status ok">已发行</span></td><td>审核通过</td><td><span class="status blue">当前生效</span></td><td><button data-screen="activation">查看范围</button></td></tr>
     <tr><td><strong>0.3.0</strong><small>历史版本</small></td><td><span class="status">已发行</span></td><td>历史治理记录完整</td><td><span class="status">未生效</span></td><td><button data-action="rollback030">切回此版本</button></td></tr>
    </tbody></table></div></section>
@@ -173,7 +173,7 @@ footer{font-size:10px;color:#9aa6b3;line-height:1.7;margin:28px 0 0;padding-top:
     <div class="timeline">
      <div class="event"><strong>生产批次与工单关系调整 · 已提交</strong><p>李明提交模型变更，基线 0.4.0，原因：一个工单可拆分多个批次。</p><time>今天 18:42 · 模型变更</time></div>
      <div class="event"><strong>生产批次与工单关系调整 · 审核通过</strong><p>王强确认业务关系变化，允许创建正式版本。</p><time>今天 18:55 · 审核</time></div>
-     <div class="event"><strong>0.5.0 · 正式发行</strong><p>内容已固定，可以供业务范围选择。</p><time>今天 19:02 · 正式版本</time></div>
+     <div class="event"><strong>模型变更等待正式发行</strong><p>生产批次与工单关系调整已经审核通过，等待创建 0.5.0 正式版本。</p><time>今天 18:55 · 待处理</time></div>
      <div class="event"><strong>0.4.0 · 生效</strong><p>production-core 当前使用版本。</p><time>昨天 16:20 · 生效</time></div>
      <div class="event"><strong>0.3.0 · 历史版本</strong><p>版本仍保留，不因新版本发行而删除。</p><time>更早 · 正式版本</time></div>
     </div>
@@ -221,7 +221,7 @@ footer{font-size:10px;color:#9aa6b3;line-height:1.7;margin:28px 0 0;padding-top:
 "use strict";
 const screens=[...document.querySelectorAll(".screen")];
 let current="overview";
-function show(name){current=name;screens.forEach(x=>x.classList.toggle("screen",true));screens.forEach(x=>x.classList.toggle("hidden",x.id!=="screen-"+name));document.querySelectorAll("[data-screen]").forEach(b=>b.classList.toggle("active",b.dataset.screen===name));window.scrollTo({top:0,behavior:"instant"});}
+function show(name){current=name;screens.forEach(x=>{const hidden=x.id!=="screen-"+name;x.classList.toggle("screen",true);x.classList.toggle("hidden",hidden);x.setAttribute("aria-hidden",String(hidden));});document.querySelectorAll("[data-screen]").forEach(b=>b.classList.toggle("active",b.dataset.screen===name));window.scrollTo({top:0,behavior:"instant"});}
 function openBox(id){const e=document.getElementById(id);e.classList.add("open");e.setAttribute("aria-hidden","false")}
 function closeBox(id){const e=document.getElementById(id);e.classList.remove("open");e.setAttribute("aria-hidden","true")}
 document.querySelectorAll("[data-screen]").forEach(b=>b.addEventListener("click",()=>show(b.dataset.screen)));
