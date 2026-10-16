@@ -174,7 +174,7 @@ export default function NativeSnapshotWorkspace({route,navigate}:{route:string;n
  useEffect(()=>{setCursor(null)},[route]);
  useEffect(()=>{
    let cancelled=false;
-   setLoading(true);setError(null);setSnapshot(null);setPage(null);setDiff(null);
+   setLoading(true);setError(null);setSnapshot(null);if(!cursor)setPage(null);setDiff(null);
    async function load(){
      try{
        if(matchDetail){const d=await request<Snapshot>('/snapshots/'+matchDetail[1]);if(!cancelled)setSnapshot(d)}
@@ -185,7 +185,7 @@ export default function NativeSnapshotWorkspace({route,navigate}:{route:string;n
                nextCursor:d.nextCursor}
             : d);
           if(!cursor&&d.items.length>1){setFrom(d.items[1].snapshotId);setTo(d.items[0].snapshotId);}
-        }}}
+        }}
        else if(matchDiff){
          const q=new URLSearchParams(matchDiff[1]);
          const a=q.get('from'),b=q.get('to');
