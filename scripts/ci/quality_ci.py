@@ -171,6 +171,7 @@ def require_foundation_reports(root: Path = ROOT) -> None:
             "snapshotDatabaseImmutableAndBadRequests",
             "snapshotCanonicalJcsReferenceDeterminism",
             "snapshotConcurrentWorkersSameKeyExactlyOneSnapshot",
+            "snapshotSharedRfc8785GoldenFixtures",
         }
         seen = set()
         for file in files:
