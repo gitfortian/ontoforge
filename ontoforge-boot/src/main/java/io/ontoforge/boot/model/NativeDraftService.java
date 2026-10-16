@@ -119,7 +119,7 @@ public class NativeDraftService {
                     : jdbc.query(sql,this::map,issuer,subject,pageSize+1);
         } else {
             try {
-                String[] parts;
+                byte[] parts;
                 parts=Base64.getUrlDecoder().decode(cursor);
                 String decoded = new String(parts, StandardCharsets.UTF_8);
                 String[] cursorParts = decoded.split("\\|",-1);
