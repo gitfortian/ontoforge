@@ -31,8 +31,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** REAL PG17 + HTTP contracts, separate from the HTML mock UX gate. */
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "integration-test"})
 @Import(B0TestSecurityConfiguration.class)
+@org.springframework.test.context.ContextConfiguration(initializers=IsolatedPostgresTestDatabase.class)
 class NativeSnapshotTest {
     private static final UUID WORKSPACE = UUID.fromString("11111111-1111-4111-8111-111111111111");
     private static final UUID EDITOR = UUID.fromString("22222222-2222-4222-8222-222222222222");
@@ -52,6 +53,7 @@ class NativeSnapshotTest {
         jdbc.update("INSERT INTO b0_workspace_membership(workspace_id,principal_id,role) VALUES (?,?,?) ON CONFLICT DO NOTHING",
                 WORKSPACE,EDITOR,"EDITOR");
     }
+    @Autowired org.springframework.core.env.Environment environment;
     private String api(String path){return "http://127.0.0.1:"+port+"/api/model"+path;}
     private ResponseEntity<String> call(HttpMethod method,String path,JsonNode body){
         HttpHeaders headers=new HttpHeaders();
@@ -299,6 +301,7 @@ class NativeSnapshotTest {
      * Never use this helper against a user / production database.
      */
     private void injectCorruptionForIsolatedTest(String update, Object... args) {
+        IsolatedPostgresTestDatabase.requireFaultInjection(environment);
         jdbc.execute("ALTER TABLE native_schema_snapshot DISABLE TRIGGER native_snapshot_immutable");
         try {
             jdbc.update(update,args);

@@ -122,7 +122,7 @@ Must ($second.snapshotId -ne $first.snapshotId -and $second.payloadSha256 -ne $f
 Check409 ('/api/model/drafts/'+$draftId+'/snapshots') @{expectedRevision=3;idempotencyKey=([Guid]::NewGuid().ToString())}
 $diff=Call ('/api/model/snapshot-diffs?from='+$first.snapshotId+'&to='+$second.snapshotId)
 Must ($diff.packageId -eq $package -and $diff.changes.Count -ge 2) 'Missing real structural diff'
-Must (($diff.changes | Where-Object { $_.riskLevel -eq 'POTENTIALLY_BREAKING' }).Count -ge 1) 'Must flag searchable regression'
+Must (@($diff.changes | Where-Object { $_.riskLevel -eq 'POTENTIALLY_BREAKING' }).Count -ge 1) 'Must flag searchable regression'
 $reloaded=Call ('/api/model/snapshots/'+$first.snapshotId)
 Must ($reloaded.payloadSha256 -eq $first.payloadSha256) 'Historical SHA changed'
 Must ($reloaded.snapshotContent.objectTypes[0].description -eq 'Before snapshot') 'Old snapshot overwritten'

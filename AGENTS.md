@@ -5,9 +5,11 @@
 
 ## Purpose and verified current scope
 
+Branch delta for PR #17: B0 JWT/package authorization is an unapproved Draft implementation candidate, documented in its [runbook](doc/implementation/S0-MVP-0.5-B0-可信身份与模型包权限实施说明-20261016.md). It requires external OIDC configuration and explicit database package grants; there is no shipped login UI, permission administration, production security acceptance or OFIP-0005 approval. The S0 statements below describe the accepted baseline. All integration suites, including B0, must retain isolated TEST_DB_* and signed-token negative cases.
+
 OntoForge is an independent enterprise/industrial operational ontology platform. **Do not couple it to data-ops** or claim that S0 implements authentication, trusted authorization, real object querying, connectors, production policies or Actions. S0 **does** now implement local Native ObjectType/LinkType editing and immutable schema snapshot history.
 
-Current runnable S0-MVP-0.4 development baseline: Java 21/Spring Boot, PostgreSQL/Flyway V1–V3, React/TypeScript, real ObjectType/Property/LinkType editing, safe WIP/VALID validation, CAS revisions, immutable local Snapshot with JCS/SHA-256 and LinkType structural Diff (merged PRs #7/#11/#13). **No production release or native Windows 11 PostgreSQL acceptance.** Native V0.2 contracts for Data Binding, ObjectSet, Semantic Execution Record and the PostgreSQL ObjectSet/Outbox experiments are **design/POC**, not deployed runtime modules.
+Current runnable S0-MVP-0.4 development baseline: Java 21/Spring Boot, PostgreSQL/Flyway V1–V3, React/TypeScript, real ObjectType/Property/LinkType editing, safe WIP/VALID validation, CAS revisions, immutable local Snapshot with JCS/SHA-256 and LinkType structural Diff (merged PRs #7/#11/#13). **No production release.** Bounded isolated Windows automation and the still-pending user's existing-installation/manual acceptance are recorded separately in the [current maturity ledger](doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md). Native V0.2 contracts for Data Binding, ObjectSet, Semantic Execution Record and the PostgreSQL ObjectSet/Outbox experiments are **design/POC**, not deployed runtime modules.
 
 Authoritative design references:
 - [Canonical bilingual glossary (256 terms)](doc/砺元本体产品统一术语词汇表.md) — use preferred product names; never conflate LinkType/LinkFact or Local Snapshot/SchemaRelease.
@@ -46,9 +48,9 @@ Authoritative design references:
 
 From repository root:
 - `java -version` (Java 21), `mvn -version`, `node -v` (Node 22).
-- Backend with local PostgreSQL and environment-provided credentials: `mvn -pl ontoforge-boot -am verify`; startup `mvn -pl ontoforge-boot spring-boot:run`.
+- Backend tests require an isolated loopback `ontoforge_test_*` database and `TEST_DB_URL` / `TEST_DB_USERNAME` / `TEST_DB_PASSWORD`; corruption tests additionally require `TEST_DB_ALLOW_FAULT_INJECTION=true`: `mvn -pl ontoforge-boot -am verify`. Startup uses separate development `DB_*`: `mvn -pl ontoforge-boot spring-boot:run`. Never reuse the development database for integration tests.
 - Windows 11 native PostgreSQL setup and **read-only** smoke: [runbook](doc/implementation/S0-Windows11-本机PostgreSQL-启动与验收.md); `.\scripts\verify-s0.ps1` requires the same DB_* settings as the backend and a running backend.
-- Frontend: `cd ontoforge-ui`, `npm install`, `npm run build` (TypeScript + Vite); `npm run dev` and actual browser use are separate evidence.
+- Frontend: Node 22.12+, `cd ontoforge-ui`, `npm ci`, `npm run build` (TypeScript + Vite), `npm run audit:dependencies`; `npm run dev` and actual browser use are separate evidence.
 - Docs governance + links: `python -m unittest discover -s doc/tests -p 'test_*.py' -v`.
 - Native V0.2 structural tests: `python -m pip install jsonschema==4.25.1`, then `python -m unittest discover -s doc/design/tests -p test_native_v02.py -v`.
 - Research PostgreSQL experiment workflows are separate from S0 production assertions. Do not report their benchmark result as deployed ObjectSet/Action performance.
@@ -58,5 +60,5 @@ From repository root:
 - Never disable a failing check, reduce assertions or change workflows solely to obtain a green badge. Correct the failure or report it.
 - CI status must distinguish `PASS`, `FAIL`, `NOT SELECTED`, and `NOT RUN`; use exact scope (docs, native contract, JDBC/Flyway, frontend, UI E2E, release). No skipped case is passed.
 - Include reviewed `base`/`head` SHA and actual tests in a PR; review affected callers/contracts and the full relevant diff.
-- OFIP-0001 Phase 2 proposes `.github/workflows/quality-gate.yml` with a stable `Required Quality Gate`, tested scope selection and genuine PASS / FAIL / NOT SELECTED evidence. See [S0 CI trust and roll-out runbook](doc/implementation/S0-CI-可信质量门禁.md). GitHub branch protection is a separate setting and is **not** automatically enabled by the workflow.
+- OFIP-0001 Phase 2 implements `.github/workflows/quality-gate.yml` with a stable `Required Quality Gate`, consumer-aware scope selection and genuine PASS / FAIL / NOT SELECTED evidence, including selected real product E2E. See [S0 CI trust and roll-out runbook](doc/implementation/S0-CI-可信质量门禁.md). GitHub branch protection is a separate setting and is **not** automatically enabled by the workflow.
 - Keep AI-assisted changes human-reviewable and explicitly disclose assistance per the PR template.

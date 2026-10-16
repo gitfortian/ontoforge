@@ -83,6 +83,18 @@ class NativeSnapshotRealE2ETest(unittest.TestCase):
     def back_editor(self):
         self.page.get_by_role("button",name="回到当前草稿").click()
         self.page.locator("#obj-desc").wait_for()
+
+    def test_freeze_dialog_traps_keyboard_focus_and_restores_trigger(self):
+        self.prepare()
+        self.page.locator("#snapshot-freeze").click()
+        dialog=self.page.get_by_role("dialog",name="确认冻结当前草稿修订")
+        dialog.wait_for()
+        for key in ["Tab"]*6+["Shift+Tab"]*6:
+            self.page.keyboard.press(key)
+            self.assertTrue(dialog.evaluate("element=>element.contains(document.activeElement)"))
+        self.page.keyboard.press("Escape")
+        dialog.wait_for(state="detached")
+        self.assertEqual(self.page.evaluate("document.activeElement.id"), "snapshot-freeze")
     def test_s03_real_postgresql_two_freezes_diff_readonly_refresh(self):
         self.prepare()
         sid1=self.freeze()

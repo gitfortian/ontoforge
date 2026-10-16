@@ -2,18 +2,7 @@ name: OntoForge Native Model Real Browser E2E
 
 # REAL PostgreSQL 17 + Spring Boot + Vite + Chromium; not a mock-page test.
 on:
-  pull_request:
-    paths:
-      - 'ontoforge-boot/**'
-      - 'ontoforge-ui/**'
-      - 'doc/design/tests/test_native_v02.py'
-      - 'doc/design/fixtures/ofip-0003-jcs-fixtures.json'
-      - 'scripts/ci/check_jcs_vectors.mjs'
-      - '.github/workflows/native-draft-e2e.yml'
-      - 'scripts/verify-objecttype.ps1'
-      - 'scripts/verify-s0.ps1'
-      - 'scripts/verify-snapshot.ps1'
-      - 'scripts/verify-linktype.ps1'
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -30,7 +19,7 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($script in @('scripts/verify-s0.ps1', 'scripts/verify-objecttype.ps1', 'scripts/verify-snapshot.ps1', 'scripts/verify-linktype.ps1')) {
+          foreach ($script in @('scripts/verify-s0.ps1', 'scripts/verify-objecttype.ps1', 'scripts/verify-snapshot.ps1', 'scripts/verify-linktype.ps1', 'scripts/configure-main-protection.ps1')) {
             $tokens = $null
             $parseErrors = $null
             [void][System.Management.Automation.Language.Parser]::ParseFile(
@@ -66,7 +55,7 @@ jobs:
       TEST_DB_URL: jdbc:postgresql://127.0.0.1:5432/ontoforge_test_e2e
       TEST_DB_USERNAME: ontology
       TEST_DB_PASSWORD: ontology_dev_only
-      E2E_AUTH_FILE: '${{ runner.temp }}/ontoforge-b0-private-fixture.json'
+      E2E_AUTH_FILE: /tmp/ontoforge-b0-private-fixture.json
       S0_HOST: 127.0.0.1
     steps:
       - uses: actions/checkout@v4
@@ -115,7 +104,7 @@ jobs:
       - name: Launch real Vite React application
         working-directory: ontoforge-ui
         run: |
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
           npm run build
           nohup npm run dev > /tmp/ontoforge-vite.log 2>&1 &
           echo $! > /tmp/ontoforge-vite.pid

@@ -8,7 +8,7 @@
 
 **Decision:** [VOTE] Accepted — 受托产品阶段决议 https://github.com/gitfortian/ontoforge/pull/12#issuecomment-6214014668 （由 ChatGPT 按本次会话产品负责人连续指示继续实施受托记录；并非声称第三方 GitHub 审核人亲自批准）。本次仅批准 DG1–DG6 推荐 A、TC1–TC14 和 UX-Low/High 的既定 0.4 范围；不授权真实工业数据连接、Release、权限或 Action。
 
-**Implementation:** In Progress / [真实功能 Draft PR #13](https://github.com/gitfortian/ontoforge/pull/13)（stacked on PR #11，未合并）。本设计 PR 仍只包含方案、模拟原型及评审证据，不提交生产功能代码。
+**Implementation:** Code Merged — [真实功能 PR #13](https://github.com/gitfortian/ontoforge/pull/13) 已合并（`605b9976`），依赖 PR #11 已合并。当前成熟度和环境验收统一见[产品进度总账](../implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)。
 
 **Release:** Not Released
 
@@ -19,6 +19,8 @@
 > **只定义关系类型，不生成真实业务关系**。例如设定「生产批次关联生产工单」不代表系统已经知道任何一条真实工单，也不能声称“查出了订单”。真实关系必须等 P1 Data Binding、身份解析与投影索引另行实现。
 
 ## 受托设计决议记录｜2026-10-16
+
+> 以下保留设计评审时的历史记录；各节“Draft/未合并/未实现”仅描述该轮评审基线，后续实现状态见上方元数据及产品总账，不作为另一份当前进度。
 
 - **依据**：产品负责人在四轮设计与低/高保真验证后，连续指示“继续实施”“继续下一阶段”，授权进入完整真实功能开发及集成收口。本条是**ChatGPT 受托产品阶段记录**，不是伪称某位第三方审核人提交 GitHub Approve Review。
 - **批准范围**：DG1–DG6 全部推荐 A；TC1–TC14 的同包 typed identity、WIP/VALID、关系端点/基数/证据、CAS、不丢资产、原 0.3 快照不变量和结构风险合同；UX-Low/High 的同一 Studio 工作台、对象/关系切换和恢复路径。

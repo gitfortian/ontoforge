@@ -189,6 +189,81 @@ class NativeDraftRealBrowserTest(unittest.TestCase):
         self.assertEqual(api("/" + self.id)["editingContent"]["objectTypes"][0]["description"],
                          "被断网保护的文本")
 
+    def test_narrow_screen_keeps_both_actionable_navigation_entries(self):
+        self.page.set_viewport_size({"width": 390, "height": 844})
+        self.page.get_by_role("button", name="系统概览", exact=True).click()
+        self.page.get_by_role("heading", name="系统概览", exact=True).wait_for()
+        self.assertTrue(self.page.get_by_role("button", name="Native 本体建模", exact=True).is_visible())
+        self.page.get_by_role("button", name="Native 本体建模", exact=True).click()
+        self.page.get_by_role("heading", name="模型包", exact=True).wait_for()
+        self.assertTrue(self.page.get_by_role("button", name="系统概览", exact=True).is_visible())
+
+    def delay_response(self, method, draft_id):
+        # The real HTTP request commits/returns first. Only delivery to React is
+        # delayed; an AbortController cannot substitute for stale-reply guards.
+        self.page.evaluate("""({method,id}) => {
+          const original=window.fetch.bind(window);
+          window.fetch=async (url,options)=>{
+            const response=await original(url,options);
+            if(String(url).endsWith('/drafts/'+id) && (options?.method??'GET')===method){
+              const text=await response.text();
+              return new Promise(resolve=>{
+                window.releaseLateReply=()=>resolve({ok:response.ok,json:async()=>{
+                  window.lateReplyConsumed=true;
+                  return JSON.parse(text);
+                }});
+              });
+            }
+            return response;
+          };
+        }""", {"method": method, "id": draft_id})
+
+    def assert_late_reply_preserves_other_draft(self, other_id):
+        self.page.evaluate("window.releaseLateReply()")
+        self.page.wait_for_function("window.lateReplyConsumed===true")
+        # Round-trip after React has processed the released promise.
+        self.page.evaluate("() => new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))")
+        self.assertTrue(self.page.url.endswith("/"+other_id))
+        self.assertEqual(self.page.locator("#obj-desc").input_value(), "B 的未保存输入")
+        self.assertTrue(self.page.get_by_role("button", name="保存编辑进度").is_enabled())
+
+    def open_other_draft_and_edit(self):
+        other=api("", "POST", {"packageId": assigned_package()})
+        self.page.evaluate("id=>window.location.hash='#/model/drafts/'+id", other["draftId"])
+        self.page.locator("#obj-desc").wait_for()
+        self.page.locator("#obj-desc").fill("B 的未保存输入")
+        return other["draftId"]
+
+    def test_late_detail_cannot_reopen_a_draft_after_navigation(self):
+        self.create_package()
+        self.edit_type()
+        self.save()
+        old_id=self.id
+        self.page.get_by_role("button", name="返回模型包").click()
+        self.page.get_by_role("heading", name="模型包", exact=True).wait_for()
+        self.delay_response("GET", old_id)
+        self.page.evaluate("id=>window.location.hash='#/model/drafts/'+id", old_id)
+        self.page.wait_for_function("typeof window.releaseLateReply==='function'")
+        self.page.evaluate("window.location.hash='#/model/packages'")
+        self.page.get_by_role("heading", name="模型包", exact=True).wait_for()
+        other_id=self.open_other_draft_and_edit()
+        self.assert_late_reply_preserves_other_draft(other_id)
+
+    def test_late_save_cannot_replace_a_different_drafts_local_edits(self):
+        self.create_package()
+        self.edit_type()
+        self.save()
+        self.delay_response("PUT", self.id)
+        self.page.locator("#obj-desc").fill("A 的真实提交")
+        self.page.get_by_role("button", name="保存编辑进度").click()
+        self.page.wait_for_function("typeof window.releaseLateReply==='function'")
+        self.page.once("dialog", lambda dialog: dialog.accept())
+        self.page.evaluate("window.location.hash='#/model/packages'")
+        self.page.get_by_role("heading", name="模型包", exact=True).wait_for()
+        other_id=self.open_other_draft_and_edit()
+        self.assert_late_reply_preserves_other_draft(other_id)
+        self.assertEqual(api("/"+self.id)["editingContent"]["objectTypes"][0]["description"], "A 的真实提交")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

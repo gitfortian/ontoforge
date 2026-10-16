@@ -161,14 +161,15 @@ public class NativeDraftService {
         if(expectedRevision<1) throw new DraftFailure(400,"MALFORMED_REQUEST","expectedRevision 必须是正整数");
         List<DraftValidation.Issue> issues=DraftValidation.checkEditor(document,mapper);
         if(!issues.isEmpty())throw new DraftFailure(422,"EDITOR_DOCUMENT_INVALID","草稿编辑结构不合法",issues);
-        int written=jdbc.update("""
+        List<DraftDetail> written=jdbc.query("""
                 UPDATE native_package_draft
                    SET editing_document=?::jsonb,revision=revision+1,
                        validation_report=NULL,validated_revision=NULL,updated_at=clock_timestamp()
                  WHERE draft_id=? AND revision=?
-                """,json(document),id,expectedRevision);
-        if(written!=1){requireCurrent(id,expectedRevision);throw new DraftFailure(409,"DRAFT_REVISION_CONFLICT","写入并发冲突");}
-        return get(id);
+                RETURNING
+                """+FIELDS,this::map,json(document),id,expectedRevision);
+        if(written.isEmpty()){requireCurrent(id,expectedRevision);throw new DraftFailure(409,"DRAFT_REVISION_CONFLICT","写入并发冲突");}
+        return written.getFirst();
     }
 
     public ValidationReport validate(UUID id,long expectedRevision) {

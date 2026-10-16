@@ -1,5 +1,7 @@
 # S0-MVP-0.3 · Native 模型快照功能说明、全面 Review 与验收矩阵
 
+> **历史记录**：本文件保留该轮交付/评审基线，文中的 Draft、待合并、未验收等不覆盖后续决定。当前功能和环境状态统一见[产品进度总账](./OntoForge-MVP-产品功能全景与成熟度矩阵.md)。
+
 **文档性质**：功能实现审计 + 产品功能描述 + 发布前验收标准。  
 **审查对象**：[PR #11（真实功能实现）](https://github.com/gitfortian/ontoforge/pull/11)；决策来源：[OFIP-0003（Accepted）](../proposals/OFIP-0003-S0-MVP-0.3-模型快照与发布边界.md)。  
 **审核方式**：逐项核对 Flyway V3 / Spring Boot Java / React / 真实 PG17 JUnit / Chromium / Windows 脚本。**本文不把 PR Draft、CI 运行中、Mock 测试通过或候选代码存在误称为功能已发布。**  

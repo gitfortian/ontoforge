@@ -26,7 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /** B0 real PostgreSQL + signed JWT HTTP authorization tests. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
+@ActiveProfiles({"test", "integration-test"})
+@org.springframework.test.context.ContextConfiguration(initializers=IsolatedPostgresTestDatabase.class)
 @Import(B0TestSecurityConfiguration.class)
 class B0IdentityAuthorizationTest {
     private static final UUID WORKSPACE = UUID.fromString("11111111-1111-4111-8111-111111111111");

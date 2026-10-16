@@ -1,6 +1,6 @@
 # S0-MVP-0.4｜UX-Low 低保真交互设计、评审矩阵与风险结论
 
-> **产品阶段**：OFIP-0004 第三轮低保真评审候选；[PR #12](https://github.com/gitfortian/ontoforge/pull/12) Draft，尚未正式签收。**交付的是可操作、只在浏览器内存中运行的 HTML 原型**，不是 Spring Boot/PostgreSQL 生产功能。
+> **文档性质**：OFIP-0004 第三轮低保真评审的历史基线，交付浏览器内存 Mock；下文“待签收/未实现”只描述该轮时点。后续 [PR #12](https://github.com/gitfortian/ontoforge/pull/12) 已 Accepted，真实实现见 PR #13；当前成熟度及环境验收统一见[产品进度总账](./OntoForge-MVP-产品功能全景与成熟度矩阵.md)。
 >
 > **原型**：[ofip-0004-linktype-lowfi.html](../prototypes/ofip-0004-linktype-lowfi.html)。查看 GitHub 源码后可下载 HTML 在本机浏览器打开；无需 npm、Docker、数据库或账号。
 >

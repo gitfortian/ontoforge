@@ -1,6 +1,6 @@
 # OntoForge S0｜Windows 11 本机 PostgreSQL 启动与验收
 
-> 适用于 S0-MVP-0.1。只验证本地 Java/React/PostgreSQL/Flyway 基座，不代表已经有本体建模、授权或生产能力。
+> 当前本机启动与只读基座验收入口。ObjectType/LinkType、Snapshot 的范围和环境结果见[产品进度总账](./OntoForge-MVP-产品功能全景与成熟度矩阵.md)。基座检查不能代替完整功能、权限或生产验收。
 > **默认方式：Windows 11 原生 PostgreSQL，不需要 Docker Desktop，也不需要删除或重建已有数据库。**
 
 ## 1. 基准与配置合同
@@ -55,13 +55,13 @@ $env:DB_PASSWORD = [System.Net.NetworkCredential]::new('', (Read-Host 'PostgreSQ
 mvn -pl ontoforge-boot spring-boot:run
 ```
 
-首次启动会按 Flyway 执行 `V1__foundation.sql`；已有版本会正常复验，不会每次生成新安装 ID。启动失败时先读错误日志，不要通过删除数据库解决 Flyway 或密码错误。
+首次启动会执行当前 Flyway V1–V3；已有版本会正常复验，不会每次生成新安装 ID。启动失败时先读错误日志，不要通过删除数据库解决 Flyway 或密码错误。
 
 **终端 B：启动前端（无需 DB_PASSWORD）**
 
 ```powershell
 cd ontoforge-ui
-npm install
+npm ci
 npm run dev
 ```
 
@@ -86,9 +86,19 @@ $env:DB_PASSWORD = [System.Net.NetworkCredential]::new('', (Read-Host 'PostgreSQ
 2. 停止终端 A 中的后端，前端按「重新检测」应展示连接失败，不得假装成功。
 3. 重新在终端 A 启动 Spring Boot；前端刷新或重新检测应恢复真实状态。
 4. 在终端 C 再次执行 `.\scripts\verify-s0.ps1 -ExpectedInstallationId '首次记录的 UUID'`，验证数据库持久状态未变化。
-5. 可选：在同一个正确配置了 DB_* 的终端执行 `mvn -B -pl ontoforge-boot -am verify`；CI 也运行相同的 PostgreSQL/Flyway 集成测试与前端构建。
+5. Maven 集成测试必须另开终端，连接独立的 `ontoforge_test_*` 测试库，**不能复用上述开发 DB_* 作为测试连接**。测试使用单独 TEST_DB_*，启动前拒绝开发库名、远程主机与带选项的 JDBC URL：
 
-**完成标准**：健康 API 返回 `service=ontoforge`、`version=S0-MVP-0.1`、`database=CONNECTED`；V1 迁移成功；API 与数据库 UUID 一致；重启后相同；后端离线时前端显示失败；Maven/前端构建通过。
+```powershell
+# 先由操作者建立独立测试库，不重建/清空原有开发库。
+$env:TEST_DB_URL = 'jdbc:postgresql://127.0.0.1:5432/ontoforge_test_local'
+$env:TEST_DB_USERNAME = 'postgres' # 按实际测试库角色设置
+$env:TEST_DB_PASSWORD = [System.Net.NetworkCredential]::new('', (Read-Host 'Test DB password' -AsSecureString)).Password
+# 仅在独立测试库显式授权故障注入；这会临时关闭测试表触发器。
+$env:TEST_DB_ALLOW_FAULT_INJECTION = 'true'
+mvn -B -pl ontoforge-boot -am verify
+```
+
+**完成标准**：健康 API 返回 `service=ontoforge`、`database=CONNECTED` 和当前代码提供的版本；V1–V3 成功；API 与数据库 UUID 一致；重启后相同；后端离线时前端显示失败。独立测试库中的 Maven 与前端构建分别记录结果，不混同为用户验收。
 
 ## 5. 常见失败（非破坏性排查）
 

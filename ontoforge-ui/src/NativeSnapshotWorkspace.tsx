@@ -52,14 +52,17 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
  const forget=()=>{try{sessionStorage.removeItem(pendingStorageKey)}catch{/* no persisted storage */}};
  const confirmRef=useRef<HTMLButtonElement|null>(null);
  const freezeButtonRef=useRef<HTMLButtonElement|null>(null);
+ const dialogRef=useRef<HTMLDialogElement|null>(null);
+ const mounted=useRef(false);
+ useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[]);
  const active=validation?.status==='VALID'&&validation.validatedRevision===draft.revision;
  const supported=draft.editingContent.objectTypes.length>0&&Array.isArray(draft.editingContent.linkTypes);
  const historyPath='#/model/packages/'+encode(draft.packageId)+'/snapshots';
  async function refresh(){
    try{
      const page=await request<Page>('/packages/'+encode(draft.packageId)+'/snapshots?pageSize=50');
-     setItems(page.items);
-   }catch(e){setError(errorText(e));}
+     if(mounted.current)setItems(page.items);
+   }catch(e){if(mounted.current)setError(errorText(e));}
  }
  useEffect(()=>{
    void refresh();
@@ -74,7 +77,12 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
    }catch{/* unavailable storage: leave pending recovery to original browser tab */}
    // eslint-disable-next-line react-hooks/exhaustive-deps
  },[draft.draftId]);
- useEffect(()=>{if(confirm){confirmRef.current?.focus()}else{freezeButtonRef.current?.focus()}},[confirm]);
+ useEffect(()=>{
+   if(!confirm)return;
+   const dialog=dialogRef.current;
+   dialog?.showModal();confirmRef.current?.focus();
+   return()=>{dialog?.close();freezeButtonRef.current?.focus()};
+ },[confirm]);
  const already=items.some(x=>x.sourceRevision===draft.revision);
  const eligible=!busy&&!dirty&&!locked&&!pendingKey&&supported&&active&&!already;
  async function freeze(key:string,revision:number){
@@ -83,10 +91,12 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
    try{
      const saved=await request<Snapshot>('/drafts/'+draft.draftId+'/snapshots','POST',
                             {expectedRevision:revision,idempotencyKey:key});
-     forget();setPendingKey(null);setPendingRevision(null);
+     forget();if(!mounted.current)return;
+     setPendingKey(null);setPendingRevision(null);
      await refresh();
-     navigate('#/model/snapshots/'+saved.snapshotId);
+     if(mounted.current)navigate('#/model/snapshots/'+saved.snapshotId);
    }catch(e){
+     if(!mounted.current)return;
      const x=e as Failure;
      setError(errorText(e));
      // An uncertain commit must never be followed by a new idempotency key.
@@ -96,21 +106,23 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
        forget();setPendingKey(null);setPendingRevision(null);
        if(x.code==='SNAPSHOT_REVISION_ALREADY_FROZEN'||x.code==='DRAFT_REVISION_CONFLICT')await refresh();
      }
-   }finally{setBusy(false)}
+   }finally{if(mounted.current)setBusy(false)}
  }
  async function reconcile(){
    if(!pendingKey||pendingRevision===null)return;
    setBusy(true);setError(null);
    try{
      const original=await request<Snapshot>('/drafts/'+draft.draftId+'/snapshots/by-key/'+pendingKey);
-     forget();setPendingKey(null);setPendingRevision(null);
+     forget();if(!mounted.current)return;
+     setPendingKey(null);setPendingRevision(null);
      navigate('#/model/snapshots/'+original.snapshotId);
    }catch(e){
+     if(!mounted.current)return;
      const x=e as Failure;
      if(x.code==='SNAPSHOT_NOT_FOUND'){
        setError('服务端暂未找到该幂等键。如果需重试，使用原键及同一 revision，不能生成新键。');
      }else{setError(errorText(e))}
-   }finally{setBusy(false)}
+   }finally{if(mounted.current)setBusy(false)}
  }
  const complete=()=>{
    setConfirm(false);
@@ -137,9 +149,15 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
    <button id="snapshot-history" className="model-btn model-full" onClick={()=>navigate(historyPath)}
      disabled={busy}><History size={15}/> 查看历史快照</button>
    <p className="model-help">冻结资格由服务端事务复核。当前未提供审批、发行号、生产激活或 Agent 接口。</p>
-   {confirm&&<div className="snapshot-modal-backdrop" role="presentation">
-     <div role="dialog" aria-modal="true" aria-labelledby="snapshot-confirm-title"
-          className="snapshot-modal" onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();setConfirm(false)}}}>
+   {confirm&&<dialog ref={dialogRef} aria-labelledby="snapshot-confirm-title"
+          className="snapshot-modal" onCancel={e=>{e.preventDefault();setConfirm(false)}}
+          onKeyDown={e=>{
+            if(e.key!=='Tab')return;
+            const buttons=e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not([disabled])');
+            const first=buttons[0],last=buttons[buttons.length-1];
+            if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus()}
+            else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus()}
+          }}>
        <h2 id="snapshot-confirm-title">确认冻结当前草稿修订</h2>
        <p>此操作创建本地只读快照，不代表已审核、发布或激活。</p>
        <div className="snapshot-confirm-facts"><span>模型包</span><b>{draft.packageId}</b>
@@ -151,8 +169,7 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
          <button ref={confirmRef} id="snapshot-confirm" className="model-btn model-primary" disabled={busy}
                  onClick={complete}>确认冻结当前修订</button>
        </div>
-     </div>
-   </div>}
+   </dialog>}
  </section>;
 }
 

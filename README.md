@@ -18,11 +18,13 @@
 - [S0-MVP-0.3 功能说明与全面 Review 验收矩阵](./doc/implementation/S0-MVP-0.3-功能说明与全面Review验收矩阵.md)
 - [PostgreSQL ObjectSet / Action Outbox 研究实验](./experiments/pg-runtime/README.md)
 
-> **S0-MVP-0.2/0.3/0.4 真实建模代码已合并 main（PR #7 / #11 / #13）**：可定义同包多个 ObjectType 与 LinkType、保存草稿、完整性检查、留存不可变本地历史及比较风险。**Windows 11 本机 PostgreSQL 真停启验收 NOT RUN，未正式发布；没有身份权限、真实业务数据绑定、ObjectSet 生产查询或 Action**。
+> **S0-MVP-0.2/0.3/0.4 真实建模代码已合并 main（PR #7 / #11 / #13）**：可定义同包多个 ObjectType 与 LinkType、保存草稿、完整性检查、留存不可变本地历史及比较风险。当前环境证据统一见[产品进度总账](./doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)，区分 Windows 隔离自动化与用户既有安装人工验收。**未正式发布；没有身份权限、真实业务数据绑定、ObjectSet 生产查询或 Action**。
 
 ## S0-MVP-0.2：Windows 11 本机 PostgreSQL（默认开发方式）
 
-准备：Java 21、Maven、Node.js 22、已安装运行的**本机 PostgreSQL**，不需要 Docker Desktop。
+> **PR #17 / B0 分支增量**：以下 S0 用户故事保留，但本分支启动还要求外部配置 `OIDC_ISSUER_URI`、`OIDC_JWK_SET_URI`、`OIDC_AUDIENCE`。模型 API 需要已授予模型包权限的有效 JWT；没有配置就拒绝启动，没有 Token 就返回 401。前端尚无 OIDC 登录/BFF。手工验收需外部设置 `ONTOFORGE_BEARER_TOKEN` 并为 Exercise 指定预授权 `-PackageId`；具体边界见 [B0 Draft 实施说明](./doc/implementation/S0-MVP-0.5-B0-可信身份与模型包权限实施说明-20261016.md)。该实现候选不表示 OFIP-0005 已获批准或可生产部署。
+
+准备：Java 21、Maven、Node.js 22（至少 22.12）、已安装运行的**本机 PostgreSQL**，不需要 Docker Desktop。前端使用提交的依赖锁文件和 `npm ci`。
 
 1. 在 Windows PowerShell 中确认 PostgreSQL 服务运行，并创建或复用本机数据库 `ontoforge`（默认 `127.0.0.1:5432`，用户 `postgres`）；**已有数据库不要重建**。
 2. 在启动后端的同一个 PowerShell 窗口设置 `DB_PASSWORD`，它**没有代码内置的默认值**：
@@ -34,7 +36,7 @@
    mvn -pl ontoforge-boot spring-boot:run
    ```
 
-3. 另开 PowerShell 进入 `ontoforge-ui`，运行 `npm install` 和 `npm run dev`；访问 [http://127.0.0.1:5173](http://127.0.0.1:5173)。
+3. 另开 PowerShell 进入 `ontoforge-ui`，运行 `npm ci` 和 `npm run dev`；访问 [http://127.0.0.1:5173](http://127.0.0.1:5173)。
 4. 新开 PowerShell，重新设置相同的 DB_* 环境变量，并在仓库根目录运行 `.\scripts\verify-s0.ps1`（`psql` 未加入 PATH 时传 `-PsqlPath`）。脚本只读校验 Flyway V1/V2、数据库 UUID、`DRAFT_AVAILABLE` 与真实 API 是否一致；重启后端后可用 `-ExpectedInstallationId` 及 `-ExpectedDraftId` 验证既有安装和草稿均被保留。
 
 ### S0-MVP-0.3：本地 Native 模型快照与结构差异（已合并开发主线）
@@ -57,7 +59,7 @@
 .\scripts\verify-snapshot.ps1 -Mode Recheck -EvidencePath "C:\\Temp\\<actual-evidence>.json"
 ```
 
-脚本仅访问本机 loopback API，但**会永久写入一个专门验收 Draft 和两份 Snapshot**，因此不得连接生产数据库；不提交 PostgreSQL 密码、真实工业模型内容或凭据到 PR。Linux CI 上执行同一脚本及真实 Chromium 只能证明自动化可运行，**不等于用户 Windows 11 本机验收 PASS**。现阶段依然无认证、授权、审查主体、发行/激活与工业 Action，禁止生产部署。
+脚本仅访问本机 loopback API，但**会永久写入一个专门验收 Draft 和两份 Snapshot**，因此不得连接生产数据库；不提交 PostgreSQL 密码、真实工业模型内容或凭据到 PR。Linux CI 上执行同一脚本及真实 Chromium 只能证明自动化可运行，**不等于用户 Windows 11 本机验收 PASS**。B0 候选提供 JWT 与包权限检查，仍未交付登录体验、可信审核、发行/激活与工业 Action，禁止生产部署。
 
 ### Windows 11 一键实际验收（建议优先执行）
 
@@ -102,6 +104,6 @@
 
 详细版本范围：[S0 极简 MVP 迭代与验收计划](./doc/implementation/S0-MVP-迭代计划.md)。
 
-**安全范围**：本版本没有认证与权限控制，仅适合隔离的本地开发环境；不在仓库中保存数据库密码，不得直接对外开放服务或接入生产数据。
+**安全范围**：B0 的 JWT 与模型包权限仍为待审实现候选，缺少登录、权限管理及独立安全签收，仅适合隔离的本地开发环境；不在仓库中保存数据库密码，不得直接对外开放服务或接入生产数据。
 
 工程目录与长期模块命名规范：[S0 模块规划](./doc/implementation/S0-工程模块规划与命名规范.md)；品牌及兼容性说明：[OntoForge · 砺元命名约定](./doc/implementation/OntoForge-品牌与工程命名约定.md)。

@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OntoForge · 砺元｜模型治理高保真交互（UX-High Mock）</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#263246;background:#f6f8fb;--blue:#215f9f;--line:#e5ebf3;--muted:#687d93;--soft:#f4f8fc}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#f6f8fb;color:#263246}button,input,select,textarea{font:inherit}
+button{cursor:pointer;min-height:38px;border:1px solid #d8e3ef;border-radius:8px;background:#fff;color:#46617c;padding:9px 13px;font-size:12px;font-weight:650}
+button:hover:not(:disabled){background:#f1f7fe;border-color:#b5d2eb}button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:#215f9f;border-color:#215f9f;color:#fff}button.primary:hover:not(:disabled){background:#174e85}
+button.danger{border-color:#efccd3;color:#a54558}button.link{border:0;background:transparent;color:#2464a4;padding:4px 0;min-height:28px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #327ac0;outline-offset:2px}
+.shell{display:flex;min-height:100vh}.sidebar{width:270px;flex:none;background:#fff;border-right:1px solid #e8edf4;padding:27px 18px;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:12px;margin:4px 8px 42px}.brand-icon{height:39px;width:39px;border-radius:11px;display:grid;place-items:center;background:#173657;color:#fff;font-size:21px}.brand strong{font-size:15px;display:block}.brand small{color:#8490a1;font-size:12px;display:block;margin-top:3px}
+.nav-heading{font-size:11px;letter-spacing:1.4px;color:#99a2b0;padding:0 13px;margin:0 0 11px}.nav-heading.secondary{margin-top:28px}
+.nav{display:flex;flex-direction:column;gap:4px}.nav button{width:100%;border:0;text-align:left;background:transparent;color:#6a7f97;display:flex;align-items:center;gap:11px}.nav button.active{background:#e9f1fc;color:#1f5aa3;font-weight:700}.nav button .count{margin-left:auto;font-size:10px;background:#eef3f8;color:#6c8196;border-radius:10px;padding:3px 7px}
+.planned{display:flex;align-items:center;gap:10px;padding:12px 13px;color:#a1aab7;font-size:12px}.planned span{margin-left:auto;font-size:10px}
+.sidebar-bottom{margin-top:auto;padding:18px 12px 4px;border-top:1px solid #edf0f4;font-size:12px;color:#6d7a8c;line-height:1.9}.sidebar-bottom small{color:#a1aab7}
+main{flex:1;min-width:0;max-width:1510px;padding:0 56px 48px}.topline{height:69px;border-bottom:1px solid #e5eaf1;display:flex;align-items:center;justify-content:space-between;color:#8995a5;font-size:12px}.env{letter-spacing:.9px;font-size:10px;background:#edf1f6;border-radius:5px;padding:6px 10px;color:#677789}
+.page{max-width:1220px;margin:auto}.intro{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin:38px 0 24px}.eyebrow{color:#4274a9;letter-spacing:1.4px;font-size:10px;font-weight:750}.intro h1{font-size:29px;letter-spacing:-.4px;margin:9px 0 10px;font-weight:680}.intro p{font-size:13px;color:#657a90;line-height:1.8;margin:0;max-width:760px}.status{display:inline-flex;align-items:center;gap:6px;border:1px solid #dce7f2;border-radius:6px;padding:6px 9px;font-size:11px;color:#58728e;background:#f6f9fc;white-space:nowrap}.status.ok{background:#eff9f4;border-color:#d1e9dd;color:#287156}.status.warn{background:#fff9ed;border-color:#f0dfb9;color:#8a652e}.status.danger{background:#fff4f5;border-color:#f1d2d7;color:#a24759}.status.blue{background:#edf5fd;border-color:#d7e7f7;color:#25619a}
+.panel{border:1px solid #e5ebf3;border-radius:12px;background:#fff;box-shadow:0 6px 24px #13233e06;padding:22px 24px;margin:14px 0}.panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;border-bottom:1px solid #edf1f5;padding-bottom:15px;margin-bottom:16px}.panel-head h2{font-size:16px;margin:0 0 6px}.panel-head p{font-size:12px;color:#8a96a5;margin:0;line-height:1.6}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.kpi{border:1px solid #e5ebf3;border-radius:10px;padding:16px;background:#fbfdff}.kpi .label{font-size:11px;color:#71859a}.kpi b{display:block;font-size:22px;margin-top:8px;color:#2f4964}.kpi small{font-size:10px;color:#8293a4;display:block;margin-top:4px}
+.grid2{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap:14px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.timeline{position:relative;margin:5px 0 0 8px;padding-left:20px;border-left:2px solid #e1e9f1}.event{position:relative;margin:0 0 20px}.event:before{content:"";position:absolute;left:-26px;top:3px;width:8px;height:8px;border-radius:50%;background:#6c96bb;border:2px solid #fff;box-shadow:0 0 0 1px #b8cde0}.event strong{font-size:12px;color:#3d5872}.event p{font-size:11px;color:#71869b;margin:4px 0;line-height:1.7}.event time{font-size:10px;color:#a0acb9}
+.list{display:flex;flex-direction:column;gap:8px}.list-item{border:1px solid #e5ebf3;border-radius:9px;background:#fff;padding:15px}.list-item:hover{border-color:#b8d4ec;background:#fbfdff}.list-item .title{display:flex;justify-content:space-between;gap:10px;align-items:start}.list-item h3{font-size:13px;margin:0;color:#31506e}.list-item p{font-size:11px;color:#71869b;line-height:1.65;margin:6px 0}.meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mono{font:11px ui-monospace,Consolas,monospace;color:#59718a;overflow-wrap:anywhere}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid #e7edf4;margin:0 0 17px}.tab{border:0;border-bottom:3px solid transparent;border-radius:7px 7px 0 0;background:transparent;color:#687f96;padding:11px 15px}.tab.active{color:#215f9f;background:#f8fbfe;border-bottom-color:#215f9f;font-weight:750}
+.table-wrap{overflow:auto;border:1px solid #e6edf4;border-radius:8px}.table{width:100%;border-collapse:collapse;font-size:12px}.table th,.table td{text-align:left;vertical-align:top;padding:13px 11px;border-bottom:1px solid #edf1f5}.table th{background:#f7fafd;color:#667d94;font-size:11px;font-weight:650;white-space:nowrap}.table tr:last-child td{border-bottom:0}.table td{color:#3e5871}.table td strong{display:block;color:#304b66;margin-bottom:4px}.table td small{display:block;color:#7e91a3;line-height:1.5}
+.change-card{display:grid;grid-template-columns:1fr 145px;gap:14px;align-items:center}.change-title{font-size:14px;font-weight:700;color:#2f4b66}.change-sub{font-size:11px;color:#75899c;margin-top:5px}.impact{padding:12px 13px;border:1px solid #ecd9b4;background:#fffaf0;border-radius:8px;color:#825f2e;font-size:11px;line-height:1.6}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:0 0 18px}.step{display:flex;align-items:center;gap:9px;border:1px solid #e3eaf2;border-radius:9px;padding:11px;background:#fff;color:#70859a;font-size:11px}.step b{width:25px;height:25px;display:grid;place-items:center;border-radius:7px;background:#eef4fa;color:#2c659d;font-size:10px}.step.active{border-color:#b5d5ed;background:#f0f7fe;color:#215f9f;font-weight:700}.step.active b{background:#215f9f;color:#fff}
+.diff-head{display:grid;grid-template-columns:1fr 1fr;gap:10px}.diff-head>div{border:1px solid #e1e9f1;border-radius:8px;padding:12px;background:#f9fbfd}.diff-head small{display:block;color:#8292a3;font-size:10px}.diff-head strong{display:block;margin-top:5px;font-size:13px}.diff{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.diff>div{border:1px solid #e3eaf2;border-radius:8px;padding:13px}.diff .remove{background:#fff8f8;border-color:#efd5da}.diff .add{background:#f5fbf8;border-color:#d4e8dc}.diff .change{background:#fffaf1;border-color:#ecdcbf}.diff label{font-size:10px;color:#7b8da0;display:block;margin-bottom:7px}.diff strong{font-size:12px}.diff del{color:#a04e5e}.diff ins{text-decoration:none;color:#287257}.diff em{font-style:normal;color:#8b662e}
+.risk-list{display:flex;flex-direction:column;gap:8px}.risk{border:1px solid #e5ebf3;border-radius:8px;padding:11px 12px;font-size:11px;line-height:1.65}.risk.warn{border-color:#ecdcb9;background:#fffaf1;color:#7d5c2d}.risk.info{background:#f4f8fc;color:#58718a}.risk.ok{border-color:#d5e8dc;background:#f3faf6;color:#2d7357}.risk b{display:block;font-size:11px;margin-bottom:3px}
+.reason{border:1px solid #e4ebf3;border-radius:8px;background:#fafcff;padding:13px;font-size:12px;line-height:1.7;color:#4f6780}.reason strong{color:#304c68}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.wide{grid-column:1/-1}label{display:block;font-size:11px;font-weight:650;color:#536e88;margin:0 0 7px}input,select,textarea{width:100%;min-width:0;min-height:40px;border:1px solid #d9e4ee;border-radius:7px;background:#fff;color:#304c69;padding:9px 10px;font-size:12px}textarea{min-height:92px;resize:vertical}
+.confirm{border:1px solid #dbe7f1;border-radius:9px;background:#f7fafd;padding:14px}.confirm-grid{display:grid;grid-template-columns:120px 1fr;gap:9px;font-size:11px}.confirm-grid span{color:#71859a}.confirm-grid strong{color:#334e69}
+.callout{padding:12px 14px;border:1px solid #d4e4f1;background:#f1f7fd;border-radius:8px;font-size:11px;line-height:1.7;color:#426581;margin:12px 0}.callout.warn{border-color:#ecd9b5;background:#fffaf1;color:#7c5b2d}.callout.error{border-color:#efcfd5;background:#fff6f7;color:#9d4456}.callout.ok{border-color:#d0e7d9;background:#f2faf6;color:#2d7155}
+.sticky{position:sticky;bottom:0;z-index:10;margin:18px -24px -22px;padding:12px 24px;background:rgba(255,255,255,.97);border-top:1px solid #e7edf4;display:flex;align-items:center;justify-content:space-between;gap:12px}.sticky .summary{font-size:11px;color:#657b91}.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.drawer-backdrop{position:fixed;inset:0;z-index:50;background:#18334d80;display:none;justify-content:flex-end}.drawer-backdrop.open{display:flex}.drawer{height:100%;width:min(660px,100%);background:#fff;padding:25px 27px;overflow:auto;box-shadow:-16px 0 50px #10294330}.drawer-head{display:flex;justify-content:space-between;gap:15px;border-bottom:1px solid #e8edf4;padding-bottom:17px;margin-bottom:17px}.drawer-head h2{margin:0;font-size:19px}.drawer-head p{font-size:11px;color:#71859a;line-height:1.6;margin:6px 0 0}
+.modal-backdrop{position:fixed;inset:0;z-index:60;background:#18334d80;display:none;place-items:center;padding:18px}.modal-backdrop.open{display:grid}.modal{width:min(600px,100%);max-height:calc(100vh - 36px);overflow:auto;background:#fff;border:1px solid #dce6f0;border-radius:13px;box-shadow:0 25px 80px #0c315850;padding:25px}.modal h2{font-size:19px;margin:0 0 8px}.modal p{font-size:12px;line-height:1.7;color:#657b91}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:21px;flex-wrap:wrap}
+.hidden{display:none!important}
+footer{font-size:10px;color:#9aa6b3;line-height:1.7;margin:28px 0 0;padding-top:17px;border-top:1px solid #e7edf4}
+@media(max-width:1050px){.sidebar{width:225px}main{padding:0 28px 40px}.kpis{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.grid3{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.shell{display:block}.sidebar{width:100%;padding:14px 16px;border-bottom:1px solid #e8edf4}.brand{margin:0 0 10px}.nav-heading,.planned,.sidebar-bottom{display:none}.nav{flex-direction:row;overflow:auto}.nav button{flex:0 0 auto;width:auto}.nav button .count{display:none}main{padding:0 14px 32px}.topline{height:56px}.intro{display:block;margin:25px 0 18px}.intro h1{font-size:23px}.kpis,.grid3{grid-template-columns:1fr}.panel{padding:17px}.steps{grid-template-columns:1fr 1fr}.step{min-width:0}.form-grid,.diff,.diff-head{grid-template-columns:1fr}.sticky{position:relative;margin:18px -17px -17px;padding:12px 17px;display:block}.actions{margin-top:9px}.change-card{grid-template-columns:1fr}.table{table-layout:fixed}.table th,.table td{font-size:10px;padding:9px 6px;overflow-wrap:anywhere}.table th:nth-child(3),.table td:nth-child(3){display:none}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+ <div class="brand"><div class="brand-icon">◇</div><div><strong>OntoForge · 砺元</strong><small>工业运营本体平台</small></div></div>
+ <p class="nav-heading">平台与建模</p>
+ <nav class="nav">
+  <button class="active" data-screen="overview">▣ 模型治理</button>
+ </nav>
+ <p class="nav-heading secondary">模型包 · manufacturing.production</p>
+ <nav class="nav">
+  <button data-screen="overview">概览</button>
+  <button data-screen="changes">我的变更 <span class="count">2</span></button>
+  <button data-screen="review">待我审核 <span class="count">1</span></button>
+  <button data-screen="releases">正式版本</button>
+  <button data-screen="activation">生效范围</button>
+  <button data-screen="history">治理记录</button>
+ </nav>
+ <div class="sidebar-bottom">P0-B · 模型治理<br><small>高保真交互候选 · 非真实发布功能</small></div>
+</aside>
+<main>
+ <div class="topline"><span>本体设计 / 模型治理 / manufacturing.production</span><span class="env">UX-HIGH · MOCK</span></div>
+ <div class="page">
+  <section id="screen-overview" class="screen" aria-hidden="false">
+   <div class="intro"><div><div class="eyebrow">MODEL GOVERNANCE</div><h1>模型包概览</h1><p>把模型从“正在设计”推进到“经过审核、形成正式版本、按范围受控使用”。先看当前状态，再处理需要你做的事情。</p></div><div class="meta"><span class="status blue">当前生效版本 · 0.4.0</span></div></div>
+   <div class="kpis">
+    <div class="kpi"><span class="label">当前生效版本</span><b>0.4.0</b><small>production-core 正在使用</small></div>
+    <div class="kpi"><span class="label">待处理变更</span><b>2</b><small>其中 1 项等待审核</small></div>
+    <div class="kpi"><span class="label">正式版本</span><b>2</b><small>最新正式版本 0.4.0</small></div>
+    <div class="kpi"><span class="label">待发行变更</span><b>1</b><small>1 项审核已通过，等待创建正式版本</small></div>
+   </div>
+   <div class="grid2">
+    <section class="panel"><div class="panel-head"><div><h2>当前模型状态</h2><p>用户先看“现在是什么”，再决定下一步。</p></div><button data-screen="history">查看治理记录</button></div>
+      <div class="confirm-grid"><span>模型包</span><strong>manufacturing.production</strong><span>当前生效</span><strong>0.4.0 · production-core</strong><span>最近变更</span><strong>调整生产批次与工单关系</strong><span>最近操作</span><strong>领域审核已通过，等待创建正式版本</strong></div>
+      <div class="callout warn"><b>有一项变更等待处理</b><br>“生产批次与工单关系调整”已经通过完整性检查，正在等待领域审核。审核通过后才能创建正式版本。</div>
+    </section>
+    <section class="panel"><div class="panel-head"><div><h2>最近治理记录</h2><p>只展示影响模型可信状态的关键动作。</p></div></div>
+      <div class="timeline">
+       <div class="event"><strong>模型变更已提交</strong><p>生产批次与工单关系调整 · 提交人：李明</p><time>今天 18:42</time></div>
+       <div class="event"><strong>完整性检查通过</strong><p>模型结构完整，可以进入审核。</p><time>今天 18:40</time></div>
+       <div class="event"><strong>0.4.0 已生效</strong><p>production-core 当前使用版本。</p><time>昨天 16:20</time></div>
+      </div>
+    </section>
+   </div>
+   <section class="panel"><div class="panel-head"><div><h2>你现在可以做什么</h2><p>按照业务角色只展示当前可继续的动作。</p></div></div>
+    <div class="grid3">
+     <div class="list-item"><div class="title"><h3>继续处理我的变更</h3><span class="status warn">1 项待审核</span></div><p>查看提交内容和审核进度。</p><button class="link" data-screen="changes">查看我的变更 →</button></div>
+     <div class="list-item"><div class="title"><h3>处理待我审核</h3><span class="status blue">1 项</span></div><p>先看具体变化，再决定批准、退回或拒绝。</p><button class="link" data-screen="review">进入审核 →</button></div>
+     <div class="list-item"><div class="title"><h3>查看正式版本</h3><span class="status ok">2 个</span></div><p>正式版本和当前生效版本分别管理。</p><button class="link" data-screen="releases">查看版本 →</button></div>
+    </div>
+   </section>
+  </section>
+
+  <section id="screen-changes" class="screen">
+   <div class="intro"><div><div class="eyebrow">MY CHANGES</div><h1>我的变更</h1><p>把一次模型调整整理成一份固定的变更申请。提交以后，审核内容不会随着后续编辑自动变化。</p></div><button class="primary" id="openChange">＋ 准备模型变更</button></div>
+   <div class="steps"><div class="step active"><b>01</b>准备变更</div><div class="step active"><b>02</b>完整性检查</div><div class="step"><b>03</b>提交审核</div><div class="step"><b>04</b>审核通过后发行</div></div>
+   <section class="panel"><div class="panel-head"><div><h2>正在处理</h2><p>当前模型包中的变更申请。</p></div></div>
+    <div class="list">
+     <div class="list-item change-card"><div><div class="change-title">生产批次与工单关系调整</div><div class="change-sub">基线 0.4.0 → 候选内容 · 生产批次「归属工单」关系方向调整</div><div class="meta" style="margin-top:9px"><span class="status warn">等待审核</span><span class="mono">提交于今天 18:42</span></div></div><div class="impact">潜在破坏性变化<br><b>需要领域审核</b><br>消费者影响：未知</div></div>
+     <div class="list-item change-card"><div><div class="change-title">质量事件增加处理状态</div><div class="change-sub">草稿 · 尚未提交审核</div><div class="meta" style="margin-top:9px"><span class="status">模型草稿</span></div></div><button data-action="continueDraft">继续编辑 →</button></div>
+    </div>
+   </section>
+   <section class="panel"><div class="panel-head"><div><h2>提交前检查</h2><p>只有已保存、检查通过的内容才能提交审核。</p></div><span class="status ok">检查通过</span></div>
+    <div class="grid3"><div class="kpi"><span class="label">模型内容</span><b style="font-size:15px">完整</b><small>3 个对象 · 2 条关系</small></div><div class="kpi"><span class="label">结构检查</span><b style="font-size:15px">通过</b><small>没有发现结构错误</small></div><div class="kpi"><span class="label">内容固定</span><b style="font-size:15px">待提交</b><small>提交后候选内容不再变化</small></div></div>
+   </section>
+  </section>
+
+  <section id="screen-review" class="screen">
+   <div class="intro"><div><div class="eyebrow">REVIEW</div><h1>待我审核</h1><p>这里的每一项都是你有权限审核、且不是你本人提交的模型变更。先理解变化和风险，再作决定。</p></div><span class="status blue">领域审核者 · 当前身份</span></div>
+   <section class="panel"><div class="panel-head"><div><h2>等待你的审核</h2><p>共 1 项。没有权限的变更不会出现在这里。</p></div></div>
+    <div class="list-item"><div class="change-card"><div><div class="change-title">生产批次与工单关系调整</div><div class="change-sub">提交人：李明 · 提交时间：今天 18:42 · 基线版本：0.4.0</div><div class="meta" style="margin-top:10px"><span class="status warn">潜在破坏性变化</span><span class="status">消费者影响未知</span><span class="status ok">完整性检查通过</span></div></div><button class="primary" id="openReview">开始审核 →</button></div></div>
+   </section>
+   <section class="panel"><div class="panel-head"><div><h2>审核原则</h2><p>审核不是“点通过”。你需要知道这次变化是什么、为什么发生、会影响什么。</p></div></div>
+    <div class="grid3"><div class="reason"><strong>改了什么</strong><br>对象、属性和关系的具体变化。</div><div class="reason"><strong>为什么改</strong><br>提交人给出的业务原因。</div><div class="reason"><strong>有什么风险</strong><br>结构风险、影响未知项和检查结果。</div></div>
+   </section>
+  </section>
+
+  <section id="screen-review-detail" class="screen">
+   <div class="intro"><div><div class="eyebrow">REVIEW DETAIL</div><h1>审核模型变更</h1><p>生产批次与工单关系调整 · 提交人：李明</p></div><button data-screen="review">← 返回待审核</button></div>
+   <div class="steps"><div class="step active"><b>01</b>查看变化</div><div class="step active"><b>02</b>判断风险</div><div class="step active"><b>03</b>查看依据</div><div class="step"><b>04</b>作出决定</div></div>
+   <div class="grid2">
+    <section>
+     <div class="panel"><div class="panel-head"><div><h2>版本变化</h2><p>业务名称优先，技术路径仅在需要定位时展开。</p></div></div>
+      <div class="diff-head"><div><small>原版本</small><strong>0.4.0 · 当前生效</strong></div><div><small>候选内容</small><strong>待创建正式版本</strong></div></div>
+      <div class="diff"><div class="change"><label>关系：批次归属工单</label><strong><em>MANY_TO_ONE</em> → <em>ONE_TO_MANY</em></strong><p style="font-size:11px;color:#7b6a4d">关系方向和基数发生变化。</p></div><div class="add"><label>业务说明</label><strong><ins>一个工单可包含多个生产批次</ins></strong><p style="font-size:11px;color:#5c7c6e">新增业务解释。</p></div></div>
+      <details style="margin-top:14px"><summary>查看技术定位信息</summary><pre class="mono">关系类型：batch-belongs-to-work-order
+模型路径：/linkTypes/0/cardinality
+候选内容摘要：仅用于高级审计查看</pre></details>
+     </div>
+     <div class="panel"><div class="panel-head"><div><h2>变更原因</h2><p>提交人提供的业务背景。</p></div></div><div class="reason">“生产现场实际存在一个工单拆分多个批次的情况，原来的关系定义无法准确表达业务事实，因此调整关系方向和基数。”</div></div>
+    </section>
+    <aside>
+     <div class="panel"><div class="panel-head"><div><h2>风险与检查</h2><p>风险提示不等于兼容性认证。</p></div></div><div class="risk-list"><div class="risk warn"><b>潜在破坏性变化</b>关系基数发生变化，需要领域审核。</div><div class="risk info"><b>消费者影响未知</b>当前没有登记完整的下游消费者，因此不能判断全部兼容。</div><div class="risk ok"><b>完整性检查通过</b>模型结构和引用关系没有发现阻断错误。</div></div></div>
+     <div class="panel"><div class="panel-head"><div><h2>审核依据</h2><p>决定前最后核对。</p></div></div><div class="confirm-grid"><span>基线</span><strong>0.4.0</strong><span>候选</span><strong>固定变更内容</strong><span>提交人</span><strong>李明</strong><span>检查结果</span><strong>通过</strong></div></div>
+    </aside>
+   </div>
+   <div class="panel"><div class="panel-head"><div><h2>审核决定</h2><p>决定会写入治理记录。退回和拒绝必须说明原因。</p></div></div>
+    <div class="form-grid"><div class="wide"><label for="reviewComment">审核意见</label><textarea id="reviewComment" placeholder="例如：已确认生产现场一个工单可拆分多个批次，同意调整关系基数。"></textarea></div></div>
+    <div class="sticky"><span class="summary">当前变更：0.4.0 → 候选内容 · 潜在破坏性变化</span><div class="actions"><button id="approve">批准</button><button id="return">退回修改</button><button class="danger" id="reject">拒绝</button></div></div>
+   </div>
+  </section>
+
+  <section id="screen-releases" class="screen">
+   <div class="intro"><div><div class="eyebrow">RELEASES</div><h1>正式版本</h1><p>正式版本是经过审核、内容固定的模型版本。创建正式版本不会自动让任何业务范围切换。</p></div><button class="primary" id="openRelease">创建正式版本</button></div>
+   <div class="callout">这里始终区分两个状态：<b>正式版本</b>代表“已经经过治理，可以使用”；<b>当前生效版本</b>代表“哪个业务范围正在使用”。两者不是一回事。</div>
+   <section class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>版本</th><th>状态</th><th>审核与变更</th><th>生效范围</th><th>操作</th></tr></thead><tbody>
+    <tr><td><strong>0.5.0</strong><small>生产批次关系调整</small></td><td id="release050Status"><span class="status warn">待创建</span></td><td>领域审核通过<br><small>今天 18:55</small></td><td id="release050Scope"><span class="status">尚未形成正式版本</span></td><td id="release050Action"><button class="primary" id="openReleaseRow">创建正式版本</button></td></tr>
+    <tr><td><strong>0.4.0</strong><small>当前稳定版本</small></td><td><span class="status ok">已发行</span></td><td>审核通过</td><td><span class="status blue">当前生效</span></td><td><button data-screen="activation">查看范围</button></td></tr>
+    <tr><td><strong>0.3.0</strong><small>历史版本</small></td><td><span class="status">已发行</span></td><td>历史治理记录完整</td><td><span class="status">未生效</span></td><td><button data-action="rollback030">切回此版本</button></td></tr>
+   </tbody></table></div></section>
+  </section>
+
+  <section id="screen-activation" class="screen">
+   <div class="intro"><div><div class="eyebrow">ACTIVATION</div><h1>生效范围</h1><p>决定哪个业务范围从当前版本切换到哪个正式版本。切换前会再次核对当前版本，避免覆盖他人的最新操作。</p></div></div>
+   <section class="panel"><div class="panel-head"><div><h2>业务范围</h2><p>一个正式版本可以先发行，之后再选择具体范围生效。</p></div></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>范围</th><th>当前生效版本</th><th>可切换版本</th><th>状态</th><th>操作</th></tr></thead><tbody>
+     <tr><td><strong>production-core</strong><small>生产核心业务</small></td><td><strong>0.4.0</strong></td><td>0.5.0</td><td><span class="status blue">正常</span></td><td><button class="primary" id="activate">让 0.5.0 生效</button></td></tr>
+     <tr><td><strong>quality-lab</strong><small>质量分析环境</small></td><td><strong>0.3.0</strong></td><td>0.4.0</td><td><span class="status">测试范围</span></td><td><button disabled>需要单独授权</button></td></tr>
+    </tbody></table></div>
+    <div class="callout">生效是一个独立动作。<b>创建正式版本不会自动切换 production-core。</b></div><div class="callout warn"><b>安全回退</b><br>切回历史版本不会删除原正式版本，也不会撤销已经发生的业务操作；它只改变指定范围当前使用的模型版本，并留下新的治理记录。</div>
+   </section>
+   <section class="panel"><div class="panel-head"><div><h2>安全回退</h2><p>出问题时从可信历史正式版本中选择目标版本。</p></div></div><div class="list-item"><div class="change-card"><div><div class="change-title">production-core 当前为 0.4.0</div><div class="change-sub">历史可用版本：0.3.0 · 0.4.0</div></div><button data-action="rollback030">切回 0.3.0 →</button></div></div></section>
+   </section>
+  </section>
+
+  <section id="screen-history" class="screen">
+   <div class="intro"><div><div class="eyebrow">GOVERNANCE HISTORY</div><h1>治理记录</h1><p>完整记录“谁提出 → 谁审核 → 哪个版本正式发行 → 哪里生效 → 是否发生回退”，用于复盘和追踪。</p></div><span class="status">只读记录</span></div>
+   <section class="panel"><div class="tabs"><button class="tab active">全部</button><button class="tab">模型变更</button><button class="tab">审核</button><button class="tab">正式版本</button><button class="tab">生效</button><button class="tab">回退</button></div>
+    <div class="timeline">
+     <div class="event"><strong>生产批次与工单关系调整 · 已提交</strong><p>李明提交模型变更，基线 0.4.0，原因：一个工单可拆分多个批次。</p><time>今天 18:42 · 模型变更</time></div>
+     <div class="event"><strong>生产批次与工单关系调整 · 审核通过</strong><p>王强确认业务关系变化，允许创建正式版本。</p><time>今天 18:55 · 审核</time></div>
+     <div class="event"><strong>模型变更等待正式发行</strong><p>生产批次与工单关系调整已经审核通过，等待创建 0.5.0 正式版本。</p><time>今天 18:55 · 待处理</time></div>
+     <div class="event"><strong>0.4.0 · 生效</strong><p>production-core 当前使用版本。</p><time>昨天 16:20 · 生效</time></div>
+     <div class="event"><strong>0.3.0 · 历史版本</strong><p>版本仍保留，不因新版本发行而删除。</p><time>更早 · 正式版本</time></div>
+    </div>
+    <div class="callout">切回历史版本不会删除被切回的版本，也不会撤销已经发生的 MES / ERP 业务操作。它只改变模型当前生效版本，并留下新的治理记录。</div>
+   </section>
+  </section>
+ </div>
+ <footer>UX-HIGH 交互候选：本页面是浏览器内存 Mock，不调用真实 API / PostgreSQL，不执行真实审核、正式发行或生效。页面中的版本、人员、时间和摘要均为演示数据；刷新即恢复初始状态。</footer>
+</main>
+</div>
+
+<div id="drawer" class="drawer-backdrop" aria-hidden="true"><div class="drawer">
+ <div class="drawer-head"><div><h2>准备模型变更</h2><p>先选择基线和已经检查通过的候选内容，再说明为什么要修改。</p></div><button id="closeChange">×</button></div>
+ <div class="form-grid"><div><label>基线版本</label><select><option>0.4.0 · 当前生效</option></select></div><div><label>候选内容</label><select><option>最近一次检查通过的模型内容</option></select></div><div class="wide"><label>这次改了什么</label><div class="reason"><strong>生产批次与工单关系调整</strong><br>关系方向：MANY_TO_ONE → ONE_TO_MANY · 新增业务解释</div></div><div class="wide"><label for="changeReason">为什么要修改（必填）</label><textarea id="changeReason" placeholder="说明业务背景、使用场景或发现的问题"></textarea></div></div>
+ <div class="callout warn"><b>提交前请确认</b><br>提交以后，这份变更内容会固定。之后继续编辑模型不会改变正在审核的内容。</div>
+ <div class="actions"><button id="cancelChange">取消</button><button class="primary" id="submitChange">提交审核</button></div>
+</div></div>
+
+<div id="releaseModal" class="modal-backdrop" aria-hidden="true"><div class="modal">
+ <h2>创建正式版本 0.5.0</h2><p>请在发行前最后核对。创建正式版本只会让版本进入“已发行”状态，不会自动让任何业务范围使用它。</p>
+ <div class="confirm"><div class="confirm-grid"><span>模型包</span><strong>manufacturing.production</strong><span>版本</span><strong>0.5.0</strong><span>变更</span><strong>生产批次与工单关系调整</strong><span>审核</span><strong>领域审核已通过 · 王强</strong><span>当前生效</span><strong>0.4.0 · production-core</strong></div></div>
+ <div class="callout ok">发行后：0.5.0 = 正式版本；0.4.0 仍然是 production-core 当前生效版本。</div>
+ <div class="modal-actions"><button id="cancelRelease">取消</button><button class="primary" id="confirmRelease">确认创建正式版本</button></div>
+</div></div>
+
+<div id="activationModal" class="modal-backdrop" aria-hidden="true"><div class="modal">
+ <h2 id="activationTitle">让 0.5.0 生效</h2><p>你正在修改 <b>production-core</b> 的当前模型版本。系统会在服务端再次核对它现在是否仍为 0.4.0。</p>
+ <div class="confirm"><div class="confirm-grid"><span>业务范围</span><strong>production-core · 生产核心业务</strong><span>当前版本</span><strong>0.4.0</strong><span>目标版本</span><strong id="targetVersion">0.5.0</strong></div></div>
+ <div class="form-grid"><div class="wide"><label for="activationReason">生效原因（必填）</label><textarea id="activationReason" placeholder="例如：生产业务口径已完成领域确认"></textarea><div id="activationError" class="callout error hidden">请填写生效原因后再继续。</div></div></div>
+ <div class="callout warn"><b>安全提示</b><br>如果别人已经先切换了版本，本次操作会被拒绝，不会覆盖最新生效状态。</div>
+ <div class="modal-actions"><button id="cancelActivation">取消</button><button class="primary" id="confirmActivation">确认生效</button></div>
+</div></div>
+
+<div id="recoveryModal" class="modal-backdrop" aria-hidden="true"><div class="modal">
+ <h2>操作结果暂时无法确认</h2><p>刚才的生效请求已经发出，但浏览器没有收到最终回执。<b>不要重复点击，也不要创建新的操作。</b></p>
+ <div class="callout warn"><b>下一步</b><br>使用原请求查询当前真实生效版本。如果已经是 0.5.0，说明刚才的操作已经完成；如果仍是 0.4.0，再决定是否使用同一请求恢复。</div>
+ <div class="modal-actions"><button id="checkCurrent">核对当前生效版本</button><button class="primary" id="closeRecovery">我知道了</button></div>
+</div></div>
+
+<div id="decisionModal" class="modal-backdrop" aria-hidden="true"><div class="modal">
+ <h2 id="decisionTitle">审核决定</h2><p id="decisionText"></p><div class="callout" id="decisionResult"></div><div class="modal-actions"><button id="closeDecision">返回</button></div>
+</div></div>
+
+<script>
+"use strict";
+const screens=[...document.querySelectorAll(".screen")];
+let current="overview";
+function show(name){current=name;screens.forEach(x=>{const hidden=x.id!=="screen-"+name;x.classList.toggle("screen",true);x.classList.toggle("hidden",hidden);x.setAttribute("aria-hidden",String(hidden));});document.querySelectorAll("[data-screen]").forEach(b=>b.classList.toggle("active",b.dataset.screen===name));window.scrollTo({top:0,behavior:"instant"});}
+function openBox(id){const e=document.getElementById(id);e.classList.add("open");e.setAttribute("aria-hidden","false")}
+function closeBox(id){const e=document.getElementById(id);e.classList.remove("open");e.setAttribute("aria-hidden","true")}
+document.querySelectorAll("[data-screen]").forEach(b=>b.addEventListener("click",()=>show(b.dataset.screen)));
+document.getElementById("openChange").onclick=()=>openBox("drawer");
+document.getElementById("closeChange").onclick=()=>closeBox("drawer");
+document.getElementById("cancelChange").onclick=()=>closeBox("drawer");
+document.getElementById("submitChange").onclick=()=>{
+ const reason=document.getElementById("changeReason").value.trim();
+ if(!reason){document.getElementById("changeReason").focus();return}
+ closeBox("drawer");show("changes");
+ const n=document.createElement("div");n.className="callout ok";n.textContent="已创建模型变更申请。提交内容已经固定，等待审核。";document.querySelector("#screen-changes .panel").prepend(n);
+};
+document.getElementById("openReview").onclick=()=>show("review-detail");
+document.getElementById("openRelease").onclick=()=>openBox("releaseModal");
+document.getElementById("openReleaseRow").onclick=()=>openBox("releaseModal");
+document.getElementById("cancelRelease").onclick=()=>closeBox("releaseModal");
+document.getElementById("confirmRelease").onclick=()=>{
+ closeBox("releaseModal");show("releases");
+ document.getElementById("release050Status").innerHTML='<span class="status ok">已发行</span>';
+ document.getElementById("release050Scope").innerHTML='<span class="status warn">尚未生效</span>';
+ document.getElementById("release050Action").innerHTML='<button data-action="activate050">选择生效范围</button>';
+ document.querySelector("#release050Action button").onclick=()=>{show("activation");openBox("activationModal")};
+ const n=document.createElement("div");n.className="callout ok";n.textContent="正式版本 0.5.0 已创建。它现在可以被业务范围选择，但不会自动生效。";document.querySelector("#screen-releases .panel").prepend(n);
+};
+document.getElementById("activate").onclick=()=>openBox("activationModal");
+document.querySelectorAll("[data-action=activate050]").forEach(b=>b.onclick=()=>{show("activation");openBox("activationModal")});
+document.getElementById("cancelActivation").onclick=()=>closeBox("activationModal");
+document.getElementById("confirmActivation").onclick=()=>{
+ const reason=document.getElementById("activationReason").value.trim();
+ const e=document.getElementById("activationError");
+ if(!reason){e.classList.remove("hidden");document.getElementById("activationReason").focus();return}
+ e.classList.add("hidden");closeBox("activationModal");openBox("recoveryModal");
+};
+document.getElementById("closeRecovery").onclick=()=>closeBox("recoveryModal");
+document.getElementById("checkCurrent").onclick=()=>{
+ closeBox("recoveryModal");show("activation");
+ const n=document.createElement("div");n.className="callout ok";n.textContent="已核对当前生效版本：production-core 仍为 0.4.0。本次请求结果未确认，未重复创建操作。";document.querySelector("#screen-activation .panel").prepend(n);
+};
+function decision(kind){
+ const map={approve:["批准这项模型变更","批准后，这项固定变更可以进入正式版本创建阶段。","审核结论：批准。原审核依据与意见会保留在治理记录中。","ok"],return:["退回修改","退回后，提交人可以根据意见修改并重新提交；本次审核依据保留。","审核结论：退回修改。请补充明确的业务依据后重新提交。","warn"],reject:["拒绝这项模型变更","拒绝后，该审核轮次结束；如需再次提出，需要创建新的模型变更申请。","审核结论：拒绝。当前变更不会进入正式版本。","error"]};
+ const [title,text,result,cls]=map[kind];document.getElementById("decisionTitle").textContent=title;document.getElementById("decisionText").textContent=text;const r=document.getElementById("decisionResult");r.className="callout "+cls;r.textContent=result;openBox("decisionModal");
+}
+document.getElementById("approve").onclick=()=>decision("approve");
+document.getElementById("return").onclick=()=>decision("return");
+document.getElementById("reject").onclick=()=>decision("reject");
+document.getElementById("closeDecision").onclick=()=>closeBox("decisionModal");
+document.querySelectorAll("[data-action=rollback030]").forEach(b=>b.onclick=()=>{
+ show("activation");openBox("activationModal");document.getElementById("activationTitle").textContent="切回历史版本 0.3.0";document.getElementById("targetVersion").textContent="0.3.0";
+});
+document.querySelectorAll("[data-action=continueDraft]").forEach(b=>b.onclick=()=>{show("changes");const n=document.createElement("div");n.className="callout";n.textContent="已打开模型草稿。正式提交前仍需保存并通过完整性检查。";document.querySelector("#screen-changes .panel").prepend(n)});
+show("overview");
+</script>
+</body>
+</html>

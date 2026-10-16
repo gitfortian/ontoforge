@@ -2,6 +2,6 @@
 /* Navigation remains the existing OntoForge shell; only Native modeling became actionable. */
 .sidebar .nav-link{width:100%;font:inherit;font-size:13px;cursor:pointer;border:0;text-align:left;line-height:1.4;justify-content:flex-start;background:transparent}
 .sidebar .nav-link.nav-active{background:#e9f1fc;color:#1f5aa3;font-weight:650}
-.sidebar .nav-link.nav-disabled{color:#6a7f97}
+.sidebar .nav-link.nav-inactive{display:flex;align-items:center;gap:12px;padding:13px;border-radius:8px;color:#6a7f97}
 .sidebar .nav-link:hover{background:#eff5fd}
 .sidebar .nav-link:focus-visible{outline:2px solid #79a7d5;outline-offset:2px}
