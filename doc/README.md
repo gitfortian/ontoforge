@@ -8,6 +8,7 @@
 >
 > 设计方向：Enterprise-native Operational Ontology，连接 Object/Link、Data Binding、ObjectSet、Rule/Function、Decision、Policy、Action 与可追溯证据。**推理结论不等于行动授权**。
 
+- [**MVP 全局功能总账与实现成熟度**](./implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)
 - [S0-MVP-0.3 本轮交付说明与下一步进度](./implementation/S0-MVP-0.3-交付说明-20261016.md)
 - [每轮交付说明模板](./implementation/交付说明模板.md)
 
