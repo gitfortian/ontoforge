@@ -5,7 +5,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 HTML = ROOT / "doc" / "prototypes" / "ofip-0005-governance-lowfi.html"
 
 
