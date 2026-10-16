@@ -378,11 +378,11 @@ class NativeSnapshotTest {
         link.put("id","uses-material");
         ((ArrayNode)withLink.path("linkTypes")).add(link);
         assertThat(call(HttpMethod.PUT,"/drafts/"+p.draft,body(2,withLink),422)
-            .path("code").asText()).isEqualTo("UNSUPPORTED_EDITOR_DOCUMENT");
+            .path("code").asText()).isEqualTo("EDITOR_DOCUMENT_INVALID");
         ObjectNode withAction=p.doc.deepCopy();
         withAction.putArray("actions");
         assertThat(call(HttpMethod.PUT,"/drafts/"+p.draft,body(2,withAction),422)
-            .path("code").asText()).isEqualTo("UNSUPPORTED_EDITOR_DOCUMENT");
+            .path("code").asText()).isEqualTo("EDITOR_DOCUMENT_INVALID");
         assertThat(call(HttpMethod.GET,"/drafts/"+p.draft,null,200)
             .path("revision").asLong()).isEqualTo(2);
         assertThat(jdbc.queryForObject(
