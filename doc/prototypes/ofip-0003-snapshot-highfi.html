@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OntoForge · 砺元｜OFIP-0003 Snapshot 高保真评审</title>
+<style>
+
+:root{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;background:#f6f8fb;color:#263246;font-size:13px}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#f6f8fb;color:#263246}
+button,input,select,textarea{font:inherit}button{cursor:pointer;border:1px solid #dbe4ef;background:#fff;color:#4e647d;border-radius:8px;min-height:38px;padding:9px 13px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:8px;justify-content:center}
+button:hover:not(:disabled){background:#f1f7fd;border-color:#b9d4ed}button:disabled{opacity:.5;cursor:not-allowed}
+button.primary{background:#215f9f;color:#fff;border-color:#215f9f}button.primary:hover:not(:disabled){background:#194d80;color:#fff}
+button.link{border:0;background:transparent;color:#2464a4;padding:4px 0;min-height:28px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #327ac0;outline-offset:2px}
+label{display:block;color:#536981;font-size:12px;font-weight:650;margin:0 0 8px}
+input:not([type=checkbox]),select,textarea{width:100%;min-width:0;min-height:39px;padding:10px 11px;border:1px solid #d9e3ee;border-radius:7px;background:white;color:#334d6b}
+input[type=checkbox]{accent-color:#215f9f}
+.shell{display:flex;min-height:100vh}.nav{width:270px;flex:none;background:#fff;border-right:1px solid #e8edf4;padding:27px 18px;display:flex;flex-direction:column;gap:8px}
+.brand{font-size:15px;font-weight:750;line-height:1.4;padding:8px 12px 28px;color:#263246;border-bottom:1px solid #eff3f7}
+.brand:before{content:"◇";display:grid;place-items:center;background:#173657;color:#fff;font-size:22px;width:40px;height:40px;border-radius:11px;margin-bottom:12px}
+.brand .sub{font-size:11px;color:#536981;font-weight:400;margin:6px 0}
+.navbtn{margin-top:16px;justify-content:start;border:0;padding:12px;text-align:left;background:#eaf3fe;color:#205e9e}
+.navbtn:before{content:"▣";font-size:16px}
+.nav:after{content:"LOCAL DEVELOPMENT\A无身份 · 无发布 · 无激活";white-space:pre-wrap;font-size:11px;line-height:1.8;color:#536981;border-top:1px solid #e8edf4;margin-top:auto;padding:20px 12px 0}
+.main{flex:1;min-width:0;padding:25px clamp(15px,3vw,44px) 65px}
+.main>.meta{color:#386b9d;font-size:11px;letter-spacing:.08em;padding:0 0 19px;border-bottom:1px solid #e5edf5}
+#view,#flash,footer{max-width:1220px;margin-left:auto;margin-right:auto}
+.heading{display:flex;justify-content:space-between;align-items:start;gap:16px;margin:27px 0 23px}
+h1{font-size:26px;line-height:1.25;margin:8px 0 12px;letter-spacing:-.4px}h2{font-size:16px;color:#2c425b;margin:0 0 8px}h3{font-size:13px;color:#36516c;margin:0 0 10px}
+p{font-size:12px;color:#536981;line-height:1.75;margin:6px 0 12px}
+.mark{display:inline-flex;padding:5px 9px;background:#eef3f8;color:#536f8c;border:1px solid #dce6f2;border-radius:5px;font-size:11px;font-weight:700}
+.panel{background:#fff;border:1px solid #e5ebf3;border-radius:11px;padding:23px 25px;margin:16px 0;box-shadow:0 5px 22px #17325308;min-width:0}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}
+.stack{display:grid;grid-template-columns:minmax(0,1fr) 325px;gap:18px;align-items:start}.stack>div{min-width:0}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.wide{grid-column:1/-1}
+.gray{padding:13px;background:#f7fafd;border:1px solid #e0e9f3;border-radius:8px}
+.notice{margin:14px 0;padding:12px 14px;color:#375f86;background:#f1f7fd;border:1px solid #cbdff0;border-radius:8px;font-size:12px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+.notice.error{background:#fff6f7;border-color:#efced4;color:#9f4256}.notice.ok{background:#f1f9f5;border-color:#cbe4d6;color:#287055}
+.small{font-size:11px;color:#536981}.muted{color:#536981}.indent{margin-top:14px}.line{border-top:1px solid #e8eef6;padding-top:16px;margin-top:19px}
+.key{font:11px ui-monospace,Consolas,monospace;color:#435e7d;overflow-wrap:anywhere}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px 12px;border-bottom:1px solid #e8edf3;font-size:12px;vertical-align:top}th{color:#526981;background:#f6f9fc;white-space:nowrap}td button{white-space:nowrap}
+.empty{text-align:center;padding:44px 24px;border:1px dashed #c9d7e7;border-radius:9px;background:#fbfdff}.empty:before{content:"▤";font-size:32px;color:#7b9cbb;display:block;margin-bottom:16px}
+.issue{display:block;width:100%;text-align:left;white-space:normal;border:1px solid #ecd0d7;background:#fff8f9;color:#9b4054;border-radius:8px;margin:8px 0;padding:12px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:350px;overflow:auto;font-size:11px;line-height:1.7;color:#405974;background:#f7f9fb;border:1px solid #e7edf3;border-radius:7px;padding:16px}
+footer{font-size:11px;color:#526981;line-height:1.7;margin-top:30px;padding-top:18px;border-top:1px solid #e7edf3}
+.compare-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:17px 0}
+.risk-flag{font-size:10px;display:inline-block;overflow-wrap:anywhere;white-space:normal;border-radius:5px;padding:4px 7px;background:#fff5e8;color:#8a6230;border:1px solid #f2ddbb;font-weight:650}
+.risk-flag.doc{background:#edf5ff;color:#416d9b;border-color:#d5e7f9}.risk-flag.policy{background:#fff0f1;color:#a94757;border-color:#f5d4d8}
+.snapshot-label{display:inline-flex;background:#f0f6fc;color:#3d658d;border:1px solid #dceaf7;border-radius:5px;padding:5px 9px;font-size:11px}
+#flash:empty{display:none}
+#freeze-dialog{max-width:490px;width:min(490px,calc(100vw - 28px));border:1px solid #d4e0ec;border-radius:13px;box-shadow:0 25px 80px #0c315848;padding:26px;color:#263246;background:#fff}
+#freeze-dialog::backdrop{background:rgba(19,39,62,.55)}#freeze-dialog h2{font-size:20px}
+#freeze-dialog .actions{display:flex;justify-content:flex-end;gap:9px;margin-top:24px}
+#freeze-dialog .snapshot-label{display:block;margin:16px 0}
+@media(max-width:1100px){.stack{grid-template-columns:1fr}.nav{width:226px}}
+@media(max-width:700px){.shell{display:block}.nav{width:100%;padding:13px 16px;display:flex;flex-direction:row;justify-content:space-between;align-items:center;min-height:0;border-bottom:1px solid #e8edf4}.brand{font-size:13px;padding:0;border:0}.brand:before,.nav:after{display:none}.brand .sub{font-size:10px}.navbtn{margin:0;padding:9px;white-space:nowrap}
+.main{padding:14px 15px 55px}.main>.meta{font-size:10px}.heading{display:block;margin:19px 0 16px}h1{font-size:22px}.panel{padding:17px 15px}
+.grid,.compare-filters{grid-template-columns:1fr}table{table-layout:fixed}th,td{font-size:11px;padding:8px 5px;overflow-wrap:anywhere}td button{white-space:normal;font-size:10px;padding:6px}th:nth-child(3),td:nth-child(3){display:none}}
+
+</style>
+</head>
+<body>
+<div class="shell"><aside class="nav"><div class="brand">OntoForge · 砺元<div class="sub">本体建模 / S0.3 评审模拟</div></div><button class="navbtn" onclick="go('packages')">模型包与快照</button></aside>
+<main class="main"><div class="meta">UX-GATE-HIGH · OFIP-0003 · MOCK ONLY · NOT RELEASED</div><div id="flash" aria-live="polite"></div><div id="view"></div>
+<footer>本原型不调用 API / PostgreSQL，不执行真实 SHA-256、审批、正式发布或激活。刷新即清空。任何模拟摘要仅作交互占位，绝非 ReleaseDigest。</footer></main></div>
+<dialog id="freeze-dialog" aria-labelledby="freeze-dialog-title"><h2 id="freeze-dialog-title">冻结为本地只读快照</h2><p>请核对以下修订。冻结操作不会发布、审批或激活本体。</p><div id="freeze-detail" class="snapshot-label"></div><p>当前仅模拟交互，实际生产实现必须锁定 PostgreSQL 修订并重新验证 Native Candidate。</p><div class="actions"><button id="cancel-freeze" onclick="document.getElementById('freeze-dialog').close()">取消，继续编辑</button><button id="confirm-freeze" class="primary" onclick="confirmFreeze()">确认冻结当前修订</button></div></dialog>
+<script>
+"use strict";
+const state={
+ view:"packages",packageId:null,draft:null,local:null,dirty:false,validation:null,
+ snapshots:[],opened:null,serverRev:null,serverDoc:null,unsupported:false,
+ loseNext:false,pendingKey:null,notice:null,noticeKind:"",conflict:false,
+ lastKey:null,keySerial:0,
+};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+const clone=x=>JSON.parse(JSON.stringify(x));
+const num=n=>String(n).padStart(4,"0");
+function alertMsg(msg,kind=""){state.notice=msg;state.noticeKind=kind;flash()}
+function flash(){const el=$("flash");if(el)el.innerHTML=state.notice?'<div role="alert" class="notice '+esc(state.noticeKind)+'">'+esc(state.notice)+'</div>':""}
+function newDoc(){return {id:"",apiName:"",description:"",primaryKeyRef:"",property:{id:"",apiName:"",valueType:"STRING",required:false,searchable:true,classification:"INTERNAL"}}}
+function create(){
+ state.packageId="manufacturing.production";state.draft={revision:1,doc:newDoc()};state.local=clone(state.draft.doc);
+ state.dirty=false;state.validation=null;state.snapshots=[];state.unsupported=false;state.view="editor";
+ state.notice=null;state.serverRev=null;state.serverDoc=null;state.conflict=false;render()
+}
+function commitFields(){if(state.view!=="editor")return;const l=state.local;
+ for(const [id,path] of [["obj-id","id"],["obj-api","apiName"],["obj-desc","description"],["obj-pk","primaryKeyRef"]]){const el=$(id);if(el)l[path]=el.value}
+ for(const [id,path] of [["prop-id","id"],["prop-api","apiName"],["prop-type","valueType"],["prop-class","classification"]]){const el=$(id);if(el)l.property[path]=el.value}
+ if($("prop-required"))l.property.required=$("prop-required").checked;
+ if($("prop-searchable"))l.property.searchable=$("prop-searchable").checked;
+}
+function change(){commitFields();state.dirty=true;state.validation=null;const v=$("save");if(v)v.disabled=false;const freeze=$("freeze");if(freeze)freeze.disabled=true;const validate=$("validate");if(validate)validate.disabled=true;const badge=$("current-status");if(badge)badge.textContent="本地编辑尚未保存";const issues=$("issues");if(issues)issues.textContent="已编辑本地字段。请先保存 revision，再重新校验。"}
+function check(){const l=state.draft.doc,issues=[];
+ if(!l.id)issues.push({path:"/objectTypes/0/id",message:"请填写 ObjectType ID",target:"obj-id"});
+ if(!l.apiName)issues.push({path:"/objectTypes/0/apiName",message:"请填写 ObjectType API 名称",target:"obj-api"});
+ if(!l.property.id)issues.push({path:"/objectTypes/0/properties/0/id",message:"请填写 Property ID",target:"prop-id"});
+ if(!l.property.apiName)issues.push({path:"/objectTypes/0/properties/0/apiName",message:"请填写 Property API 名称",target:"prop-api"});
+ if(!l.primaryKeyRef||l.primaryKeyRef!==l.property.id)issues.push({path:"/objectTypes/0/primaryKeyRef",message:"主键须引用当前属性",target:"obj-pk"});
+ if(!l.property.required||!["STRING","INTEGER"].includes(l.property.valueType))issues.push({path:"/objectTypes/0/primaryKeyRef",message:"主键属性必须必填且为 STRING/INTEGER",target:"obj-pk"});
+ return issues
+}
+function save(){
+ commitFields();if(!state.dirty){alertMsg("没有需要保存的更改");return}
+ if(state.serverRev!==null&&state.serverRev!==state.draft.revision){state.conflict=true;alertMsg("409 DRAFT_REVISION_CONFLICT：服务器修订已改变，保留本地输入。","error");render();return}
+ state.draft={revision:state.draft.revision+1,doc:clone(state.local)};state.dirty=false;state.validation=null;
+ state.conflict=false;state.notice=null;alertMsg("模拟保存完成：revision "+state.draft.revision+"；旧校验已失效（NOT_RUN）。","ok");render()
+}
+function validateDraft(){
+ if(state.dirty){alertMsg("先保存再校验","error");return}
+ const issues=check();state.validation={status:issues.length?"INCOMPLETE":"VALID",revision:state.draft.revision,issues};
+ alertMsg(issues.length?"模拟校验：INCOMPLETE，需修复 "+issues.length+" 个问题。":"模拟校验：VALID，仍是未审核、未发布的草稿。",issues.length?"error":"ok");render()
+}
+function sample(){
+ state.local={id:"production-batch",apiName:"ProductionBatch",description:"生产批次",primaryKeyRef:"batch-id",
+ property:{id:"batch-id",apiName:"batchId",valueType:"STRING",required:true,searchable:true,classification:"INTERNAL"}};
+ state.dirty=true;state.validation=null;state.notice=null;render()
+}
+function decideGo(dest){if(state.view==="editor")commitFields();if(state.dirty&&!confirm("有未保存的编辑。离开会放弃本地修改，是否继续？"))return false;state.dirty=false;state.local=state.draft?clone(state.draft.doc):null;state.notice=null;state.view=dest;render();return true}
+function go(dest){if(!state.draft&&dest!=="packages")return;decideGo(dest)}
+function requestFreeze(){
+ if(!state.draft||state.dirty||state.validation?.status!=="VALID"||state.validation.revision!==state.draft.revision){alertMsg("请先保存并校验当前 revision","error");return}
+ $("freeze-detail").textContent="模型包 "+state.packageId+" · 草稿 revision "+state.draft.revision+" · 校验 VALID · 快照非 Release";
+ $("freeze-dialog").showModal();
+}
+function confirmFreeze(){$("freeze-dialog").close();commitFreeze()}
+function commitFreeze(){
+ if(!state.draft||state.dirty||state.validation?.status!=="VALID"||state.validation.revision!==state.draft.revision){alertMsg("请先保存并校验当前 revision","error");return}
+ if(state.serverRev!==null&&state.serverRev!==state.draft.revision){state.conflict=true;alertMsg("409 DRAFT_REVISION_CONFLICT：冻结时服务器修订已变化，没有产生快照。","error");render();return}
+ if(state.unsupported){alertMsg("422 UNSUPPORTED_DEFINITION：包含未支持的关系/其他资产，本阶段拒绝冻结，不截断数据。","error");return}
+ const old=state.snapshots.find(s=>s.rev===state.draft.revision);
+ if(old){alertMsg("409 SNAPSHOT_REVISION_ALREADY_FROZEN：该修订已冻结。请查看现有快照。","error");return}
+ const key="demo-key-"+num(++state.keySerial);
+ const snap={id:"demo-snap-"+num(state.snapshots.length+1),rev:state.draft.revision,doc:clone(state.draft.doc),
+ digestLabel:"MOCK-FINGERPRINT-NOT-SHA256-"+num(state.snapshots.length+1),key};
+ state.snapshots.push(snap);state.lastKey=key;
+ if(state.loseNext){state.pendingKey=key;state.loseNext=false;alertMsg("RESULT_UNKNOWN：已模拟服务端插入，但客户端没有收到回执。按原幂等键核对；不要使用新键重试。","error")}
+ else{alertMsg("已模拟冻结 "+snap.id+"；只读历史已创建。未审核、未发布、未激活。","ok")}
+ render()
+}
+function resolveUnknown(){
+ if(!state.pendingKey)return;const found=state.snapshots.find(x=>x.key===state.pendingKey);
+ if(!found){alertMsg("按幂等键未找到结果，请使用同一键重试，不能生成新键。","error");return}
+ state.pendingKey=null;alertMsg("按幂等键找回："+found.id+"；快照数量仍为 "+state.snapshots.length+"。","ok");render()
+}
+function retryKey(){
+ const found=state.snapshots.find(x=>x.key===state.lastKey);
+ if(!found)return;
+ alertMsg("模拟 HTTP 200 同键重放：返回 "+found.id+"；快照数量不变（"+state.snapshots.length+"）。","ok")
+}
+function simulateConcurrent(){
+ commitFields();state.serverRev=state.draft.revision+1;state.serverDoc=clone(state.draft.doc);state.serverDoc.description="另一标签页已保存的内容";
+ state.conflict=false;alertMsg("模拟另一标签页保存：服务器 revision "+state.serverRev+"；当前本地 revision "+state.draft.revision+"。请尝试冻结观察 409。");
+ render()
+}
+function inspectServer(){state.conflict=true;alertMsg("服务器修订已核对；本地内容不会自动被覆盖。");render()}
+function loadServer(){
+ if(!state.conflict||state.serverRev===null)return;
+ if(!confirm("确定放弃本地编辑并加载服务器最新版？"))return;
+ state.draft={revision:state.serverRev,doc:clone(state.serverDoc)};state.local=clone(state.serverDoc);state.validation=null;state.dirty=false;
+ state.serverRev=null;state.serverDoc=null;state.conflict=false;alertMsg("已按确认加载服务器版；revision 已更新，请重新校验。","ok");render()
+}
+function openSnapshot(id){state.opened=id;go("detail")}
+function compare(){
+ if(state.snapshots.length<2)return;
+ state.compareFrom=$("compare-from")?.value||state.snapshots.at(-2).id;
+ state.compareTo=$("compare-to")?.value||state.snapshots.at(-1).id;
+ if(state.compareFrom===state.compareTo){alertMsg("请选择不同的两份快照进行比较","error");return}
+ state.view="diff";state.notice=null;render()
+}
+function diffRows(a,b){const rows=[];for(const [path,oldVal,newVal,risk] of [
+ ["ObjectType.description",a.doc.description,b.doc.description,"DOC_ONLY"],
+ ["Property.searchable",a.doc.property.searchable,b.doc.property.searchable,a.doc.property.searchable&&!b.doc.property.searchable?"POTENTIALLY_BREAKING":"ADDITIVE"],
+ ["Property.classification",a.doc.property.classification,b.doc.property.classification,"POLICY_REVIEW_REQUIRED"],
+ ["Property.required",a.doc.property.required,b.doc.property.required,"POTENTIALLY_BREAKING"],
+ ["Property.valueType",a.doc.property.valueType,b.doc.property.valueType,"POTENTIALLY_BREAKING"],
+ ["ObjectType.primaryKeyRef",a.doc.primaryKeyRef,b.doc.primaryKeyRef,"POTENTIALLY_BREAKING"]]){
+ if(oldVal!==newVal)rows.push({path,oldVal,newVal,risk})
+ }return rows}
+function drawPackages(){return '<div class="heading"><div><h1>模型包与快照</h1><p>从真实使用任务出发，先建立草稿，再冻结本地只读基线。</p></div></div>'+
+ (!state.draft?'<section class="panel empty"><h2>还没有模型包草稿</h2><p>演示从空状态创建 manufacturing.production；所有数据仅在本浏览器内存中。</p><button class="primary" onclick="create()">创建示例模型包（模拟）</button></section>':
+ '<section class="panel"><h2>'+esc(state.packageId)+'</h2><p>当前草稿 revision '+state.draft.revision+' · '+(state.validation?.status||"NOT_RUN")+' · 未审核/未发布</p><div class="row"><button class="primary" onclick="go(\'editor\')">继续编辑当前草稿</button><button onclick="go(\'history\')">查看历史快照（'+state.snapshots.length+'）</button></div></section>')}
+function drawEditor(){const d=state.local,valid=state.validation?.status==="VALID"&&state.validation.revision===state.draft.revision;
+ const disabled=state.dirty||!valid||state.snapshots.some(s=>s.rev===state.draft.revision)||!!state.pendingKey;
+ const issues=state.validation?.issues??[];
+ const fields=[
+ ['obj-id',"ObjectType ID",d.id],['obj-api',"API 名称",d.apiName],['obj-desc',"业务描述",d.description],
+ ['prop-id',"Property ID",d.property.id],['prop-api',"Property API 名称",d.property.apiName]
+ ];
+ const field=(id,label,value)=>'<div><label for="'+id+'">'+label+'</label><input id="'+id+'" value="'+esc(value)+'" oninput="change()"></div>';
+ return '<div class="heading"><div><button class="link" onclick="go(\'packages\')">← 模型包</button><h1>'+esc(state.packageId)+' / 当前草稿</h1><p>revision '+state.draft.revision+' · Snapshot 非正式 Release。草稿与历史快照是不同资源。</p></div><span class="mark">DRAFT</span></div>'+
+ '<div class="stack"><div><section class="panel"><div class="row between"><h2>对象类型与属性</h2><button onclick="sample()">使用生产批次示例填充</button></div><div class="grid">'+
+ fields.slice(0,3).map(x=>field(...x)).join("")+'<div><label for="obj-pk">主键属性</label><select id="obj-pk" onchange="change()"><option value="">未选择</option><option value="batch-id" '+(d.primaryKeyRef==="batch-id"?"selected":"")+'>batch-id</option></select></div>'+
+ fields.slice(3).map(x=>field(...x)).join("")+
+ '<div><label for="prop-type">属性类型</label><select id="prop-type" onchange="change()">'+["STRING","INTEGER","DECIMAL"].map(x=>'<option '+(d.property.valueType===x?"selected":"")+'>'+x+'</option>').join("")+'</select></div>'+
+ '<div><label for="prop-class">分类</label><select id="prop-class" onchange="change()">'+["PUBLIC","INTERNAL","CONFIDENTIAL","RESTRICTED"].map(x=>'<option '+(d.property.classification===x?"selected":"")+'>'+x+'</option>').join("")+'</select></div>'+
+ '<div><label><input id="prop-required" type="checkbox" '+(d.property.required?"checked":"")+' onchange="change()"> 必填</label></div>'+
+ '<div><label><input id="prop-searchable" type="checkbox" '+(d.property.searchable?"checked":"")+' onchange="change()"> 可搜索</label></div></div>'+
+ '<div class="row line"><button class="primary" id="save" onclick="save()" '+(state.dirty?"":"disabled")+'>保存编辑进度</button><button id="validate" onclick="validateDraft()" '+(state.dirty?"disabled":"")+'>检查模型完整性</button><button onclick="go(\'history\')">历史快照</button></div></section></div>'+
+ '<div><section class="panel"><h2>修订与校验</h2><p id="current-status">当前 revision '+state.draft.revision+' · '+(state.dirty?"本地编辑尚未保存":state.validation?.status||"NOT_RUN")+'</p>'+
+ '<div id="issues">'+(state.dirty?"本地尚未保存，旧校验不适用于当前输入。":issues.length?issues.map(i=>'<button class="issue" onclick="focusIssue(\''+i.target+'\')">'+esc(i.message)+'<br><span class="key">'+esc(i.path)+'</span></button>').join(""):"无当前校验问题；NOT_RUN 不等于 VALID。")+'</div>'+
+ '<div class="line"><h3>冻结本地快照</h3><p>仅允许服务器同 revision VALID 的完整模型。快照只读、未审核、未发布。</p>'+
+ '<button id="freeze" class="primary" '+(disabled?"disabled":"")+' onclick="requestFreeze()">冻结当前修订为快照（模拟）</button>'+
+ '<p class="small">只读历史 '+state.snapshots.length+' 份；算法摘要在原型中仅用占位符表示。</p></div></section>'+
+ '<section class="panel"><h3>异常与恢复测试</h3><div><label><input type="checkbox" id="lost-reply" '+(state.loseNext?"checked":"")+' onchange="state.loseNext=this.checked"> 下一次冻结模拟回执丢失</label></div>'+
+ '<div><label><input type="checkbox" id="unsupported" '+(state.unsupported?"checked":"")+' onchange="state.unsupported=this.checked"> 模拟包含未支持的 Link/Binding</label></div>'+
+ '<div class="row indent"><button onclick="simulateConcurrent()">模拟另一标签页保存</button><button onclick="inspectServer()">核对服务器 revision</button></div>'+
+ (state.pendingKey?'<div class="notice error" id="unknown">RESULT_UNKNOWN · 保留幂等键 '+esc(state.pendingKey)+'</div><button id="reconcile" onclick="resolveUnknown()">按幂等键核对冻结结果</button>':'')+
+ (state.conflict?'<div class="gray" id="compare-revision"><b>本地 revision '+state.draft.revision+'</b><p>'+esc(state.local.description)+'</p><b>服务器 revision '+state.serverRev+'</b><p>'+esc(state.serverDoc?.description)+'</p><button onclick="loadServer()">确认放弃本地并载入服务器版</button></div>':'')+
+ '</section></div></div>'
+}
+function focusIssue(id){const el=$(id);if(el){el.focus();el.scrollIntoView({block:"center",behavior:"smooth"})}}
+function drawHistory(){const ss=state.snapshots.slice().reverse();
+ const sel=(id,label,chosen)=>'<div><label for="'+id+'">'+label+'</label><select id="'+id+'">'+ss.map(x=>'<option value="'+esc(x.id)+'" '+(x.id===chosen?'selected':'')+'>'+esc(x.id)+' · revision '+x.rev+'</option>').join('')+'</select></div>';
+return '<div class="heading"><div><button class="link" onclick="go(\'editor\')">← 返回当前草稿</button><h1>历史模型快照</h1><p>只读、本地、未审核/未发布。不同修订的内容相同也可有同一摘要，不强制合并。</p></div></div>'+
+ '<section class="panel"><div class="row between"><h2>已冻结快照（'+ss.length+'）</h2><span class="snapshot-label">LOCAL_SNAPSHOT_ONLY · 未发布</span></div>'+
+ (ss.length>=2?'<div class="compare-filters">'+sel('compare-from','基线快照（From）',ss[1].id)+sel('compare-to','目标快照（To）',ss[0].id)+'</div><div class="row indent"><button id="compare-latest" class="primary" onclick="compare()">比较两份快照的结构风险 →</button></div>':'<button id="compare-latest" disabled>至少两份历史才能比较</button>')+
+ (ss.length?'<table><thead><tr><th>快照 ID</th><th>来源修订</th><th>内容指纹（模拟，非 SHA-256）</th><th>操作</th></tr></thead><tbody>'+ss.map(x=>'<tr><td class="key">'+esc(x.id)+'</td><td>revision '+x.rev+'</td><td class="key">'+esc(x.digestLabel)+'</td><td><button onclick="openSnapshot(\''+x.id+'\')">查看只读内容</button></td></tr>').join("")+'</tbody></table>':'<div class="empty">尚无历史快照；请返回草稿完成保存、校验、冻结。</div>')+
+ '</section>'+(state.lastKey?'<section class="panel"><h3>幂等行为演示</h3><button id="retry-key" onclick="retryKey()">模拟同一幂等键重试</button><p>应返回同一快照，不增加记录。</p></section>':'')
+}
+function drawDetail(){const snap=state.snapshots.find(x=>x.id===state.opened);if(!snap)return drawHistory();
+ return '<div class="heading"><div><button class="link" onclick="go(\'history\')">← 历史快照</button><h1>只读快照 '+esc(snap.id)+'</h1><p>本地模型快照 · 未审核 · 未发布 · 未激活</p></div><span class="mark">READ ONLY</span></div>'+
+ '<section class="panel"><h2>冻结证据（模拟）</h2><div class="notice">模拟指纹，非 SHA-256。不能作为内容完整性、正式发行或审计证据。</div><p>来自 revision '+snap.rev+' · 指纹 '+esc(snap.digestLabel)+'</p><p>真正产品需 RFC 8785/JCS + SHA-256 + 原始规范化字节。此处不是可信内容摘要。</p><h3>Native Candidate 展示（内存模拟）</h3><pre id="snapshot-content">'+esc(JSON.stringify(snap.doc,null,2))+'</pre><div class="row"><button onclick="go(\'editor\')">回到当前草稿</button><button onclick="go(\'history\')">返回历史</button></div></section>'
+}
+function drawDiff(){const a=state.snapshots.find(s=>s.id===state.compareFrom)||state.snapshots.at(-2),b=state.snapshots.find(s=>s.id===state.compareTo)||state.snapshots.at(-1);if(!a||!b)return drawHistory();
+ const diffs=diffRows(a,b);
+ return '<div class="heading"><div><button class="link" onclick="go(\'history\')">← 历史快照</button><h1>结构变更对照</h1><p>'+esc(a.id)+' (revision '+a.rev+') → '+esc(b.id)+' (revision '+b.rev+')</p></div></div>'+
+ '<div class="notice">仅为本地模型结构风险提示；没有 Dependency Lock、真实消费者与授权信息，不能声称兼容性通过。</div>'+
+ '<section class="panel"><h2>变更明细 · '+diffs.length+' 项</h2>'+(diffs.length?'<table id="diff-table"><thead><tr><th>语义路径</th><th>原值</th><th>现值</th><th>结构风险</th></tr></thead><tbody>'+diffs.map(d=>'<tr><td>'+esc(d.path)+'</td><td>'+esc(d.oldVal)+'</td><td>'+esc(d.newVal)+'</td><td><span class="risk-flag '+(d.risk==='DOC_ONLY'?'doc':d.risk==='POLICY_REVIEW_REQUIRED'?'policy':'')+'">'+esc(d.risk)+'</span></td></tr>').join("")+'</tbody></table>':'<div class="empty">结构相同。内容相同不表示正式 Release 或已验证下游兼容。</div>')+
+ '<div class="row line"><button onclick="go(\'editor\')">返回当前草稿</button><button onclick="go(\'history\')">查看历史</button></div></section>'
+}
+function render(){const root=$("view");root.innerHTML=state.view==="packages"?drawPackages():state.view==="editor"?drawEditor():state.view==="history"?drawHistory():state.view==="detail"?drawDetail():drawDiff();flash()}
+render();
+</script></body></html>
