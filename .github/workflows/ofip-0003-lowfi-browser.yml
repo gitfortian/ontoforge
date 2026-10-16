@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   ofip0003-lowfi-chromium:
-    name: 32 Real Chromium Low/High-Fi UX Flows
+    name: 33 Real Chromium Low/High-Fi UX & Contrast Flows
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
