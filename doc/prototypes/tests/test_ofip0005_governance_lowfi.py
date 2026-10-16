@@ -50,7 +50,7 @@ class OFIP0005GovernanceLowFiBrowserTests(unittest.TestCase):
         self.assertNotIn("ActivationEvent", body)
 
     def test_03_submit_change_requires_explicit_content_lock_confirmation(self):
-        self.page.get_by_role("button", name="我的变更").click()
+        self.page.get_by_role("button", name="我的变更", exact=True).click()
         self.page.get_by_role("button", name="准备提交变更").click()
         self.page.get_by_role("button", name="提交审核").click()
         self.page.on("dialog", lambda dialog: dialog.dismiss())
@@ -62,14 +62,14 @@ class OFIP0005GovernanceLowFiBrowserTests(unittest.TestCase):
         self.assertIn("我的变更", self.page.locator("body").inner_text())
 
     def test_04_review_page_excludes_self_and_explains_role(self):
-        self.page.get_by_role("button", name="待我审核").click()
+        self.page.get_by_role("button", name="待我审核", exact=True).click()
         body = self.page.locator("body").inner_text()
         self.assertIn("只显示你有权限审核、且不属于你本人提交", body)
         self.assertIn("领域审核者", body)
         self.assertIn("CS-102", body)
 
     def test_05_review_detail_shows_business_diff_before_decision(self):
-        self.page.get_by_role("button", name="待我审核").click()
+        self.page.get_by_role("button", name="待我审核", exact=True).click()
         self.page.get_by_role("button", name="开始审核").click()
         body = self.page.locator("body").inner_text()
         self.assertIn("原版本 0.4.0", body)
@@ -81,7 +81,7 @@ class OFIP0005GovernanceLowFiBrowserTests(unittest.TestCase):
         self.assertIn("拒绝", body)
 
     def test_06_each_review_decision_explains_consequence(self):
-        self.page.get_by_role("button", name="待我审核").click()
+        self.page.get_by_role("button", name="待我审核", exact=True).click()
         self.page.get_by_role("button", name="开始审核").click()
         for action, expected in [
             ("批准", "实际服务端还必须校验可信身份"),
@@ -92,7 +92,7 @@ class OFIP0005GovernanceLowFiBrowserTests(unittest.TestCase):
             self.assertIn(expected, self.page.locator("#decisionHint").inner_text())
 
     def test_07_release_page_separates_published_from_active(self):
-        self.page.get_by_role("button", name="正式版本").click()
+        self.page.get_by_role("button", name="正式版本", exact=True).click()
         body = self.page.locator("body").inner_text()
         self.assertIn("正式版本", body)
         self.assertIn("已发行", body)
@@ -100,17 +100,17 @@ class OFIP0005GovernanceLowFiBrowserTests(unittest.TestCase):
         self.assertIn("当前生效", body)
 
     def test_08_release_confirmation_warns_that_release_is_not_activation(self):
-        self.page.get_by_role("button", name="正式版本").click()
+        self.page.get_by_role("button", name="正式版本", exact=True).click()
         self.page.get_by_role("button", name="创建正式版本 0.5.0").click()
         body = self.page.locator("body").inner_text()
         self.assertIn("创建正式版本", body)
-        self.assertIn("正式发行不会自动让生产范围使用它", body)
+        self.assertIn("正式发行与“让业务范围使用它”是两个不同动作", body)
 
     def test_09_activation_requires_reason_and_unknown_result_has_recovery_path(self):
-        self.page.get_by_role("button", name="生效范围").click()
+        self.page.get_by_role("button", name="生效范围", exact=True).click()
         self.page.get_by_role("button", name="将 0.5.0 生效").click()
         self.page.get_by_role("button", name="确认生效").click()
-        self.assertIn("请填写生效原因", self.page.locator("body").inner_text())
+        self.assertIn("请填写生效原因后再继续", self.page.locator("body").inner_text())
         self.page.locator("#activationReason").fill("生产业务口径已完成领域确认")
         self.page.get_by_role("button", name="确认生效").click()
         body = self.page.locator("body").inner_text()
@@ -119,14 +119,14 @@ class OFIP0005GovernanceLowFiBrowserTests(unittest.TestCase):
         self.assertIn("核对当前生效版本", body)
 
     def test_10_history_distinguishes_rollback_from_external_business_undo(self):
-        self.page.get_by_role("button", name="治理记录").click()
+        self.page.get_by_role("button", name="治理记录", exact=True).click()
         body = self.page.locator("body").inner_text()
         self.assertIn("提出变更", body)
         self.assertIn("审核通过", body)
         self.assertIn("正式发行", body)
         self.assertIn("生效", body)
         self.assertIn("回退不是删除 0.5.0", body)
-        self.assertIn("不会撤销已经发生的业务操作", body)
+        self.assertIn("切回模型版本不会撤销已经发生的业务操作", body)
 
     def test_11_mobile_width_has_no_horizontal_overflow(self):
         self.page.set_viewport_size({"width": 390, "height": 844})
@@ -136,7 +136,7 @@ class OFIP0005GovernanceLowFiBrowserTests(unittest.TestCase):
 
     def test_12_recovery_returns_to_real_current_state_screen(self):
         self.page.goto(HTML.as_uri())
-        self.page.get_by_role("button", name="生效范围").click()
+        self.page.get_by_role("button", name="生效范围", exact=True).click()
         self.page.get_by_role("button", name="将 0.5.0 生效").click()
         self.page.locator("#activationReason").fill("测试恢复")
         self.page.get_by_role("button", name="确认生效").click()
