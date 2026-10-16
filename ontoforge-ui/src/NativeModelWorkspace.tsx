@@ -7,7 +7,16 @@ type Issue = {path: string; code: string; message: string};
 type Report = {status: 'NOT_RUN'|'INCOMPLETE'|'INVALID'|'VALID'; validatedRevision: number|null; issues: Issue[]};
 type Property = {id: string; apiName: string; label?: string; valueType: string; required: boolean; searchable: boolean; classification: string; enumValues?: string[]};
 type ObjectType = {id: string; apiName: string; label?: string; description?: string; primaryKeyRef: string|null; properties: Property[]};
-type EditorDoc = {editorSchemaVersion: '0.1.0'; objectTypes: ObjectType[]; linkTypes: unknown[]};
+type LinkType = {id:string;apiName:string;label?:string;sourceTypeRef:string;targetTypeRef:string;cardinality:string;evidenceRequired:boolean};
+type EditorDoc = {editorSchemaVersion:'0.1.0';objectTypes:ObjectType[];linkTypes:LinkType[]};
+const initialDoc=():EditorDoc=>({editorSchemaVersion:'0.1.0',objectTypes:[],linkTypes:[]});
+const newLink=():LinkType=>({id:'',apiName:'',label:'',sourceTypeRef:'',targetTypeRef:'',cardinality:'',evidenceRequired:true});
+const cardinalities:ReadonlyArray<readonly [string,string]>=[
+  ['ONE_TO_ONE','一对一（每个来源最多关联一个目标，反向亦然）'],
+  ['ONE_TO_MANY','一对多（一个来源可关联多个目标）'],
+  ['MANY_TO_ONE','多对一（多个来源可关联同一目标）'],
+  ['MANY_TO_MANY','多对多（双方均可关联多个）']
+];
 type Draft = {draftId: string; packageId: string; revision: number; status: 'DRAFT'; editingContent: EditorDoc; validation: Report; createdAt: string; updatedAt: string};
 type Summary = {draftId: string; packageId: string; revision: number; validationStatus: string; objectTypeCount: number; updatedAt: string};
 type Page = {items: Summary[]; nextCursor: string|null};
@@ -39,7 +48,12 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
   const [cursor,setCursor]=useState<string|null>(null);
   const [listLoading,setListLoading]=useState(false);
   const [opened,setOpened]=useState<Draft|null>(null);
-  const [editor,setEditor]=useState<ObjectType>(initialType);
+  const [editorDoc,setEditorDoc]=useState<EditorDoc>(initialDoc);
+  const [selectedObject,setSelectedObject]=useState(0);
+  const [selectedLink,setSelectedLink]=useState(0);
+  const [section,setSection]=useState<'objects'|'links'>('objects');
+  const editor=editorDoc.objectTypes[selectedObject]??initialType();
+  const activeLink=editorDoc.linkTypes[selectedLink];
   const [dirty,setDirty]=useState(false);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState<Message|null>(null);
@@ -71,9 +85,10 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
   }
   function applyOpened(d:Draft,discard=false) {
     setOpened(d);
-    setReadOnly(d.editingContent.objectTypes.length>1 || d.editingContent.linkTypes.length>0);
+    setReadOnly(false);
+    setEditorDoc(structuredClone(d.editingContent));
+    setSelectedObject(0);setSelectedLink(0);setSection('objects');
     const data=structuredClone(d.editingContent.objectTypes[0]??initialType());
-    setEditor(data);
     setEnumTexts(Object.fromEntries(data.properties.map((p,i)=>[i,(p.enumValues??[]).join(', ')])));
     setValidated(d.validation);
     setServerLatest(null);
@@ -106,8 +121,42 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
     } catch(e){const er=explain(e);alert(er.code+' · '+er.message,'error');}
     finally{setBusy(false)}
   }
+  const markDirty=()=>{
+    setDirty(true);onDirtyChange(true);setMessage(null);setServerLatest(null);setValidated(null);
+  };
   const mutate=(next:ObjectType)=>{
-    setEditor(next);setDirty(true);onDirtyChange(true);setMessage(null);setServerLatest(null);setValidated(null);
+    setEditorDoc(prev=>({...prev,objectTypes:prev.objectTypes.length
+      ?prev.objectTypes.map((t,i)=>i===selectedObject?next:t):[next]}));
+    markDirty();
+  };
+  const updateLink=(next:LinkType)=>{
+    setEditorDoc(prev=>({...prev,linkTypes:prev.linkTypes.map((l,i)=>i===selectedLink?next:l)}));
+    markDirty();
+  };
+  const selectObject=(i:number)=>{
+    setSelectedObject(i);
+    setEnumTexts(Object.fromEntries((editorDoc.objectTypes[i]?.properties??[]).map((p,k)=>[k,(p.enumValues??[]).join(', ')])));
+  };
+  const addObject=()=>{
+    setEditorDoc(prev=>({...prev,objectTypes:[...prev.objectTypes,initialType()]}));
+    setSelectedObject(editorDoc.objectTypes.length);setEnumTexts({});
+    setSection('objects');markDirty();
+  };
+  const removeObject=()=>{
+    const count=editorDoc.linkTypes.filter(l=>l.sourceTypeRef===editor.id||l.targetTypeRef===editor.id).length;
+    if(!window.confirm('删除对象将影响 '+count+' 条关系；关系不会自动删除，需手工修复引用。确认删除对象？'))return;
+    setEditorDoc(prev=>({...prev,objectTypes:prev.objectTypes.filter((_,i)=>i!==selectedObject)}));
+    setSelectedObject(Math.max(0,selectedObject-1));setEnumTexts({});markDirty();
+    alert(count?'已删除对象，'+count+' 条关系保留并需要手动修复。':'对象已从未保存草稿中删除。','warning');
+  };
+  const addLink=()=>{
+    setEditorDoc(prev=>({...prev,linkTypes:[...prev.linkTypes,newLink()]}));
+    setSelectedLink(editorDoc.linkTypes.length);setSection('links');markDirty();
+  };
+  const removeLink=()=>{
+    if(!window.confirm('确认从当前草稿删除关系定义？旧历史不会受到影响。'))return;
+    setEditorDoc(prev=>({...prev,linkTypes:prev.linkTypes.filter((_,i)=>i!==selectedLink)}));
+    setSelectedLink(Math.max(0,selectedLink-1));markDirty();
   };
   const change=(key:keyof ObjectType,value:unknown)=>mutate({...editor,[key]:value});
   const property=(index:number,changed:Partial<Property>)=>{
@@ -119,7 +168,7 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
   async function save() {
     if(!opened||readOnly||busy)return;
     setBusy(true);setMessage(null);
-    const editingContent:EditorDoc={editorSchemaVersion:'0.1.0',objectTypes:[structuredClone(editor)],linkTypes:[]};
+    const editingContent:EditorDoc=structuredClone(editorDoc);
     try {
       const next=await call<Draft>('/'+opened.draftId,put({expectedRevision:opened.revision,editingContent}));
       applyOpened(next);alert('已写入 PostgreSQL · revision '+next.revision+'。仍是未校验草稿，并非已发布模型。','success');
@@ -153,21 +202,25 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
     }catch(e){const er=explain(e);alert(er.code+' · '+er.message,'error')}
     finally{setBusy(false)}
   }
-  function issueTarget(path:string):string|null {
-    if(path==='/objectTypes/0/id')return 'obj-id';
-    if(path==='/objectTypes/0/apiName')return 'obj-api';
-    if(path==='/objectTypes/0/primaryKeyRef')return 'obj-pk';
-    if(path==='/objectTypes/0/properties')return 'add-property';
-    const match=path.match(/^\/objectTypes\/0\/properties\/(\d+)\/(id|apiName|enumValues|classification|valueType|required)$/);
-    if(!match)return null;
-    const fields:Record<string,string>={id:'id',apiName:'apiName',enumValues:'enumValues',classification:'classification',valueType:'valueType',required:'required'};
-    return 'prop-'+match[1]+'-'+fields[match[2]];
-  }
   const highlight=(path:string)=>{
-    const targetId=issueTarget(path);const target=targetId?document.getElementById(targetId):null;
-    if(!target)return;
-    target.scrollIntoView({behavior:'smooth',block:'center'});target.focus({preventScroll:true});
-    target.classList.add('model-issue-target');window.setTimeout(()=>target.classList.remove('model-issue-target'),2200);
+    const link=path.match(/^\/linkTypes\/(\d+)\/(.+)$/);
+    if(link){
+      setSelectedLink(Number(link[1]));setSection('links');
+      const fields:Record<string,string>={id:'link-id',apiName:'link-api',sourceTypeRef:'link-source',
+        targetTypeRef:'link-target',cardinality:'link-cardinality',evidenceRequired:'link-evidence'};
+      const id=fields[link[2]];
+      window.setTimeout(()=>{const target=id?document.getElementById(id):null;target?.scrollIntoView({behavior:'smooth',block:'center'});target?.focus({preventScroll:true});},30);
+      return;
+    }
+    const object=path.match(/^\/objectTypes\/(\d+)(?:\/properties\/(\d+)\/([^/]+)|\/([^/]+))?$/);
+    if(!object)return;
+    const i=Number(object[1]);setSelectedObject(i);setSection('objects');
+    const data=editorDoc.objectTypes[i];
+    setEnumTexts(Object.fromEntries((data?.properties??[]).map((p,k)=>[k,(p.enumValues??[]).join(', ')])));
+    const key=object[4]??'';
+    const fields:Record<string,string>={id:'obj-id',apiName:'obj-api',primaryKeyRef:'obj-pk',description:'obj-desc'};
+    const id=object[2]!==undefined?'prop-'+object[2]+'-'+object[3]:fields[key];
+    window.setTimeout(()=>{const target=id?document.getElementById(id):null;target?.scrollIntoView({behavior:'smooth',block:'center'});target?.focus({preventScroll:true});},30);
   };
   const fieldIssues=(path:string)=>!dirty?(validated?.issues??[]).filter(x=>x.path===path):[];
   const issueAttr=(path:string)=>({'aria-invalid':fieldIssues(path).length>0||undefined});
@@ -187,7 +240,7 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
     {creating&&<section className="model-panel model-create"><h2>创建模型包草稿</h2><p>建议按业务域命名，例如 manufacturing.production</p>
       <label htmlFor="create-package-id">模型包 ID</label><input id="create-package-id" value={packageId} onChange={e=>setPackageId(e.target.value)}/>
       <div className="model-actions"><button className="model-btn model-primary" disabled={busy} onClick={()=>void createPackage()}>创建并继续 <ChevronRight size={16}/></button><button className="model-btn" onClick={()=>setCreating(false)}>取消</button></div></section>}
-    <section className="model-panel"><header className="model-panel-head"><div><h2>当前可编辑模型包</h2><p>每个包可承载多个对象类型；首版建模工作台只编辑首个类型。</p></div>
+    <section className="model-panel"><header className="model-panel-head"><div><h2>当前可编辑模型包</h2><p>每个模型包包含多个对象类型和 LinkType；使用同一个保存和校验流程。</p></div>
       <button className="model-btn" onClick={()=>void loadList()} disabled={listLoading}><RefreshCw size={15}/> 刷新</button></header>
       {listLoading?<div className="model-empty"><LoaderCircle size={24}/> 正在读取模型包…</div>:
       items.length===0?<div className="model-empty"><Layers3 size={30}/><strong>还没有模型包草稿</strong><span>创建模型包后，从第一个 ObjectType 开始定义业务概念。</span><button className="model-btn" onClick={()=>setCreating(true)}>新建第一个模型包</button></div>:
@@ -201,19 +254,29 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
 
   return <div className="model-page">
     <div className="model-head"><div><div className="model-eyebrow"><button className="model-breadcrumb" onClick={()=>navigateView('#/model/packages')}><ArrowLeft size={14}/> 模型包</button> / {opened.packageId}</div>
-      <h1>对象类型建模 <span className="model-status neutral">DRAFT</span></h1><p>先保存编辑进度，再校验当前修订。这个页面使用真实 API，不执行发布或业务动作。</p></div></div>
+      <h1>本体建模工作台 <span className="model-status neutral">DRAFT</span></h1><p>先保存编辑进度，再校验当前修订。这个页面使用真实 API，不执行发布或业务动作。</p></div></div>
     {message&&<div role="alert" className={'model-alert '+message.kind}>{message.text}</div>}
-    {readOnly&&<div className="model-alert warning">该模型包包含当前首版编辑器不支持的多个对象类型或关系类型。为避免全量 PUT 覆盖其他定义，已启用只读模式。</div>}
+    {readOnly&&<div className="model-alert warning">编辑文档包含暂不支持的定义，已限制保存以防资产损坏。</div>}
     {busy&&<div className="model-busy"><LoaderCircle size={15}/> 正在处理请求…</div>}
-    <div className="model-steps"><span>01　进入模型包</span><span className="selected">02　类型与属性</span><span>03　保存草稿</span><span>04　完整校验</span></div>
+    <div className="model-steps"><span>01　定义对象</span><span className="selected">02　建立关系</span><span>03　保存并校验</span><span>04　留存本地历史</span></div>
+    <div className="model-section-tabs" role="tablist" aria-label="模型包内建模">
+      <button role="tab" aria-selected={section==='objects'} className={'model-btn '+(section==='objects'?'model-primary':'')} onClick={()=>setSection('objects')}>对象类型（{editorDoc.objectTypes.length}）</button>
+      <button role="tab" aria-selected={section==='links'} className={'model-btn '+(section==='links'?'model-primary':'')} onClick={()=>setSection('links')}>关系类型（{editorDoc.linkTypes.length}）</button>
+      <span className="model-help">所有对象和关系属于同一草稿修订；保存只提交完整模型包。</span>
+    </div>
     <div className="model-layout">
       <div className="model-main-column">
+        {section==='objects'?<>
+        <section className="model-panel"><header className="model-panel-head"><div><h2>对象类型（{editorDoc.objectTypes.length}）</h2><p>从对象选择器切换，不影响本地其他对象或关系的编辑进度。</p></div><button className="model-btn" onClick={addObject} disabled={busy}><Plus size={15}/> 新增对象</button></header>
+          <div className="model-type-choices">{editorDoc.objectTypes.map((t,i)=><button key={i} className={'model-btn '+(selectedObject===i?'model-primary':'')} onClick={()=>selectObject(i)} disabled={busy}>{t.label||t.apiName||'新对象 '+(i+1)}</button>)}</div>
+          {editorDoc.objectTypes.length>0&&<div className="model-actions"><button className="model-btn" onClick={removeObject} disabled={busy}><Trash2 size={14}/> 删除当前对象（保留已有关系）</button><span className="model-help">被 {editorDoc.linkTypes.filter(l=>l.sourceTypeRef===editor.id||l.targetTypeRef===editor.id).length} 条关系引用</span></div>}
+        </section>
         <section className="model-panel"><header className="model-panel-head"><div><h2>对象类型定义</h2><p>定义在业务中有独立身份的对象，例如生产批次。</p></div><span className="model-status neutral">{dirty?'● 本地未保存':'草稿已同步'}</span></header>
           <div className="model-form-grid">
-            <div><label htmlFor="obj-id">类型 ID</label><input id="obj-id" placeholder="production-batch" value={editor.id} disabled={readOnly||busy} {...issueAttr('/objectTypes/0/id')} onChange={e=>change('id',e.target.value)}/>{renderIssues('/objectTypes/0/id')}</div>
-            <div><label htmlFor="obj-api">API 名称</label><input id="obj-api" placeholder="ProductionBatch" value={editor.apiName} disabled={readOnly||busy} {...issueAttr('/objectTypes/0/apiName')} onChange={e=>change('apiName',e.target.value)}/>{renderIssues('/objectTypes/0/apiName')}</div>
+            <div><label htmlFor="obj-id">类型 ID</label><input id="obj-id" placeholder="production-batch" value={editor.id} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/id')} onChange={e=>change('id',e.target.value)}/>{renderIssues('/objectTypes/'+selectedObject+'/id')}</div>
+            <div><label htmlFor="obj-api">API 名称</label><input id="obj-api" placeholder="ProductionBatch" value={editor.apiName} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/apiName')} onChange={e=>change('apiName',e.target.value)}/>{renderIssues('/objectTypes/'+selectedObject+'/apiName')}</div>
             <div><label htmlFor="obj-label">显示名称</label><input id="obj-label" placeholder="生产批次" value={editor.label??''} disabled={readOnly||busy} onChange={e=>change('label',e.target.value)}/></div>
-            <div><label htmlFor="obj-pk">主键属性</label><select id="obj-pk" value={editor.primaryKeyRef??''} disabled={readOnly||busy} {...issueAttr('/objectTypes/0/primaryKeyRef')} onChange={e=>change('primaryKeyRef',e.target.value||null)}><option value="">尚未选择主键</option>{validPk.map((p,i)=><option key={p.id+i} value={p.id}>{p.id} · {p.valueType}</option>)}</select>{renderIssues('/objectTypes/0/primaryKeyRef')}<p className="model-help">只允许选择本类型必填的 STRING / INTEGER 属性。</p></div>
+            <div><label htmlFor="obj-pk">主键属性</label><select id="obj-pk" value={editor.primaryKeyRef??''} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/primaryKeyRef')} onChange={e=>change('primaryKeyRef',e.target.value||null)}><option value="">尚未选择主键</option>{validPk.map((p,i)=><option key={p.id+i} value={p.id}>{p.id} · {p.valueType}</option>)}</select>{renderIssues('/objectTypes/'+selectedObject+'/primaryKeyRef')}<p className="model-help">只允许选择本类型必填的 STRING / INTEGER 属性。</p></div>
             <div className="model-form-wide"><label htmlFor="obj-desc">业务语义定义</label><textarea id="obj-desc" placeholder="解释该对象在制造业务中的含义" rows={3} value={editor.description??''} disabled={readOnly||busy} onChange={e=>change('description',e.target.value)}/></div>
           </div>
         </section>
@@ -226,20 +289,35 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
               mutate({...editor,properties:next,primaryKeyRef:p.id===editor.primaryKeyRef?null:editor.primaryKeyRef});
             }}><Trash2 size={14}/> 删除</button></div>
             <div className="model-prop-grid">
-              <div><label htmlFor={'prop-'+i+'-id'}>属性 ID</label><input id={'prop-'+i+'-id'} value={p.id} disabled={readOnly||busy} placeholder="batch-id" {...issueAttr('/objectTypes/0/properties/'+i+'/id')} onChange={e=>property(i,{id:e.target.value})}/>{renderIssues('/objectTypes/0/properties/'+i+'/id')}</div>
-              <div><label htmlFor={'prop-'+i+'-apiName'}>API 名称</label><input id={'prop-'+i+'-apiName'} value={p.apiName} disabled={readOnly||busy} placeholder="batchId" {...issueAttr('/objectTypes/0/properties/'+i+'/apiName')} onChange={e=>property(i,{apiName:e.target.value})}/>{renderIssues('/objectTypes/0/properties/'+i+'/apiName')}</div>
+              <div><label htmlFor={'prop-'+i+'-id'}>属性 ID</label><input id={'prop-'+i+'-id'} value={p.id} disabled={readOnly||busy} placeholder="batch-id" {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/id')} onChange={e=>property(i,{id:e.target.value})}/>{renderIssues('/objectTypes/'+selectedObject+'/properties/'+i+'/id')}</div>
+              <div><label htmlFor={'prop-'+i+'-apiName'}>API 名称</label><input id={'prop-'+i+'-apiName'} value={p.apiName} disabled={readOnly||busy} placeholder="batchId" {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/apiName')} onChange={e=>property(i,{apiName:e.target.value})}/>{renderIssues('/objectTypes/'+selectedObject+'/properties/'+i+'/apiName')}</div>
               <div><label htmlFor={'prop-'+i+'-label'}>显示名称</label><input id={'prop-'+i+'-label'} value={p.label??''} disabled={readOnly||busy} placeholder="批次编号" onChange={e=>property(i,{label:e.target.value})}/></div>
-              <div><label htmlFor={'prop-'+i+'-valueType'}>数据类型</label><select id={'prop-'+i+'-valueType'} value={p.valueType} disabled={readOnly||busy} {...issueAttr('/objectTypes/0/properties/'+i+'/valueType')} onChange={e=>{setEnumTexts(prev=>({...prev,[i]:''}));property(i,{valueType:e.target.value,enumValues:[]})}}>{['STRING','INTEGER','DECIMAL','BOOLEAN','DATETIME','ENUM'].map(v=><option key={v}>{v}</option>)}</select>{renderIssues('/objectTypes/0/properties/'+i+'/valueType')}</div>
+              <div><label htmlFor={'prop-'+i+'-valueType'}>数据类型</label><select id={'prop-'+i+'-valueType'} value={p.valueType} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/valueType')} onChange={e=>{setEnumTexts(prev=>({...prev,[i]:''}));property(i,{valueType:e.target.value,enumValues:[]})}}>{['STRING','INTEGER','DECIMAL','BOOLEAN','DATETIME','ENUM'].map(v=><option key={v}>{v}</option>)}</select>{renderIssues('/objectTypes/'+selectedObject+'/properties/'+i+'/valueType')}</div>
               <div><label htmlFor={'prop-'+i+'-classification'}>数据分类</label><select id={'prop-'+i+'-classification'} disabled={readOnly||busy} value={p.classification} onChange={e=>property(i,{classification:e.target.value})}>{['PUBLIC','INTERNAL','CONFIDENTIAL','RESTRICTED'].map(v=><option key={v}>{v}</option>)}</select></div>
               <div><label>字段配置</label><div className="model-checks"><label htmlFor={'prop-'+i+'-required'}><input id={'prop-'+i+'-required'} type="checkbox" checked={p.required} disabled={readOnly||busy} onChange={e=>property(i,{required:e.target.checked})}/> 必填</label><label htmlFor={'prop-'+i+'-searchable'}><input id={'prop-'+i+'-searchable'} type="checkbox" checked={p.searchable} disabled={readOnly||busy} onChange={e=>property(i,{searchable:e.target.checked})}/> 可搜索</label></div></div>
-              {p.valueType==='ENUM'&&<div className="model-form-wide"><label htmlFor={'prop-'+i+'-enumValues'}>ENUM 值（英文逗号分隔）</label><input id={'prop-'+i+'-enumValues'} value={enumTexts[i]??(p.enumValues??[]).join(', ')} disabled={readOnly||busy} {...issueAttr('/objectTypes/0/properties/'+i+'/enumValues')} placeholder="PLANNED, RUNNING, COMPLETED" onChange={e=>{
+              {p.valueType==='ENUM'&&<div className="model-form-wide"><label htmlFor={'prop-'+i+'-enumValues'}>ENUM 值（英文逗号分隔）</label><input id={'prop-'+i+'-enumValues'} value={enumTexts[i]??(p.enumValues??[]).join(', ')} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/enumValues')} placeholder="PLANNED, RUNNING, COMPLETED" onChange={e=>{
                 const raw=e.target.value;
                 setEnumTexts(prev=>({...prev,[i]:raw}));
                 property(i,{enumValues:raw.split(',').map(x=>x.trim()).filter(Boolean)});
-              }}/>{renderIssues('/objectTypes/0/properties/'+i+'/enumValues')}</div>}
+              }}/>{renderIssues('/objectTypes/'+selectedObject+'/properties/'+i+'/enumValues')}</div>}
             </div>
           </article>)}
         </section>
+        </>:<section className="model-panel"><header className="model-panel-head"><div><h2>LinkType 关系类型（{editorDoc.linkTypes.length}）</h2><p>定义来源对象 → 目标对象的关系语义；不代表已经存在工单、批次或订单实例。</p></div><button className="model-btn" onClick={addLink} disabled={busy}><Plus size={15}/> 新增关系</button></header>
+          <div className="model-type-choices">{editorDoc.linkTypes.map((l,i)=><button key={i} className={'model-btn '+(selectedLink===i?'model-primary':'')} disabled={busy} onClick={()=>setSelectedLink(i)}>{l.label||l.apiName||'新关系 '+(i+1)}</button>)}</div>
+          {activeLink?<><div className="model-form-grid">
+            <div><label htmlFor="link-id">关系 ID</label><input id="link-id" value={activeLink.id} disabled={busy} onChange={e=>updateLink({...activeLink,id:e.target.value})}/>{renderIssues('/linkTypes/'+selectedLink+'/id')}</div>
+            <div><label htmlFor="link-api">API 名称</label><input id="link-api" value={activeLink.apiName} disabled={busy} onChange={e=>updateLink({...activeLink,apiName:e.target.value})}/>{renderIssues('/linkTypes/'+selectedLink+'/apiName')}</div>
+            <div className="model-form-wide"><label htmlFor="link-label">业务显示名称</label><input id="link-label" value={activeLink.label??''} disabled={busy} onChange={e=>updateLink({...activeLink,label:e.target.value})}/></div>
+            <div><label htmlFor="link-source">来源对象类型</label><select id="link-source" value={activeLink.sourceTypeRef} disabled={busy} onChange={e=>updateLink({...activeLink,sourceTypeRef:e.target.value})}><option value="">请选择来源对象</option>{activeLink.sourceTypeRef&&!editorDoc.objectTypes.some(t=>t.id===activeLink.sourceTypeRef)&&<option value={activeLink.sourceTypeRef}>⚠ 已不存在：{activeLink.sourceTypeRef}（请修复）</option>}{editorDoc.objectTypes.map((t,i)=><option key={i} value={t.id}>{t.label||t.apiName||t.id}</option>)}</select>{renderIssues('/linkTypes/'+selectedLink+'/sourceTypeRef')}</div>
+            <div><label htmlFor="link-target">目标对象类型</label><select id="link-target" value={activeLink.targetTypeRef} disabled={busy} onChange={e=>updateLink({...activeLink,targetTypeRef:e.target.value})}><option value="">请选择目标对象</option>{activeLink.targetTypeRef&&!editorDoc.objectTypes.some(t=>t.id===activeLink.targetTypeRef)&&<option value={activeLink.targetTypeRef}>⚠ 已不存在：{activeLink.targetTypeRef}（请修复）</option>}{editorDoc.objectTypes.map((t,i)=><option key={i} value={t.id}>{t.label||t.apiName||t.id}</option>)}</select>{renderIssues('/linkTypes/'+selectedLink+'/targetTypeRef')}</div>
+            <div><label htmlFor="link-cardinality">关联基数（来源 → 目标）</label><select id="link-cardinality" value={activeLink.cardinality} disabled={busy} onChange={e=>updateLink({...activeLink,cardinality:e.target.value})}><option value="">请选择关联基数</option>{cardinalities.map(([code,label])=><option key={code} value={code}>{label}</option>)}</select>{renderIssues('/linkTypes/'+selectedLink+'/cardinality')}</div>
+            <div><label htmlFor="link-evidence">未来关联是否必须有来源证据</label><select id="link-evidence" value={String(activeLink.evidenceRequired)} disabled={busy} onChange={e=>updateLink({...activeLink,evidenceRequired:e.target.value==='true'})}><option value="true">需要证据</option><option value="false">不强制来源证据</option></select>{renderIssues('/linkTypes/'+selectedLink+'/evidenceRequired')}</div>
+          </div>{[activeLink.sourceTypeRef,activeLink.targetTypeRef].some(ref=>ref&&!editorDoc.objectTypes.some(t=>t.id===ref))&&
+            <div className="model-alert warning" role="alert">此关系仍引用已删除或改名的对象，原始引用未被自动改写。可以保存修订进度，但不能通过完整校验或冻结历史；请选择正确的对象修复。</div>}
+            <div className="model-info">仅定义关系类型。关联基数不表示已存在关系记录；尚无 Data Binding、LinkFact 或查询能力。</div>
+            <div className="model-actions"><button className="model-btn" onClick={removeLink} disabled={busy}><Trash2 size={14}/> 删除当前关系</button></div></>:<div className="model-empty compact">暂无关系类型；可先保存零关系的合法模型包。</div>}
+        </section>}
       </div>
       <div className="model-aside-column">
         <section className="model-panel"><header className="model-panel-head"><div><h2>草稿与校验</h2><p>状态来自 PostgreSQL，校验绑定修订号。</p></div></header>
@@ -252,7 +330,7 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
                          dirty={dirty} locked={readOnly||busy} navigate={navigate}/>
         <section className="model-panel"><header className="model-panel-head"><div><h2>异常恢复</h2><p>当保存结果未知或发生并发更新时</p></div></header>
           <button className="model-btn model-full" disabled={busy} onClick={()=>void inspect()}><RefreshCw size={15}/> 核对服务器最新版</button>
-          {compare&&<div className="model-conflict"><div className="model-alert warning"><AlertCircle size={15}/> 注意：本地与服务器版本可能不同。下面仅供对照，不会自动覆盖。</div><div><b>本地 · 基于 revision {opened.revision}</b><pre>{JSON.stringify(editor,null,2)}</pre></div><div><b>服务器 · revision {serverLatest.revision}</b><pre>{JSON.stringify(serverLatest.editingContent.objectTypes[0]??{},null,2)}</pre></div>
+          {compare&&<div className="model-conflict"><div className="model-alert warning"><AlertCircle size={15}/> 注意：本地与服务器版本可能不同。下面仅供对照，不会自动覆盖。</div><div><b>本地 · 基于 revision {opened.revision}</b><pre>{JSON.stringify(editorDoc,null,2)}</pre></div><div><b>服务器 · revision {serverLatest.revision}</b><pre>{JSON.stringify(serverLatest.editingContent,null,2)}</pre></div>
             <button className="model-btn model-full" onClick={()=>{
               if(!window.confirm('确认放弃当前所有未保存编辑，并载入服务器最新版？此操作不可撤销。'))return;
               applyOpened(serverLatest,true);

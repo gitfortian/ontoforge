@@ -13,6 +13,7 @@ on:
       - 'scripts/verify-objecttype.ps1'
       - 'scripts/verify-s0.ps1'
       - 'scripts/verify-snapshot.ps1'
+      - 'scripts/verify-linktype.ps1'
   workflow_dispatch:
 
 permissions:
@@ -29,7 +30,7 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($script in @('scripts/verify-s0.ps1', 'scripts/verify-objecttype.ps1', 'scripts/verify-snapshot.ps1')) {
+          foreach ($script in @('scripts/verify-s0.ps1', 'scripts/verify-objecttype.ps1', 'scripts/verify-snapshot.ps1', 'scripts/verify-linktype.ps1')) {
             $tokens = $null
             $parseErrors = $null
             [void][System.Management.Automation.Language.Parser]::ParseFile(
@@ -109,13 +110,38 @@ jobs:
         env:
           E2E_SHOTS: '${{ runner.temp }}/ontoforge-native-e2e-shots'
         run: python -m unittest discover -s ontoforge-ui/e2e -p 'test_*.py' -v
-      - name: Run Windows-compatible PowerShell real HTTP acceptance (exercise + recheck)
+      - name: Exercise isolated ObjectType, Snapshot and LinkType HTTP acceptance in real PostgreSQL
         shell: pwsh
         run: |
           ./scripts/verify-objecttype.ps1 -Mode Exercise -AllowCreateTestDraft -EvidencePath '${{ runner.temp }}/ontoforge-objecttype-acceptance.json'
-          ./scripts/verify-objecttype.ps1 -Mode Recheck -EvidencePath '${{ runner.temp }}/ontoforge-objecttype-acceptance.json'
           ./scripts/verify-snapshot.ps1 -Mode Exercise -AllowCreateTestDraft -EvidencePath '${{ runner.temp }}/ontoforge-snapshot-acceptance.json'
+          ./scripts/verify-linktype.ps1 -Mode Exercise -AllowCreateTestDraft -EvidencePath '${{ runner.temp }}/ontoforge-linktype-acceptance.json'
+      - name: Actually restart Spring Boot against the same PostgreSQL 17 database
+        run: |
+          oldpid="$(cat /tmp/ontoforge-api.pid)"
+          kill "$oldpid"
+          for i in $(seq 1 35); do
+            if ! kill -0 "$oldpid" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if kill -0 "$oldpid" 2>/dev/null; then
+            echo "Old service failed to terminate; cannot claim restart evidence"
+            exit 1
+          fi
+          nohup java -jar ontoforge-boot/target/ontoforge-boot-0.1.0-SNAPSHOT.jar > /tmp/ontoforge-api-restarted.log 2>&1 &
+          echo $! >/tmp/ontoforge-api-restarted.pid
+          for i in $(seq 1 70); do
+            if curl -fsS http://127.0.0.1:8080/api/system/status >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8080/api/system/status
+          echo "New backend PID $(cat /tmp/ontoforge-api-restarted.pid); PostgreSQL service preserved"
+      - name: Recheck original ObjectType, Snapshot and LinkType bytes after real backend restart
+        shell: pwsh
+        run: |
+          ./scripts/verify-objecttype.ps1 -Mode Recheck -EvidencePath '${{ runner.temp }}/ontoforge-objecttype-acceptance.json'
           ./scripts/verify-snapshot.ps1 -Mode Recheck -EvidencePath '${{ runner.temp }}/ontoforge-snapshot-acceptance.json'
+          ./scripts/verify-linktype.ps1 -Mode Recheck -EvidencePath '${{ runner.temp }}/ontoforge-linktype-acceptance.json'
       - name: Keep real service logs and screenshots for review
         if: always()
         run: |
@@ -124,6 +150,8 @@ jobs:
           cp /tmp/ontoforge-vite.log /tmp/ontoforge-e2e-evidence/vite.log 2>/dev/null || true
           cp '${{ runner.temp }}/ontoforge-objecttype-acceptance.json' /tmp/ontoforge-e2e-evidence/windows-acceptance-script-on-linux.json 2>/dev/null || true
           cp '${{ runner.temp }}/ontoforge-snapshot-acceptance.json' /tmp/ontoforge-e2e-evidence/snapshot-exercise-recheck-on-linux.json 2>/dev/null || true
+          cp '${{ runner.temp }}/ontoforge-linktype-acceptance.json' /tmp/ontoforge-e2e-evidence/linktype-exercise-recheck-on-linux.json 2>/dev/null || true
+          cp /tmp/ontoforge-api-restarted.log /tmp/ontoforge-e2e-evidence/backend-after-restart.log 2>/dev/null || true
           cp -r '${{ runner.temp }}/ontoforge-native-e2e-shots' /tmp/ontoforge-e2e-evidence/screenshots 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         if: always()

@@ -12,7 +12,7 @@ type Snapshot={snapshotId:string;packageId:string;sourceDraftId:string;sourceRev
 type Summary={snapshotId:string;packageId:string;sourceRevision:number;
   payloadSha256:string;createdAt:string;lifecycle:'LOCAL_SNAPSHOT_ONLY'};
 type Page={items:Summary[];nextCursor:string|null};
-type Difference={entityKind:string;objectTypeId:string;propertyId:string|null;path:string;
+type Difference={entityKind:string;objectTypeId:string|null;propertyId:string|null;path:string;
   changeKind:string;before?:unknown;after?:unknown;riskLevel:string;reasonCode:string};
 type Diff={fromSnapshotId:string;toSnapshotId:string;packageId:string;
   sameSnapshot:boolean;changes:Difference[];compatibilityStatus:string};
@@ -53,7 +53,7 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
  const confirmRef=useRef<HTMLButtonElement|null>(null);
  const freezeButtonRef=useRef<HTMLButtonElement|null>(null);
  const active=validation?.status==='VALID'&&validation.validatedRevision===draft.revision;
- const supported=draft.editingContent.objectTypes.length===1&&draft.editingContent.linkTypes.length===0;
+ const supported=draft.editingContent.objectTypes.length>0&&Array.isArray(draft.editingContent.linkTypes);
  const historyPath='#/model/packages/'+encode(draft.packageId)+'/snapshots';
  async function refresh(){
    try{
@@ -125,7 +125,7 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
      <div><span>当前校验</span><b>{dirty?'编辑未保存':validation?.status??'NOT_RUN'}</b></div>
      <div><span>发布状态</span><b>未发布</b></div>
    </div>
-   {!supported&&<div className="model-alert warning">当前首期只冻结恰好一个完整 ObjectType、零 LinkType；未支持资产不得静默裁剪。</div>}
+   {!supported&&<div className="model-alert warning">本地历史要求至少一个有效对象类型，以及受控的关系类型列表；不支持的资产不能裁剪。</div>}
    {error&&<div className="model-alert error" role="alert">{error}</div>}
    {pendingKey&&<div className="model-alert warning" role="status">RESULT_UNKNOWN · 保留请求键 {pendingKey}<br/>
      <button id="snapshot-reconcile" className="model-btn" disabled={busy} onClick={()=>void reconcile()}>按原幂等键核对冻结结果</button>
@@ -276,7 +276,7 @@ export default function NativeSnapshotWorkspace({route,navigate}:{route:string;n
        <div className="model-table-wrap"><table id="snapshot-diff-table" className="model-table">
          <thead><tr><th>对象 / 属性</th><th>变化</th><th>原值</th><th>新值</th><th>结构风险</th></tr></thead>
          <tbody>{diff.changes.map((x,i)=><tr key={x.path+x.changeKind+i}>
-           <td><b>{x.objectTypeId}</b><small>{x.propertyId??'ObjectType'}</small><small>{x.path}</small></td>
+           <td><b>{x.entityKind==='LINK_TYPE'?'关系类型 '+x.path.split('/')[2]:(x.objectTypeId??'对象类型')}</b><small>{x.entityKind==='LINK_TYPE'?'LinkType 结构变更':(x.propertyId??'ObjectType')}</small><small>{x.path}</small></td>
            <td>{x.changeKind}</td><td>{safeValue(x.before)}</td><td>{safeValue(x.after)}</td>
            <td><span className={'snapshot-risk '+x.riskLevel.toLowerCase()}>{riskText[x.riskLevel]??x.riskLevel}</span></td>
          </tr>)}</tbody></table></div>}

@@ -214,5 +214,112 @@ class NativeSnapshotRealE2ETest(unittest.TestCase):
         self.assertEqual(len(api("/packages/"+self.pkg+"/snapshots")[1]["items"]),1)
         self.assertEqual(api("/snapshots/"+self.page.url.split("/")[-1])[1]["sourceRevision"],2)
 
+    def test_s04_real_three_objects_two_links_reopen_and_compare(self):
+        self.prepare()
+        p=self.page
+        for oid,api_name,title in [("work-order","WorkOrder","生产工单"),
+                                    ("customer-order","CustomerOrder","销售订单")]:
+            p.get_by_role("button",name="新增对象").click()
+            p.locator("#obj-id").fill(oid)
+            p.locator("#obj-api").fill(api_name)
+            p.locator("#obj-label").fill(title)
+            p.locator("#add-property").click()
+            p.locator("#prop-0-id").fill("business-id")
+            p.locator("#prop-0-apiName").fill("businessId")
+            p.locator("#prop-0-required").check()
+            p.locator("#obj-pk").select_option("business-id")
+        p.get_by_role("tab",name=re.compile("关系类型")).click()
+        for rid,api_name,title,source,target,card in [
+            ("batch-to-workorder","BatchToWorkOrder","批次归属工单",
+             "production-batch","work-order","MANY_TO_ONE"),
+            ("workorder-to-order","WorkOrderToOrder","工单关联订单",
+             "work-order","customer-order","MANY_TO_MANY")]:
+            p.get_by_role("button",name="新增关系").click()
+            p.locator("#link-id").fill(rid)
+            p.locator("#link-api").fill(api_name)
+            p.locator("#link-label").fill(title)
+            p.locator("#link-source").select_option(source)
+            p.locator("#link-target").select_option(target)
+            p.locator("#link-cardinality").select_option(card)
+        self.save_validate()
+        self.assertEqual(api("/drafts/"+self.draft)[1]["editingContent"]["linkTypes"].__len__(),2)
+        p.reload()
+        p.get_by_role("tab",name=re.compile("关系类型")).click()
+        self.assertEqual(p.locator(".model-type-choices button").count(),2)
+        first=self.freeze()
+        body=api("/snapshots/"+first)[1]
+        self.assertEqual(len(body["snapshotContent"]["objectTypes"]),3)
+        self.assertEqual(len(body["snapshotContent"]["linkTypes"]),2)
+        first_digest=body["payloadSha256"]
+        self.back_editor()
+        p.get_by_role("tab",name=re.compile("关系类型")).click()
+        p.get_by_role("button",name="批次归属工单").click()
+        p.locator("#link-cardinality").select_option("ONE_TO_ONE")
+        p.locator("#link-evidence").select_option("false")
+        self.save_validate()
+        second=self.freeze()
+        data=api("/snapshot-diffs?from="+first+"&to="+second)[1]
+        self.assertIn("LINK_TYPE",json.dumps(data["changes"]))
+        self.assertIn("POLICY_REVIEW_REQUIRED",json.dumps(data["changes"]))
+        self.assertIn("POTENTIALLY_BREAKING",json.dumps(data["changes"]))
+        self.assertEqual(api("/snapshots/"+first)[1]["payloadSha256"],first_digest)
+
+    def test_s04_missing_link_target_wip_and_invalid_reference_preserve_data(self):
+        self.prepare()
+        p=self.page
+        p.get_by_role("tab",name=re.compile("关系类型")).click()
+        p.get_by_role("button",name="新增关系").click()
+        p.locator("#link-id").fill("batch-to-missing")
+        p.locator("#link-api").fill("BatchToMissing")
+        p.locator("#link-source").select_option("production-batch")
+        self.page.get_by_role("button",name="保存编辑进度").click()
+        p.get_by_text("已写入 PostgreSQL",exact=False).wait_for()
+        p.get_by_role("button",name="检查模型完整性").click()
+        p.get_by_text("校验完成",exact=False).wait_for()
+        self.assertEqual(api("/drafts/"+self.draft)[1]["editingContent"]["linkTypes"].__len__(),1)
+        self.assertTrue(p.locator("#snapshot-freeze").is_disabled())
+        assert p.locator(".model-issue-link").count()>0
+
+    def test_s04_delete_referenced_object_keeps_dangling_link_for_manual_repair(self):
+        self.prepare()
+        p=self.page
+        p.get_by_role("button",name="新增对象").click()
+        p.locator("#obj-id").fill("work-order")
+        p.locator("#obj-api").fill("WorkOrder")
+        p.locator("#obj-label").fill("生产工单")
+        p.locator("#add-property").click()
+        p.locator("#prop-0-id").fill("workorder-id")
+        p.locator("#prop-0-apiName").fill("workOrderId")
+        p.locator("#prop-0-required").check()
+        p.locator("#obj-pk").select_option("workorder-id")
+        p.get_by_role("tab",name=re.compile("关系类型")).click()
+        p.get_by_role("button",name="新增关系").click()
+        p.locator("#link-id").fill("batch-to-workorder")
+        p.locator("#link-api").fill("BatchToWorkOrder")
+        p.locator("#link-label").fill("生产批次归属工单")
+        p.locator("#link-source").select_option("production-batch")
+        p.locator("#link-target").select_option("work-order")
+        p.locator("#link-cardinality").select_option("MANY_TO_ONE")
+        self.save_validate()
+        p.get_by_role("tab",name=re.compile("对象类型")).click()
+        p.locator(".model-type-choices button").filter(has_text="生产工单").click()
+        p.once("dialog",lambda dialog:dialog.accept())
+        p.get_by_role("button",name=re.compile("删除当前对象")).click()
+        p.get_by_role("tab",name=re.compile("关系类型")).click()
+        self.assertEqual(p.locator("#link-target").input_value(),"work-order")
+        self.assertIn("已不存在",p.locator("#link-target").inner_text())
+        self.assertIn("原始引用未被自动改写",p.locator("#view, .model-main-column").first.inner_text())
+        p.get_by_role("button",name="保存编辑进度").click()
+        p.get_by_text("已写入 PostgreSQL",exact=False).wait_for()
+        p.get_by_role("button",name="检查模型完整性").click()
+        p.get_by_text("校验完成",exact=False).wait_for()
+        doc=api("/drafts/"+self.draft)[1]["editingContent"]
+        self.assertEqual(len(doc["objectTypes"]),1)
+        self.assertEqual(len(doc["linkTypes"]),1)
+        self.assertEqual(doc["linkTypes"][0]["targetTypeRef"],"work-order")
+        self.assertTrue(p.locator("#snapshot-freeze").is_disabled())
+        p.locator(".model-issue-link").filter(has_text="关联对象在当前包中不存在").click()
+        self.assertTrue(p.locator("#link-target").is_visible())
+
 if __name__=="__main__":
     unittest.main(verbosity=2)

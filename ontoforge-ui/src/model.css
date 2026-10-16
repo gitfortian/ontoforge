@@ -94,3 +94,10 @@
 .snapshot-risk.policy_review_required{color:#ab475e;background:#fff1f4;border-color:#f3d6df}
 .snapshot-compare-btn{margin-top:17px}
 @media(max-width:680px){.snapshot-modal{padding:20px 16px}.snapshot-confirm-facts{grid-template-columns:94px minmax(0,1fr)}.snapshot-modal .model-btn{flex:1}}
+
+/* OFIP-0004: shared model package navigation, not a new professional-tools menu. */
+.model-section-tabs{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px;padding:10px 0 14px;border-bottom:1px solid #e5edf6}
+.model-type-choices{display:flex;gap:9px;flex-wrap:wrap;padding:7px 0 13px}
+.model-type-choices .model-btn{max-width:100%;white-space:normal;text-align:left;overflow-wrap:anywhere}
+.model-section-tabs .model-help{margin-left:auto}
+@media(max-width:680px){.model-section-tabs .model-help{margin-left:0;width:100%}.model-type-choices .model-btn{flex:1}}
