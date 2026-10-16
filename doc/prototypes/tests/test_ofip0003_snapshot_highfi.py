@@ -292,5 +292,42 @@ class SnapshotHighFiProductReview(unittest.TestCase):
         self.assertEqual(self.page.get_by_role("button", name="审批通过").count(), 0)
 
 
+    def test_hifi07_small_text_contrast_meets_45_ratio(self):
+        # Independent readability check on actual rendered computed CSS,
+        # not a screenshot estimate or presence-only style assertion.
+        js = """({selector,background}) => {
+            const element = document.querySelector(selector);
+            if (!element) throw new Error('Missing selector: ' + selector);
+            const components = value => value.match(/[\\d.]+/g).slice(0,3).map(Number);
+            const luminosity = components => {
+                const c=components.map(v=>{
+                    const x=v/255;
+                    return x<=0.04045?x/12.92:Math.pow((x+0.055)/1.055,2.4);
+                });
+                return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2];
+            };
+            const fg=luminosity(components(getComputedStyle(element).color));
+            const bg=luminosity(components(background));
+            return (Math.max(fg,bg)+0.05)/(Math.min(fg,bg)+0.05);
+        }"""
+        for selector,bg in [
+            (".main>.meta","rgb(246, 248, 251)"),
+            (".brand .sub","rgb(255, 255, 255)"),
+            ("footer","rgb(246, 248, 251)"),
+        ]:
+            with self.subTest(selector=selector):
+                ratio = self.page.evaluate(js, {"selector":selector,"background":bg})
+                self.assertGreaterEqual(ratio,4.5, f"{selector} contrast {ratio:.2f}:1")
+        self.valid_draft()
+        for selector,bg in [(".panel p","rgb(255, 255, 255)"),(".small","rgb(255, 255, 255)")]:
+            with self.subTest(selector=selector):
+                ratio=self.page.evaluate(js,{"selector":selector,"background":bg})
+                self.assertGreaterEqual(ratio,4.5,f"{selector} contrast {ratio:.2f}:1")
+        self.freeze()
+        self.page.get_by_role("button",name="历史快照").click()
+        ratio=self.page.evaluate(js,{"selector":".snapshot-label","background":"rgb(240, 246, 252)"})
+        self.assertGreaterEqual(ratio,4.5,f"snapshot-label contrast {ratio:.2f}:1")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
