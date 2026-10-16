@@ -6,7 +6,7 @@
 
 **Decision:** [VOTE] Accepted — 2026-10-15，维护者审议后要求按规划分阶段实施；[PR #3 决定记录](https://github.com/gitfortian/ontoforge/pull/3#issuecomment-6189658540)。本决定仅涵盖 OFIP-0001 研发治理方向与阶段安排，不自动签收 V1.3/Native V0.2 产品技术合同。
 
-**Implementation:** In Progress — 第一阶段开发规范/文档治理在独立 PR 实施；第二阶段可信 CI 必须另开 PR 并通过实际验证；不因本次状态更新声称全部实施完成。
+**Implementation:** Code Merged / 分阶段演进 — 开发规范和可信 CI 已分别交付，稳定质量门见 [PR #5](https://github.com/gitfortian/ontoforge/pull/5) 与 [当前 CI 手册](../implementation/S0-CI-可信质量门禁.md)。GitHub 保护规则、目标环境验收与正式发行仍需各自证据。
 
 **Release:** N/A
 
@@ -15,6 +15,8 @@
 > 本提案参考 Flink FLIP 与 Yak Ops YOIP 的六章结构，但 OFIP 是 OntoForge 自己的流程，不代表 Apache 官方治理。已被维护者**批准分阶段实施**；本文件记录治理决策，具体模板与后续 CI 仍按各自实施 PR 单独评审/验收。本提案本身不修改产品业务代码或现行 CI。
 
 ## Motivation
+
+> 以下为提案提交和分阶段评审时的历史设计记录；其中“将来/等待实施”描述当时计划。当前实施状态以上方元数据、[CI 手册](../implementation/S0-CI-可信质量门禁.md)和[产品进度总账](../implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)为准。
 
 OntoForge 已经拥有 V1.3 总体设计、Native V0.2 结构合同和 S0-MVP-0.1 基座。后续每个阶段都会引入跨来源身份、模型发布、授权查询、确定性决策和受控 Action 等高风险合同。如果研发没有清晰的评审入口、实现证据及文档真相源，很容易出现：
 

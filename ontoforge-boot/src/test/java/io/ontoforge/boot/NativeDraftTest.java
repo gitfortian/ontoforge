@@ -21,11 +21,42 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /** Actual HTTP on random Spring Boot port AND CI PostgreSQL 17, not mocks/in-memory database. */
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
+@org.springframework.test.context.ActiveProfiles("integration-test")
+@org.springframework.test.context.ContextConfiguration(initializers=IsolatedPostgresTestDatabase.class)
 class NativeDraftTest {
     @LocalServerPort int port;
     @Autowired TestRestTemplate http;
     @Autowired ObjectMapper mapper;
     @Autowired JdbcTemplate jdbc;
+
+    @Test void saveResponseRetainsOwnRevisionWhenAnotherWriterCommitsImmediatelyAfter() throws Exception {
+        UUID id=UUID.fromString(create("manufacturing.p"+UUID.randomUUID().toString().replace("-",""))
+                .path("draftId").asText());
+        ObjectNode own=editor();own.withArray("objectTypes").add(obj("batch","Batch"));
+        ObjectNode rival=own.deepCopy();((ObjectNode)rival.path("objectTypes").get(0)).put("description","rival");
+        var service=new io.ontoforge.boot.model.NativeDraftService(jdbc,mapper);
+        var injected=new java.util.concurrent.atomic.AtomicBoolean();
+        // Force a second committed write exactly after the first SQL mutation,
+        // before the first service call can perform any follow-up read.
+        JdbcTemplate interleaved=new JdbcTemplate(java.util.Objects.requireNonNull(jdbc.getDataSource())) {
+            private void afterWrite(String sql) {
+                if(sql.stripLeading().startsWith("UPDATE native_package_draft") && injected.compareAndSet(false,true))
+                    service.save(id,2,rival);
+            }
+            @Override public int update(String sql,Object... args) {
+                int count=super.update(sql,args);afterWrite(sql);return count;
+            }
+            @Override public <T> java.util.List<T> query(String sql,org.springframework.jdbc.core.RowMapper<T> rowMapper,Object... args) {
+                var rows=super.query(sql,rowMapper,args);afterWrite(sql);return rows;
+            }
+        };
+        var response=new io.ontoforge.boot.model.NativeDraftService(interleaved,mapper).save(id,1,own);
+        assertThat(injected).isTrue();
+        assertThat(response.revision()).isEqualTo(2);
+        assertThat(response.editingContent()).isEqualTo(own);
+        assertThat(service.get(id).revision()).isEqualTo(3);
+        assertThat(service.get(id).editingContent()).isEqualTo(rival);
+    }
     private String url(String suffix) {return "http://127.0.0.1:"+port+"/api/model/drafts"+suffix;}
     private JsonNode call(HttpMethod method,String path,ObjectNode body,int expected) throws Exception {
         HttpHeaders headers=new HttpHeaders();headers.setContentType(MediaType.APPLICATION_JSON);

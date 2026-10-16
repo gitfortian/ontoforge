@@ -1,8 +1,8 @@
 # OntoForge · S0-MVP-0.4｜UX-High 高保真交互设计与独立验收矩阵
 
-> **阶段**：OFIP-0004 第四轮 · 高保真评审候选，仍属于设计，**非真实产品功能**。  
-> **决策**：UX-High 尚需通过独立浏览器证据及正式审核；DG-1 / TC-2 / UX-Low 均仍未记录维护者签收。  
-> **PR**：[OFIP-0004 PR #12](https://github.com/gitfortian/ontoforge/pull/12)（Draft）。  
+> **文档性质**：OFIP-0004 第四轮高保真评审的历史基线，保留当时的 Mock 合同和待办；下文“未实现/待签收”描述该轮评审时点，不代表当前主线。
+>
+> **后续决议**：[OFIP-0004 PR #12](https://github.com/gitfortian/ontoforge/pull/12) 已形成受托 Accepted 决议；真实实现见 PR #13。当前功能成熟度及环境验收只见[产品进度总账](./OntoForge-MVP-产品功能全景与成熟度矩阵.md)。
 > **高保真可操作原型**：[ofip-0004-linktype-highfi.html](../prototypes/ofip-0004-linktype-highfi.html)（全程浏览器内存 Mock，刷新即消失）。  
 > **独立 Chromium 用例**：[test_ofip0004_linktype_highfi.py](../prototypes/tests/test_ofip0004_linktype_highfi.py)，由现有原型浏览器工作流通过 `python -m unittest discover -s doc/prototypes/tests -p 'test_*.py' -v` 选入并执行。  
 > **早期底稿**：[UX-Low 低保真原型](../prototypes/ofip-0004-linktype-lowfi.html)、[16 项 UX-Low 评审矩阵](./S0-MVP-0.4-UX-Low-交互设计与评审矩阵.md)；权威领域/合同仍为 [OFIP-0004](../proposals/OFIP-0004-多对象与LinkType关系建模MVP.md)。

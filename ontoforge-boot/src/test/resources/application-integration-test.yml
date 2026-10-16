@@ -1,0 +1,6 @@
+# No fallback to DB_*: Maven tests must never inherit the development database.
+spring:
+  datasource:
+    url: ${TEST_DB_URL}
+    username: ${TEST_DB_USERNAME}
+    password: ${TEST_DB_PASSWORD}

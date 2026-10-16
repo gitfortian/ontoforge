@@ -3,7 +3,7 @@
 **Status:** Accepted  
 **Discussion:** [PR #10 — OFIP-0003 首轮产品/领域评审](https://github.com/gitfortian/ontoforge/pull/10)  
 **Decision:** [VOTE] Accepted — 2026-10-16（[授权与审批来源声明](https://github.com/gitfortian/ontoforge/pull/10#issuecomment-6210133413)）。DG1–DG9 / TC1–TC12 推荐 A 与 UX-Gate-Low/High 方向已采纳；由助手按用户继续实施的指示受托记录，不冒充第三方 GitHub 审批人。仅授权本地不可变 Snapshot + 历史 / Diff，正式 Review/Release/Activation 仍禁止  
-**Implementation:** In Progress — [真实纵向实施 PR #11](https://github.com/gitfortian/ontoforge/pull/11) 已提交 Flyway V3、Java 事务快照/JCS/Diff、正式 React UI 与真实 PG/HTTP/Chromium 自动化。PR 仍处于 Draft 待完成/审核，Windows 用户实机验收 NOT RUN，任何 CI 绿色不等于 Released  
+**Implementation:** Code Merged — [PR #11](https://github.com/gitfortian/ontoforge/pull/11) 已合并（`9b0f802f`）。当前成熟度和环境验收统一见[产品进度总账](../implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)，合并不代表 Released。
 **Release:** Not Released
 
 **Review gate:** Domain-Gate-1、Contract-Gate-2 与 UX-Gate-Low/High 已有独立评审证据；[受托实施授权](https://github.com/gitfortian/ontoforge/pull/10#issuecomment-6210133413)；**设计 Accepted ≠ 0.3 代码实现或 Windows/生产验收通过**。  
@@ -13,6 +13,8 @@
 > 本提案特意区分 **Working Draft → Validated Revision → Immutable Local Snapshot** 与未来 **ChangeSet → Trusted Review → Approved Release → Activation**。本轮建议的 S0.3 是**本地研发语义模型快照与版本对照能力**，不是企业可审计的发布/部署系统，更不是可供生产 Agent 或工业 Action 直接消费的 SchemaRelease。
 
 ## Motivation
+
+> 下文各轮评审保留提案提交时的历史状态；“尚不存在/待签收/未合并”等陈述不表示当前主线状态。当前实施及环境验收以上方元数据与产品进度总账为准。
 
 ### 用户是谁、要解决什么
 
