@@ -2,7 +2,7 @@
 
 > **交付性质**：产品领域方案第一轮评审提交，**不是功能代码已开发**。本阶段名称与范围待 OFIP-0004 审核；0.3 [PR #11](https://github.com/gitfortian/ontoforge/pull/11) 仍 Draft / 未合并 / Windows 本机验收 NOT RUN。没有新用户页面可投入使用，也不能宣布 0.4 开发完成。
 >
-> 对应设计：[OFIP-0004｜多对象与 LinkType 关系建模 MVP](../proposals/OFIP-0004-多对象与LinkType关系建模MVP.md)。
+> 对应设计：[OFIP-0004｜多对象与 LinkType 关系建模 MVP](../proposals/OFIP-0004-多对象与LinkType关系建模MVP.md)；[设计评审 PR #12](https://github.com/gitfortian/ontoforge/pull/12)。
 
 ## 一、30 秒看懂全局进度
 
