@@ -175,7 +175,7 @@
 #### TC06 · 正式版坐标及 Registry 不可变策略
 
 - `schemaVersion = 0.2.0` 是 Native **文档机器合同版本**；`package.version` 是业务模型包版本，二者不得混淆。实际包候选应以已校验的 **完整 Native payload** 发布，不随手修改原字节填个用户输入版本号。
-- 候选中 `version` 的真实来源、命名/递增规则和审批版目标需要在 B1 实现前核对既有 `DraftValidation` 的候选生成；若旧 Snapshot 固定生成 `0.1.0`，不能仅在 Release DB 中写 `1.0.0` 却继续宣称 payload 是 `1.0.0`。**推荐在新发行包外围建立独立可信坐标/manifest，与旧冻结 payload 的实际 version 字段显式分离；如要改变 Native payload 必须产生新候选与新审批**。
+- 候选中 `version` 的真实来源、命名/递增规则和审批版目标需要在 B1 实现前核对既有 `DraftValidation` 的候选生成；若旧 Snapshot 固定生成 `0.1.0`，不能仅在 Release DB 中写 `1.0.0` 却继续宣称 payload 是 `1.0.0`。**已核实的实际阻断**：`DraftValidation.validate` 当前每次构造 Native 候选时都写 `candidate.put(\"version\",\"0.1.0\")`、`imports=[]`；故历史 Snapshot 的 Native payload version 固定为 `0.1.0`。**推荐**在发行时引入受信 `ReleaseManifest(packageCoordinate,targetVersion,sourceSnapshotId,payloadSha256,lockDigest)`，与**不改字节的旧快照 payload**分别有明确版本字段语义；如果下游 Native 消费者将 payload 内 `version` 当作发布版本，则必须先审查并新增版本化 Candidate 合同，生成新的合法候选、重新摘要并走审核，**不允许对原 Snapshot JSON 直接替换 version 却沿用原 payloadSha256**。该取舍是 TC-D8 必须决定的公共合同问题。
 - Registry 唯一约束：`(workspaceId,packageId,version)` 至多对应一个不可变 `releaseId` 与 digest；相同坐标、不同摘要 → 409 `VERSION_ALREADY_EXISTS`，不覆盖，不自动升版本。
 - P0-B 不允许 `latest` 浮动跨包依赖。合法发布所引用的依赖必须已固定、已批准且获授权；因为 S0 imports 不支持，首期真实发布范围先限制**无导入的完整同包 ObjectType/LinkType**。
 - 发布完成但未激活也可通过授权的 `releaseId`、版本坐标只读检索；不同范围有不同 Active 指针，绝不猜“最近的发布版本就是全部消费者当前版本”。
@@ -275,7 +275,7 @@ Local Snapshot(immutable)
 | TC2-15 | 无消费者时明确展示“未知/尚无登记”，不能签发兼容认证 | API/React 产品断言 |
 | TC2-16 | 安全日志与审核证据关联服务端主体、受控时间、digest，错误响应不泄露 Token/SQL/机密模型 | 审计负例 |
 
-#### TC13 · TC-2 尚需确认的七项核心决定（推荐 A，但不是已批准）
+#### TC13 · TC-2 尚需确认的八项核心决定（推荐 A，但不是已批准）
 
 | 合同决策 | 推荐 A | 明确不采纳的捷径 |
 | --- | --- | --- |
@@ -286,6 +286,7 @@ Local Snapshot(immutable)
 | **TC-D5 跨包依赖 MVP** | 首期正式发行仅无导入的完整同包模型，锁为空数组且有合同；扩展需新的 Gate | 假装已支持跨包浮动 latest |
 | **TC-D6 并发与未知结果** | 独立审核轮次、幂等发行、Activation CAS + 原请求按 key 回查 | 依赖前端禁用按钮保证唯一 |
 | **TC-D7 消费者影响与安全** | 结构风险 + UNKNOWN/NO_REGISTERED_CONSUMERS + 独立 Policy Gate，绝不“100% 兼容” | 没消费者就自动放心发布 |
+| **TC-D8 Native payload 的版本语义** | 旧快照 payload 保留真实 `version=0.1.0`，可信 ReleaseManifest 独立记录发行版本；消费者读取需明示两种版本语义，若必须内部一致，则另建新候选并重新受审 | 直接改旧 JSONB 的 version 或用新版本坐标冒充旧内容版本 |
 
 **第二轮独立 Review 必须对照**：Spring Boot 没有配置 OAuth2 Resource Server、旧草稿路径无可信鉴权、Native V0.2 现有 JSON Schema `version` 字段与快照真实候选生成的关系、同包 0.4 对象/关系的双修订状态、V2/V3 不可变迁移。任何一项未核实，就保持 `Discussion`，不得生成生产代码或标记 `Accepted`。
 
