@@ -10,13 +10,14 @@ import uuid
 from pathlib import Path
 from urllib.request import Request, urlopen
 from playwright.sync_api import sync_playwright
+from b0_fixture import headers, assigned_package
 
 BASE="http://127.0.0.1:5173"
 API="http://127.0.0.1:8080/api/model"
 
 def api(path, method="GET", data=None):
     req=Request(API+path, method=method,
-                headers={"Content-Type":"application/json"},
+                headers={"Content-Type":"application/json", **headers()},
                 data=json.dumps(data).encode("utf-8") if data is not None else None)
     with urlopen(req,timeout=12) as response:
         return response.status,json.load(response)
@@ -30,12 +31,13 @@ class NativeSnapshotRealE2ETest(unittest.TestCase):
     def tearDownClass(cls):
         cls.browser.close();cls.pw.stop()
     def setUp(self):
-        self.page=self.browser.new_page(viewport={"width":1380,"height":920},locale="zh-CN")
+        self.page=self.browser.new_page(viewport={"width":1380,"height":920},locale="zh-CN",
+                                        extra_http_headers=headers())
         self.errors=[]
         self.page.on("pageerror",lambda e:self.errors.append(str(e)))
         self.page.goto(BASE+"/#/model/packages")
         self.page.get_by_role("heading",name="模型包",exact=True).wait_for()
-        self.pkg="manufacturing.p"+uuid.uuid4().hex
+        self.pkg=assigned_package()
     def tearDown(self):
         if os.getenv("E2E_SHOTS"):
             dest=Path(os.getenv("E2E_SHOTS"));dest.mkdir(parents=True,exist_ok=True)

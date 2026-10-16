@@ -256,7 +256,7 @@ class B0IdentityAuthorizationTest {
                 Instant.now().plusSeconds(300));
         String expired = B0TestSecurityConfiguration.token(
                 jwtEncoder, "editor-A", B0TestSecurityConfiguration.ISSUER,
-                List.of(B0TestSecurityConfiguration.AUDIENCE), Instant.now().minusSeconds(30));
+                List.of(B0TestSecurityConfiguration.AUDIENCE), Instant.now().minusSeconds(120));
 
         for (String token : List.of(wrongIssuer, wrongAudience, expired)) {
             ResponseEntity<String> response = call(HttpMethod.GET, "/api/model/drafts", token, null);

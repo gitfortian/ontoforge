@@ -37,8 +37,11 @@ public class SecurityConfig {
                 .exceptionHandling(errors -> errors
                         .authenticationEntryPoint(json401())
                         .accessDeniedHandler(json403()))
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {
-                }));
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .authenticationEntryPoint(json401())
+                        .accessDeniedHandler(json403())
+                        .jwt(jwt -> {
+                        }));
         return http.build();
     }
 

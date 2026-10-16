@@ -71,7 +71,7 @@ public class B0TestSecurityConfiguration {
                 .issuer(issuer)
                 .subject(subject)
                 .audience(audience)
-                .issuedAt(now)
+                .issuedAt(expiresAt.isBefore(now) ? expiresAt.minusSeconds(300) : now)
                 .expiresAt(expiresAt)
                 .id(UUID.randomUUID().toString())
                 .build();

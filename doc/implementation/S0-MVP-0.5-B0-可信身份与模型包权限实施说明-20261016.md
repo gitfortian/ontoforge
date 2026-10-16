@@ -1,6 +1,7 @@
 # S0-MVP-0.5 · B0 可信身份与模型包权限实施说明
 
 > 对应：OFIP-0005 P0-B
+> 状态：PR #17 的 Draft 实现候选；OFIP-0005 的显式决策、人工安全评审及产品签收独立记录，CI 通过不代表这些审批完成。
 > 本阶段：真实身份认证 + 模型包访问授权的第一条可运行垂直切片
 > 本阶段不实现：模型变更审核、正式版本、生效、回退。
 
@@ -33,7 +34,7 @@
 | Reviewer | 阅读受限草稿/快照；后续 B1 审核 |
 | Publisher | 阅读；后续 B1 正式版本 |
 | Activator | 阅读；后续 B2 生效/回退 |
-| Owner | 包权限与成员管理；拥有明确授权的模型操作 |
+| Owner | 对已分配模型包拥有本阶段 Editor 操作；本 PR 尚无成员/权限管理 API |
 
 本轮真正落地 Viewer、Editor、Owner；Reviewer / Publisher / Activator 先进入权限模型。
 
@@ -41,7 +42,11 @@
 
 生产：OIDC issuer → JWT 签名验证 → issuer / audience / exp / nbf → subject → 内部 principal。
 
-开发/CI：使用独立的、仅用于测试的签名 JWT fixture。
+开发/CI：使用独立的、仅用于测试的签名 JWT fixture。运行应用必须提供 `OIDC_ISSUER_URI`、`OIDC_JWK_SET_URI`、`OIDC_AUDIENCE`；无配置启动失败，不提供匿名开发后门。当前前端尚无 OIDC 登录/BFF；浏览器自动化在浏览器上下文中注入短期测试 Bearer Token，不代表已交付登录体验。
+
+浏览器工作流 `native-draft-e2e.yml` 使用 test classpath 下的 `B0BrowserFixture`，仅监听 `127.0.0.1:18765` 并提供临时 RSA 公钥 JWKS；真实 Boot jar 使用生产 `JwtDecoder`。夹具先生成 64 个随机模型包，再通过 JDBC 向独立 `ontoforge_test_*` 库显式写入 Editor/Viewer 成员及包归属，不自动认领历史包。测试私钥只在夹具进程内，临时 Token 文件不得上传为验收附件。
+
+手动运行 `verify-objecttype.ps1`、`verify-snapshot.ps1`、`verify-linktype.ps1` 时，在当前会话外部设置 `ONTOFORGE_BEARER_TOKEN`，并通过 `-PackageId` 指定**预先分配给该身份且尚无 Draft**的测试包；`Recheck` 读取原证据包，不创建新归属。脚本仍只允许 loopback，失败不会绕过授权。
 
 明确禁止 X-User-Id、X-Role、请求体 reviewerName、前端 role 下拉框、固定 service account 冒充用户。
 
