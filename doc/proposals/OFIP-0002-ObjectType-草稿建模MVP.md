@@ -4,9 +4,11 @@
 
 **Discussion:** [PR #6 — OFIP-0002 评审](https://github.com/gitfortian/ontoforge/pull/6)
 
-**Decision:** **[VOTE] Accepted — 2026-10-15（[实施授权记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6193022402)）**。已通过 **Domain-Gate-1：DG1–DG9 全部 A**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)）；**Contract-Gate-2：TC1–TC10 全部 A 已通过**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191277696)）。**UX-Gate-Low / UX-Gate-High：受托独立审核通过**（[实际验收结论](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6192752743)）；**实施获准，真实纵向功能在 [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 中实施及验收**
+**Decision:** **[VOTE] Accepted — 2026-10-15（[实施授权记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6193022402)）**。已通过 **Domain-Gate-1：DG1–DG9 全部 A**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191075093)）；**Contract-Gate-2：TC1–TC10 全部 A 已通过**（[记录](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6191277696)）。**UX-Gate-Low / UX-Gate-High：受托独立审核通过**（[实际验收结论](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6192752743)）；**设计已批准；实现已由 [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 合并到 main；Windows 原生 PostgreSQL 验收仍待执行**
 
-**Implementation:** In Progress — [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 包含真实 Flyway V2、Spring Boot、React 和 PG17+Chromium 证据，仍待 PR CI、合并和 Windows 实机验收；设计签收不等于完成
+**Implementation:** Code Merged / Windows Acceptance Pending — [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 的 Flyway V2、Spring Boot、React 与真实 PG17+Chromium 已通过 CI 并合入 main；Windows 11 本机数据库重启复验依然 NOT RUN，不能宣布发布完成
+
+**Windows acceptance:** NOT RUN — [双阶段运行手册](../implementation/S0-MVP-0.2-Windows-验收.md)，不允许以 Linux CI 替代。
 
 **Release:** Not Released
 
@@ -14,9 +16,9 @@
 
 **Related:** [OFIP-0001 治理规范](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [总体架构 V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2 结构合同候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md) · [S0 迭代计划](../implementation/S0-MVP-迭代计划.md)
 
-> **重要事实**：经核对当前 main，Spring Boot 仅有真实的系统状态 API，Flyway V1 只建平台安装记录；React 的本体建模入口仍为“规划中”。Native V0.2 的 JSON Schema 与 Python 正反例是真实存在的**候选合同与实验验证**，不是 Java 服务或生产编译器。S0 无认证/授权/工作空间隔离；不得作为企业正式服务开放或加载真实工业数据。
+> **设计阶段的历史基线**：在 PR #7 之前，main 的确只有状态 API/Flyway V1/React 占位。**目前已变化**：PR #7 已合并真实 Draft CRUD、Flyway V2、React/ObjectType 和 Native V0.2 候选的 Java Schema 校验；但仍不具备发布系统、认证/授权、工作空间隔离、运行时对象、工业 Action，不能作为企业正式服务开放或加载真实工业数据。**Windows 11 原生 PG 用户本机验收仍未执行**。
 >
-> **已通过的两轮设计约束**：DG1–DG9 与 TC1–TC10 均明确签收为阶段设计决策。Package 1:N ObjectType、1:N LinkType；Save WIP 与 Validate 分离；草稿编辑 DTO / Native Candidate 独立；按包 revision 防覆盖；完整模型校验不等于发布。**机器合同代码的实际修订须在后续受审功能/合同 PR 中实现，并以测试证明**，不能将设计签收等同实现。低/高保真受托独立评审已通过，完整 OFIP 已取得实施授权；Native 机器合同实际修订、前后端纵向功能交付仍是独立事项。
+> **已通过的两轮设计约束**：DG1–DG9 与 TC1–TC10 均明确签收为阶段设计决策。Package 1:N ObjectType、1:N LinkType；Save WIP 与 Validate 分离；草稿编辑 DTO / Native Candidate 独立；按包 revision 防覆盖；完整模型校验不等于发布。**机器合同的本轮修订已在 PR #7 中落地并通过真实 CI**，不能因此将更广泛的 Native V0.2 或发布能力误称为已实现。低/高保真设计受托独立评审已通过；Windows 实机验收和产品 Release 仍是独立 Gate。
 
 ## Motivation
 
