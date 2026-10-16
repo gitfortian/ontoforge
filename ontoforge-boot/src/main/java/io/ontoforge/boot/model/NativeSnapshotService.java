@@ -148,16 +148,15 @@ public class NativeSnapshotService {
             throw fail(409,"VALIDATION_NOT_CURRENT","保存并完整校验当前草稿 revision 后才能冻结");
         JsonNode editor=json(draft.editing);
         if(!editor.isObject()||!editor.path("objectTypes").isArray()
-           ||editor.path("objectTypes").size()!=1
-           ||!editor.path("linkTypes").isArray()||!editor.path("linkTypes").isEmpty()
+           ||!editor.path("linkTypes").isArray()
            ||!DraftValidation.checkEditor(editor,mapper).isEmpty())
-            throw fail(422,"UNSUPPORTED_DEFINITION","只支持恰好一个完整 ObjectType 与零 LinkType，不能裁剪未知资产");
+            throw fail(422,"UNSUPPORTED_DEFINITION","无法安全处理完整模型包，拒绝裁剪对象与关系资产");
         var candidate=DraftValidation.validate(draft.pkg,editor,mapper);
         if(!"VALID".equals(candidate.status())||candidate.nativeCandidate()==null
            ||!NativePackageSchema.validate(candidate.nativeCandidate()).isEmpty())
             throw fail(422,"CANDIDATE_INVALID","当前 Native 定义校验失败，不能冻结");
         JsonNode pkg=candidate.nativeCandidate();
-        for(String key:List.of("imports","linkTypes","bindings","linkBindings","objectSets","functions",
+        for(String key:List.of("imports","bindings","linkBindings","objectSets","functions",
                                "rules","decisionStrategies","policies","actions")){
             if(!pkg.path(key).isArray()||!pkg.path(key).isEmpty())
                 throw fail(422,"UNSUPPORTED_DEFINITION","包含当前不能冻结的模型资产: "+key);
@@ -286,6 +285,29 @@ public class NativeSnapshotService {
                 }
             }
         }
+        if(!from.equals(to)){
+            Map<String,JsonNode> oldLinks=links(a.snapshotContent()),newLinks=links(b.snapshotContent());
+            var linkIds=new java.util.TreeSet<String>();
+            linkIds.addAll(oldLinks.keySet());linkIds.addAll(newLinks.keySet());
+            for(String lid:linkIds){
+                JsonNode old=oldLinks.get(lid),now=newLinks.get(lid);
+                String path="/linkTypes/"+lid;
+                if(old==null||now==null){
+                    rows.add(new Difference("LINK_TYPE",null,null,path,old==null?"ADDED":"REMOVED",
+                        old,now,old==null?"ADDITIVE":"POTENTIALLY_BREAKING","LINK_IDENTITY_CHANGED"));
+                    continue;
+                }
+                for(String field:List.of("apiName","label","sourceTypeRef","targetTypeRef","cardinality","evidenceRequired")){
+                    JsonNode before=old.get(field),after=now.get(field);
+                    if(Objects.equals(before,after))continue;
+                    if("evidenceRequired".equals(field)&&before!=null&&before.asBoolean(false)
+                        &&after!=null&&!after.asBoolean(true)){
+                        rows.add(new Difference("LINK_TYPE",null,null,path+"/"+field,"MODIFIED",
+                            before,after,"POLICY_REVIEW_REQUIRED","LINK_EVIDENCE_RELAXED"));
+                    }else compareField(rows,"LINK_TYPE",null,null,path+"/"+field,before,after,field);
+                }
+            }
+        }
         rows.sort(Comparator.comparing(Difference::path).thenComparing(Difference::changeKind));
         return new SnapshotDiff(a.snapshotId(),b.snapshotId(),a.packageId(),from.equals(to),rows,
                                 "STRUCTURAL_RISK_ONLY_NOT_COMPATIBILITY_CERTIFICATION");
@@ -293,6 +315,11 @@ public class NativeSnapshotService {
     private static Map<String,JsonNode> types(JsonNode document){
         Map<String,JsonNode> ret=new HashMap<>();
         for(JsonNode n:document.path("objectTypes"))ret.put(n.path("id").asText(),n);
+        return ret;
+    }
+    private static Map<String,JsonNode> links(JsonNode document){
+        Map<String,JsonNode> ret=new HashMap<>();
+        for(JsonNode n:document.path("linkTypes"))ret.put(n.path("id").asText(),n);
         return ret;
     }
     private static Map<String,JsonNode> properties(JsonNode obj){
