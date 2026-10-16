@@ -10,6 +10,7 @@
 
 - [现行 Native DSL/AST V0.2 技术合同](./doc/design/核心本体元模型与Native-DSL-AST契约_v0.2.md)
 - [文档目录、研究证据与历史清理说明](./doc/README.md)
+- [S0-MVP-0.3 功能说明与全面 Review 验收矩阵](./doc/implementation/S0-MVP-0.3-功能说明与全面Review验收矩阵.md)
 - [PostgreSQL ObjectSet / Action Outbox 研究实验](./experiments/pg-runtime/README.md)
 
 > **S0-MVP-0.2 ObjectType 草稿建模代码已由 [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 合并到 main；Windows 11 原生 PostgreSQL 实机验收仍待完成，版本未发布。**，不是可生产使用的本体产品。用户/权限/工作空间/业务系统连接尚未实现；所有架构选择仍以 V1.3 和阶段 Gate 为准。
