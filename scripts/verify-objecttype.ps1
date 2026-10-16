@@ -89,7 +89,7 @@ function Assert-ApiError {
 }
 
 $status = Invoke-LocalJson -Path '/api/system/status'
-Assert-Condition ($status.service -eq 'ontoforge' -and $status.version -eq 'S0-MVP-0.2') 'Unexpected OntoForge API/version.'
+Assert-Condition ($status.service -eq 'ontoforge' -and $status.version -in @('S0-MVP-0.2','S0-MVP-0.3')) 'Unexpected OntoForge API/version.'
 Assert-Condition ($status.database -eq 'CONNECTED' -and $status.modelModule -eq 'DRAFT_AVAILABLE') 'A REAL connected PostgreSQL Draft service is required.'
 Assert-Condition ($status.authModule -eq 'NOT_IMPLEMENTED') 'This acceptance only supports the local unauthenticated S0 runtime.'
 Assert-Condition ($status.installationId -match '^[0-9a-fA-F-]{36}$') 'Missing installation ID.'
