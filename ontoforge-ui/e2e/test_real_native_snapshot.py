@@ -114,6 +114,32 @@ class NativeSnapshotRealE2ETest(unittest.TestCase):
         self.assertEqual(old["payloadSha256"],digest)
         self.assertEqual(old["snapshotContent"]["objectTypes"][0]["description"],"批次可追溯")
         self.assertEqual(api("/packages/"+self.pkg+"/snapshots")[1]["items"].__len__(),2)
+    def test_s03_server_commits_but_browser_loses_reply_recovers_same_snapshot(self):
+        self.prepare()
+        done=[]
+        # Commit the intercepted request through a second connection, then
+        # drop ONLY the UI-visible response to exercise RESULT_UNKNOWN.
+        def commit_then_abort(route):
+            if route.request.method=="POST":
+                request_body=route.request.post_data_json
+                status,result=api("/drafts/"+self.draft+"/snapshots","POST",request_body)
+                self.assertEqual(status,201)
+                done.append(result["snapshotId"])
+                route.abort("failed")
+            else:
+                route.continue_()
+        self.page.route("**/api/model/drafts/*/snapshots",commit_then_abort)
+        self.page.locator("#snapshot-freeze").click()
+        self.page.locator("#snapshot-confirm").click()
+        self.page.get_by_text("RESULT_UNKNOWN",exact=False).first.wait_for(timeout=12000)
+        self.assertEqual(len(done),1)
+        self.assertEqual(len(api("/packages/"+self.pkg+"/snapshots")[1]["items"]),1)
+        self.page.unroute("**/api/model/drafts/*/snapshots")
+        self.page.locator("#snapshot-reconcile").click()
+        self.page.locator("#snapshot-sha").wait_for(timeout=14000)
+        self.assertEqual(self.page.url.split("/")[-1],done[0])
+        self.assertEqual(len(api("/packages/"+self.pkg+"/snapshots")[1]["items"]),1)
+
     def test_s03_network_uncertainty_same_key_recovery_no_duplicates(self):
         self.prepare()
         self.page.route("**/api/model/drafts/*/snapshots",
