@@ -94,6 +94,192 @@
 
 **版本与边界**：0.4 不引入独立「正式发行号」、审批人、签名或激活；继续显示 `LOCAL_SNAPSHOT_ONLY`。旧 Snapshot 的 JCS bytes 与 digest 必须完全保持不变，不能为了支持 LinkType 修改 V3 历史行或将旧快照“升级”。
 
+
+### TC-2：多对象与关系的详细功能合同（第二轮评审候选）
+
+> **状态：Contract-Gate-2 Discussion / NOT ACCEPTED / Implementation NOT STARTED。** 本章根据 main 的 DraftValidation、NativeDraftService、NativeDraftController、Native V0.2 Schema，以及 PR #11 尚未合并的 NativeSnapshotService、SnapshotController 和 Flyway V3 核对而来。以下所有新增行为均为**推荐合同**，不是已经运行的功能。
+
+**产品层面的目标**：一个模型包可以完整描述“生产批次—生产工单—销售订单”，关系与对象一起保存、校验、追溯和比较；失败时用户看到具体原因，不会丢关系、误认为完成发布或凭空产生真实业务对象。
+
+#### TC1｜稳定身份、名称与引用规则
+
+| 资产 | 身份作用域 | 当前推荐的产品/校验约束 |
+| --- | --- | --- |
+| 模型包 | packageId | 沿用域式名称，一个包只有一个可写 Draft；本期无可信多空间 |
+| 对象类型 | packageId + ObjectType.id | 同包 id 和 apiName 分别唯一；改 label 不改变身份，改 id 属于新身份 |
+| 属性 | packageId + ObjectType.id + Property.id | 字段 ID、API 名在所属对象内部唯一，允许不同对象的属性同名 |
+| 关系类型 | packageId + LinkType.id | 同包关系 ID 和 apiName 分别唯一；同字符串的 ObjectType ID 与 LinkType ID 可并存，但必须按 kind 区分 |
+| 关系源和目标 | sourceTypeRef、targetTypeRef | **仅按同包 ObjectType.id 精确匹配**，不按显示名称或数组位置猜测，不跨包隐式引用 |
+
+允许对象自关联（工单关联上级工单）；更改对象 ID 后关联不会被暗中改写或迁移。Native 定义 ID 正则沿用 ^[a-z][a-z0-9-]{1,63}$，API 名正则沿用 ^[A-Za-z][A-Za-z0-9]{1,80}$。本轮不新造第二套关系身份。
+
+#### TC2｜LinkType 的最小字段合同与基数方向
+
+| 字段 | 类型 / 必须性 | 产品显示与推荐校验 |
+| --- | --- | --- |
+| id | string；完整候选必填 | 稳定标识，同包关系列表不得重复 |
+| apiName | string；完整候选必填 | 程序名称，同包关系列表唯一 |
+| label | 可选 string | 业务显示名；如未填不强制，存在则必须满足 Native 长度 |
+| sourceTypeRef | string；完整候选必填 | 从当前包选择**来源对象**，必须精确存在 |
+| targetTypeRef | string；完整候选必填 | 从当前包选择**目标对象**，必须精确存在 |
+| cardinality | enum；完整候选必填 | ONE_TO_ONE / ONE_TO_MANY / MANY_TO_ONE / MANY_TO_MANY |
+| evidenceRequired | boolean；完整候选必填 | 表示**未来真实关系**是否必须具备来源证据，不代表当前已有证据 |
+
+- 基数方向统一解释为**来源对象 → 目标对象**，ONE_TO_MANY 为每个来源可有多个目标、每个目标至多一个来源；MANY_TO_ONE 反之；ONE_TO_ONE 双向至多一个；MANY_TO_MANY 双向可多个。
+- “至多”**不保证实际存在关联**，也不代表最小基数为 1。未来真实 LinkFact 及数据绑定另行实现。
+- 创建关系时建议 evidenceRequired 默认 true，但用户必须能明确更改；布尔字段不接受字符串 true/false、数字 0/1 代替。
+- 本期不扩展 inverseOf、数据库外键、实例关系、周期生效、跨包链接。Native V0.2 linkType Schema 不随 UI 设计改版本。
+
+#### TC3｜编辑草稿：暂存未完成 ≠ 静默丢资产
+
+沿用 EditorDoc 的 editorSchemaVersion = 0.1.0；objectTypes 与 linkTypes 都为**数组**。PUT 整体 editingContent，不新增另一套“仅更新关系”的权威接口。
+
+- WIP 保存允许**结构安全但业务信息未填写完毕**：比如新 LinkType 未选目标、未选基数；校验应返回 INCOMPLETE，而不是阻止合法编辑进度。
+- 根对象及 LinkType 深层必须拒绝未知字段、错误 JSON 类型和超限内容。若已经存在未支持资产，前端不能只提交可见部分“修好”它；需要只读告警或显式受控转换。
+- 保留 256 KiB 编辑文档上限、最多 50 个 ObjectType、每类型 100 属性、总属性 1000。推荐最多 200 个 LinkType，并且最终 Candidate 仍不得超过 256 KiB；越界拒绝整个保存，而不是截断。
+- 每次提交是完整聚合，必须包含**全部对象和关系**；原子写入一个 revision，成功后旧校验报告失效。不得仅复制当前 Tab 选中对象而覆盖其他资产。
+- 现代码对非空 linkTypes 返回 UNSUPPORTED_LINK_EDITOR；**只删除这一检查仍不够**，因为当前完整 Candidate 生成时固定 linkTypes 为空。两个环节必须一起实施，并有“关系未丢失”回归。
+
+#### TC4｜校验：有效候选必须完整保留支持的对象和关系
+
+| 结果 | 用户真实含义 | 示例 |
+| --- | --- | --- |
+| INCOMPLETE | 结构安全、业务字段缺失，可继续编辑 | 新关系的 source/target/cardinality 未选 |
+| INVALID | 存在语义冲突或不合法值，必须修复 | 重复 Link ID、未知对象端点、无效基数 |
+| VALID | 当前**已保存 revision** 的全部对象、字段和关系通过服务端校验 | 3 个对象、2 条关系的 Native Candidate 完整可用 |
+
+- POST validate 使用 expectedRevision；过期修订须返回 409，不得对未保存页面内容错误宣称已校验。
+- 推荐错误结构沿用 {path,code,message}，路径为 /linkTypes/0/sourceTypeRef、/linkTypes/1/cardinality 等；后端 path 对应当次 revision 的数组顺序，前端需要把问题定位到稳定 Link.id 的编辑卡片。
+- 缺失与冲突混合出现时，按 INVALID 返回并提供完整可用的问题列表，不能只显示第一项。
+- 构造 Candidate 时必须包含**全部**合法 objectTypes 与 linkTypes；只允许消除约定的可选空 label/description，绝不删关系。
+- 上述完整校验仍不等于 Review/Release/Activation。imports、bindings、linkBindings、objectSets、functions、rules、decisionStrategies、policies、actions 本阶段一律不假装实现或静默纳入。
+
+#### TC5｜删除与变更：关系引用不得被偷偷级联
+
+| 场景 | 草稿保存 | 校验/冻结 | 用户看到的行为 |
+| --- | --- | --- | --- |
+| 修改对象 label | 允许 | 关系仍按 id 有效 | 关系显示名称更新 |
+| 修改对象 id | 显式确认后可保存 | 旧 Link 仍引用旧 id 时 INVALID，不能冻结 | 标出受影响关系，并提示逐条重连 |
+| 删除被关系引用的对象 | 允许保存不完整 WIP | 未修复悬空关系则 INVALID | 保留原关系并提示“无法找到来源/目标”，**不自动级联删除** |
+| 修改关系 source/target 或基数 | 允许 | 重新保存和校验后才能冻结 | 明确显示这是结构性修改 |
+| 删除某关系 | 显式确认后允许 | 新版本可 VALID | 已冻结旧版本仍完整保留该关系 |
+
+对象 ID 的修改不能被当成只改业务名称；Link ID 修改在 Diff 中视为“删除旧 Link + 新增 Link”，不猜测重命名。若业务希望删除对象时自动删除关系，必须另行产品评审，不能让前端和 API 采用不同规则。
+
+#### TC6｜真实接口复用与错误矩阵
+
+**复用既有 0.2 API，0.3 快照 API 仍须先完成独立合并/集成**，新合同不创建 /links 平行写入接口：
+
+| 业务操作 | 公共接口 | 期望与关键错误 |
+| --- | --- | --- |
+| 读取完整草稿 | GET /api/model/drafts/{draftId} | editingContent 必含对象/关系集合 |
+| 保存 WIP | PUT /api/model/drafts/{draftId} | 200 新 revision；409 DRAFT_REVISION_CONFLICT；422 EDITOR_DOCUMENT_INVALID |
+| 完整检查 | POST /api/model/drafts/{draftId}/validate | 200 VALID / INCOMPLETE / INVALID（检查报告，不表示发布）；过期 revision 409 |
+| 本地冻结 | POST /api/model/drafts/{draftId}/snapshots | 新建 201；同 key 找回 200；未校验 409 VALIDATION_NOT_CURRENT；不合法 Candidate 422 |
+| 结果未知按原 key 核对 | GET /api/model/drafts/{draftId}/snapshots/by-key/{idempotencyKey} | 已存在返回原快照；不存在 404；禁止盲目新 key 重试 |
+| 查看历史及详情 | GET /api/model/packages/{packageId}/snapshots；GET /api/model/snapshots/{snapshotId} | 旧版只读，完整性坏必须 500 SNAPSHOT_INTEGRITY_FAILURE |
+| 历史差异 | GET /api/model/snapshot-diffs?from=...&to=... | 旧版零关系与新版有关系仍可比；跨包 422 PACKAGE_MISMATCH |
+
+统一分类：400 为格式错误；404 为不存在；409 为修订或冻结资格冲突；422 为结构/合同错误；503 为持久化暂不可用；500 为无法核验的历史完整性异常。前端不应泄漏堆栈/SQL，也不把 200+INVALID 的检查报告当作保存或冻结成功。
+
+**建议新增的 Issue code（当前后端尚不存在）**：LINK_ID_REQUIRED、DUPLICATE_LINK_ID、DUPLICATE_LINK_API_NAME、LINK_SOURCE_REQUIRED、LINK_SOURCE_UNKNOWN、LINK_TARGET_REQUIRED、LINK_TARGET_UNKNOWN、LINK_CARDINALITY_REQUIRED、LINK_CARDINALITY_INVALID、LINK_EVIDENCE_REQUIRED。结构错误继续复用 UNKNOWN_FIELD、INVALID_STRING、EXPECTED_BOOLEAN 等现有 code。实现阶段必须把码表与 UI 定位一起测试，不能只写文档。
+
+#### TC7｜0.3 旧快照兼容与不可变合同
+
+- PR #11 的 freeze 仍限制**恰好一个 ObjectType、零 LinkType**；实施关系建模时必须扩展为“当前 revision 所有受支持对象和关系完整 VALID”，同时继续拒绝本期未支持资产。
+- 沿用 V3 表、JCS RFC8785、SHA-256、canonical UTF-8、一个草稿修订一份快照、相同 key 幂等找回、不可变保护及数据镜像完整性检查；**绝不修改 V1–V3 旧迁移或重写历史快照字节和摘要**。
+- 现有 V2 editing_document JSONB、V3 canonical_payload BYTEA 和 snapshot_document JSONB 结构上可以容纳对象/关系数组；暂不计划额外 V4，实施阶段须以真实“旧安装升级并写新快照、旧快照摘要不变”的 PostgreSQL 集成证据最终确认。
+- 关系数量和稳定 ID 集合必须在 Candidate 与新快照中保持一致。若有一个 Link 丢失，冻结必须拒绝而不是生成“成功但缺关系”的历史。
+- 数组顺序在结构 Diff 中不构成业务变化，但整份 JSON 的 JCS **不会自动把数组元素重排**：即使 Diff 结果为空，重排仍可能产生不同快照字节与 digest，不可混为一谈。
+- 快照仍标示 LOCAL_SNAPSHOT_ONLY；无可信批准、正式发行版本、激活、运行对象或工业执行。
+
+#### TC8｜关系结构差异与风险级别
+
+以 LinkType.id 对齐两版关系，不依赖位置。新增 entityKind = LINK_TYPE，path 采用 /linkTypes/{stableId} 或 /linkTypes/{stableId}/{field}。建议新增可选 linkTypeId 字段，objectTypeId/propertyId 对关系行保持 null；**新增字段的向后兼容必须由当前前端和真实 HTTP 回归确认，不能假装绝对无影响**。若旧消费方拒绝未知字段，必须选择显式版本化合同。
+
+| 变化 | changeKind | riskLevel | 用户理解 |
+| --- | --- | --- | --- |
+| 新增关系 | ADDED | ADDITIVE | 新增关系定义，**不等于生成真实关联数据** |
+| 删除关系 | REMOVED | POTENTIALLY_BREAKING | 未来引用该关系的消费者可能受影响 |
+| 仅修改 label | MODIFIED | DOC_ONLY | 仅显示名称修改 |
+| 修改 apiName | MODIFIED | POTENTIALLY_BREAKING | 程序引用可能受影响 |
+| 修改 sourceTypeRef/targetTypeRef | MODIFIED | POTENTIALLY_BREAKING | 关系方向/语义端点改变 |
+| 修改 cardinality | MODIFIED | POTENTIALLY_BREAKING | 关联基数约束发生变化 |
+| evidenceRequired 从 false 改 true | MODIFIED | POTENTIALLY_BREAKING | 将来关系需要更严格证据 |
+| evidenceRequired 从 true 改 false | MODIFIED | POLICY_REVIEW_REQUIRED | 降低证据要求，需要治理复核 |
+| 仅交换关系数组顺序 | 不应产生结构变更 | — | 不改变关系定义的结构语义 |
+
+ID 改名 = REMOVED + ADDED；相同快照比较 = sameSnapshot true 和空 changes。按稳定路径排序，差异值可复核。全程保持 compatibilityStatus 为 STRUCTURAL_RISK_ONLY_NOT_COMPATIBILITY_CERTIFICATION，不对真实消费者兼容性做认证。
+
+#### TC9｜前端与失败恢复合同
+
+| 用户看到的问题 | 正确行为 |
+| --- | --- |
+| 修改了关系未保存 | 整个 EditorDoc 标 dirty；切换对象/关系 Tab 仍保留未保存输入；不能直接冻结 |
+| 另一标签页改了同包草稿 | 409；保留本地完整聚合，展示服务器最新版本供人工决策，禁止自动覆盖 |
+| 保存超时不确定是否成功 | 重新读取服务器 revision + 内容核对；不宣称成功，也不丢本地草稿 |
+| 冻结回执不明 | 使用**相同 idempotencyKey** 查询原结果；不得直接新建另一个 key 重试 |
+| 删除了被引用对象 | 提示受影响 LinkTypes；允许保留 INVALID WIP，不自作主张删除所有关系 |
+| 加载旧的多个对象或未知资产 | 只能完整编辑或只读告警；**绝不显示第一个对象后整包提交覆盖** |
+| 数据库不可用 | 保留可复制的本地编辑、报告未确认状态，恢复后重新核验 |
+| 快照内容损坏 | 拒绝展示为可信历史或提供伪 Diff |
+
+编辑器状态归属是**整个包**，不只单个表单。校验问题的路径要和对应 revision / 稳定对象 ID 一起使用，避免重排卡片后跳错问题行。
+
+#### TC10｜规模、安全和明确非目标
+
+保持最多 50 个 ObjectType、单个对象 100 个属性、包内 1000 属性、256 KiB 原始编辑文档与快照上限；本轮建议新增最多 200 个 LinkType 的上限。非法深层 JSON、未知字段、超大输入必须拒绝，不静默裁剪。
+
+本阶段仍只面向隔离本地开发；没有企业可信身份/工作空间，不能连接生产 MES/ERP/QMS 数据。LinkType 是类型声明，不是 LinkFact 实例，也不是 ObjectSet 查询、审批发布、Agent 上下文或 Action。
+
+#### TC11｜完整工程实现范围与依赖
+
+未来**一个真实功能 PR**必须一起交付：多对象编辑 → LinkType 新增/修改/删除 → 保存/刷新重开 → 端点/基数检查 → 两个历史快照 → LinkType Diff → 并发和异常恢复。不能分拆成只有前端表单或只有校验函数的“已完成”PR。
+
+代码影响：React NativeModelWorkspace 必须由单一 objectTypes[0] 状态改为完整 EditorDoc；DraftValidation 的编辑安全与 Candidate 生成必须一起改；PR #11 的 NativeSnapshotService.freeze 与 diff 必须扩展；PG17、真实 HTTP 和 Chromium 必须跑正反例。**关系代码只能在已确认集成 0.3 快照基线后开发**，不直接把 PR #11 未合并代码当 main 能力。
+
+#### TC12｜可执行验收矩阵（设计阶段 NOT RUN）
+
+| 编号 | 场景 | 实施时通过标准 |
+| --- | --- | --- |
+| C01 | 3 ObjectType + 2 LinkType 保存、读取、校验 | 同 revision VALID，Candidate/重开保留全部 3+2 |
+| C02 | 关系目标未选择 | 200 保存 WIP；校验 INCOMPLETE+定位 path；冻结拒绝 |
+| C03 | Link 引用不存在对象 | INVALID + LINK_SOURCE_UNKNOWN 或 TARGET_UNKNOWN，不裁剪 |
+| C04 | 重复 Link id/apiName、重复对象 ID | INVALID，定位每个重复错误，原数据保留 |
+| C05 | 基数错误、伪 boolean、未知审批字段、200+ 超限关系 | 422 或明确 INVALID，不能产生合法快照 |
+| C06 | 删除/重命名被关系引用的对象 | 保留关联、提示修复，未修复不 VALID |
+| C07 | 两次冻结包含关系的完整历史 | 摘要复核，旧版本完整且不可变，幂等不重复 |
+| C08 | 旧版一个对象零 Link vs 新版多对象多 Link | 可正常查看与比较新增差异，不触碰旧 SHA |
+| C09 | 增删 Link、改方向/基数/证据要求、只重排顺序 | 风险级别符合 TC8，顺序变化无结构 Diff |
+| C10 | 两标签冲突、回执超时、重复 key | 409 或同 key 恢复，页面不丢编辑 |
+| C11 | 摘要损坏、数据库断开、伪造发布属性 | 500/503/422 与安全提示，不伪称发布成功 |
+| C12 | Windows 原生 PG 后端真重启、Edge 抽检 | 需要**Windows 用户机器独立证据**，当前 NOT RUN |
+
+#### TC13｜本轮审查发现的真实代码缺口
+
+| 文件/模块 | 当前已存在 | 需要在实施 PR 中改变 |
+| --- | --- | --- |
+| NativeDraftController | PUT 整体草稿、POST validate、CAS 修订 | 尽量不改公共 URL，保持旧消费者可用 |
+| DraftValidation.checkEditor | 拒绝非空 linkTypes；对对象/属性做安全检查 | 新增 LinkType 已知字段、类型和规模安全检查 |
+| DraftValidation.validate | 候选一律填空 linkTypes | 全量保留关系、检查同包端点和重复身份 |
+| Native V0.2 Schema / Python 语义测试 | 已定义 LinkType 和两端引用约束 | Java/前端和现行 Schema 对齐，不创建第二套字段规范 |
+| NativeSnapshotService（PR #11） | 恰好一对象、零关系才能冻结；Diff 不比较 LinkType | 扩为合法多对象/关系冻结，新增 LINK_TYPE 风险对比 |
+| Flyway V2/V3 | JSONB 草稿 + canonical BYTEA 快照 | 暂不改结构，真实迁移回归后再判断是否需要增量迁移 |
+| React 工作台 | 编辑第一个对象，复杂草稿只读 | 以整个草稿为编辑状态，错误/冲突保护全包数据 |
+
+#### TC14｜Contract-Gate-2 六项待签收决策（推荐 A）
+
+| 决策 | 推荐 A | 不推荐的替代方案 |
+| --- | --- | --- |
+| CT1 身份规则 | 同包 typed identity、严格引用，关系 ID/API 同类唯一 | 用名称/数组下标作为真实身份 |
+| CT2 保存与校验 | 安全 WIP 可存、全部对象/关系 VALID 才能冻结 | 保存时删掉不认识/不完整的关系 |
+| CT3 基数与证据 | 关系基数统一来源→目标；证据字段只是未来声明 | 用当前关系定义当成已发现真实关系 |
+| CT4 历史兼容 | 0.3 原快照字节/摘要不变；新 Candidate 全资产冻结 | 改旧 Flyway、历史或只保存首对象 |
+| CT5 关系 Diff | 稳定 ID、结构风险与审核提示，旧消费合同验证 | 空 Diff 或声称兼容性已认证 |
+| CT6 交付边界 | 一个完整真实功能 PR + 独立 Windows 验收 | 只交独立关系表单就宣布 0.4 完成 |
+
+**本轮独立合同审核结论：建议 CT1–CT6 采用 A，进入下一轮 UX-Low 设计评审；合同仍为 Discussion，需维护者显式签收，不能把本文件提交或 Docs CI 成功当成产品批准、功能运行或正式发布。**
+
 ## Proposed Changes｜推荐实施切片与产品交互
 
 ### 一、页面信息架构（与现有工作台融合，不造孤立菜单）
