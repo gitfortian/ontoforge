@@ -1,6 +1,7 @@
 # OFIP-0003：S0-MVP-0.3 Native 模型版本冻结、差异与发布安全边界
 
 **Status:** Discussion  
+**Discussion:** [PR #10 — OFIP-0003 首轮产品/领域评审](https://github.com/gitfortian/ontoforge/pull/10)  
 **Decision:** Pending — 第一轮 Domain / Scope Gate 产品与技术独立预审，**DG1–DG9 均为推荐意见，尚非维护者签收**  
 **Implementation:** Not Started — 仅方案评审；不涉及 SQL / Java / React / Native Schema 的实现更改  
 **Release:** Not Released  
@@ -13,12 +14,12 @@
 
 ### 用户是谁、要解决什么
 
-工业本体设计者在 S0.2 已能创建 \`manufacturing.production\` 模型包、配置 \`ProductionBatch\` 与 \`batch-id\` 主键、保存 WIP、完整校验，重启后从 PostgreSQL 重新读取。现在他需要：把一个**确定的有效修订**留为只读基线，后续继续修改草稿而不覆盖旧基线，能回答“这个版本有什么、下一版本改了什么、哪个修订产生了它”，以及当旧版本被引用时不被悄悄替换。
+工业本体设计者在 S0.2 已能创建 `manufacturing.production` 模型包、配置 `ProductionBatch` 与 `batch-id` 主键、保存 WIP、完整校验，重启后从 PostgreSQL 重新读取。现在他需要：把一个**确定的有效修订**留为只读基线，后续继续修改草稿而不覆盖旧基线，能回答“这个版本有什么、下一版本改了什么、哪个修订产生了它”，以及当旧版本被引用时不被悄悄替换。
 
 0.2 的代码事实：
 
-- \`native_package_draft\` 有单个可写聚合、\`revision\`、\`editing_document\`、\`validated_revision\`、\`validation_report\`；**没有快照/Release/Review/Activation 表**。
-- \`NativeDraftService.validate\` 绑定当前 revision 写入 VALID/INVALID/INCOMPLETE 报告；\`DraftValidation\` 从 WIP 生成符合 Native V0.2 JSON Schema 的候选，候选 \`version="0.1.0"\` 是默认字段，**不是已授予的版本坐标**。
+- `native_package_draft` 有单个可写聚合、`revision`、`editing_document`、`validated_revision`、`validation_report`；**没有快照/Release/Review/Activation 表**。
+- `NativeDraftService.validate` 绑定当前 revision 写入 VALID/INVALID/INCOMPLETE 报告；`DraftValidation` 从 WIP 生成符合 Native V0.2 JSON Schema 的候选，候选 `version="0.1.0"` 是默认字段，**不是已授予的版本坐标**。
 - 0.2 的 Web 只编辑模型包首个 ObjectType；遇到多个类型或非空 LinkType 时只读，防止全量 PUT 丢失其他声明。
 - 0.2 没有可信用户/工作空间/ACL，也没有审查主体；**任何客户端填写“审批人/发布人”的 JSON 均不能成为受信审批证据**。
 - V1.3 第 4.2 节定义 Draft → Validate → Review → Approved → ImmutableRelease → Activation；其余控制面消费者/绑定/数据事实尚不存在。
@@ -33,7 +34,7 @@
 
 ### 黄金故事
 
-\`manufacturing.production\` 的当前草稿在 revision=3 已校验 VALID：
+`manufacturing.production` 的当前草稿在 revision=3 已校验 VALID：
 
 1. 设计者在模型包详情看到“已校验 revision 3 / 尚未冻结”，点击 **冻结本地快照**（须有明确后果和只读提示）。
 2. 服务端在 PostgreSQL 事务中锁定该草稿，重新检查 expectedRevision=3 和实际 Native V0.2 候选、完整校验，生成只读的 Snapshot #1，返回快照 ID、摘要、来源 revision、时间。旧状态、旧报表不被伪装为有效。
@@ -47,45 +48,45 @@
 
 | 概念 | 身份与职责 | 不得混同 |
 | --- | --- | --- |
-| Package coordinate | \`packageId\`，逻辑业务命名空间 | 用户 ID / PG 主键 / 发布版本 |
-| Mutable Draft | \`draftId + revision\`、\`editorSchemaVersion\`、WIP JSONB | Native Release、完整候选与快照 |
-| Validation result | \`draftId + validatedRevision + status + issues\` | ReviewDecision、发布许可 |
+| Package coordinate | `packageId`，逻辑业务命名空间 | 用户 ID / PG 主键 / 发布版本 |
+| Mutable Draft | `draftId + revision`、`editorSchemaVersion`、WIP JSONB | Native Release、完整候选与快照 |
+| Validation result | `draftId + validatedRevision + status + issues` | ReviewDecision、发布许可 |
 | Candidate | 服务端从完整 WIP 生成并以 Native V0.2 验证的候选内容 | 可信编译 AST / Signed Release |
-| Immutable SchemaSnapshot | \`snapshotId\`、\`packageId\`、\`sourceDraftId\`、\`sourceRevision\`、\`candidateSchemaVersion\`、\`canonicalizationProfile\`、\`payloadSha256\`、\`snapshotPayload\`、\`createdAt\` | \`ReleaseDigest\` / \`package.version\` / Approved / Active |
-| Future ReviewDecision | 可信服务端身份、被审内容摘要、依赖锁、意见、时间和决策；身份缺失必须拒绝 | 手填 \`reviewer="admin"\` |
-| Future SchemaRelease | \`packageId + explicit version\`、已冻结锁/兼容报告、Approval、ReleaseDigest；永久不可变 | 本地 Snapshot ID 或草稿 revision |
+| Immutable SchemaSnapshot | `snapshotId`、`packageId`、`sourceDraftId`、`sourceRevision`、`candidateSchemaVersion`、`canonicalizationProfile`、`payloadSha256`、`snapshotPayload`、`createdAt` | `ReleaseDigest` / `package.version` / Approved / Active |
+| Future ReviewDecision | 可信服务端身份、被审内容摘要、依赖锁、意见、时间和决策；身份缺失必须拒绝 | 手填 `reviewer="admin"` |
+| Future SchemaRelease | `packageId + explicit version`、已冻结锁/兼容报告、Approval、ReleaseDigest；永久不可变 | 本地 Snapshot ID 或草稿 revision |
 | Future Activation | 指向特定 Release 的部署/激活指针与生效证据 | 创建 Snapshot 或通过 Schema 校验 |
 
-**明确约束**：快照是**受限开发环境的 schema candidate snapshot**。其 \`snapshotSha256\` 只是稳定的**内容摘要**，不可将其直接命名为 \`ReleaseDigest\` 或“已签名”。\`version="0.1.0"\` 在当前 Native Candidate 中是校验所需的临时候选元数据；必须在显示/API 里注明未授予正式发布版本。
+**明确约束**：快照是**受限开发环境的 schema candidate snapshot**。其 `snapshotSha256` 只是稳定的**内容摘要**，不可将其直接命名为 `ReleaseDigest` 或“已签名”。`version="0.1.0"` 在当前 Native Candidate 中是校验所需的临时候选元数据；必须在显示/API 里注明未授予正式发布版本。
 
 ### 接口草案（下一轮 Contract-Gate 才冻结路径/DTO/状态码）
 
 | 任务 | 推荐方式 | 原则 |
 | --- | --- | --- |
-| 冻结当前已检验草稿 | \`POST /api/model/drafts/{draftId}/snapshots\` with \`expectedRevision\` + \`idempotencyKey\` | 服务端重检、事务内 CAS、失败不产生半成品、409 明确原因 |
-| 模型包快照列表 | \`GET /api/model/packages/{packageId}/snapshots\` | 只返回本地 SchemaSnapshot；分页稳定、只读 |
-| 快照详情 | \`GET /api/model/snapshots/{snapshotId}\` | 只读、明确 unapproved/unreleased/unactivated；校验摘要 |
-| 两快照比较 | \`GET /api/model/snapshot-diffs?from={id}&to={id}\` | 限相同 packageId，结构化 Diff，不盲用文本 Diff |
+| 冻结当前已检验草稿 | `POST /api/model/drafts/{draftId}/snapshots` with `expectedRevision` + `idempotencyKey` | 服务端重检、事务内 CAS、失败不产生半成品、409 明确原因 |
+| 模型包快照列表 | `GET /api/model/packages/{packageId}/snapshots` | 只返回本地 SchemaSnapshot；分页稳定、只读 |
+| 快照详情 | `GET /api/model/snapshots/{snapshotId}` | 只读、明确 unapproved/unreleased/unactivated；校验摘要 |
+| 两快照比较 | `GET /api/model/snapshot-diffs?from={id}&to={id}` | 限相同 packageId，结构化 Diff，不盲用文本 Diff |
 | API 负面合同 | 400/404/409/422/503，具体错误码另评审 | 不暴露内部 SQL；超时结果未知允许按幂等键查询 |
-| 此阶段不开放 | \`/approve\`、\`/publish\`、\`/activate\`、\`/rollback\` | 任何伪发布或单机 Fake Approver 均不属于 S0.3 |
+| 此阶段不开放 | `/approve`、`/publish`、`/activate`、`/rollback` | 任何伪发布或单机 Fake Approver 均不属于 S0.3 |
 
-推荐错误码：\`DRAFT_REVISION_CONFLICT\`、\`VALIDATION_NOT_CURRENT\`、\`CANDIDATE_INVALID\`、\`SNAPSHOT_ALREADY_EXISTS\`（如请求幂等语义不能安全返回原结果时）、\`PACKAGE_MISMATCH\`、\`SNAPSHOT_NOT_FOUND\`、\`UNSUPPORTED_DEFINITION\`、\`PERSISTENCE_UNAVAILABLE\`。**返回 HTTP 200 的 VALID 不等于发布。**
+推荐错误码：`DRAFT_REVISION_CONFLICT`、`VALIDATION_NOT_CURRENT`、`CANDIDATE_INVALID`、`SNAPSHOT_ALREADY_EXISTS`（如请求幂等语义不能安全返回原结果时）、`PACKAGE_MISMATCH`、`SNAPSHOT_NOT_FOUND`、`UNSUPPORTED_DEFINITION`、`PERSISTENCE_UNAVAILABLE`。**返回 HTTP 200 的 VALID 不等于发布。**
 
 ## 3. Proposed Changes
 
 ### 3.1 S0.3 子集与安全前提
 
-- 保留 0.2 自身“一包一个当前可写草稿”的模型；新增**同一 packageId 多个只读历史快照**。原 \`package_id UNIQUE\` 只约束 Draft 表，不约束 Snapshot 或未来 Release 多版本表。
-- 支持 S0.2 UI 能实际安全 round-trip 的完整首个 ObjectType / Property；LinkType/import/bindings/functions/policies/actions 等数组必须为空。若服务端检测未知资产，**拒绝冻结**，而不是静默丢弃。
+- 保留 0.2 自身“一包一个当前可写草稿”的模型；新增**同一 packageId 多个只读历史快照**。原 `package_id UNIQUE` 只约束 Draft 表，不约束 Snapshot 或未来 Release 多版本表。
+- 本期只支持**恰好 1 个完整 ObjectType 及其 Property**，这是对 S0.2 实际前端能力的明确约束，**在 Java 服务端再次验证**；0 个或 2 个及以上均不能偷偷截断后冻结。LinkType/import/bindings/functions/policies/actions 等数组必须为空。若服务端检测未知资产，**拒绝冻结**，而不是静默丢弃。
 - 应先跑 S0.2 Windows 实机验收再宣布任何 0.3 本机可用；并不阻止现在规划 0.3 的领域/合同。
 - UI 必须显示**本地开发 / 未审核 / 未发布 / 不供 Agent 使用**，点击快照只读，不出现可操作的发布或激活假按钮。
 
 ### 3.2 原子冻结：由真实服务端负责
 
 1. 客户端只传 draftId、expectedRevision、幂等键，不能传任意“已审 Native Package”或审批人、发布时间。
-2. PostgreSQL 事务读取并锁定 Draft；\`draft.revision==expectedRevision\`，最新已保存 revision 的 ValidationResult 必须 VALID；**事务内重新生成候选并重复权威 Native Schema+语义校验**，避免用历史 Valid 的状态代替当前定义。
-3. 只对**规范化后完整候选内容**执行版本化 canonical JSON 规则（推荐评审 RFC 8785/JCS Profile，非简单 Jackson \`toString()\`、\`Map\` 迭代顺序或伪固定 hash），计算真正 SHA-256；同时保存 Profile ID、生成器/合同版本。
-4. 一个事务插入只读 Snapshot 内容、摘要及 source revision/创建时间。以 \`(draftId,sourceRevision)\` 唯一索引配合幂等键；相同快照重复提交必须安全返回既有结果，不产生两份逻辑历史或覆盖已有快照。
+2. PostgreSQL 事务读取并锁定 Draft；`draft.revision==expectedRevision`，最新已保存 revision 的 ValidationResult 必须 VALID；**事务内重新生成候选并重复权威 Native Schema+语义校验**，避免用历史 Valid 的状态代替当前定义。
+3. 只对**规范化后完整候选内容**执行版本化 canonical JSON 规则（推荐评审 RFC 8785/JCS Profile，非简单 Jackson `toString()`、`Map` 迭代顺序或伪固定 hash），计算真正 SHA-256；同时保存 Profile ID、生成器/合同版本。
+4. 一个事务插入只读 Snapshot 内容、摘要及 source revision/创建时间。以 `(draftId,sourceRevision)` 唯一索引配合幂等键；相同快照重复提交必须安全返回既有结果，不产生两份逻辑历史或覆盖已有快照。
 5. 回执丢失时，调用方按 source revision/幂等键查询结果；请求未知绝不提示“冻结失败可盲目重试”。
 6. 已冻结内容**不依赖后续草稿再读取**；新草稿保存、旧验证失效、差异渲染均不能更新历史 Snapshot 的 payload/摘要。
 
@@ -93,24 +94,24 @@
 
 ### 3.3 真正不可变，而非“前端按钮 disabled”
 
-建议新增 \`native_schema_snapshot\`（仅为设计，待 Contract-Gate 确认 Flyway V3）：
+建议新增 `native_schema_snapshot`（仅为设计，待 Contract-Gate 确认 Flyway V3）：
 
-- \`snapshot_id UUID PK\`、\`package_id\`、\`source_draft_id UUID FK\`、\`source_revision BIGINT\`、\`candidate_schema_version\`、\`canonicalization_profile\`、\`snapshot_document JSONB\`、\`payload_sha256 CHAR(64)\`、\`created_at TIMESTAMPTZ\`；
-- \`UNIQUE(source_draft_id,source_revision)\` 实现修订级幂等。无需修改 V2 草稿身份或主键；
+- `snapshot_id UUID PK`、`package_id`、`source_draft_id UUID FK`、`source_revision BIGINT`、`candidate_schema_version`、`canonicalization_profile`、`snapshot_document JSONB`、`payload_sha256 CHAR(64)`、`created_at TIMESTAMPTZ`；
+- `UNIQUE(source_draft_id,source_revision)` 实现修订级幂等。无需修改 V2 草稿身份或主键；
 - 无 UPDATE/DELETE 业务端点；建议数据库约束/触发器拒绝业务角色修改/删除快照，应用启动身份权限最小化，避免开发中误改历史，自动化测试要验证；
 - 返回详情时摘要必须按**相同 Canonicalization Profile** 校验；日志记录 snapshotId/sourceRevision/digest 前缀，不记录敏感模型全文；
 - 本地 PG 超级用户仍可改数据库：这只能提供“产品受控不可变”，**不是防内部管理员篡改的独立审计或签名系统**。可信签名、可验证审计链由未来安全 Gate 定义。
 
 ### 3.4 版本差异的语义和风险表达
 
-Diff 键必须按现有 Type-scoped Property 身份：\`(packageId,objectType.id,property.id)\`，不是从数组下标比较。每条变更包含 \`changeKind\` / \`propertyPath\` / \`oldValue\` / \`newValue\` / \`riskClassification\` / \`reason\`。
+Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,property.id)`，不是从数组下标比较。每条变更包含 `changeKind` / `propertyPath` / `oldValue` / `newValue` / `riskClassification` / `reason`。
 
 | 变更 | 示例 | 0.3 显示建议 |
 | --- | --- | --- |
-| 新增对象类型或属性 | \`ProductionBatch.qualityStatus\` | ADDITIVE（仅结构层面，仍未判断下游） |
-| 删除/重命名 Type/Property ID | \`batch-id\` 改 \`lot-id\` | POTENTIALLY_BREAKING |
+| 新增对象类型或属性 | `ProductionBatch.qualityStatus` | ADDITIVE（仅结构层面，仍未判断下游） |
+| 删除/重命名 Type/Property ID | `batch-id` 改 `lot-id` | POTENTIALLY_BREAKING |
 | 改主键、值类型 | STRING→INTEGER / 更换 primaryKeyRef | POTENTIALLY_BREAKING |
-| required false→true | \`qualityStatus\` 必填 | POTENTIALLY_BREAKING |
+| required false→true | `qualityStatus` 必填 | POTENTIALLY_BREAKING |
 | searchable true→false | 无法再按此字段搜索 | POTENTIALLY_BREAKING |
 | classification 变化 | INTERNAL→PUBLIC/RESTRICTED | POLICY_REVIEW_REQUIRED（绝非自动扩大授权） |
 | ENUM 增删值 | 移除 COMPLETED / 新增 HELD | POTENTIALLY_BREAKING / REVIEW_REQUIRED |
@@ -132,14 +133,14 @@ Diff 键必须按现有 Type-scoped Property 身份：\`(packageId,objectType.id
 
 ### 3.6 与未来可信审查、发布和激活衔接
 
-建议后续独立 OFIP 完成最小可信主体识别、受控角色/空间、审查记录（谁对哪些完全一致的内容与依赖做了什么判断），且需考虑**审核与提交人是否允许同一主体**。任何 \`ReviewDecision\` 必须绑定 Digest+SourceSnapshot+依赖 Lock 与主体证据，修改内容、依赖、Policy/Action 或资格撤销应按规则使审查失效。
+建议后续独立 OFIP 完成最小可信主体识别、受控角色/空间、审查记录（谁对哪些完全一致的内容与依赖做了什么判断），且需考虑**审核与提交人是否允许同一主体**。任何 `ReviewDecision` 必须绑定 Digest+SourceSnapshot+依赖 Lock 与主体证据，修改内容、依赖、Policy/Action 或资格撤销应按规则使审查失效。
 
-未来正式发布另建 \`SchemaRelease(packageId,releaseVersion,releaseDigest,reviewDecision,dependencyLock,...)\` 与 \`Activation\`：**不可原地把已有 Snapshot status 改为 PUBLISHED**；应通过新 Release 事务验证并生成新的可审计资产。发布失败不得出现 Active 指针。回滚只能切换到经允许的历史 Release 或新建修复 Release，不修改旧不可变证据。Schema Release 不自动激活 Binding、对象索引或 Action。
+未来正式发布另建 `SchemaRelease(packageId,releaseVersion,releaseDigest,reviewDecision,dependencyLock,...)` 与 `Activation`：**不可原地把已有 Snapshot status 改为 PUBLISHED**；应通过新 Release 事务验证并生成新的可审计资产。发布失败不得出现 Active 指针。回滚只能切换到经允许的历史 Release 或新建修复 Release，不修改旧不可变证据。Schema Release 不自动激活 Binding、对象索引或 Action。
 
 ## 4. Compatibility, Deprecation, and Migration Plan
 
-1. Flyway V2 的 \`native_package_draft\` 和数据不改、不删除；建议 V3 纯新增 Snapshot 表、索引与数据库层不可变保护。若以后真正需要扩展当前草稿 editorSchemaVersion 或多类型/Link，另评审迁移。
-2. Native V0.2 Package Schema 不因“快照”增加字段。Snapshot metadata 放**外围受管资源**，不是偷偷塞进 \`objectTypes[]\` 或 Native Package 根节点，否则 JSON Schema additionalProperties 会拒绝。
+1. Flyway V2 的 `native_package_draft` 和数据不改、不删除；建议 V3 纯新增 Snapshot 表、索引与数据库层不可变保护。若以后真正需要扩展当前草稿 editorSchemaVersion 或多类型/Link，另评审迁移。
+2. Native V0.2 Package Schema 不因“快照”增加字段。Snapshot metadata 放**外围受管资源**，不是偷偷塞进 `objectTypes[]` 或 Native Package 根节点，否则 JSON Schema additionalProperties 会拒绝。
 3. Snapshot 与未来正式 Release 均允许同包历史并存；单 Draft 的 packageId 唯一约束不能传播到历史表。
 4. 对同一 payload 的 canonicalization/formatter 变化不得无声重算旧摘要。必须保留 Profile ID、原始受检 bytes/可稳定重建的 canonical 字节；历史查询按保存时 Profile 解释，未来算法升级另发 Profile。
 5. 不支持的旧编译产物、跨包依赖、LinkType/Binding 原型应**显式拒绝**；不能让 S0.2 首对象 UI 把其他类型截断后再冻结。
@@ -158,7 +159,7 @@ Diff 键必须按现有 Type-scoped Property 身份：\`(packageId,objectType.id
 | T6 拒绝篡改 | UPDATE/DELETE 数据库业务角色/服务 API 被拒绝 | 不能仅依赖禁用按钮 |
 | T7 Digest 可重现 | 多语言 canonicalization golden fixtures、字段顺序/数字/Unicode、Profile 改变/无效拒绝 | 不能用未定义 JSON 序列顺序冒充稳定哈希 |
 | T8 Diff 领域作用域 | 多类型同名 Property.id / 字段 ID 改变 / required / classification / ENUM | 不能误报包级重名或把降级授权称安全 |
-| T9 不支持资产 | LinkType、imports、Binding 等非空则明确拒绝 S0.3 冻结 | 不允许暗中丢字段 |
+| T9 不支持资产 | 0 个或多个 ObjectType、LinkType、imports、Binding 等非空均明确拒绝 S0.3 冻结 | 不允许暗中丢字段 |
 | T10 真实浏览器 | Vite → React → Spring Boot → PG17：冻结、查看、Diff、刷新、断网/409、未保存离开 | Mock 的 31/31 不能替代 |
 | T11 Windows 实机 | 用户 Windows 11 原生 PG：保存、冻结、后端重启、同一 Snapshot 内容/摘要重读 | Linux CI 绿灯不能替代 |
 | T12 安全边界 | 无 Auth 只允许本机回环，未配置授权的审批/发布/激活入口不存在 | 不能把操作者名字从表单当审计主体 |
@@ -168,7 +169,7 @@ Diff 键必须按现有 Type-scoped Property 身份：\`(packageId,objectType.id
 ## 6. Rejected Alternatives
 
 1. **“0.3 一步交付审批 + 正式版本 + 激活”**：当前没有 IAM/工作空间/依赖锁；审核人可被客户端任意填入，缺少权限审核与可信凭据。拒绝伪正式发布。
-2. **把 \`VALID\` 直接改成 \`PUBLISHED\`**：完整性校验不是业务审批或兼容评估；会误导 Agent/消费者。拒绝。
+2. **把 `VALID` 直接改成 `PUBLISHED`**：完整性校验不是业务审批或兼容评估；会误导 Agent/消费者。拒绝。
 3. **只复制原草稿 JSONB、不固定摘要与算法**：无法重建历史快照、也难识别更改；拒绝“看似不可变”的演示级存储。
 4. **把 UI 上的锁图标当成不可变保护**：服务端/DB 更新仍可覆盖内容；拒绝。
 5. **把版本号写在原 Draft 记录上**：单可写聚合无法持有历史独立版本，覆盖旧数据；拒绝。
