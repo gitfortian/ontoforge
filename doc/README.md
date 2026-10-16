@@ -8,6 +8,9 @@
 >
 > 设计方向：Enterprise-native Operational Ontology，连接 Object/Link、Data Binding、ObjectSet、Rule/Function、Decision、Policy、Action 与可追溯证据。**推理结论不等于行动授权**。
 
+- [S0-MVP-0.3 本轮交付说明与下一步进度](./implementation/S0-MVP-0.3-交付说明-20261016.md)
+- [每轮交付说明模板](./implementation/交付说明模板.md)
+
 ## 当前有效文件
 
 | 文档/合同 | 权威职责与状态 |
