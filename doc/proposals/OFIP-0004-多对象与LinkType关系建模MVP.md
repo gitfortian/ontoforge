@@ -2,7 +2,7 @@
 
 **Status:** Discussion（第一轮产品/领域评审稿；非 Accepted）
 
-**Discussion:** 本轮 Draft 设计 PR（以 GitHub PR 实际链接为准）
+**Discussion:** [PR #12 — OFIP-0004 第一轮产品/领域设计评审](https://github.com/gitfortian/ontoforge/pull/12)（Draft）
 
 **Decision:** Pending。本文的推荐方案不是维护者已签收合同；没有 `[VOTE] Accepted` 不得进入正式功能实现 PR。
 
