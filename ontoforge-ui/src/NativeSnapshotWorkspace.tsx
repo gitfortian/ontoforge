@@ -47,6 +47,9 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
  const [error,setError]=useState<string|null>(null);
  const [pendingKey,setPendingKey]=useState<string|null>(null);
  const [pendingRevision,setPendingRevision]=useState<number|null>(null);
+ const pendingStorageKey='ontoforge-local-snapshot-pending:'+draft.draftId;
+ const remember=(key:string,revision:number)=>{try{sessionStorage.setItem(pendingStorageKey,JSON.stringify({key,revision}))}catch{/* private browsing may block storage */}};
+ const forget=()=>{try{sessionStorage.removeItem(pendingStorageKey)}catch{/* no persisted storage */}};
  const confirmRef=useRef<HTMLButtonElement|null>(null);
  const freezeButtonRef=useRef<HTMLButtonElement|null>(null);
  const active=validation?.status==='VALID'&&validation.validatedRevision===draft.revision;
@@ -58,19 +61,29 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
      setItems(page.items);
    }catch(e){setError(errorText(e));}
  }
- useEffect(()=>{void refresh();setPendingKey(null);setPendingRevision(null);
-   // Draft ID changes should start a fresh local request state.
+ useEffect(()=>{
+   void refresh();
+   try{
+     const value=sessionStorage.getItem(pendingStorageKey);
+     if(value){
+       const parsed=JSON.parse(value) as {key?:string;revision?:number};
+       if(typeof parsed.key==='string'&&Number.isInteger(parsed.revision)&&parsed.revision!>=1){
+         setPendingKey(parsed.key);setPendingRevision(parsed.revision!);
+       }
+     }
+   }catch{/* unavailable storage: leave pending recovery to original browser tab */}
    // eslint-disable-next-line react-hooks/exhaustive-deps
  },[draft.draftId]);
  useEffect(()=>{if(confirm){confirmRef.current?.focus()}else{freezeButtonRef.current?.focus()}},[confirm]);
  const already=items.some(x=>x.sourceRevision===draft.revision);
  const eligible=!busy&&!dirty&&!locked&&!pendingKey&&supported&&active&&!already;
  async function freeze(key:string,revision:number){
+   remember(key,revision);
    setBusy(true);setError(null);
    try{
      const saved=await request<Snapshot>('/drafts/'+draft.draftId+'/snapshots','POST',
                             {expectedRevision:revision,idempotencyKey:key});
-     setPendingKey(null);setPendingRevision(null);
+     forget();setPendingKey(null);setPendingRevision(null);
      await refresh();
      navigate('#/model/snapshots/'+saved.snapshotId);
    }catch(e){
@@ -80,7 +93,7 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
      if(x.code==='RESULT_UNKNOWN'||x.code==='INVALID_RESPONSE'){
        setPendingKey(key);setPendingRevision(revision);
      }else{
-       setPendingKey(null);setPendingRevision(null);
+       forget();setPendingKey(null);setPendingRevision(null);
        if(x.code==='SNAPSHOT_REVISION_ALREADY_FROZEN'||x.code==='DRAFT_REVISION_CONFLICT')await refresh();
      }
    }finally{setBusy(false)}
@@ -90,7 +103,7 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
    setBusy(true);setError(null);
    try{
      const original=await request<Snapshot>('/drafts/'+draft.draftId+'/snapshots/by-key/'+pendingKey);
-     setPendingKey(null);setPendingRevision(null);
+     forget();setPendingKey(null);setPendingRevision(null);
      navigate('#/model/snapshots/'+original.snapshotId);
    }catch(e){
      const x=e as Failure;
