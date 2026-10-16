@@ -1,0 +1,42 @@
+name: OFIP-0005 Governance UX-High Browser Review
+
+# Design-review browser evidence only. Not a production application gate.
+on:
+  pull_request:
+    paths:
+      - 'doc/prototypes/ofip-0005-governance-highfi.html'
+      - 'doc/prototypes/tests/test_ofip0005_governance_highfi.py'
+      - 'doc/implementation/S0-MVP-0.5-UX-High-模型治理交互设计与验收矩阵.md'
+      - 'doc/implementation/S0-MVP-0.5-P0-B-UX-High-交付说明-20261016.md'
+      - '.github/workflows/ofip-0005-highfi-browser.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  prototype-chromium:
+    name: OFIP-0005 Real Chromium UX-High
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install browser test dependency
+        run: python -m pip install playwright==1.57.0
+      - name: Install real Chromium for Playwright
+        run: python -m playwright install --with-deps chromium
+      - name: Run OFIP-0005 UX-High browser tests
+        env:
+          UX_CAPTURE_SCREENSHOTS: '1'
+          UX_SCREENSHOT_DIR: '${{ runner.temp }}/ofip-0005-ux-highfi-shots'
+        run: python -m unittest doc/prototypes/tests/test_ofip0005_governance_highfi.py -v
+      - name: Upload browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ofip-0005-ux-highfi-chromium-screenshots
+          path: '${{ runner.temp }}/ofip-0005-ux-highfi-shots'
+          if-no-files-found: warn
+          retention-days: 14
