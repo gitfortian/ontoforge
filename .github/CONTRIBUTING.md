@@ -1,6 +1,10 @@
 # Contributing to OntoForge · 砺元
 
-本仓库使用 [OFIP-0001](../doc/proposals/OFIP-0001-需求提案文档治理与CI证据门禁.md) 确立的**重大设计先评审、逐 PR 可验收交付、证据与状态分离**流程。本规则面向人工贡献者与 AI Coding Agent。请同时遵循根目录 [AGENTS.md](../AGENTS.md) 和 [README.md](../README.md)。
+本仓库使用 [OFIP-0001](../doc/proposals/OFIP-0001-需求提案文档治理与CI证据门禁.md) 确立的**重大设计先评审、逐 PR 可验收交付、证据与状态分离**流程。本规则面向人工贡献者与 AI Coding Agent。请同时遵循根目录 [AGENTS.md](../AGENTS.md)、[README.md](../README.md) 和 [**统一产品术语词汇表**](../doc/砺元本体产品统一术语词汇表.md)。
+
+## 统一命名：新增概念必须复核词汇表
+
+产品页面、用户帮助、OFIP 和测试用例须优先采用 [256 词条中英文术语](../doc/砺元本体产品统一术语词汇表.md) 的推荐名称与信任边界，不能把本地 SchemaSnapshot 命名为正式 SchemaRelease、把 LinkType 描述为真实 LinkFact、把 Function 建议描述为 Action 授权。新增或重定义概念需同步术语的正例、反例与实际阶段；修改公共字段或生命周期仍必须先走 OFIP，不得通过改文档偷换合同。
 
 ## 先判断：需要 OFIP 还是普通 PR？
 
