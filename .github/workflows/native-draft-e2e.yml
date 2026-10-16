@@ -1,4 +1,4 @@
-name: OntoForge Native Draft Real Browser E2E
+name: OntoForge Native Model Real Browser E2E
 
 # REAL PostgreSQL 17 + Spring Boot + Vite + Chromium; not a mock-page test.
 on:
@@ -10,6 +10,7 @@ on:
       - '.github/workflows/native-draft-e2e.yml'
       - 'scripts/verify-objecttype.ps1'
       - 'scripts/verify-s0.ps1'
+      - 'scripts/verify-snapshot.ps1'
   workflow_dispatch:
 
 permissions:
@@ -26,7 +27,7 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($script in @('scripts/verify-s0.ps1', 'scripts/verify-objecttype.ps1')) {
+          foreach ($script in @('scripts/verify-s0.ps1', 'scripts/verify-objecttype.ps1', 'scripts/verify-snapshot.ps1')) {
             $tokens = $null
             $parseErrors = $null
             [void][System.Management.Automation.Language.Parser]::ParseFile(
@@ -100,7 +101,7 @@ jobs:
         run: |
           python -m pip install playwright==1.57.0
           python -m playwright install --with-deps chromium
-      - name: Test ObjectType golden story, refresh, 409 and network failures
+      - name: Test real ObjectType and immutable Snapshot golden stories with failure recovery
         env:
           E2E_SHOTS: '${{ runner.temp }}/ontoforge-native-e2e-shots'
         run: python -m unittest discover -s ontoforge-ui/e2e -p 'test_*.py' -v
@@ -109,6 +110,8 @@ jobs:
         run: |
           ./scripts/verify-objecttype.ps1 -Mode Exercise -AllowCreateTestDraft -EvidencePath '${{ runner.temp }}/ontoforge-objecttype-acceptance.json'
           ./scripts/verify-objecttype.ps1 -Mode Recheck -EvidencePath '${{ runner.temp }}/ontoforge-objecttype-acceptance.json'
+          ./scripts/verify-snapshot.ps1 -Mode Exercise -AllowCreateTestDraft -EvidencePath '${{ runner.temp }}/ontoforge-snapshot-acceptance.json'
+          ./scripts/verify-snapshot.ps1 -Mode Recheck -EvidencePath '${{ runner.temp }}/ontoforge-snapshot-acceptance.json'
       - name: Keep real service logs and screenshots for review
         if: always()
         run: |
@@ -116,6 +119,7 @@ jobs:
           cp /tmp/ontoforge-api.log /tmp/ontoforge-e2e-evidence/backend.log 2>/dev/null || true
           cp /tmp/ontoforge-vite.log /tmp/ontoforge-e2e-evidence/vite.log 2>/dev/null || true
           cp '${{ runner.temp }}/ontoforge-objecttype-acceptance.json' /tmp/ontoforge-e2e-evidence/windows-acceptance-script-on-linux.json 2>/dev/null || true
+          cp '${{ runner.temp }}/ontoforge-snapshot-acceptance.json' /tmp/ontoforge-e2e-evidence/snapshot-exercise-recheck-on-linux.json 2>/dev/null || true
           cp -r '${{ runner.temp }}/ontoforge-native-e2e-shots' /tmp/ontoforge-e2e-evidence/screenshots 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         if: always()
