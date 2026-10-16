@@ -1,16 +1,22 @@
 # OntoForge S0-MVP-0.4｜多对象与 LinkType 真实功能实施及验收报告
 
-> **实施 PR**：[PR #13](https://github.com/gitfortian/ontoforge/pull/13) 已重定向 `main`；[0.3 PR #11](https://github.com/gitfortian/ontoforge/pull/11) 已合并（`9b0f802f`）。**Windows 11 用户本机 PostgreSQL 真实停启复验尚未执行、0.4 尚未正式发布**。  
+> **实施 PR**：[PR #13](https://github.com/gitfortian/ontoforge/pull/13) 已合并至 `main`（`605b9976747dcab676b982f7a544a224c2c5ff28`）；[0.3 PR #11](https://github.com/gitfortian/ontoforge/pull/11) 已合并（`9b0f802f`）。**Windows 11 用户本机 PostgreSQL 真实停启复验尚未执行、0.4 尚未正式发布**。  
 > **产品方案和交互**：[PR #12（OFIP-0004 四轮设计）](https://github.com/gitfortian/ontoforge/pull/12) 已按受托产品阶段决议 Accepted 并合并 `main`；不代表第三方 GitHub 审核人亲自签署，更不等于正式发布。  
-> **报告性质**：当前为工程集成候选，不以某次 Docs CI、原型或某个后端函数的存在来宣称完整功能通过。
+> **报告性质**：0.4 代码已合并开发主线，隔离真实 PG17/Java/React/Chromium 主流程通过；本报告不等于 Windows 11 本机验收或生产发布认证。
 
 ## 0. 最新主线集成与自动化验收证据（2026-10-16）
 
-**已经完成**：0.3 [PR #11](https://github.com/gitfortian/ontoforge/pull/11) 正式合并 `main`（合并 SHA `9b0f802f4dcf2d0a877f1545f2eb9aeb86a43627`）；0.4 的 [PR #13](https://github.com/gitfortian/ontoforge/pull/13) 已改为直接比较 `main`、保留 11 个工程文件变更、没有混入重复的 0.3 实现；四轮设计 [PR #12](https://github.com/gitfortian/ontoforge/pull/12) 已合并。
+**已经完成**：0.3 [PR #11](https://github.com/gitfortian/ontoforge/pull/11) 正式合并 `main`（合并 SHA `9b0f802f4dcf2d0a877f1545f2eb9aeb86a43627`）；0.4 的 [PR #13](https://github.com/gitfortian/ontoforge/pull/13) 已合并到 `main`（合并 SHA `605b9976747dcab676b982f7a544a224c2c5ff28`），独立交付 11 个工程文件变更，没有重复引入 0.3 实现；四轮设计 [PR #12](https://github.com/gitfortian/ontoforge/pull/12) 已合并。
 
-**实际测试证据**：PR #13 代码集成 SHA `e4073945764b9b1890d9e4762dfacdf007c3a323` 的四项 CI 全部 SUCCESS：[Required Quality](https://github.com/gitfortian/ontoforge/actions/runs/38892142122)、[实际 PostgreSQL17 + API + React Chromium](https://github.com/gitfortian/ontoforge/actions/runs/38892142154)、[底座](https://github.com/gitfortian/ontoforge/actions/runs/38892142095)、[Architecture Docs](https://github.com/gitfortian/ontoforge/actions/runs/38892142097)。其中真实浏览器 **13/13**，包含 0.4 的完整三对象两关系/两份历史风险、未完成关系 WIP、删除被引用对象后关系不丢失与修复定位。流水线实际杀掉旧 Java PID、重新启动 Spring Boot 后从**同一个 PG17 数据库**找回三个对象、两条关系和原 JCS/SHA-256 快照。
+**实际测试证据**：PR #13 最终代码与文档 Head `88fdfca740f06276aecd722e0f360c3a2331c465` 四项 CI 均 SUCCESS；同等代码集成 SHA `e4073945764b9b1890d9e4762dfacdf007c3a323` 的四项 CI 全部 SUCCESS：[Required Quality](https://github.com/gitfortian/ontoforge/actions/runs/38892142122)、[实际 PostgreSQL17 + API + React Chromium](https://github.com/gitfortian/ontoforge/actions/runs/38892142154)、[底座](https://github.com/gitfortian/ontoforge/actions/runs/38892142095)、[Architecture Docs](https://github.com/gitfortian/ontoforge/actions/runs/38892142097)。其中真实浏览器 **13/13**，包含 0.4 的完整三对象两关系/两份历史风险、未完成关系 WIP、删除被引用对象后关系不丢失与修复定位。流水线实际杀掉旧 Java PID、重新启动 Spring Boot 后从**同一个 PG17 数据库**找回三个对象、两条关系和原 JCS/SHA-256 快照。
 
 **边界**：上述是 Linux 隔离测试环境的真实技术链路；Windows 11 本机 PostgreSQL 重启 **NOT RUN**，仍需用 [`scripts/verify-linktype.ps1`](../../scripts/verify-linktype.ps1) 在独立本机测试库 Exercise、停止并重启 Spring Boot、Recheck。产品没有正式 Release、企业身份/ACL、正式审核/激活及工业 LinkFact；**主线合并只代表开发集成，不代表生产部署**。
+
+## 0.1 开发主线交付结论
+
+**0.3 / 0.4 已完成 GitHub 代码合并，不代表正式 Release**。主分支可创建/编辑多个 ObjectType 与 LinkType、整包 CAS 保存并重新打开、校验 WIP/INVALID/VALID、留存不可变本地历史以及比较关系基数、端点和来源证据要求的结构风险。最终代码 PR #13 [真实 PG17/Java/React Chromium #38892577962](https://github.com/gitfortian/ontoforge/actions/runs/38892577962) 13/13 PASS；在 Linux 隔离 CI 中 Spring Boot 真实停启后，确认三个对象、两条关系、两个本地历史快照与 JCS/SHA-256 不变。
+
+**未完成**：Windows 11 用户电脑的本机 PostgreSQL 停启复核、正式企业登录/权限、审查发布激活、工业系统 Data Binding/LinkFact、ObjectSet 查询与 Agent/Action。发布 Gate 仍禁止按「生产可用」描述。
 
 ## 1. 30 秒看本次有什么真实变化
 

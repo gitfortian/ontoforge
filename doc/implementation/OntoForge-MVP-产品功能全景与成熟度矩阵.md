@@ -45,19 +45,19 @@ P0 是**建模产品可用门槛**，P1 才是**工业业务价值开始成立�
 
 **本次最新 Review/补测主要提高第 6–9 行的可靠性，不是新增四个独立模块。** 0.2 的 PR #7 已合并；0.3 的 PR #11 已合并；Linux PG17/真实浏览器自动化通过，Windows 原生重启仍没有实际验收记录。
 
-## 3.1 S0-MVP-0.4 工程候选：只更新可证实的子能力
+## 3.1 S0-MVP-0.4 已合并开发主线：仅对可验证子能力评定基础可用
 
-> **重要**：以下是 [PR #13](https://github.com/gitfortian/ontoforge/pull/13) 的**代码实现候选**，基于已合并的 [PR #11](https://github.com/gitfortian/ontoforge/pull/11) 与 `main` 开发。设计源自已经按受托产品决议 Accepted 且合并的 [PR #12](https://github.com/gitfortian/ontoforge/pull/12)，独立生产代码审核及 Windows 原生 PostgreSQL 验收仍待完成。即使 Linux CI 通过也不能将 0.4 当成已发布产品。详细验收在 [0.4 实施报告](./S0-MVP-0.4-真实功能实施与验收报告.md)。
+> **重要**：以下是已合并 [PR #13](https://github.com/gitfortian/ontoforge/pull/13) 的**真实代码实现**，基于已合并的 [PR #11](https://github.com/gitfortian/ontoforge/pull/11) 与 `main` 开发。设计源自已经按受托产品决议 Accepted 且合并的 [PR #12](https://github.com/gitfortian/ontoforge/pull/12)，开发主线代码审核及 Linux 真实集成测试已通过；Windows 本机 PostgreSQL 与正式生产验收仍待完成。即使 Linux CI 通过也不能将 0.4 当成已发布产品。详细验收在 [0.4 实施报告](./S0-MVP-0.4-真实功能实施与验收报告.md)。
 
 | 子能力 | 关联全局功能 | 此分支已经提交的变化 | 真实成熟度/边界 |
 | --- | --- | --- | --- |
-| 多个业务对象在同一包中编辑、保存 | F02 / F05 | React 从单 ObjectType 表单升级为整包对象选择与 CAS 保存 | **工程候选**；P0 专业本体建模仍未完整 |
-| LinkType 定义与配置 | F02 / F05 | 来源、目标、稳定 ID、基数、未来证据声明 | **工程候选**；没有 LinkFact 或连接真实 MES/ERP |
-| 关系完整性与不丢资产 | F03 / F28 | 安全 WIP、同包引用、重复 ID/API、枚举基数校验，全量 Native Candidate | **工程候选**；身份、跨包与完整规则未实现 |
-| LinkType 本地历史与差异 | F04 / F28 | 所有有效对象/关系入 0.3 快照；LinkType 新增/删除、端点/基数风险、证据放宽复核 | **工程候选**；不包含审批、正式发布、激活或消费者兼容证书 |
+| 多个业务对象在同一包中编辑、保存 | F02 / F05 | React 从单 ObjectType 表单升级为整包对象选择与 CAS 保存 | **开发主线基础可用**；P0 专业本体建模仍未完整 |
+| LinkType 定义与配置 | F02 / F05 | 来源、目标、稳定 ID、基数、未来证据声明 | **开发主线基础可用**；没有 LinkFact 或连接真实 MES/ERP |
+| 关系完整性与不丢资产 | F03 / F28 | 安全 WIP、同包引用、重复 ID/API、枚举基数校验，全量 Native Candidate | **开发主线基础可用**；跨包与完整规则系统未实现 |
+| LinkType 本地历史与差异 | F04 / F28 | 所有有效对象/关系入 0.3 快照；LinkType 新增/删除、端点/基数风险、证据放宽复核 | **开发主线基础可用**；不包含审批、正式发布、激活或消费者兼容证书 |
 | 不可变历史和异常路径 | F04 | 沿用 PR #11 不改旧版内容的 JCS、SHA、同键恢复、revision 保护 | **0.3 已合并**；Linux 真重启复核通过；Windows 11 本机真重启 NOT RUN |
 
-**判定要求**：0.4 已在真实 Java/PG17/HTTP/React/Chromium 对 `main` 集成提交通过，正式设计决议及上游 0.3 合并完成；**待 PR #13 代码评审合并后**，有限的关系建模子链路才可记为「开发主线基础可用」；这些都**不能代表 F02 或 F04 的全部功能成熟**。
+**判定要求**：0.4 已在真实 Java/PG17/HTTP/React/Chromium 对 `main` 集成提交通过，正式设计决议、0.3 与 0.4 代码合并完成；有限的关系建模子链路现评定为「开发主线基础可用」；这些都**不能代表 F02 或 F04 的全部功能成熟**。
 
 ## 4. P0「完整建模产品 MVP」建议功能包
 
