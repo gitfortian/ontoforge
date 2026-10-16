@@ -188,6 +188,24 @@ class NativeSnapshotTest {
         }
     }
 
+    @Test void snapshotSharedRfc8785GoldenFixtures() throws Exception {
+        // These same fixtures are run through independent Node and Python
+        // implementations in CI, not just compared against Jackson output.
+        var path=java.nio.file.Path.of("../doc/design/fixtures/ofip-0003-jcs-fixtures.json");
+        JsonNode suite=mapper.readTree(java.nio.file.Files.readString(path));
+        assertThat(suite.path("profile").asText()).isEqualTo("jcs-rfc8785-v1");
+        assertThat(suite.path("vectors").size()).isGreaterThanOrEqualTo(4);
+        for(JsonNode vector:suite.path("vectors")) {
+            byte[] actual=NativeSnapshotService.canonicalize(vector.path("raw").asText());
+            assertThat(new String(actual,java.nio.charset.StandardCharsets.UTF_8))
+                .describedAs(vector.path("name").asText())
+                .isEqualTo(vector.path("canonical").asText());
+            assertThat(NativeSnapshotService.sha256(actual))
+                .describedAs(vector.path("name").asText())
+                .isEqualTo(vector.path("sha256").asText());
+        }
+    }
+
     @Test void snapshotCanonicalJcsReferenceDeterminism() {
         String input="{\"b\":2,\"a\":1,\"nested\":{\"z\":true,\"x\":\"hello\"}}";
         String expected="{\"a\":1,\"b\":2,\"nested\":{\"x\":\"hello\",\"z\":true}}";
