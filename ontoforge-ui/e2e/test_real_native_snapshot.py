@@ -187,6 +187,7 @@ class NativeSnapshotRealE2ETest(unittest.TestCase):
             snapshots.append(frozen["snapshotId"])
         self.page.evaluate("(pkg)=>{window.location.hash='#/model/packages/'+pkg+'/snapshots'}",self.pkg)
         self.page.get_by_role("heading",name="历史模型快照").wait_for()
+        self.page.locator("#snapshot-from").wait_for(timeout=12000)
         self.assertEqual(self.page.locator("#snapshot-from option").count(),20)
         self.page.get_by_role("button",name="加载更多历史快照").click()
         self.page.wait_for_function(
