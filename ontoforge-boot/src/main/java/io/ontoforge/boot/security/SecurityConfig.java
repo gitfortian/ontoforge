@@ -33,7 +33,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/system/status").permitAll()
                         .requestMatchers("/api/me").authenticated()
                         .requestMatchers("/api/model/**").authenticated()
-                        .anyRequest().permitAll())
+                        .anyRequest().denyAll())
                 .exceptionHandling(errors -> errors
                         .authenticationEntryPoint(json401())
                         .accessDeniedHandler(json403()))
