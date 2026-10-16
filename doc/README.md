@@ -31,6 +31,7 @@
 | --- | --- |
 | [OFIP-0001：需求提案、文档治理与 CI 证据门禁](./proposals/OFIP-0001-需求提案文档治理与CI证据门禁.md) | **Accepted / 分阶段实施**：重大设计审批、单一文档权威、PR 证据；当前实施开发规范/模板，可信 CI 门禁将在独立 PR 实施，尚未完成 |
 | [OFIP-0002：Native ObjectType 草稿建模 MVP](./proposals/OFIP-0002-ObjectType-草稿建模MVP.md) | **Accepted / Code Merged（[PR #7](https://github.com/gitfortian/ontoforge/pull/7)）/ Windows 验收 NOT RUN / Not Released**：领域/技术/交互已评审，真实 PostgreSQL、Java API、React 与 Chromium CI 已通过；[Windows 验收记录](./implementation/S0-MVP-0.2-Windows-验收.md) 待实际执行：提供[高保真原型](./prototypes/ofip-0002-objecttype-highfi.html)及[低保真基线](./prototypes/ofip-0002-objecttype-lowfi.html)，[31 项真实 Chromium 评审均通过](https://github.com/gitfortian/ontoforge/pull/6#issuecomment-6192752743)；上述设计原型仍为内存模拟，但 PR #7 已另外提交真实 API/PG/React 实现，已合并，但 Windows 实测尚未完成，不得称为已发布 |
+| [OFIP-0003：S0-MVP-0.3 模型快照、结构差异与发布边界](./proposals/OFIP-0003-S0-MVP-0.3-模型快照与发布边界.md) | **Discussion / Decision Pending / Implementation Not Started**：第一轮 Domain-Gate 推荐 DG1–DG9，限定不可变本地 SchemaSnapshot、稳定内容摘要、快照比较；尚无认证/工作空间，正式 Review/Release/Activation 不得假实现，用户需评审决定 |
 | [Yak Ops YOIP、文档体系和 CI 研究](./research/2026-10-15-Yak-Ops-YOIP-文档治理与CI蒸馏.md) | 外部工程治理蒸馏及 OntoForge 适配建议；仅研究证据，不能取代 V1.3 或已实现代码 |
 
 **状态区分**：设计是否 Accepted、代码是否 Implemented、测试是否 Passed、产品是否 Released 是不同事实。OFIP-0001 的明确接受只针对研发治理方向，**不会自动签收 V1.3 总体架构和 Native V0.2 产品合同**。规范入口见 [AGENTS.md](../AGENTS.md)、[贡献指南](../.github/CONTRIBUTING.md)、[OFIP 模板](../.github/OFIP_TEMPLATE.md)、[PR 模板](../.github/PULL_REQUEST_TEMPLATE.md)。
