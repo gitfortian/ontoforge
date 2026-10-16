@@ -106,6 +106,84 @@ class B0IdentityAuthorizationTest {
         return mapper.readTree(response.getBody()).path("draftId").asText();
     }
 
+    private String createAuthorizedSnapshot() throws Exception {
+        String draftId = createAuthorizedDraft();
+        ObjectNode content = mapper.createObjectNode();
+        content.put("editorSchemaVersion", "0.1.0");
+        ObjectNode type = mapper.createObjectNode();
+        type.put("id", "batch");
+        type.put("apiName", "ProductionBatch");
+        type.put("label", "生产批次");
+        type.putNull("primaryKeyRef");
+        type.putArray("properties");
+        content.putArray("objectTypes").add(type);
+        content.putArray("linkTypes");
+        ObjectNode save = mapper.createObjectNode();
+        save.put("expectedRevision", 1);
+        save.set("editingContent", content);
+        ResponseEntity<String> saved = call(HttpMethod.PUT, "/api/model/drafts/" + draftId,
+                editorToken(), mapper.writeValueAsString(save));
+        assertThat(saved.getStatusCode().value()).isEqualTo(200);
+        ObjectNode validate = mapper.createObjectNode();
+        validate.put("expectedRevision", 2);
+        ResponseEntity<String> checked = call(HttpMethod.POST, "/api/model/drafts/" + draftId + "/validate",
+                editorToken(), mapper.writeValueAsString(validate));
+        assertThat(checked.getStatusCode().value()).isEqualTo(200);
+        assertThat(mapper.readTree(checked.getBody()).path("status").asText()).isEqualTo("INCOMPLETE");
+        // A local snapshot still requires a VALID candidate, so add the primary key.
+        content.path("properties");
+        ObjectNode property = mapper.createObjectNode();
+        property.put("id", "batch-id");
+        property.put("apiName", "batchId");
+        property.put("valueType", "STRING");
+        property.put("required", true);
+        property.put("searchable", false);
+        property.put("classification", "INTERNAL");
+        ((com.fasterxml.jackson.databind.node.ArrayNode) type.get("properties")).add(property);
+        type.put("primaryKeyRef", "batch-id");
+        save.put("expectedRevision", 2);
+        save.set("editingContent", content);
+        saved = call(HttpMethod.PUT, "/api/model/drafts/" + draftId,
+                editorToken(), mapper.writeValueAsString(save));
+        assertThat(saved.getStatusCode().value()).isEqualTo(200);
+        validate.put("expectedRevision", 3);
+        checked = call(HttpMethod.POST, "/api/model/drafts/" + draftId + "/validate",
+                editorToken(), mapper.writeValueAsString(validate));
+        assertThat(mapper.readTree(checked.getBody()).path("status").asText()).isEqualTo("VALID");
+        ObjectNode freeze = mapper.createObjectNode();
+        freeze.put("expectedRevision", 3);
+        freeze.put("idempotencyKey", UUID.randomUUID().toString());
+        ResponseEntity<String> frozen = call(HttpMethod.POST, "/api/model/drafts/" + draftId + "/snapshots",
+                editorToken(), mapper.writeValueAsString(freeze));
+        assertThat(frozen.getStatusCode().value()).isEqualTo(201);
+        return mapper.readTree(frozen.getBody()).path("snapshotId").asText();
+    }
+
+    @Test
+    void unauthenticatedSnapshotApiIsRejected() {
+        ResponseEntity<String> response = call(HttpMethod.GET,
+                "/api/model/snapshots/" + UUID.randomUUID(), null, null);
+        assertThat(response.getStatusCode().value()).isEqualTo(401);
+    }
+
+    @Test
+    void viewerCannotReadAnExistingSnapshot() throws Exception {
+        String snapshotId = createAuthorizedSnapshot();
+        ResponseEntity<String> response = call(HttpMethod.GET,
+                "/api/model/snapshots/" + snapshotId, viewerToken(), null);
+        assertThat(response.getStatusCode().value()).isEqualTo(403);
+        assertThat(response.getBody()).contains("ACCESS_DENIED");
+    }
+
+    @Test
+    void editorCanReadAnExistingSnapshot() throws Exception {
+        String snapshotId = createAuthorizedSnapshot();
+        ResponseEntity<String> response = call(HttpMethod.GET,
+                "/api/model/snapshots/" + snapshotId, editorToken(), null);
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).contains(snapshotId);
+    }
+
     @Test
     void unauthenticatedModelApiIsRejected() {
         ResponseEntity<String> response = call(HttpMethod.GET, "/api/model/drafts", null, null);
