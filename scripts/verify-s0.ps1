@@ -50,7 +50,7 @@ try {
     [Environment]::SetEnvironmentVariable('PGPASSWORD', $previousPgPassword, 'Process')
 }
 
-$dbResult = [regex]::Match(($rawResult -join "`n").Trim(), '^1\|1\|1\|([0-9a-fA-F-]{36}))
+$dbResult = [regex]::Match(($rawResult -join "`n").Trim(), '^1\|1\|1\|([0-9a-fA-F-]{36})
 if (-not $dbResult.Success) {
     throw 'Expected Flyway V1/V2/V3 and one persisted platform_installation UUID.'
 }
@@ -67,7 +67,7 @@ try {
     throw "Cannot reach $apiUrl. Start the Spring Boot backend before running this check. $($_.Exception.Message)"
 }
 if ($status.service -ne 'ontoforge' -or $status.version -ne 'S0-MVP-0.3' -or $status.database -ne 'CONNECTED') {
-    throw 'The status API did not report the expected real S0-MVP-0.2 service and PostgreSQL connection.'
+    throw 'The status API did not report the expected real S0-MVP-0.3 service and PostgreSQL connection.'
 }
 if ($status.modelModule -ne 'DRAFT_AVAILABLE' -or $status.snapshotModule -ne 'LOCAL_SNAPSHOT_AVAILABLE' -or $status.authModule -ne 'NOT_IMPLEMENTED') {
     throw 'Expected draft modeling available, and auth honestly not implemented.'
@@ -93,52 +93,6 @@ if (-not [string]::IsNullOrWhiteSpace($ExpectedDraftId)) {
 }
 
 Write-Host "[OK] PostgreSQL: $pgHost`:$pgPort/$pgDatabase (Flyway V1 + V2 + V3 applied)"
-Write-Host "[OK] API: $apiUrl"
-Write-Host "[OK] Installation ID: $databaseInstallationId"
-Write-Host 'To verify persistence after a restart, use -ExpectedInstallationId <UUID> and optionally -ExpectedDraftId <UUID>.'
-)
-if (-not $dbResult.Success) {
-    throw 'Expected successful Flyway V1, Flyway V2 and one persisted platform_installation UUID.'
-}
-$databaseInstallationId = $dbResult.Groups[1].Value
-
-$apiPort = if ([string]::IsNullOrWhiteSpace($env:PORT)) { '8080' } else { $env:PORT }
-if ($apiPort -notmatch '^[0-9]+$') {
-    throw 'PORT must be a local numeric port.'
-}
-$apiUrl = "http://127.0.0.1:$apiPort/api/system/status"
-try {
-    $status = Invoke-RestMethod -Uri $apiUrl -Method Get -TimeoutSec 10
-} catch {
-    throw "Cannot reach $apiUrl. Start the Spring Boot backend before running this check. $($_.Exception.Message)"
-}
-if ($status.service -ne 'ontoforge' -or $status.version -ne 'S0-MVP-0.2' -or $status.database -ne 'CONNECTED') {
-    throw 'The status API did not report the expected real S0-MVP-0.2 service and PostgreSQL connection.'
-}
-if ($status.modelModule -ne 'DRAFT_AVAILABLE' -or $status.authModule -ne 'NOT_IMPLEMENTED') {
-    throw 'Expected draft modeling available, and auth honestly not implemented.'
-}
-if ($status.installationId -ne $databaseInstallationId) {
-    throw "API installationId does not match the PostgreSQL row. Check that both target the same database."
-}
-if (-not [string]::IsNullOrWhiteSpace($ExpectedInstallationId) -and $databaseInstallationId -ne $ExpectedInstallationId) {
-    throw 'Installation ID changed after restart. Investigate database switching or data loss.'
-}
-
-if (-not [string]::IsNullOrWhiteSpace($ExpectedDraftId)) {
-    if ($ExpectedDraftId -notmatch '^[0-9a-fA-F-]{36}$') {
-        throw 'ExpectedDraftId must be a UUID. It is never passed into SQL.'
-    }
-    $draftUrl = "http://127.0.0.1:$apiPort/api/model/drafts/$ExpectedDraftId"
-    try { $draft = Invoke-RestMethod -Uri $draftUrl -Method Get -TimeoutSec 10 }
-    catch { throw "Cannot reload persisted draft $ExpectedDraftId. $($_.Exception.Message)" }
-    if ($draft.draftId -ne $ExpectedDraftId -or $draft.revision -lt 1 -or $draft.status -ne 'DRAFT') {
-        throw 'Persisted draft API does not match the supplied draft identity.'
-    }
-    Write-Host "[OK] Persisted ObjectType draft: $ExpectedDraftId (revision $($draft.revision))"
-}
-
-Write-Host "[OK] PostgreSQL: $pgHost`:$pgPort/$pgDatabase (Flyway V1 + V2 applied)"
 Write-Host "[OK] API: $apiUrl"
 Write-Host "[OK] Installation ID: $databaseInstallationId"
 Write-Host 'To verify persistence after a restart, use -ExpectedInstallationId <UUID> and optionally -ExpectedDraftId <UUID>.'
