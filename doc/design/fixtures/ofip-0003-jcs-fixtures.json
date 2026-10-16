@@ -25,6 +25,24 @@
       "raw": "{\"literals\":[null,true,false],\"numbers\":[4.50,2e-3],\"string\":\"a\"}",
       "canonical": "{\"literals\":[null,true,false],\"numbers\":[4.5,0.002],\"string\":\"a\"}",
       "sha256": "dbb3189202080200b5bff5a03d074eeeb7181c65a661485ce357aded1fec22a9"
+    },
+    {
+      "name": "rfc8785_section_3_2_2",
+      "raw": "{\"numbers\":[333333333.33333329,1E30,4.50,2e-3,0.000000000000000000000000001],\"string\":\"\\u20ac$\\u000F\\u000aA'\\u0042\\u0022\\u005c\\\\\\\"\\/\",\"literals\":[null,true,false]}",
+      "canonical": "{\"literals\":[null,true,false],\"numbers\":[333333333.3333333,1e+30,4.5,0.002,1e-27],\"string\":\"€$\\u000f\\nA'B\\\"\\\\\\\\\\\"/\"}",
+      "sha256": "2d5e01a318d0f0879ab568c4be289c8b1f64ef8921a53c6277d5e069978baacb"
+    },
+    {
+      "name": "ecmascript_number_boundaries",
+      "raw": "{\"negativeZero\":-0,\"minNumber\":5e-324,\"maxNumber\":1.7976931348623157e308,\"large\":1e21,\"small\":1e-7,\"threshold\":0.000001,\"rounding\":333333333.33333329}",
+      "canonical": "{\"large\":1e+21,\"maxNumber\":1.7976931348623157e+308,\"minNumber\":5e-324,\"negativeZero\":0,\"rounding\":333333333.3333333,\"small\":1e-7,\"threshold\":0.000001}",
+      "sha256": "04c5f6dd9cde5e1e96ddd13acb03f0c0afab7b08b7be310cdc15546480cece04"
+    },
+    {
+      "name": "escaped_control_unicode",
+      "raw": "{\"u\":\"\\u0000\\b\\t\\n\\f\\r\\u001f\",\"slash\":\"\\/\",\"emoji\":\"\\uD83D\\uDE00\",\"letter\":\"e\\u0301\"}",
+      "canonical": "{\"emoji\":\"😀\",\"letter\":\"é\",\"slash\":\"/\",\"u\":\"\\u0000\\b\\t\\n\\f\\r\\u001f\"}",
+      "sha256": "0f303f59e2268ea124af4e22a6141a729c079344dea6fe43fccc9f09fa0f29c7"
     }
   ]
 }
