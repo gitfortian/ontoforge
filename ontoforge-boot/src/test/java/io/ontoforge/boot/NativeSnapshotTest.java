@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Future;
 import java.net.URI;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
@@ -24,6 +25,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -32,15 +34,29 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @ActiveProfiles("test")
 @Import(B0TestSecurityConfiguration.class)
 class NativeSnapshotTest {
+    private static final UUID WORKSPACE = UUID.fromString("11111111-1111-4111-8111-111111111111");
+    private static final UUID EDITOR = UUID.fromString("22222222-2222-4222-8222-222222222222");
     @LocalServerPort int port;
     @Autowired TestRestTemplate http;
     @Autowired ObjectMapper mapper;
     @Autowired JdbcTemplate jdbc;
     @Autowired NativeSnapshotService service;
+    @Autowired JwtEncoder jwtEncoder;
+
+    @BeforeEach
+    void seedB0Access() {
+        jdbc.update("INSERT INTO b0_workspace(workspace_id,workspace_key,display_name) VALUES (?,?,?) ON CONFLICT DO NOTHING",
+                WORKSPACE,"test-manufacturing","B0 Test Manufacturing");
+        jdbc.update("INSERT INTO b0_principal(principal_id,issuer,subject,display_name) VALUES (?,?,?,?) ON CONFLICT (issuer,subject) DO NOTHING",
+                EDITOR,B0TestSecurityConfiguration.ISSUER,"editor-A","Test Editor");
+        jdbc.update("INSERT INTO b0_workspace_membership(workspace_id,principal_id,role) VALUES (?,?,?) ON CONFLICT DO NOTHING",
+                WORKSPACE,EDITOR,"EDITOR");
+    }
     private String api(String path){return "http://127.0.0.1:"+port+"/api/model"+path;}
     private ResponseEntity<String> call(HttpMethod method,String path,JsonNode body){
         HttpHeaders headers=new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(B0TestSecurityConfiguration.token(jwtEncoder,"editor-A"));
         return http.exchange(URI.create(api(path)),method,
               new HttpEntity<>(body==null?null:body.toString(),headers),String.class);
     }
@@ -71,6 +87,8 @@ class NativeSnapshotTest {
     private record Prepared(String draft,String pkg,ObjectNode doc) {}
     private Prepared prepared()throws Exception{
         String pkg=fresh();
+        jdbc.update("INSERT INTO b0_package_assignment(workspace_id,package_id) VALUES (?,?) ON CONFLICT DO NOTHING",
+                WORKSPACE,pkg);
         ObjectNode create=mapper.createObjectNode();create.put("packageId",pkg);
         String id=call(HttpMethod.POST,"/drafts",create,201).path("draftId").asText();
         ObjectNode doc=editor();
