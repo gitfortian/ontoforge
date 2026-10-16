@@ -35,7 +35,7 @@
         <dependency>
             <groupId>com.networknt</groupId>
             <artifactId>json-schema-validator</artifactId>
-            <version>1.5.9</version>
+            <version>3.0.8</version>
         </dependency>
         <!-- JCS RFC 8785 reference implementation (Apache-2.0); do not substitute Jackson field ordering. -->
         <dependency>
