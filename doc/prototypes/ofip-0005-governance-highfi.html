@@ -70,8 +70,8 @@ footer{font-size:10px;color:#9aa6b3;line-height:1.7;margin:28px 0 0;padding-top:
    <div class="kpis">
     <div class="kpi"><span class="label">当前生效版本</span><b>0.4.0</b><small>production-core 正在使用</small></div>
     <div class="kpi"><span class="label">待处理变更</span><b>2</b><small>其中 1 项等待审核</small></div>
-    <div class="kpi"><span class="label">正式版本</span><b>3</b><small>最新 0.5.0 尚未生效</small></div>
-    <div class="kpi"><span class="label">需要我处理</span><b>1</b><small>你有 1 项待审核</small></div>
+    <div class="kpi"><span class="label">正式版本</span><b>2</b><small>最新正式版本 0.4.0</small></div>
+    <div class="kpi"><span class="label">待发行变更</span><b>1</b><small>1 项审核已通过，等待创建正式版本</small></div>
    </div>
    <div class="grid2">
     <section class="panel"><div class="panel-head"><div><h2>当前模型状态</h2><p>用户先看“现在是什么”，再决定下一步。</p></div><button data-screen="history">查看治理记录</button></div>
@@ -148,7 +148,7 @@ footer{font-size:10px;color:#9aa6b3;line-height:1.7;margin:28px 0 0;padding-top:
    <div class="intro"><div><div class="eyebrow">RELEASES</div><h1>正式版本</h1><p>正式版本是经过审核、内容固定的模型版本。创建正式版本不会自动让任何业务范围切换。</p></div><button class="primary" id="openRelease">创建正式版本</button></div>
    <div class="callout">这里始终区分两个状态：<b>正式版本</b>代表“已经经过治理，可以使用”；<b>当前生效版本</b>代表“哪个业务范围正在使用”。两者不是一回事。</div>
    <section class="panel"><div class="table-wrap"><table class="table"><thead><tr><th>版本</th><th>状态</th><th>审核与变更</th><th>生效范围</th><th>操作</th></tr></thead><tbody>
-    <tr><td><strong>0.5.0</strong><small>生产批次关系调整</small></td><td><span class="status ok">已发行</span></td><td>领域审核通过<br><small>今天 18:55</small></td><td><span class="status warn">尚未生效</span></td><td><button data-action="activate050">选择生效范围</button></td></tr>
+    <tr><td><strong>0.5.0</strong><small>生产批次关系调整</small></td><td><span class="status warn">待创建</span></td><td>领域审核通过<br><small>今天 18:55</small></td><td><span class="status">尚未形成正式版本</span></td><td><button class="primary" id="openReleaseRow">创建正式版本</button></td></tr>
     <tr><td><strong>0.4.0</strong><small>当前稳定版本</small></td><td><span class="status ok">已发行</span></td><td>审核通过</td><td><span class="status blue">当前生效</span></td><td><button data-screen="activation">查看范围</button></td></tr>
     <tr><td><strong>0.3.0</strong><small>历史版本</small></td><td><span class="status">已发行</span></td><td>历史治理记录完整</td><td><span class="status">未生效</span></td><td><button data-action="rollback030">切回此版本</button></td></tr>
    </tbody></table></div></section>
@@ -161,7 +161,7 @@ footer{font-size:10px;color:#9aa6b3;line-height:1.7;margin:28px 0 0;padding-top:
      <tr><td><strong>production-core</strong><small>生产核心业务</small></td><td><strong>0.4.0</strong></td><td>0.5.0</td><td><span class="status blue">正常</span></td><td><button class="primary" id="activate">让 0.5.0 生效</button></td></tr>
      <tr><td><strong>quality-lab</strong><small>质量分析环境</small></td><td><strong>0.3.0</strong></td><td>0.4.0</td><td><span class="status">测试范围</span></td><td><button disabled>需要单独授权</button></td></tr>
     </tbody></table></div>
-    <div class="callout">生效是一个独立动作。<b>创建正式版本不会自动切换 production-core。</b></div>
+    <div class="callout">生效是一个独立动作。<b>创建正式版本不会自动切换 production-core。</b></div><div class="callout warn"><b>安全回退</b><br>切回历史版本不会删除原正式版本，也不会撤销已经发生的业务操作；它只改变指定范围当前使用的模型版本，并留下新的治理记录。</div>
    </section>
    <section class="panel"><div class="panel-head"><div><h2>安全回退</h2><p>出问题时从可信历史正式版本中选择目标版本。</p></div></div><div class="list-item"><div class="change-card"><div><div class="change-title">production-core 当前为 0.4.0</div><div class="change-sub">历史可用版本：0.3.0 · 0.4.0</div></div><button data-action="rollback030">切回 0.3.0 →</button></div></div></section>
    </section>
@@ -235,7 +235,7 @@ document.getElementById("submitChange").onclick=()=>{
  const n=document.createElement("div");n.className="callout ok";n.textContent="已创建模型变更申请。提交内容已经固定，等待审核。";document.querySelector("#screen-changes .panel").prepend(n);
 };
 document.getElementById("openReview").onclick=()=>show("review-detail");
-document.getElementById("openRelease").onclick=()=>openBox("releaseModal");
+document.getElementById("openRelease").onclick=()=>openBox("releaseModal");\ndocument.getElementById("openReleaseRow").onclick=()=>openBox("releaseModal");
 document.getElementById("cancelRelease").onclick=()=>closeBox("releaseModal");
 document.getElementById("confirmRelease").onclick=()=>{
  closeBox("releaseModal");show("releases");
