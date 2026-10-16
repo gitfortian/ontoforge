@@ -1,6 +1,8 @@
 # OFIP-0004｜P0-A 下一阶段：多对象与 LinkType 关系建模的真实闭环
 
-**Status:** Discussion（第一轮产品/领域评审稿；非 Accepted）
+**Status:** Discussion
+
+**Review Phase:** 第一轮产品/领域评审（非 Accepted）
 
 **Discussion:** [PR #12 — OFIP-0004 第一轮产品/领域设计评审](https://github.com/gitfortian/ontoforge/pull/12)（Draft）
 
