@@ -1,11 +1,13 @@
-name: OFIP-0003 Snapshot Low-Fi Browser Review
+name: OFIP-0003 Snapshot UX Browser Review
 
 # UX review of an isolated in-browser memory mock. No Snapshot API/PG/Release.
 on:
   pull_request:
     paths:
       - 'doc/prototypes/ofip-0003-snapshot-lowfi.html'
+      - 'doc/prototypes/ofip-0003-snapshot-highfi.html'
       - 'doc/prototypes/tests/test_ofip0003_snapshot_lowfi.py'
+      - 'doc/prototypes/tests/test_ofip0003_snapshot_highfi.py'
       - 'doc/proposals/OFIP-0003-S0-MVP-0.3-模型快照与发布边界.md'
       - '.github/workflows/ofip-0003-lowfi-browser.yml'
   workflow_dispatch:
@@ -15,7 +17,7 @@ permissions:
 
 jobs:
   ofip0003-lowfi-chromium:
-    name: 13 Real Chromium Low-Fi UX Flows
+    name: 32 Real Chromium Low/High-Fi UX Flows
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -27,16 +29,16 @@ jobs:
         run: python -m pip install playwright==1.57.0
       - name: Install actual Chromium
         run: python -m playwright install --with-deps chromium
-      - name: Click through Snapshot tasks and failure recovery
+      - name: Verify low/high-fi Snapshot flows and recovery
         env:
           UX_CAPTURE_SCREENSHOTS: '1'
           UX_SCREENSHOT_DIR: '${{ runner.temp }}/ofip-0003-shots'
-        run: python -m unittest discover -s doc/prototypes/tests -p 'test_ofip0003_snapshot_lowfi.py' -v
+        run: python -m unittest discover -s doc/prototypes/tests -p 'test_ofip0003_snapshot_*.py' -v
       - name: Store screenshots on success and failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ofip-0003-lowfi-chromium-screenshots
+          name: ofip-0003-low-highfi-chromium-screenshots
           path: '${{ runner.temp }}/ofip-0003-shots'
           retention-days: 14
           if-no-files-found: warn
