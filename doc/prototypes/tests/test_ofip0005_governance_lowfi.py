@@ -125,7 +125,7 @@ class OFIP0005GovernanceLowFiBrowserTests(unittest.TestCase):
         self.assertIn("审核通过", body)
         self.assertIn("正式发行", body)
         self.assertIn("生效", body)
-        self.assertIn("回退不是删除 0.5.0", body)
+        self.assertIn("切回 0.4.0 不会删除 0.5.0", body)
         self.assertIn("切回模型版本不会撤销已经发生的业务操作", body)
 
     def test_11_mobile_width_has_no_horizontal_overflow(self):
