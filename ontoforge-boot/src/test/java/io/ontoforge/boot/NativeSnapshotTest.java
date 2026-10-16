@@ -123,9 +123,10 @@ class NativeSnapshotTest {
         ((ArrayNode)two.get("objectTypes")).add(extra);
         call(HttpMethod.PUT,"/drafts/"+p.draft,body(3,two),200);
         call(HttpMethod.POST,"/drafts/"+p.draft+"/validate",revise(4),200);
-        assertThat(frozen(p,4,UUID.randomUUID(),422).path("code").asText()).isEqualTo("UNSUPPORTED_DEFINITION");
+        JsonNode twoTypes=frozen(p,4,UUID.randomUUID(),201);
+        assertThat(twoTypes.path("snapshotContent").path("objectTypes").size()).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM native_schema_snapshot WHERE source_draft_id=?",
-                                      Integer.class,UUID.fromString(p.draft))).isEqualTo(2);
+                                      Integer.class,UUID.fromString(p.draft))).isEqualTo(3);
     }
     @Test void snapshotDiffTypeScopedRiskAndRejectedCrossPackage()throws Exception{
         Prepared p=prepared();
@@ -377,14 +378,18 @@ class NativeSnapshotTest {
         ObjectNode link=mapper.createObjectNode();
         link.put("id","uses-material");
         ((ArrayNode)withLink.path("linkTypes")).add(link);
-        assertThat(call(HttpMethod.PUT,"/drafts/"+p.draft,body(2,withLink),422)
-            .path("code").asText()).isEqualTo("EDITOR_DOCUMENT_INVALID");
+        assertThat(call(HttpMethod.PUT,"/drafts/"+p.draft,body(2,withLink),200)
+            .path("revision").asLong()).isEqualTo(3);
+        assertThat(call(HttpMethod.POST,"/drafts/"+p.draft+"/validate",revise(3),200)
+            .path("status").asText()).isEqualTo("INCOMPLETE");
+        assertThat(call(HttpMethod.POST,"/drafts/"+p.draft+"/snapshots",
+            freezeReq(3,UUID.randomUUID()),409).path("code").asText()).isEqualTo("VALIDATION_NOT_CURRENT");
         ObjectNode withAction=p.doc.deepCopy();
         withAction.putArray("actions");
-        assertThat(call(HttpMethod.PUT,"/drafts/"+p.draft,body(2,withAction),422)
+        assertThat(call(HttpMethod.PUT,"/drafts/"+p.draft,body(3,withAction),422)
             .path("code").asText()).isEqualTo("EDITOR_DOCUMENT_INVALID");
         assertThat(call(HttpMethod.GET,"/drafts/"+p.draft,null,200)
-            .path("revision").asLong()).isEqualTo(2);
+            .path("revision").asLong()).isEqualTo(3);
         assertThat(jdbc.queryForObject(
             "SELECT count(*) FROM native_schema_snapshot WHERE source_draft_id=?",
             Integer.class,UUID.fromString(p.draft))).isZero();
