@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OntoForge · OFIP-0004 多对象与 LinkType 关系建模高保真交互（Mock）</title>
+<style>
+
+:root{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#263246;background:#f6f8fb;--blue:#215f9f;--line:#e4ecf4;--muted:#617992}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#f6f8fb;color:#263246}
+button,input,select,textarea{font:inherit}button{cursor:pointer;min-height:38px;border:1px solid #d8e3ef;border-radius:8px;background:#fff;color:#46617c;padding:9px 13px;font-size:12px;font-weight:650}
+button:hover:not(:disabled){background:#f1f7fe;border-color:#b5d2eb}button:disabled{opacity:.45;cursor:not-allowed}button.primary{background:#215f9f;border-color:#215f9f;color:#fff}button.primary:hover:not(:disabled){background:#174e85;color:#fff}
+button.danger{border-color:#efccd3;color:#a54558}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #327ac0;outline-offset:2px}
+input,select,textarea{width:100%;min-width:0;min-height:40px;border:1px solid #d9e4ee;border-radius:7px;background:white;color:#304c69;padding:9px 11px}
+input[type=checkbox]{width:auto;min-height:0;accent-color:#215f9f;margin-right:6px}
+label{display:block;font-size:12px;font-weight:650;color:#536e88;margin-bottom:7px}
+.shell{display:flex;min-height:100vh}.rail{width:255px;flex:none;display:flex;flex-direction:column;background:#fff;border-right:1px solid #e8edf4;padding:26px 18px}
+.brand{display:flex;align-items:center;gap:11px;font-size:16px;font-weight:750;padding:7px 4px 20px;border-bottom:1px solid #e7edf5}
+.brand:before{content:"◇";display:grid;place-items:center;color:white;background:#173657;border-radius:11px;width:41px;height:41px;font-size:22px}
+.navtitle{letter-spacing:.08em;font-size:11px;color:#8599ad;margin:25px 9px 12px}.railbtn{width:100%;text-align:left;background:#eaf3fd;color:#205d98;border:0}
+.railbtn:before{content:"▣  ";font-size:15px}.rail p{font-size:11px;line-height:1.7;color:#647b92;padding:10px}
+.rail:after{content:"LOCAL MOCK\A无认证 · 无数据绑定 · 无发布";white-space:pre-wrap;margin-top:auto;border-top:1px solid #edf1f6;padding:19px 9px;font-size:10px;line-height:1.8;color:#8a9bab}
+main{flex:1;min-width:0;padding:25px clamp(16px,3vw,44px) 50px;max-width:1510px}.kicker{color:#3576ab;font-size:10px;letter-spacing:.09em;font-weight:750;padding-bottom:18px;border-bottom:1px solid #e5edf5}
+.head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:26px 0 18px}
+h1{font-size:26px;letter-spacing:-.4px;margin:6px 0 10px}h2{font-size:16px;margin:0 0 7px;color:#2e4965}h3{font-size:13px;color:#31506e;margin:0 0 11px}
+p,.hint{color:#5f7790;font-size:12px;line-height:1.75}.mono{font-family:ui-monospace,Consolas,monospace;font-size:11px;overflow-wrap:anywhere}.badge{display:inline-flex;background:#eef5fc;color:#416c95;font-weight:650;border:1px solid #dce8f5;border-radius:6px;padding:6px 10px;font-size:11px}
+.panel{border:1px solid #e4ebf4;background:#fff;border-radius:12px;box-shadow:0 5px 19px #1732530a;padding:23px 25px;margin:14px 0;min-width:0}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}
+.tabs{display:flex;gap:5px;flex-wrap:wrap;border-bottom:1px solid #e5ecf5;margin:22px 0 14px}.tab{background:transparent;border:0;border-bottom:3px solid transparent;border-radius:7px 7px 0 0;padding:12px 16px;color:#637c97}
+.tab[aria-selected=true]{background:#fafdff;color:#215f9f;border-bottom-color:#215f9f;font-weight:800}.grid{display:grid;grid-template-columns:265px minmax(0,1fr);gap:17px;align-items:start}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.wide{grid-column:1/-1}
+.list{display:flex;flex-direction:column;gap:7px;margin-top:16px}.entry{width:100%;text-align:left;line-height:1.6;padding:13px;background:#fbfdff;border:1px solid #e4ebf2}.entry.active{background:#eef7ff;color:#205e9b;border-color:#9bc9ed;box-shadow:inset 3px 0 #215f9f}.entry .minor{display:block;margin-top:4px}
+.bar{border:1px solid #dae7f3;border-radius:9px;background:#f5f9fd;color:#345c83;padding:12px 15px;margin:12px 0;line-height:1.75}.warning{border-color:#edcfad;background:#fffbf5;color:#8a5b31}.error{border-color:#efcbd3;background:#fff6f7;color:#a64455}.success{border-color:#c9e5d7;background:#f3fbf7;color:#247052}
+.message{font-size:12px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}.field{min-width:0}.minor{font-size:11px;color:#637c95}.space{margin-top:17px}
+.card{border:1px solid #e1e9f2;background:#fafcff;border-radius:9px;padding:16px;margin:11px 0}
+.checkline{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;color:#4d6d8a}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid #e8edf5;padding:12px 9px}th{background:#f7faff;color:#5f7890}
+.issue{display:block;width:100%;text-align:left;background:#fff8f9;border:1px solid #edccd3;color:#9c4354;margin:8px 0;border-radius:8px;padding:13px}.empty{padding:35px;border:1px dashed #c0d0e1;background:#fafdff;border-radius:9px;text-align:center}
+.footer{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:white;margin-top:23px;border:1px solid #e3ebf4;box-shadow:0 -4px 20px #19426914;border-radius:11px;padding:13px 16px}
+details{font-size:12px;margin:12px 0}summary{cursor:pointer;font-weight:650}pre{max-height:270px;overflow:auto;font:11px ui-monospace,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:#f6f9fd;border-radius:7px;padding:14px}
+.endnote{border-top:1px solid #e5edf6;padding-top:16px;margin:29px 0;color:#6a839d;line-height:1.8;font-size:10px}
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:11px 0 18px}.step{display:flex;gap:9px;align-items:center;background:#fff;border:1px solid #e2eaf3;border-radius:10px;color:#637f9a;font-size:11px;padding:12px}
+.step strong{display:grid;place-items:center;border-radius:8px;background:#eaf4fd;color:#2564a0;width:27px;height:27px;flex-shrink:0}.step.active{color:#205e9d;border-color:#aacfe9;background:#eff7ff;font-weight:750}
+.model-graph{display:flex;gap:9px;align-items:center;flex-wrap:wrap;border:1px solid #dce9f5;border-radius:9px;background:linear-gradient(120deg,#f6fbff,#eef6fc);padding:15px;margin:14px 0}.node{border:1px solid #bad5e9;background:#fff;padding:10px 12px;color:#215f98;border-radius:7px;font-size:12px;font-weight:700}.arrow{font-size:18px;color:#7da1c0}
+.sectionline{border-top:1px solid #e6edf5;margin-top:18px;padding-top:17px}.notice-sticky{border-left:4px solid #d0a06a}
+@media(max-width:1000px){.rail{width:205px}.grid{grid-template-columns:1fr}.steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.shell{display:block}.rail{width:100%;padding:10px 14px;border-bottom:1px solid #e8edf4}.rail p,.rail:after,.navtitle,.railbtn{display:none}.brand{border:0;padding:0;font-size:13px}.brand:before{width:30px;height:30px;font-size:17px}main{padding:15px 12px 35px}.head{margin:19px 0}h1{font-size:22px}.panel{padding:17px}.formgrid{grid-template-columns:1fr}.wide{grid-column:auto}.footer{position:relative}.tab{padding:9px 10px;font-size:11px}th,td{font-size:11px;padding:7px 5px;overflow-wrap:anywhere}}
+
+</style>
+</head>
+<body>
+<div class="shell"><aside class="rail"><div class="brand">OntoForge · 砺元</div><div class="navtitle">本体设计 · 内存交互原型</div><button class="railbtn" data-action="tab" data-tab="objects">本体建模工作台</button><p>只有一个建模入口。对象和关系不是两个独立产品菜单。</p></aside>
+<main><div class="kicker">OFIP-0004 · UX-HIGH · 高保真候选 · 当前浏览器内存 Mock</div>
+<div class="head"><div><h1>manufacturing.production</h1><div class="hint">模型包 / 多对象与关系建模 · 仅定义模型，不包含任何真实工业关系实例</div></div>
+<div class="row"><span class="badge" id="revBadge"></span><span class="badge" id="statusBadge"></span></div></div>
+<div class="steps" aria-label="本体建模的完整操作顺序"><div class="step" id="step-objects"><strong>01</strong> 创建与维护对象</div><div class="step" id="step-links"><strong>02</strong> 定义对象间关系</div><div class="step" id="step-check"><strong>03</strong> 保存和完整性检查</div><div class="step" id="step-history"><strong>04</strong> 留存历史、比较变化</div></div><div id="notice" role="status" aria-live="polite"></div>
+<div class="row bar"><span class="minor">操作顺序：① 对象类型 → ② 关系类型 → ③ 保存编辑进度 → ④ 检查完整性 → ⑤ 留存历史 → ⑥ 对比版本</span><button data-action="seed">载入制造示例</button><button data-action="reset">重置原型</button></div>
+<nav class="tabs" role="tablist" aria-label="模型包工作台"><button role="tab" class="tab" data-action="tab" data-tab="objects" id="tab-objects">对象类型</button><button role="tab" class="tab" data-action="tab" data-tab="links" id="tab-links">关系类型</button><button role="tab" class="tab" data-action="tab" data-tab="check" id="tab-check">保存与检查</button><button role="tab" class="tab" data-action="tab" data-tab="history" id="tab-history">历史与对比</button></nav>
+<div id="view"></div>
+<div class="footer"><span class="hint" id="footerState"></span><div class="row"><button data-action="save">保存编辑进度</button><button data-action="validate">检查模型完整性</button><button class="primary" data-action="freeze">留存本地历史版本</button></div></div>
+<p class="endnote">本页面为对齐 OntoForge 现有视觉语言的高保真 Mock：所有修订、冲突、历史和差异均仅在当前浏览器内存模拟；刷新后清空，不调用 PostgreSQL/API，不生成 JCS 摘要，不执行审批/正式发布/激活、工业查询或 Action。产品真实实施还未开始。</p></main></div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const clone=v=>JSON.parse(JSON.stringify(v));
+const prop=(id="batch-id",apiName="batchId")=>({id,apiName,valueType:"STRING",required:true,searchable:true,classification:"INTERNAL"});
+const obj=(id="production-batch",apiName="ProductionBatch",label="生产批次",pid="batch-id",papi="batchId")=>({id,apiName,label,primaryKeyRef:pid,properties:[prop(pid,papi)]});
+const initial=()=>({objectTypes:[obj()],linkTypes:[]});
+let S={tab:"objects",selectedObject:0,selectedLink:0,server:initial(),local:initial(),rev:1,baseRev:1,dirty:false,validation:{status:"NOT_RUN",issues:[],rev:null},snapshots:[],from:"",to:"",notice:"",noticeType:"",conflict:false,pendingSave:false,pendingFreeze:null};
+const CARD=[["","请选择"],["ONE_TO_ONE","一对一（来源和目标各至多一项）"],["ONE_TO_MANY","一对多（一个来源对应多个目标）"],["MANY_TO_ONE","多对一（多个来源对应一个目标）"],["MANY_TO_MANY","多对多（双方可对应多项）"]];
+function msg(t,k=""){S.notice=t;S.noticeType=k;renderNotice()}
+function renderNotice(){const n=$("notice");n.innerHTML=S.notice?'<div class="bar message '+esc(S.noticeType)+'">'+esc(S.notice)+'</div>':""}
+function changed(){S.dirty=true;S.validation={status:"NOT_RUN",issues:[],rev:null};S.pendingSave=false;S.conflict=false}
+function same(a,b){return JSON.stringify(a)===JSON.stringify(b)}
+function options(items,val){return items.map(([v,label])=>'<option value="'+esc(v)+'"'+(v===val?' selected':'')+'>'+esc(label)+'</option>').join("")}
+function field(title,kind,index,key,value,extra=""){return '<div class="field"><label>'+esc(title)+'</label><input data-kind="'+kind+'" data-index="'+index+'" data-field="'+key+'" value="'+esc(value)+'" '+extra+'></div>'}
+function sel(title,kind,index,key,val,opts){return '<div class="field"><label>'+esc(title)+'</label><select data-kind="'+kind+'" data-index="'+index+'" data-field="'+key+'">'+options(opts,val)+'</select></div>'}
+function objectOptions(){return [["","请选择对象类型"],...S.local.objectTypes.map(o=>[o.id,o.label?o.label+"（"+o.id+"）":o.id])]}
+function drawObjects(){
+ const arr=S.local.objectTypes;
+ let sidebar='<section class="panel"><div class="row between"><h2>对象类型（'+arr.length+'）</h2><button data-action="addObject">＋ 新增</button></div><div class="list">'+arr.map((o,i)=>'<button class="entry '+(i===S.selectedObject?'active':'')+'" data-action="selectObject" data-index="'+i+'"><strong>'+esc(o.label||o.apiName||"未命名对象")+'</strong><br><span class="minor mono">'+esc(o.id||"未填写 ID")+'</span></button>').join("")+'</div></section>';
+ let o=arr[S.selectedObject];
+ if(!o)return '<div class="empty">尚无对象类型。点击“新增对象”开始。</div>';
+ let form='<section class="panel"><div class="row between"><div><h2>对象定义 · '+esc(o.label||"新对象")+'</h2><p>业务身份由稳定 ID 决定；仅修改显示名称不会切断关系。</p></div><button data-action="delObject" data-index="'+S.selectedObject+'">删除对象</button></div><div class="formgrid">'+field("对象标识 ID","object",S.selectedObject,"id",o.id)+field("程序名称 API Name","object",S.selectedObject,"apiName",o.apiName)+field("业务显示名","object",S.selectedObject,"label",o.label||"")+sel("主键字段","object",S.selectedObject,"primaryKeyRef",o.primaryKeyRef,[["","请选择主键"],...o.properties.map(p=>[p.id,p.id||"尚未命名字段"])])+'</div><div class="row between space"><h3>属性（'+o.properties.length+'）</h3><button data-action="addProp" data-index="'+S.selectedObject+'">＋ 新增属性</button></div>';
+ form+=o.properties.map((p,i)=>'<div class="card"><div class="row between"><b>属性 '+(i+1)+'</b><button data-action="delProp" data-index="'+i+'">删除属性</button></div><div class="formgrid space">'+field("字段 ID","prop",i,"id",p.id)+field("字段 API 名","prop",i,"apiName",p.apiName)+sel("数据类型","prop",i,"valueType",p.valueType,[["STRING","文本"],["INTEGER","整数"],["DECIMAL","小数"],["BOOLEAN","布尔"],["DATETIME","日期时间"]])+'</div><span class="minor">本原型默认新增属性为必填字符串；专业字段选项将在高保真阶段完善，实际合同仍以 Native V0.2 为准。</span></div>').join("");
+ form+='</section>';
+ return '<div class="grid">'+sidebar+form+'</div>';
+}
+function drawLinks(){
+ const arr=S.local.linkTypes;
+ let aside='<section class="panel"><div class="row between"><h2>关系类型（'+arr.length+'）</h2><button data-action="addLink">＋ 新增</button></div><p>这里定义“什么类型的对象可以关联”，不生成真实关联记录。</p><div class="list">'+arr.map((l,i)=>'<button class="entry '+(i===S.selectedLink?'active':'')+'" data-action="selectLink" data-index="'+i+'"><strong>'+esc(l.label||l.apiName||"新关系")+'</strong><br><span class="minor">'+esc(l.sourceTypeRef||"?")+' → '+esc(l.targetTypeRef||"?")+'</span></button>').join("")+'</div></section>';
+ let l=arr[S.selectedLink];
+ if(!l)return '<div class="panel empty"><b>还没有关系定义</b><p>先创建来源和目标对象，再新增一条关系。</p><button data-action="addLink">＋ 新增关系</button></div>';
+ let main='<section class="panel"><div class="row between"><div><h2>关系定义 · '+esc(l.label||"未命名")+'</h2><p>请选择两个对象，明确关联方向和基数，不需要手写数据库外键。</p></div><button data-action="delLink" data-index="'+S.selectedLink+'">删除关系</button></div><div class="formgrid">'+field("关系 ID","link",S.selectedLink,"id",l.id)+field("程序名称","link",S.selectedLink,"apiName",l.apiName)+field("业务显示名","link",S.selectedLink,"label",l.label||"")+'<div></div>'+sel("来源对象","link",S.selectedLink,"sourceTypeRef",l.sourceTypeRef,objectOptions())+sel("目标对象","link",S.selectedLink,"targetTypeRef",l.targetTypeRef,objectOptions())+sel("关联基数（来源 → 目标）","link",S.selectedLink,"cardinality",l.cardinality,CARD)+sel("未来真实关系是否必须有来源证据","link",S.selectedLink,"evidenceRequired",String(l.evidenceRequired),[["true","是，必须有来源证据"],["false","否，不强制来源证据"]])+'</div><div class="bar space"><b>关系摘要：</b> '+esc(l.sourceTypeRef||"未选择来源")+' → '+esc(l.targetTypeRef||"未选择目标")+'<br><span class="minor">当前只定义 LinkType，尚不能查询生产批次和订单实例；证据开关只是后续绑定规则的声明。</span></div></section>';
+ return '<div class="grid">'+aside+main+'</div>';
+}
+const codePath=(i,k)=>'/linkTypes/'+i+'/'+k;
+function inspect(doc){
+ const issues=[], ids=new Set(),apis=new Set();
+ if(!doc.objectTypes.length)issues.push({path:"/objectTypes",message:"至少需要一个对象类型",hard:false});
+ doc.objectTypes.forEach((o,i)=>{
+ let pre='/objectTypes/'+i;
+ for(let k of ["id","apiName","primaryKeyRef"]){if(!o[k])issues.push({path:pre+'/'+k,message:"请填写对象"+k,hard:false})}
+ if(o.id){if(ids.has(o.id))issues.push({path:pre+'/id',message:"对象 ID 重复",hard:true});ids.add(o.id)}
+ if(o.apiName){if(apis.has(o.apiName))issues.push({path:pre+'/apiName',message:"对象程序名称重复",hard:true});apis.add(o.apiName)}
+ if(!o.properties.length)issues.push({path:pre+'/properties',message:"至少有一个属性",hard:false});
+ if(o.primaryKeyRef&&!o.properties.some(p=>p.id===o.primaryKeyRef))issues.push({path:pre+'/primaryKeyRef',message:"主键字段不存在",hard:true});
+ o.properties.forEach((p,j)=>{if(!p.id||!p.apiName)issues.push({path:pre+'/properties/'+j,message:"字段标识和程序名称不能为空",hard:false})});
+ });
+ const lids=new Set(), lapis=new Set();
+ doc.linkTypes.forEach((l,i)=>{
+ for(let k of ["id","apiName","sourceTypeRef","targetTypeRef","cardinality"]){if(!l[k])issues.push({path:codePath(i,k),message:"请填写关系的"+k,hard:false})}
+ if(l.id){if(lids.has(l.id))issues.push({path:codePath(i,"id"),message:"同包关系 ID 重复",hard:true});lids.add(l.id)}
+ if(l.apiName){if(lapis.has(l.apiName))issues.push({path:codePath(i,"apiName"),message:"同包关系程序名称重复",hard:true});lapis.add(l.apiName)}
+ for(let k of ["sourceTypeRef","targetTypeRef"]){if(l[k]&&!ids.has(l[k]))issues.push({path:codePath(i,k),message:"关联对象已不存在，请修复引用；关系未被删除",hard:true})}
+ if(l.cardinality&&!CARD.some(c=>c[0]===l.cardinality))issues.push({path:codePath(i,"cardinality"),message:"关联基数不支持",hard:true});
+ });
+ return {status:issues.length?issues.some(i=>i.hard)?"INVALID":"INCOMPLETE":"VALID",issues,rev:S.rev};
+}
+function drawCheck(){
+ let v=S.validation;
+ let content='<div class="panel"><h2>保存与检查</h2><p>先保存整个模型包，再检查当前修订是否完整。未完成的关系可以保存编辑进度，但不能留存“有效历史”。</p><div class="row"><span class="badge">服务器修订 '+S.rev+'</span><span class="badge">本地基于修订 '+S.baseRev+'</span><span class="badge">检查结果 '+(S.dirty?'未保存，不可作为检查依据':v.status)+'</span></div><div class="row space"><button data-action="save">① 保存编辑进度</button><button class="primary" data-action="validate">② 检查当前修订</button><button data-action="freeze">③ 留存只读历史</button></div></div>';
+ if(S.conflict)content+='<section class="panel"><div class="bar error"><b>发现保存冲突</b><p>另一标签页已修改服务端修订。不能自动覆盖；当前浏览器的对象和关系全部保留。</p></div><div class="row"><button data-action="showLocal">显示/复制本地完整草稿</button><button data-action="reload">放弃本地修改并读取服务器版本</button></div><details><summary>查看服务器当前版本</summary><pre>'+esc(JSON.stringify(S.server,null,2))+'</pre></details></section>';
+ if(S.pendingSave)content+='<div class="bar warning"><b>保存结果未知：</b>模拟网络丢失回执，服务器是否已保存不能凭按钮显示判断。<button data-action="reconcileSave">重新核对服务器版本</button></div>';
+ if(S.pendingFreeze!==null)content+='<div class="bar warning"><b>冻结结果未知：</b>模拟超时，请先根据原请求查询结果。<button data-action="reconcileFreeze">按原请求找回</button></div>';
+ content+='<section class="panel"><h2>完整性问题</h2>'+(!S.dirty&&v.status==="VALID"?'<div class="bar success">当前已保存修订 VALID，可以留存本地历史；这不等于审批或正式发布。</div>':!S.dirty&&v.issues.length?v.issues.map(i=>'<button class="issue" data-action="jump" data-path="'+esc(i.path)+'">'+esc(i.message)+'<div class="mono">'+esc(i.path)+'</div></button>').join(""):'<p>请先保存，再检查当前修订；任何新的修改都会使先前结果失效。</p>')+'</section>';
+ content+='<section class="panel"><h2>体验异常恢复</h2><div class="row"><button data-action="otherEditor">模拟其他标签页提交</button><button data-action="simulateSaveUnknown">模拟保存成功但回执丢失</button><button data-action="simulateFreezeUnknown">模拟冻结成功但回执丢失</button></div><p>这些按钮只修改浏览器内存中的模拟服务端状态。并发冲突和结果未知的页面路径在这里评审，不代表真实系统已实现。</p></section>';
+ return content;
+}
+function diffRows(a,b){
+ const before=new Map(a.linkTypes.map(l=>[l.id,l])),after=new Map(b.linkTypes.map(l=>[l.id,l]));const ids=[...new Set([...before.keys(),...after.keys()])].sort(),rows=[];
+ for(const id of ids){const x=before.get(id),y=after.get(id);
+ if(!x||!y){rows.push({path:"/linkTypes/"+id,old:x?"存在":"—",next:y?"存在":"—",risk:x?"潜在破坏":"新增关系定义"});continue}
+ for(const key of ["apiName","label","sourceTypeRef","targetTypeRef","cardinality","evidenceRequired"]){if(x[key]===y[key])continue;
+ let risk=key==="label"?"仅说明变化":key==="evidenceRequired"&&x[key]===true&&y[key]===false?"需治理复核":"潜在破坏";
+ rows.push({path:"/linkTypes/"+id+"/"+key,old:x[key],next:y[key],risk})}}
+ for(const id of [...new Set([...a.objectTypes.map(o=>o.id),...b.objectTypes.map(o=>o.id)])].sort()){
+ const x=a.objectTypes.find(o=>o.id===id),y=b.objectTypes.find(o=>o.id===id);
+ if(!x||!y)rows.push({path:"/objectTypes/"+id,old:x?"存在":"—",next:y?"存在":"—",risk:x?"潜在破坏":"新增对象定义"});
+ }
+ return rows;
+}
+function drawHistory(){
+ let opts=[["","请选择历史版本"],...S.snapshots.map(s=>[String(s.id),"本地历史 #"+s.id+" · 修订 "+s.rev])];
+ let h='<section class="panel"><div class="row between"><div><h2>本地历史（'+S.snapshots.length+'）</h2><p>只读的模型定义版本。此处不提供“正式发布”“上线生效”操作。</p></div><button data-action="freeze">留存当前版本</button></div>';
+ h+=S.snapshots.length?'<table><thead><tr><th>历史版本</th><th>来源修订</th><th>对象数</th><th>关系数</th><th>状态</th></tr></thead><tbody>'+S.snapshots.slice().reverse().map(s=>'<tr><td>本地历史 #'+s.id+'</td><td>'+s.rev+'</td><td>'+s.doc.objectTypes.length+'</td><td>'+s.doc.linkTypes.length+'</td><td>只读 · 非发布</td></tr>').join("")+'</tbody></table>':'<div class="empty">暂无历史。先保存并校验通过，再留存第一版。</div>';
+ h+='</section><section class="panel"><h2>两版模型对比</h2><p>这里只提示结构风险，不作下游消费者兼容认证。</p><div class="formgrid">'+sel("从哪一版（旧）","pick",0,"from",S.from,opts)+sel("到哪一版（新）","pick",0,"to",S.to,opts)+'</div>';
+ const a=S.snapshots.find(x=>String(x.id)===S.from),b=S.snapshots.find(x=>String(x.id)===S.to);
+ if(a&&b){let rows=diffRows(a.doc,b.doc);h+=rows.length?'<table class="space"><thead><tr><th>变更位置</th><th>旧值</th><th>新值</th><th>风险提醒</th></tr></thead><tbody>'+rows.map(x=>'<tr><td class="mono">'+esc(x.path)+'</td><td>'+esc(x.old)+'</td><td>'+esc(x.next)+'</td><td>'+esc(x.risk)+'</td></tr>').join("")+'</tbody></table>':'<div class="bar success space">未发现对象/关系结构差异；此结论不是版本内容摘要相同或正式兼容认证。</div>'}
+ h+='</section>';return h;
+}
+function save(lose=false){
+ if(!S.dirty){msg("没有需要保存的变更；服务器修订保持不变。");return}
+ if(S.baseRev!==S.rev){S.conflict=true;S.tab="check";msg("保存冲突：服务器修订与本地基线不同，请人工核对。","error");render();return}
+ S.server=clone(S.local);S.rev++;S.validation={status:"NOT_RUN",issues:[],rev:null};
+ if(lose){S.pendingSave=true;S.tab="check";msg("模拟保存回执丢失：结果未知，请按服务器修订和完整内容核对。","warning")}
+ else{S.baseRev=S.rev;S.dirty=false;S.pendingSave=false;msg("已保存当前编辑进度（模拟），新修订 "+S.rev+"。校验结果已失效。","success")}
+ render();
+}
+function validate(){
+ if(S.dirty||S.baseRev!==S.rev){S.tab="check";msg("必须先确认当前草稿已经保存到服务器，再执行完整性检查。","warning");render();return}
+ S.validation=inspect(S.server);S.tab="check";msg("模拟完整性检查："+S.validation.status+"；发现 "+S.validation.issues.length+" 个问题。",S.validation.status==="VALID"?"success":"warning");render();
+}
+function freeze(lose=false){
+ if(S.dirty||S.baseRev!==S.rev||S.validation.status!=="VALID"||S.validation.rev!==S.rev){S.tab="check";msg("不能留存历史：请先保存并对当前修订通过完整性检查。","error");render();return}
+ if(S.snapshots.some(s=>s.rev===S.rev)){S.tab="history";msg("这个修订已有历史版本；同一修订不重复冻结。","warning");render();return}
+ let id=S.snapshots.length+1;S.snapshots.push({id,rev:S.rev,doc:clone(S.server)});
+ S.to=String(id);if(!S.from)S.from=String(id);
+ if(lose){S.pendingFreeze=id;S.tab="check";msg("模拟冻结回执超时：结果未知，先按原请求核对。","warning")}
+ else{S.pendingFreeze=null;S.tab="history";msg("已留存本地只读历史 #"+id+"（仅内存模拟，非正式发布）。","success")}
+ render();
+}
+function go(t){S.tab=t;render()}
+function render(){
+ for(const t of ["objects","links","check","history"]){let b=$("tab-"+t);b.setAttribute("aria-selected",String(S.tab===t));b.setAttribute("tabindex",S.tab===t?"0":"-1")}
+ $("revBadge").textContent="草稿修订 "+S.rev;
+ $("statusBadge").textContent=S.dirty?"本地未保存":S.validation.status==="VALID"&&S.validation.rev===S.rev?"当前修订已检查":"待检查／待完善";
+ $("footerState").textContent=(S.dirty?"● 有未保存修改":"✓ 与模拟服务器同步")+" · "+S.local.objectTypes.length+" 类对象 · "+S.local.linkTypes.length+" 类关系";
+ $("view").innerHTML=S.tab==="objects"?drawObjects():S.tab==="links"?drawLinks():S.tab==="check"?drawCheck():drawHistory();
+ renderNotice();
+}
+document.addEventListener("change",e=>{
+ const el=e.target;if(!el.dataset.kind)return;
+ let kind=el.dataset.kind,key=el.dataset.field,i=Number(el.dataset.index),value=el.value;
+ if(kind==="pick"){S[key]=value;render();return}
+ if(kind==="object"){let o=S.local.objectTypes[i];if(!o)return;o[key]=value}
+ else if(kind==="link"){let l=S.local.linkTypes[i];if(!l)return;l[key]=key==="evidenceRequired"?value==="true":value}
+ else if(kind==="prop"){let o=S.local.objectTypes[S.selectedObject];if(!o||!o.properties[i])return;o.properties[i][key]=value}
+ changed();render();
+});
+document.addEventListener("click",e=>{
+ let b=e.target.closest("button[data-action]");if(!b)return;const action=b.dataset.action,i=Number(b.dataset.index);
+ if(action==="tab"){go(b.dataset.tab);return}
+ if(action==="seed"){if(S.dirty&&!confirm("载入示例将替换未保存的本地修改，继续吗？"))return;S.local={objectTypes:[obj(),obj("work-order","WorkOrder","生产工单","work-order-id","workOrderId"),obj("customer-order","CustomerOrder","销售订单","order-id","orderId")],linkTypes:[{id:"batch-to-workorder",apiName:"BatchToWorkOrder",label:"生产批次归属工单",sourceTypeRef:"production-batch",targetTypeRef:"work-order",cardinality:"MANY_TO_ONE",evidenceRequired:true},{id:"workorder-to-order",apiName:"WorkOrderToOrder",label:"工单关联销售订单",sourceTypeRef:"work-order",targetTypeRef:"customer-order",cardinality:"MANY_TO_MANY",evidenceRequired:true}]};S.selectedObject=0;S.selectedLink=0;changed();S.tab="links";msg("已载入 3 个对象和 2 条关系的测试示例；仍需保存、校验和留存版本。","success");render();return}
+ if(action==="reset"){if(!confirm("重置全部内存模拟修订和历史版本？"))return;S={tab:"objects",selectedObject:0,selectedLink:0,server:initial(),local:initial(),rev:1,baseRev:1,dirty:false,validation:{status:"NOT_RUN",issues:[],rev:null},snapshots:[],from:"",to:"",notice:"",noticeType:"",conflict:false,pendingSave:false,pendingFreeze:null};render();return}
+ if(action==="addObject"){S.local.objectTypes.push(obj("","","","",""));S.selectedObject=S.local.objectTypes.length-1;changed();go("objects");return}
+ if(action==="selectObject"){S.selectedObject=i;render();return}
+ if(action==="delObject"){let o=S.local.objectTypes[i];let refs=S.local.linkTypes.filter(l=>l.sourceTypeRef===o.id||l.targetTypeRef===o.id);if(!confirm("确定删除对象 "+(o.label||o.id)+"？"+(refs.length?"\n注意：有 "+refs.length+" 条关系引用它。关系会保留并在检查时报告错误，必须手工修复。":"")))return;S.local.objectTypes.splice(i,1);S.selectedObject=Math.max(0,Math.min(S.selectedObject,S.local.objectTypes.length-1));changed();msg(refs.length?"已删除对象但保留关联定义；关系现在需要手工修复。":"已删除对象。","warning");render();return}
+ if(action==="addProp"){S.local.objectTypes[i].properties.push(prop("",""));changed();render();return}
+ if(action==="delProp"){let o=S.local.objectTypes[S.selectedObject];o.properties.splice(i,1);changed();render();return}
+ if(action==="addLink"){S.local.linkTypes.push({id:"",apiName:"",label:"",sourceTypeRef:"",targetTypeRef:"",cardinality:"",evidenceRequired:true});S.selectedLink=S.local.linkTypes.length-1;changed();go("links");return}
+ if(action==="selectLink"){S.selectedLink=i;render();return}
+ if(action==="delLink"){if(!confirm("确认删除这条关系定义？已留存的旧版历史不受影响。"))return;S.local.linkTypes.splice(i,1);S.selectedLink=Math.max(0,Math.min(S.selectedLink,S.local.linkTypes.length-1));changed();render();return}
+ if(action==="save"){save();return}if(action==="validate"){validate();return}if(action==="freeze"){freeze();return}
+ if(action==="otherEditor"){S.server.objectTypes[0].label="其他标签页更新的批次";S.rev++;S.validation={status:"NOT_RUN",issues:[],rev:null};S.tab="check";msg("已模拟另一标签页修改服务端。当前编辑保持原样，再保存应出现冲突。","warning");render();return}
+ if(action==="reload"){if(!confirm("这将丢弃当前浏览器的全部未保存修改；确定载入模拟服务器版本？"))return;S.local=clone(S.server);S.baseRev=S.rev;S.dirty=false;S.conflict=false;S.pendingSave=false;S.tab="objects";msg("已明确选择放弃本地编辑，并载入服务器最新版。","success");render();return}
+ if(action==="showLocal"){S.tab="check";msg("本地未保存的完整草稿："+JSON.stringify(S.local,null,2),"warning");render();return}
+ if(action==="simulateSaveUnknown"){if(!S.dirty){msg("先修改对象或关系，再模拟保存后回执丢失。","warning");return}save(true);return}
+ if(action==="reconcileSave"){if(same(S.local,S.server)){S.baseRev=S.rev;S.dirty=false;S.pendingSave=false;S.conflict=false;msg("已核对服务器版本与本地完整对象/关系内容一致，确认模拟保存成功。","success")}else{S.conflict=true;msg("服务器数据与本地不一致，保持编辑，需人工处理。","error")}render();return}
+ if(action==="simulateFreezeUnknown"){freeze(true);return}
+ if(action==="reconcileFreeze"){let s=S.snapshots.find(x=>x.id===S.pendingFreeze);if(s){S.pendingFreeze=null;S.tab="history";msg("已按原模拟请求找回历史 #"+s.id+"。没有重复生成版本。","success")}else msg("没有找到原结果，仍是未知态，不得直接声称成功。","error");render();return}
+ if(action==="jump"){let path=b.dataset.path;const isLink=path.startsWith("/linkTypes/");const match=path.match(/\/(\d+)/);if(match){if(isLink)S.selectedLink=Number(match[1]);else S.selectedObject=Number(match[1]);S.tab=isLink?"links":"objects"}msg("请修复 "+path+" 对应字段，保存后重新检查。","warning");render();return}
+});
+window.addEventListener("beforeunload",e=>{if(S.dirty){e.preventDefault();e.returnValue=""}});
+render();
+</script></body></html>
