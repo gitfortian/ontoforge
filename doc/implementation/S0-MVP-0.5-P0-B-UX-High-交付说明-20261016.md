@@ -307,3 +307,35 @@
 > **“审批、正式版本、生效、回退的产品流程已经定型，下一步开始实现可信身份与真实权限。”**
 
 这就是下一阶段 B0 的进入条件。
+
+
+## 11. 最终自动化验证结果（最新 HEAD）
+
+最新 HEAD：38b9a8384737d59dad34a7704b84e23e852e6f5d
+
+| Gate | 最终结果 |
+|---|---|
+| OFIP-0005 Governance UX-High Browser Review | **PASS** |
+| H01–H20 | **20/20 PASS** |
+| OFIP-0005 Governance UX-Low Browser Review | **PASS** |
+| Ontology Architecture V1.3 Docs Gates | **PASS** |
+| OntoForge Required Quality | **PASS** |
+| OFIP-0002 Prototype UX Browser Review | **PASS** |
+| Windows 11 本机 PostgreSQL | **NOT RUN** |
+
+### 本轮失败也纳入了修复闭环
+
+第一轮 UX-High Chromium 发现 2 个产品/测试断言问题；第二轮在状态调整后又发现脚本交互和状态迁移问题。
+
+处理原则不是删断言，而是修产品原型和测试：
+
+- 修复页面脚本解析问题；
+- 为页面状态增加 aria-hidden，避免测试把不可见工作区当成当前页面；
+- 修正正式版本“待创建 → 已发行 → 可选择生效”的连续状态；
+- 修正历史记录与当前待发行状态的不一致；
+- 补齐回退语义；
+- 将浏览器检查改为确定性等待。
+
+最终最新 HEAD 的 H01–H20 已全部通过。
+
+**因此 UX-High 可以进入正式产品评审，但仍不能把它计为真实治理功能完成。**
