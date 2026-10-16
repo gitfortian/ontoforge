@@ -235,7 +235,8 @@ document.getElementById("submitChange").onclick=()=>{
  const n=document.createElement("div");n.className="callout ok";n.textContent="已创建模型变更申请。提交内容已经固定，等待审核。";document.querySelector("#screen-changes .panel").prepend(n);
 };
 document.getElementById("openReview").onclick=()=>show("review-detail");
-document.getElementById("openRelease").onclick=()=>openBox("releaseModal");\ndocument.getElementById("openReleaseRow").onclick=()=>openBox("releaseModal");
+document.getElementById("openRelease").onclick=()=>openBox("releaseModal");
+document.getElementById("openReleaseRow").onclick=()=>openBox("releaseModal");
 document.getElementById("cancelRelease").onclick=()=>closeBox("releaseModal");
 document.getElementById("confirmRelease").onclick=()=>{
  closeBox("releaseModal");show("releases");
