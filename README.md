@@ -8,6 +8,8 @@
 
 **[阅读唯一现行总体架构：V1.3](./doc/本体产品总体功能与技术架构设计_v1.3.md)**
 
+**[产品与研发统一术语词汇表（256 个词条）](./doc/砺元本体产品统一术语词汇表.md)**：先理解 ObjectType / LinkType、草稿 / 快照 / 正式发布、Data Binding / ObjectSet / Action 的区别。
+
 - [现行 Native DSL/AST V0.2 技术合同](./doc/design/核心本体元模型与Native-DSL-AST契约_v0.2.md)
 - [文档目录、研究证据与历史清理说明](./doc/README.md)
 - [**MVP 产品功能全景：完整功能、预期效果、实现成熟度与下一步**](./doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)
@@ -16,7 +18,7 @@
 - [S0-MVP-0.3 功能说明与全面 Review 验收矩阵](./doc/implementation/S0-MVP-0.3-功能说明与全面Review验收矩阵.md)
 - [PostgreSQL ObjectSet / Action Outbox 研究实验](./experiments/pg-runtime/README.md)
 
-> **S0-MVP-0.2 ObjectType 草稿建模代码已由 [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 合并到 main；Windows 11 原生 PostgreSQL 实机验收仍待完成，版本未发布。**，不是可生产使用的本体产品。用户/权限/工作空间/业务系统连接尚未实现；所有架构选择仍以 V1.3 和阶段 Gate 为准。
+> **S0-MVP-0.2/0.3/0.4 真实建模代码已合并 main（PR #7 / #11 / #13）**：可定义同包多个 ObjectType 与 LinkType、保存草稿、完整性检查、留存不可变本地历史及比较风险。**Windows 11 本机 PostgreSQL 真停启验收 NOT RUN，未正式发布；没有身份权限、真实业务数据绑定、ObjectSet 生产查询或 Action**。
 
 ## S0-MVP-0.2：Windows 11 本机 PostgreSQL（默认开发方式）
 
@@ -35,9 +37,9 @@
 3. 另开 PowerShell 进入 `ontoforge-ui`，运行 `npm install` 和 `npm run dev`；访问 [http://127.0.0.1:5173](http://127.0.0.1:5173)。
 4. 新开 PowerShell，重新设置相同的 DB_* 环境变量，并在仓库根目录运行 `.\scripts\verify-s0.ps1`（`psql` 未加入 PATH 时传 `-PsqlPath`）。脚本只读校验 Flyway V1/V2、数据库 UUID、`DRAFT_AVAILABLE` 与真实 API 是否一致；重启后端后可用 `-ExpectedInstallationId` 及 `-ExpectedDraftId` 验证既有安装和草稿均被保留。
 
-### S0-MVP-0.3：本地 Native 模型快照与结构差异（PR #11 实施候选）
+### S0-MVP-0.3：本地 Native 模型快照与结构差异（已合并开发主线）
 
-设计依据：[**Accepted OFIP-0003**](./doc/proposals/OFIP-0003-S0-MVP-0.3-模型快照与发布边界.md)。[实施 PR #11](https://github.com/gitfortian/ontoforge/pull/11) 提供 Flyway V3、真实事务冻结/Revision CAS、规范化 JCS 字节 SHA-256、只读历史、模型字段风险 Diff，以及原建模工作台的冻结确认、历史与版本选择。**本段描述当前功能 PR 的代码候选，不意味着已合并、已发布或本机验收通过。**
+设计依据：[**Accepted OFIP-0003**](./doc/proposals/OFIP-0003-S0-MVP-0.3-模型快照与发布边界.md)。[实施 PR #11](https://github.com/gitfortian/ontoforge/pull/11) 提供 Flyway V3、真实事务冻结/Revision CAS、规范化 JCS 字节 SHA-256、只读历史、模型字段风险 Diff，以及原建模工作台的冻结确认、历史与版本选择。**该功能已合并 main；这不意味着已正式发布或 Windows 11 本机验收通过。**
 
 真实用户主流程：
 
@@ -75,6 +77,12 @@
 
 脚本可在 GitHub Actions 的 Linux PowerShell 7 环境中进行自动回归，但这**不等于用户 Windows 11 本机通过**。Edge 页面、菜单和键盘使用体验仍应做最终人工抽检；正式记录规则见 [S0-MVP-0.2 Windows 验收记录](./doc/implementation/S0-MVP-0.2-Windows-验收.md)。
 
+### S0-MVP-0.4：多对象与 LinkType 关系建模（已合并开发主线）
+
+现可在同一模型包建立生产批次、工单、客户订单等多个 `ObjectType`，并定义 `LinkType` 的来源/目标、基数和未来证据要求。完整编辑保存到 PostgreSQL 后可刷新重开、验证关系引用，将所有对象及关系冻结为本地不可变快照，并比较基数与证据要求的变更风险。详见 [0.4 真实功能交付说明](./doc/implementation/S0-MVP-0.4-真实功能实施与验收报告.md)。
+
+在**独立本地测试库**可用 `./scripts/verify-linktype.ps1 -Mode Exercise -AllowCreateTestDraft` 创建可追溯测试数据，实际重启 Spring Boot 后使用输出的 EvidencePath 执行 `-Mode Recheck`。脚本会写入测试模型且不会自动删除；**从未在用户本机执行时须记录 NOT RUN**。定义 LinkType 并不生成真实 LinkFact，也不是正式 SchemaRelease。
+
 ### ObjectType 真实黄金故事（使用测试模型，不要连接工厂生产数据）
 
 本轮不再使用 `doc/prototypes/` 中的内存模拟 HTML。直接访问 [本体建模工作台](http://127.0.0.1:5173/#/model/packages)，页面请求真实的 Spring Boot API，数据写入你的 `ontoforge` PostgreSQL：
@@ -86,7 +94,7 @@
 5. 使用两个浏览器标签页编辑同一 `draftId`；分别保存时旧 revision 应得到 `409 DRAFT_REVISION_CONFLICT`，第二个标签页未保存内容必须保留。断开 API 时不得报告“已保存”，恢复后先核对服务器 revision。
 6. 停止并重新启动 Spring Boot，不要重建 PG 数据库。可运行 `.\scripts\verify-s0.ps1 -ExpectedInstallationId <UUID> -ExpectedDraftId <UUID>`，验证安装身份、Flyway V1/V2 和草稿持久性。替换占位 UUID 为 API 返回的实际值。
 
-**自动证据**：CI 采用隔离 PG17、真实 Spring Boot API、React/Vite 与 Chromium，检查上述成功与冲突/网络负例。**Windows 11 本机人工验收尚未执行时，不得声称已通过。** 本 MVP 不提供 LinkType 编辑、正式发布、身份授权、模型实例、Data Binding 或 Action。
+**自动证据**：CI 采用隔离 PG17、真实 Spring Boot API、React/Vite 与 Chromium，检查上述成功与冲突/网络负例。**Windows 11 本机人工验收尚未执行时，不得声称已通过。** 本节记录 S0-0.2 的历史用例；截至 S0-0.4，已支持 LinkType 编辑，但仍不提供正式发布、身份授权、模型实例、Data Binding 或 Action。
 
 **完整分步骤、psql 安装目录用法、失败排查与重启验收**：[Windows 11 本机 PostgreSQL 启动与验收](./doc/implementation/S0-Windows11-本机PostgreSQL-启动与验收.md)。
 

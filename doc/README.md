@@ -8,6 +8,7 @@
 >
 > 设计方向：Enterprise-native Operational Ontology，连接 Object/Link、Data Binding、ObjectSet、Rule/Function、Decision、Policy、Action 与可追溯证据。**推理结论不等于行动授权**。
 
+- **[砺元本体产品与研发统一术语词汇表（256 个主词条）](./砺元本体产品统一术语词汇表.md)**：产品、UX、Java/React、测试与用户帮助统一用语；不是第二套架构。
 - [**MVP 全局功能总账与实现成熟度**](./implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)
 - [S0-MVP-0.3 本轮交付说明与下一步进度](./implementation/S0-MVP-0.3-交付说明-20261016.md)
 - [每轮交付说明模板](./implementation/交付说明模板.md)
@@ -16,6 +17,7 @@
 
 | 文档/合同 | 权威职责与状态 |
 |---|---|
+| [统一术语词汇表](./砺元本体产品统一术语词汇表.md) | **256 个中文/英文术语、边界、阶段与使用规则**，为用户文案、研发接口和下期 OFIP 共享一个术语入口；不变更机器合同 |
 | **[总体功能与技术架构 V1.3](./本体产品总体功能与技术架构设计_v1.3.md)** | **唯一现行总体设计基线候选**：定位、F01–F29、限界上下文、PG17 证据、统一 ADR、路线与签收 Gate |
 | [Native DSL/AST V0.2](./design/核心本体元模型与Native-DSL-AST契约_v0.2.md) | 配套**机器可读技术合同**：五份 [V0.2 Package JSON Schema](./design/schema/ontology-package-v0.2.schema.json)、Typed AST、制造质量样例、[契约测试](./design/tests/test_native_v02.py) |
 | [V0.1 → Native V0.2 迁移矩阵](./design/V0.1到NativeV0.2迁移矩阵.md) | 历史 IRI、公理与 EntityType 的显式兼容/拒绝约束，不是第二份总体架构 |
