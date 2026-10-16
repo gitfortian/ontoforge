@@ -65,7 +65,7 @@ public class B0AuthorizationService {
         }
         IdentityRow principal = principals.getFirst();
 
-        List<WorkspaceAccess> workspaces = jdbc.query("""
+        List<WorkspaceRow> workspaces = jdbc.query("""
                 SELECT w.workspace_id, w.workspace_key, w.display_name,
                        wm.role, pa.package_id
                   FROM b0_workspace_membership wm
