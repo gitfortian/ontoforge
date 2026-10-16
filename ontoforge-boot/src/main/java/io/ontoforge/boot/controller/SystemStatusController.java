@@ -14,7 +14,7 @@ public class SystemStatusController {
 
     public record PlatformStatus(String service, String version, String database,
                                  String installationId, String modelModule,
-                                 String authModule) {}
+                                 String snapshotModule, String authModule) {}
 
     @GetMapping("/status")
     public PlatformStatus status() {
@@ -22,7 +22,7 @@ public class SystemStatusController {
                 "SELECT installation_id::text FROM platform_installation WHERE id = 1",
                 String.class);
         if (installationId == null) throw new IllegalStateException("Migration is incomplete");
-        return new PlatformStatus("ontoforge", "S0-MVP-0.2", "CONNECTED",
-                installationId, "DRAFT_AVAILABLE", "NOT_IMPLEMENTED");
+        return new PlatformStatus("ontoforge", "S0-MVP-0.3", "CONNECTED",
+                installationId, "DRAFT_AVAILABLE", "LOCAL_SNAPSHOT_AVAILABLE", "NOT_IMPLEMENTED");
     }
 }
