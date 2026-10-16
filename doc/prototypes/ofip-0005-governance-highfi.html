@@ -240,6 +240,10 @@ document.getElementById("openReleaseRow").onclick=()=>openBox("releaseModal");
 document.getElementById("cancelRelease").onclick=()=>closeBox("releaseModal");
 document.getElementById("confirmRelease").onclick=()=>{
  closeBox("releaseModal");show("releases");
+ document.getElementById("release050Status").innerHTML='<span class="status ok">已发行</span>';
+ document.getElementById("release050Scope").innerHTML='<span class="status warn">尚未生效</span>';
+ document.getElementById("release050Action").innerHTML='<button data-action="activate050">选择生效范围</button>';
+ document.querySelector("#release050Action button").onclick=()=>{show("activation");openBox("activationModal")};
  const n=document.createElement("div");n.className="callout ok";n.textContent="正式版本 0.5.0 已创建。它现在可以被业务范围选择，但不会自动生效。";document.querySelector("#screen-releases .panel").prepend(n);
 };
 document.getElementById("activate").onclick=()=>openBox("activationModal");
