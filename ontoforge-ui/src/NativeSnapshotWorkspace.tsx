@@ -53,7 +53,7 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
  const confirmRef=useRef<HTMLButtonElement|null>(null);
  const freezeButtonRef=useRef<HTMLButtonElement|null>(null);
  const active=validation?.status==='VALID'&&validation.validatedRevision===draft.revision;
- const supported=draft.editingContent.objectTypes.length===1&&draft.editingContent.linkTypes.length===0;
+ const supported=draft.editingContent.objectTypes.length>0&&Array.isArray(draft.editingContent.linkTypes);
  const historyPath='#/model/packages/'+encode(draft.packageId)+'/snapshots';
  async function refresh(){
    try{
@@ -125,7 +125,7 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
      <div><span>当前校验</span><b>{dirty?'编辑未保存':validation?.status??'NOT_RUN'}</b></div>
      <div><span>发布状态</span><b>未发布</b></div>
    </div>
-   {!supported&&<div className="model-alert warning">当前首期只冻结恰好一个完整 ObjectType、零 LinkType；未支持资产不得静默裁剪。</div>}
+   {!supported&&<div className="model-alert warning">本地历史要求至少一个有效对象类型，以及受控的关系类型列表；不支持的资产不能裁剪。</div>}
    {error&&<div className="model-alert error" role="alert">{error}</div>}
    {pendingKey&&<div className="model-alert warning" role="status">RESULT_UNKNOWN · 保留请求键 {pendingKey}<br/>
      <button id="snapshot-reconcile" className="model-btn" disabled={busy} onClick={()=>void reconcile()}>按原幂等键核对冻结结果</button>
