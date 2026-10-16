@@ -8,6 +8,7 @@ on:
       - 'ontoforge-ui/**'
       - 'doc/design/tests/test_native_v02.py'
       - '.github/workflows/native-draft-e2e.yml'
+      - 'scripts/verify-objecttype.ps1'
   workflow_dispatch:
 
 permissions:
@@ -81,12 +82,18 @@ jobs:
         env:
           E2E_SHOTS: '${{ runner.temp }}/ontoforge-native-e2e-shots'
         run: python -m unittest discover -s ontoforge-ui/e2e -p 'test_*.py' -v
+      - name: Run Windows-compatible PowerShell real HTTP acceptance (exercise + recheck)
+        shell: pwsh
+        run: |
+          ./scripts/verify-objecttype.ps1 -Mode Exercise -AllowCreateTestDraft -EvidencePath '${{ runner.temp }}/ontoforge-objecttype-acceptance.json'
+          ./scripts/verify-objecttype.ps1 -Mode Recheck -EvidencePath '${{ runner.temp }}/ontoforge-objecttype-acceptance.json'
       - name: Keep real service logs and screenshots for review
         if: always()
         run: |
           mkdir -p /tmp/ontoforge-e2e-evidence
           cp /tmp/ontoforge-api.log /tmp/ontoforge-e2e-evidence/backend.log 2>/dev/null || true
           cp /tmp/ontoforge-vite.log /tmp/ontoforge-e2e-evidence/vite.log 2>/dev/null || true
+          cp '${{ runner.temp }}/ontoforge-objecttype-acceptance.json' /tmp/ontoforge-e2e-evidence/windows-acceptance-script-on-linux.json 2>/dev/null || true
           cp -r '${{ runner.temp }}/ontoforge-native-e2e-shots' /tmp/ontoforge-e2e-evidence/screenshots 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         if: always()
