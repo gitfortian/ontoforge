@@ -67,7 +67,7 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
      const value=sessionStorage.getItem(pendingStorageKey);
      if(value){
        const parsed=JSON.parse(value) as {key?:string;revision?:number};
-       if(typeof parsed.key==='string'&&Number.isInteger(parsed.revision)&&parsed.revision!>=1){
+       if(typeof parsed.key==='string'&&typeof parsed.revision==='number'&&Number.isInteger(parsed.revision)&&parsed.revision>=1){
          setPendingKey(parsed.key);setPendingRevision(parsed.revision!);
        }
      }
