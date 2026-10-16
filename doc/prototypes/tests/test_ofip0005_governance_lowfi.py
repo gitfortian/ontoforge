@@ -27,6 +27,13 @@ class OFIP0005GovernanceLowFiBrowserTests(unittest.TestCase):
         self.page.goto(HTML.as_uri())
         self.page.wait_for_load_state("domcontentloaded")
 
+    def tearDown(self):
+        if os.environ.get("UX_CAPTURE_SCREENSHOTS") == "1":
+            out = Path(os.environ.get("UX_SCREENSHOT_DIR", "/tmp/ofip-0005-ux-shots"))
+            out.mkdir(parents=True, exist_ok=True)
+            name = self.id().split(".")[-1] + ".png"
+            self.page.screenshot(path=str(out / name), full_page=True)
+
     def test_01_product_navigation_has_six_user_facing_entries(self):
         nav = self.page.locator(".nav button")
         self.assertEqual(nav.count(), 6)
