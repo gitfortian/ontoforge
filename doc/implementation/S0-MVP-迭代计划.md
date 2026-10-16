@@ -10,10 +10,10 @@
 | --- | --- | --- |
 | **S0-MVP-0.1（已完成基座）** | 本机 PostgreSQL、Spring Boot/Flyway V1、React 真实读取状态；刷新及后端重启可复验 | 登录、用户、角色、权限、工作空间、Native Model、对象查询、Action；界面只显示未实现占位 |
 | **S0-MVP-0.2（PR #7 已合并 / Windows 实测待完成）** | 真正的模型包与 ObjectType/Property 编辑、WIP 保存、校验、刷新重开和 revision 并发保护；Flyway V2/Java/React/真实 PG17+Chromium 验证 | 复杂 Registry、跨包引用、多人审批 |
-| S0-MVP-0.3（候选未来） | 审核与不可变只读版本的独立 OFIP/安全合同；不重复开发 0.2 已交付的完整性校验 | 完整权限、多工作空间、多租户 |
+| **S0-MVP-0.3（[PR #11](https://github.com/gitfortian/ontoforge/pull/11) 实施候选）** | PG V3 真正不可变 SchemaSnapshot、revision/幂等冻结、JCS/SHA-256 可复核、真实历史、结构 Diff、React 原工作台与浏览器/W11 验收 | 无可信身份时不做人员审批、正式 Release/Activation、多工作空间与工业 Action |
 | S0→P0-A 演进 | 草稿、审核、不可变发布、版本读取分批完成，每版本有明确功能和安全门禁 | 一次性铺完完整产品 |
 
-> S0-MVP-0.2 已依据 **[Accepted OFIP-0002](../proposals/OFIP-0002-ObjectType-草稿建模MVP.md)** 获实施授权，且已通过 [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 合并到 main；**本机 Windows 实测仍 NOT RUN，Release 仍 Not Released**，二者不得借 GitHub CI 绿色替代。0.3 仍是候选，不代表获准开发。
+> S0-MVP-0.2 已依据 **[Accepted OFIP-0002](../proposals/OFIP-0002-ObjectType-草稿建模MVP.md)** 获实施授权，且已通过 [PR #7](https://github.com/gitfortian/ontoforge/pull/7) 合并到 main；**本机 Windows 实测仍 NOT RUN，Release 仍 Not Released**，二者不得借 GitHub CI 绿色替代。0.3 已依据 [Accepted OFIP-0003](../proposals/OFIP-0003-S0-MVP-0.3-模型快照与发布边界.md) 授权在独立 [PR #11](https://github.com/gitfortian/ontoforge/pull/11) 实施，但**仍未合并、未发布，Windows 实机 NOT RUN**。
 
 ## MVP-0.1 用户故事
 
@@ -46,6 +46,14 @@
 - **已实际完成的 CI**：PR #7 在 Linux 隔离 PostgreSQL17 上通过 Java/Flyway/JUnit、React TS、Native Schema 以及真实 Chromium/Vite/Spring Boot E2E，并修复 2×P1、3×P2 审核问题；只说明 Linux CI 中的真实功能路径通过。
 - **未完成的 Windows 实机验收**：操作者在 Windows 11 原生 PG 上执行 [双阶段 PowerShell 验收脚本](../../scripts/verify-objecttype.ps1)，实际执行 Exercise，重启 Spring Boot 而不重建数据库，再执行 Recheck；连同 [本机验收记录](./S0-MVP-0.2-Windows-验收.md) 提交证据后，方可标注 Windows PASS。未实际执行一律 NOT RUN。
 - **产品安全限制**：没有认证、工作空间与授权，不可在非 loopback 主机/端口暴露，不能连接真实 MES 或生产制造数据，且 Draft VALID 不是发布。
+
+## S0-MVP-0.3 Snapshot 真正交付验收 Gate（PR #11）
+
+- **设计**：[OFIP-0003 Accepted](../proposals/OFIP-0003-S0-MVP-0.3-模型快照与发布边界.md)；仅本地只读快照、历史及结构 Diff，不通过 Mock 假发布。
+- **实现候选**：Flyway V3 独立 Snapshot 与触发器、Java 行级锁及双唯一索引、JCS canonical BYTEA + SHA、结构化 Diff、真实 React/HTTP 和并发恢复；所有代码放在 **一个** [PR #11](https://github.com/gitfortian/ontoforge/pull/11)，不拆零碎空壳 PR。
+- **自动验收**：强制新的 NativeSnapshotTest（真实 PostgreSQL17/HTTP/JUnit）和 Playwright Chromium 正反例；模拟 commit 已成功但 HTTP 回执丢失、相同 key 并发、版本重开与数据库不可变 UPDATE/DELETE 拒绝；UI 页面必须对应当前产品视觉。
+- **Windows 用户实际验收**：执行 [verify-snapshot.ps1](../../scripts/verify-snapshot.ps1) 的 Exercise，停止并真实重启 Spring Boot 而保留本机 PostgreSQL，再 Recheck 同安装 UUID/来源 revision/两份 SHA-256，未经实际报告一律 **NOT RUN**。
+- **明确无授权**：正式审查、发行、激活及 Agent/工业 Action 必须后续单独设计，不得从本地 Snapshot 状态“升级”为已发布。
 
 ## 安全与未来扩展
 
