@@ -359,7 +359,7 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 
 ### 3.9 第四轮 UX-Gate-High：OntoForge 风格的快照版本治理交互（独立评审）
 
-**可点击产物**：[高保真原型](../prototypes/ofip-0003-snapshot-highfi.html) / [19 条高保真 Chromium 测试](../prototypes/tests/test_ofip0003_snapshot_highfi.py) / [高低保真联合 CI](../../.github/workflows/ofip-0003-lowfi-browser.yml)。
+**可点击产物**：[高保真原型](../prototypes/ofip-0003-snapshot-highfi.html) / [20 条高保真 Chromium 测试](../prototypes/tests/test_ofip0003_snapshot_highfi.py) / [高低保真联合 CI](../../.github/workflows/ofip-0003-lowfi-browser.yml)。
 
 > 本原型仍是浏览器内存模拟，**不是正式 React / Spring Boot / PostgreSQL**。刷新会清空；模拟指纹标注“非 SHA-256”，不是 ReleaseDigest、可信审批或发布记录。0.3 Flyway V3、Java Snapshot/JCS/Diff、PG 事务与 Windows 实机 **NOT RUN**。
 
@@ -390,7 +390,7 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 | H8 | 并发修订 409 | 无新快照；核对两边内容、确认后才放弃本地修改 |
 | H9 | 网络结果 UNKNOWN | 保留原幂等键，先查结果，不因重试生成第二份 |
 | H10 | Unsupported Definition | 明确 422 拒绝多类型/Link/Binding，不能静默裁剪 |
-| H11 | 窄屏与键盘 | 390px 无横向溢出、弹窗及历史可达、ESC 可取消 |
+| H11 | 窄屏与键盘 | 390px 无横向溢出、弹窗及历史可达、ESC 可取消；小字号文本对比度 ≥4.5:1 |
 | H12 | 证据真实性 | 显示 Mock、非 SHA-256、未审核/发布/激活，没有假 ReleaseDigest 或“审批通过”按钮 |
 
 #### 3.9.3 高保真与正式 React 的实现差异
@@ -403,7 +403,7 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 
 #### 3.9.4 独立评审和测试边界
 
-[**真实 Chromium #38863583358**](https://github.com/gitfortian/ontoforge/actions/runs/38863583358)：**32/32 PASS**，其中低保真 13 条、高保真 19 条。[实际浏览器截图](https://github.com/gitfortian/ontoforge/actions/runs/38863583358/artifacts/12029584766)。高保真新增覆盖确认取消/ESC、三份快照中自选两份、同一快照比较拒绝、390px 弹窗、真实摘要/发布能力防误导；既有 13 条故事亦在高保真复测。
+[**真实 Chromium #38864360663**](https://github.com/gitfortian/ontoforge/actions/runs/38864360663)：**33/33 PASS**，其中低保真 13 条、高保真 20 条。[实际浏览器截图](https://github.com/gitfortian/ontoforge/actions/runs/38864360663/artifacts/12029783956)。高保真新增覆盖确认取消/ESC、三份快照中自选两份、同一快照比较拒绝、390px 弹窗、真实摘要/发布能力防误导；既有 13 条故事亦在高保真复测。 独立 UI 审核发现浅灰蓝色辅助文本对比度不足，已修复高保真样式并新增浏览器 computed-style 检验（≥4.5:1）；回归扩大至 33/33。
 
 **受托独立 UX-Gate-High 结论：建议 PASS（仅设计模拟范围）**。工作任务连贯、视觉系统匹配、异常恢复可理解，未发现阻断该阶段设计的 P0/P1；但维护者正式 Gate / 整体 OFIP Accepted 仍未记录。**生产 API/PG/Java/Windows 全部 NOT RUN**。后续仍应先完成正式设计签收，才可用一个完整 PR 交付真实实现。
 
@@ -432,7 +432,7 @@ Diff 键必须按现有 Type-scoped Property 身份：`(packageId,objectType.id,
 | T7 Digest 可重现 | 多语言 canonicalization golden fixtures、字段顺序/数字/Unicode、Profile 改变/无效拒绝 | 不能用未定义 JSON 序列顺序冒充稳定哈希 |
 | T8 Diff 领域作用域 | 多类型同名 Property.id / 字段 ID 改变 / required / classification / ENUM | 不能误报包级重名或把降级授权称安全 |
 | T9 不支持资产 | 0 个或多个 ObjectType、LinkType、imports、Binding 等非空均明确拒绝 S0.3 冻结 | 不允许暗中丢字段 |
-| T10 真实浏览器 | Vite → React → Spring Boot → PG17：冻结、查看、Diff、刷新、断网/409、未保存离开 | Mock 的 31/31 不能替代 |
+| T10 真实浏览器 | Vite → React → Spring Boot → PG17：冻结、查看、Diff、刷新、断网/409、未保存离开 | Mock 浏览器绿色结果不能替代 |
 | T11 Windows 实机 | 用户 Windows 11 原生 PG：保存、冻结、后端重启、同一 Snapshot 内容/摘要重读 | Linux CI 绿灯不能替代 |
 | T12 安全边界 | 无 Auth 只允许本机回环，未配置授权的审批/发布/激活入口不存在 | 不能把操作者名字从表单当审计主体 |
 
