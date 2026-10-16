@@ -103,7 +103,8 @@ function drawLinks(){
  let aside='<section class="panel"><div class="row between"><h2>关系类型（'+arr.length+'）</h2><button data-action="addLink">＋ 新增</button></div><p>这里定义“什么类型的对象可以关联”，不生成真实关联记录。</p><div class="list">'+arr.map((l,i)=>'<button class="entry '+(i===S.selectedLink?'active':'')+'" data-action="selectLink" data-index="'+i+'"><strong>'+esc(l.label||l.apiName||"新关系")+'</strong><br><span class="minor">'+esc(l.sourceTypeRef||"?")+' → '+esc(l.targetTypeRef||"?")+'</span></button>').join("")+'</div></section>';
  let l=arr[S.selectedLink];
  if(!l)return '<div class="panel empty"><b>还没有关系定义</b><p>先创建来源和目标对象，再新增一条关系。</p><button data-action="addLink">＋ 新增关系</button></div>';
- let main='<section class="panel"><div class="row between"><div><h2>关系定义 · '+esc(l.label||"未命名")+'</h2><p>请选择两个对象，明确关联方向和基数，不需要手写数据库外键。</p></div><button data-action="delLink" data-index="'+S.selectedLink+'">删除关系</button></div><div class="formgrid">'+field("关系 ID","link",S.selectedLink,"id",l.id)+field("程序名称","link",S.selectedLink,"apiName",l.apiName)+field("业务显示名","link",S.selectedLink,"label",l.label||"")+'<div></div>'+sel("来源对象","link",S.selectedLink,"sourceTypeRef",l.sourceTypeRef,objectOptions())+sel("目标对象","link",S.selectedLink,"targetTypeRef",l.targetTypeRef,objectOptions())+sel("关联基数（来源 → 目标）","link",S.selectedLink,"cardinality",l.cardinality,CARD)+sel("未来真实关系是否必须有来源证据","link",S.selectedLink,"evidenceRequired",String(l.evidenceRequired),[["true","是，必须有来源证据"],["false","否，不强制来源证据"]])+'</div><div class="bar space"><b>关系摘要：</b> '+esc(l.sourceTypeRef||"未选择来源")+' → '+esc(l.targetTypeRef||"未选择目标")+'<br><span class="minor">当前只定义 LinkType，尚不能查询生产批次和订单实例；证据开关只是后续绑定规则的声明。</span></div></section>';
+ let main='<section class="panel"><div class="row between"><div><h2>关系定义 · '+esc(l.label||"未命名")+'</h2><p>请选择两个对象，明确关联方向和基数，不需要手写数据库外键。</p></div><button data-action="delLink" data-index="'+S.selectedLink+'">删除关系</button></div><div class="formgrid">'+field("关系 ID","link",S.selectedLink,"id",l.id)+field("程序名称","link",S.selectedLink,"apiName",l.apiName)+field("业务显示名","link",S.selectedLink,"label",l.label||"")+'<div></div>'+sel("来源对象","link",S.selectedLink,"sourceTypeRef",l.sourceTypeRef,objectOptions())+sel("目标对象","link",S.selectedLink,"targetTypeRef",l.targetTypeRef,objectOptions())+sel("关联基数（来源 → 目标）","link",S.selectedLink,"cardinality",l.cardinality,CARD)+sel("未来真实关系是否必须有来源证据","link",S.selectedLink,"evidenceRequired",String(l.evidenceRequired),[["true","是，必须有来源证据"],["false","否，不强制来源证据"]])+'</div><div class="bar space"><b>关系方向（来源→目标）：</b> '+esc(l.sourceTypeRef||"未选择来源")+' → '+esc(l.targetTypeRef||"未选择目标")+'<br><span class="minor">当前只定义 LinkType，尚不能查询生产批次和订单实例；证据开关只是后续绑定规则的声明。</span></div></section>';
+ main+= '<div class="model-graph" aria-label="关系类型方向"><span class="node">'+esc(S.local.objectTypes.find(o=>o.id===l.sourceTypeRef)?.label||l.sourceTypeRef||"未选来源")+'</span><span class="arrow">→</span><span class="node">'+esc(S.local.objectTypes.find(o=>o.id===l.targetTypeRef)?.label||l.targetTypeRef||"未选目标")+'</span><span class="minor">'+esc(CARD.find(c=>c[0]===l.cardinality)?.[1]||"尚未选定基数")+'</span></div>';
  return '<div class="grid">'+aside+main+'</div>';
 }
 const codePath=(i,k)=>'/linkTypes/'+i+'/'+k;
@@ -156,13 +157,20 @@ function highFiInspect(doc){
  doc.linkTypes.forEach((l,i)=>{if(typeof l.evidenceRequired!=="boolean")add("/linkTypes/"+i+"/evidenceRequired","需要明确是否要求未来关系证据",true)});
  return {status:errors.length?(errors.some(e=>e.hard)?"INVALID":"INCOMPLETE"):"VALID",issues:errors,rev:S.rev};
 }
+
+function humanPath(path){
+ const t=path.split("/"),i=Number(t[2]),isLink=t[1]==="linkTypes";
+ const asset=isLink?S.local.linkTypes[i]:S.local.objectTypes[i];
+ const fields={sourceTypeRef:"来源对象",targetTypeRef:"目标对象",cardinality:"关联基数",evidenceRequired:"证据要求",id:"稳定标识",apiName:"程序名称",primaryKeyRef:"主键",properties:"属性",enumValues:"枚举取值",classification:"数据分类"};
+ return (isLink?"关系类型":"对象类型")+" › "+(asset?.label||asset?.apiName||"第 "+(i+1)+" 项")+" › "+(fields[t[5]]||fields[t[3]]||"定义")+(t[4]!==undefined?"（第 "+(Number(t[4])+1)+" 个属性）":"");
+}
 function drawCheck(){
  let v=S.validation;
  let content='<div class="panel"><h2>保存与检查</h2><p>先保存整个模型包，再检查当前修订是否完整。未完成的关系可以保存编辑进度，但不能留存“有效历史”。</p><div class="row"><span class="badge">服务器修订 '+S.rev+'</span><span class="badge">本地基于修订 '+S.baseRev+'</span><span class="badge">检查结果 '+(S.dirty?'未保存，不可作为检查依据':v.status)+'</span></div><div class="row space"><button data-action="save">① 保存编辑进度</button><button class="primary" data-action="validate">② 检查当前修订</button><button data-action="freeze">③ 留存只读历史</button></div></div>';
  if(S.conflict)content+='<section class="panel"><div class="bar error"><b>发现保存冲突</b><p>另一标签页已修改服务端修订。不能自动覆盖；当前浏览器的对象和关系全部保留。</p></div><div class="row"><button data-action="showLocal">显示/复制本地完整草稿</button><button data-action="reload">放弃本地修改并读取服务器版本</button></div><details><summary>查看服务器当前版本</summary><pre>'+esc(JSON.stringify(S.server,null,2))+'</pre></details></section>';
  if(S.pendingSave)content+='<div class="bar warning"><b>保存结果未知：</b>模拟网络丢失回执，服务器是否已保存不能凭按钮显示判断。<button data-action="reconcileSave">重新核对服务器版本</button></div>';
  if(S.pendingFreeze!==null)content+='<div class="bar warning"><b>冻结结果未知：</b>模拟超时，请先根据原请求查询结果。<button data-action="reconcileFreeze">按原请求找回</button></div>';
- content+='<section class="panel"><h2>完整性问题</h2>'+(!S.dirty&&v.status==="VALID"?'<div class="bar success">当前已保存修订 VALID，可以留存本地历史；这不等于审批或正式发布。</div>':!S.dirty&&v.issues.length?v.issues.map(i=>'<button class="issue" data-action="jump" data-path="'+esc(i.path)+'">'+esc(i.message)+'<div class="mono">'+esc(i.path)+'</div></button>').join(""):'<p>请先保存，再检查当前修订；任何新的修改都会使先前结果失效。</p>')+'</section>';
+ content+='<section class="panel"><h2>完整性问题</h2>'+(!S.dirty&&v.status==="VALID"?'<div class="bar success">当前已保存修订 VALID，可以留存本地历史；这不等于审批或正式发布。</div>':!S.dirty&&v.issues.length?v.issues.map(i=>'<button class="issue" data-action="jump" data-path="'+esc(i.path)+'"><strong>'+esc(humanPath(i.path))+'</strong><div>'+esc(i.message)+'</div><span class="mono">'+esc(i.path)+'</span></button>').join(""):'<p>请先保存，再检查当前修订；任何新的修改都会使先前结果失效。</p>')+'</section>';
  content+='<section class="panel"><h2>体验异常恢复</h2><div class="row"><button data-action="otherEditor">模拟其他标签页提交</button><button data-action="simulateSaveUnknown">模拟保存成功但回执丢失</button><button data-action="simulateFreezeUnknown">模拟冻结成功但回执丢失</button></div><p>这些按钮只修改浏览器内存中的模拟服务端状态。并发冲突和结果未知的页面路径在这里评审，不代表真实系统已实现。</p></section>';
  return content;
 }
@@ -185,7 +193,7 @@ function drawHistory(){
  h+=S.snapshots.length?'<table><thead><tr><th>历史版本</th><th>来源修订</th><th>对象数</th><th>关系数</th><th>状态</th></tr></thead><tbody>'+S.snapshots.slice().reverse().map(s=>'<tr><td>本地历史 #'+s.id+'</td><td>'+s.rev+'</td><td>'+s.doc.objectTypes.length+'</td><td>'+s.doc.linkTypes.length+'</td><td>只读 · 非发布</td></tr>').join("")+'</tbody></table>':'<div class="empty">暂无历史。先保存并校验通过，再留存第一版。</div>';
  h+='</section><section class="panel"><h2>两版模型对比</h2><p>这里只提示结构风险，不作下游消费者兼容认证。</p><div class="formgrid">'+sel("从哪一版（旧）","pick",0,"from",S.from,opts)+sel("到哪一版（新）","pick",0,"to",S.to,opts)+'</div>';
  const a=S.snapshots.find(x=>String(x.id)===S.from),b=S.snapshots.find(x=>String(x.id)===S.to);
- if(a&&b){let rows=diffRows(a.doc,b.doc);h+=rows.length?'<table class="space"><thead><tr><th>变更位置</th><th>旧值</th><th>新值</th><th>风险提醒</th></tr></thead><tbody>'+rows.map(x=>'<tr><td class="mono">'+esc(x.path)+'</td><td>'+esc(x.old)+'</td><td>'+esc(x.next)+'</td><td>'+esc(x.risk)+'</td></tr>').join("")+'</tbody></table>':'<div class="bar success space">未发现对象/关系结构差异；此结论不是版本内容摘要相同或正式兼容认证。</div>'}
+ if(a&&b){let rows=diffRows(a.doc,b.doc);h+=rows.length?'<table class="space"><thead><tr><th>变更位置</th><th>旧值</th><th>新值</th><th>风险提醒</th></tr></thead><tbody>'+rows.map(x=>'<tr><td class="mono">'+esc(humanPath(x.path))+'<div class="mono">'+esc(x.path)+'</div></td><td>'+esc(x.old)+'</td><td>'+esc(x.next)+'</td><td>'+esc(x.risk)+'</td></tr>').join("")+'</tbody></table>':'<div class="bar success space">未发现对象/关系结构差异；此结论不是版本内容摘要相同或正式兼容认证。</div>'}
  h+='</section>';return h;
 }
 function save(lose=false){
