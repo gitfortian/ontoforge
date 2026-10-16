@@ -29,7 +29,7 @@ jobs:
         run: python -m playwright install --with-deps chromium
       - name: Run OFIP-0005 UX-High browser tests
         env:
-          UX_CAPTURE_SCREENSHOTS: '1'
+          UX_CAPTURE_SCREENSHOTS: '0'
           UX_SCREENSHOT_DIR: '${{ runner.temp }}/ofip-0005-ux-highfi-shots'
         run: python -m unittest doc/prototypes/tests/test_ofip0005_governance_highfi.py -v
       - name: Upload browser screenshots
