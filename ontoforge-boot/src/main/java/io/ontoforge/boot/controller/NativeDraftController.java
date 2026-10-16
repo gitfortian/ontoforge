@@ -40,7 +40,8 @@ public class NativeDraftController {
     public NativeDraftService.DraftPage list(@RequestParam(defaultValue="20") int pageSize,
                                             @RequestParam(required=false) String cursor,
                                             Authentication authentication) {
-        return service.list(pageSize,cursor,authorization.readablePackageIds(authentication));
+        var identity = authorization.identity(authentication);
+        return service.list(pageSize,cursor,identity.issuer(),identity.subject());
     }
     @PostMapping
     public ResponseEntity<NativeDraftService.DraftDetail> create(@RequestBody JsonNode body, Authentication authentication) {
