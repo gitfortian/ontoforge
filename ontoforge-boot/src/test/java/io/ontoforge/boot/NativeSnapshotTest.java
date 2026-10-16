@@ -5,6 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import io.ontoforge.boot.model.NativeSnapshotService;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Future;
 import java.net.URI;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -28,6 +32,7 @@ class NativeSnapshotTest {
     @Autowired TestRestTemplate http;
     @Autowired ObjectMapper mapper;
     @Autowired JdbcTemplate jdbc;
+    @Autowired NativeSnapshotService service;
     private String api(String path){return "http://127.0.0.1:"+port+"/api/model"+path;}
     private ResponseEntity<String> call(HttpMethod method,String path,JsonNode body){
         HttpHeaders headers=new HttpHeaders();
@@ -161,6 +166,28 @@ class NativeSnapshotTest {
                      java.util.Base64.getUrlEncoder().encodeToString("not-a-date|x".getBytes()),null,400)
                      .path("code").asText()).isEqualTo("MALFORMED_REQUEST");
     }
+    @Test void snapshotConcurrentWorkersSameKeyExactlyOneSnapshot() throws Exception {
+        Prepared p=prepared();
+        UUID id=UUID.fromString(p.draft), key=UUID.randomUUID();
+        CountDownLatch start=new CountDownLatch(1);
+        try(var pool=Executors.newFixedThreadPool(2)){
+            java.util.concurrent.Callable<NativeSnapshotService.FreezeResult> worker=()->{
+                if(!start.await(10,TimeUnit.SECONDS))throw new IllegalStateException("Workers never started");
+                return service.freeze(id,2,key);
+            };
+            Future<NativeSnapshotService.FreezeResult> first=pool.submit(worker);
+            Future<NativeSnapshotService.FreezeResult> second=pool.submit(worker);
+            start.countDown();
+            var a=first.get(15,TimeUnit.SECONDS);
+            var b=second.get(15,TimeUnit.SECONDS);
+            assertThat(a.snapshot().snapshotId()).isEqualTo(b.snapshot().snapshotId());
+            assertThat((a.created()?1:0)+(b.created()?1:0)).isEqualTo(1);
+            assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM native_schema_snapshot WHERE source_draft_id=?",
+                Integer.class,id)).isEqualTo(1);
+        }
+    }
+
     @Test void snapshotCanonicalJcsReferenceDeterminism() {
         String input="{\"b\":2,\"a\":1,\"nested\":{\"z\":true,\"x\":\"hello\"}}";
         String expected="{\"a\":1,\"b\":2,\"nested\":{\"x\":\"hello\",\"z\":true}}";
@@ -168,6 +195,13 @@ class NativeSnapshotTest {
             .isEqualTo(expected);
         assertThat(NativeSnapshotService.sha256(NativeSnapshotService.canonicalize(input)))
             .isEqualTo(NativeSnapshotService.sha256(NativeSnapshotService.canonicalize(expected)));
+        // RFC 8785 Section 3, Appendix B: ECMAScript numeric and UTF-16 sorting.
+        assertThat(new String(NativeSnapshotService.canonicalize(
+           "{\"z\":-0,\"a\":1e30,\"m\":0.000001}"),java.nio.charset.StandardCharsets.UTF_8))
+           .isEqualTo("{\"a\":1e+30,\"m\":0.000001,\"z\":0}");
+        assertThat(new String(NativeSnapshotService.canonicalize(
+           "{\"\\uE000\":2,\"\\uD83D\\uDE00\":1}"),java.nio.charset.StandardCharsets.UTF_8))
+           .isEqualTo("{\"😀\":1,\"\":2}");
         String rfc="{\"\\u20ac\":\"Euro Sign\",\"\\r\":\"Carriage Return\",\"1\":\"One\",\"\\u0080\":\"Control\", \"\\ud83d\\ude00\":\"Grinning Face\"}";
         assertThat(new String(NativeSnapshotService.canonicalize(rfc),java.nio.charset.StandardCharsets.UTF_8))
             .contains("Grinning Face");
