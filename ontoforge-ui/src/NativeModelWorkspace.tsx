@@ -197,21 +197,25 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
     }catch(e){const er=explain(e);alert(er.code+' · '+er.message,'error')}
     finally{setBusy(false)}
   }
-  function issueTarget(path:string):string|null {
-    if(path==='/objectTypes/0/id')return 'obj-id';
-    if(path==='/objectTypes/0/apiName')return 'obj-api';
-    if(path==='/objectTypes/0/primaryKeyRef')return 'obj-pk';
-    if(path==='/objectTypes/0/properties')return 'add-property';
-    const match=path.match(/^\/objectTypes\/0\/properties\/(\d+)\/(id|apiName|enumValues|classification|valueType|required)$/);
-    if(!match)return null;
-    const fields:Record<string,string>={id:'id',apiName:'apiName',enumValues:'enumValues',classification:'classification',valueType:'valueType',required:'required'};
-    return 'prop-'+match[1]+'-'+fields[match[2]];
-  }
   const highlight=(path:string)=>{
-    const targetId=issueTarget(path);const target=targetId?document.getElementById(targetId):null;
-    if(!target)return;
-    target.scrollIntoView({behavior:'smooth',block:'center'});target.focus({preventScroll:true});
-    target.classList.add('model-issue-target');window.setTimeout(()=>target.classList.remove('model-issue-target'),2200);
+    const link=path.match(/^\/linkTypes\/(\d+)\/(.+)$/);
+    if(link){
+      setSelectedLink(Number(link[1]));setSection('links');
+      const fields:Record<string,string>={id:'link-id',apiName:'link-api',sourceTypeRef:'link-source',
+        targetTypeRef:'link-target',cardinality:'link-cardinality',evidenceRequired:'link-evidence'};
+      const id=fields[link[2]];
+      window.setTimeout(()=>{const target=id?document.getElementById(id):null;target?.scrollIntoView({behavior:'smooth',block:'center'});target?.focus({preventScroll:true});},30);
+      return;
+    }
+    const object=path.match(/^\/objectTypes\/(\d+)(?:\/properties\/(\d+)\/([^/]+)|\/([^/]+))?$/);
+    if(!object)return;
+    const i=Number(object[1]);setSelectedObject(i);setSection('objects');
+    const data=editorDoc.objectTypes[i];
+    setEnumTexts(Object.fromEntries((data?.properties??[]).map((p,k)=>[k,(p.enumValues??[]).join(', ')])));
+    const key=object[4]??'';
+    const fields:Record<string,string>={id:'obj-id',apiName:'obj-api',primaryKeyRef:'obj-pk',description:'obj-desc'};
+    const id=object[2]!==undefined?'prop-'+object[2]+'-'+object[3]:fields[key];
+    window.setTimeout(()=>{const target=id?document.getElementById(id):null;target?.scrollIntoView({behavior:'smooth',block:'center'});target?.focus({preventScroll:true});},30);
   };
   const fieldIssues=(path:string)=>!dirty?(validated?.issues??[]).filter(x=>x.path===path):[];
   const issueAttr=(path:string)=>({'aria-invalid':fieldIssues(path).length>0||undefined});
@@ -264,10 +268,10 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
         </section>
         <section className="model-panel"><header className="model-panel-head"><div><h2>对象类型定义</h2><p>定义在业务中有独立身份的对象，例如生产批次。</p></div><span className="model-status neutral">{dirty?'● 本地未保存':'草稿已同步'}</span></header>
           <div className="model-form-grid">
-            <div><label htmlFor="obj-id">类型 ID</label><input id="obj-id" placeholder="production-batch" value={editor.id} disabled={readOnly||busy} {...issueAttr('/objectTypes/0/id')} onChange={e=>change('id',e.target.value)}/>{renderIssues('/objectTypes/0/id')}</div>
-            <div><label htmlFor="obj-api">API 名称</label><input id="obj-api" placeholder="ProductionBatch" value={editor.apiName} disabled={readOnly||busy} {...issueAttr('/objectTypes/0/apiName')} onChange={e=>change('apiName',e.target.value)}/>{renderIssues('/objectTypes/0/apiName')}</div>
+            <div><label htmlFor="obj-id">类型 ID</label><input id="obj-id" placeholder="production-batch" value={editor.id} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/id')} onChange={e=>change('id',e.target.value)}/>{renderIssues('/objectTypes/'+selectedObject+'/id')}</div>
+            <div><label htmlFor="obj-api">API 名称</label><input id="obj-api" placeholder="ProductionBatch" value={editor.apiName} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/apiName')} onChange={e=>change('apiName',e.target.value)}/>{renderIssues('/objectTypes/'+selectedObject+'/apiName')}</div>
             <div><label htmlFor="obj-label">显示名称</label><input id="obj-label" placeholder="生产批次" value={editor.label??''} disabled={readOnly||busy} onChange={e=>change('label',e.target.value)}/></div>
-            <div><label htmlFor="obj-pk">主键属性</label><select id="obj-pk" value={editor.primaryKeyRef??''} disabled={readOnly||busy} {...issueAttr('/objectTypes/0/primaryKeyRef')} onChange={e=>change('primaryKeyRef',e.target.value||null)}><option value="">尚未选择主键</option>{validPk.map((p,i)=><option key={p.id+i} value={p.id}>{p.id} · {p.valueType}</option>)}</select>{renderIssues('/objectTypes/0/primaryKeyRef')}<p className="model-help">只允许选择本类型必填的 STRING / INTEGER 属性。</p></div>
+            <div><label htmlFor="obj-pk">主键属性</label><select id="obj-pk" value={editor.primaryKeyRef??''} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/primaryKeyRef')} onChange={e=>change('primaryKeyRef',e.target.value||null)}><option value="">尚未选择主键</option>{validPk.map((p,i)=><option key={p.id+i} value={p.id}>{p.id} · {p.valueType}</option>)}</select>{renderIssues('/objectTypes/'+selectedObject+'/primaryKeyRef')}<p className="model-help">只允许选择本类型必填的 STRING / INTEGER 属性。</p></div>
             <div className="model-form-wide"><label htmlFor="obj-desc">业务语义定义</label><textarea id="obj-desc" placeholder="解释该对象在制造业务中的含义" rows={3} value={editor.description??''} disabled={readOnly||busy} onChange={e=>change('description',e.target.value)}/></div>
           </div>
         </section>
@@ -280,17 +284,17 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
               mutate({...editor,properties:next,primaryKeyRef:p.id===editor.primaryKeyRef?null:editor.primaryKeyRef});
             }}><Trash2 size={14}/> 删除</button></div>
             <div className="model-prop-grid">
-              <div><label htmlFor={'prop-'+i+'-id'}>属性 ID</label><input id={'prop-'+i+'-id'} value={p.id} disabled={readOnly||busy} placeholder="batch-id" {...issueAttr('/objectTypes/0/properties/'+i+'/id')} onChange={e=>property(i,{id:e.target.value})}/>{renderIssues('/objectTypes/0/properties/'+i+'/id')}</div>
-              <div><label htmlFor={'prop-'+i+'-apiName'}>API 名称</label><input id={'prop-'+i+'-apiName'} value={p.apiName} disabled={readOnly||busy} placeholder="batchId" {...issueAttr('/objectTypes/0/properties/'+i+'/apiName')} onChange={e=>property(i,{apiName:e.target.value})}/>{renderIssues('/objectTypes/0/properties/'+i+'/apiName')}</div>
+              <div><label htmlFor={'prop-'+i+'-id'}>属性 ID</label><input id={'prop-'+i+'-id'} value={p.id} disabled={readOnly||busy} placeholder="batch-id" {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/id')} onChange={e=>property(i,{id:e.target.value})}/>{renderIssues('/objectTypes/'+selectedObject+'/properties/'+i+'/id')}</div>
+              <div><label htmlFor={'prop-'+i+'-apiName'}>API 名称</label><input id={'prop-'+i+'-apiName'} value={p.apiName} disabled={readOnly||busy} placeholder="batchId" {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/apiName')} onChange={e=>property(i,{apiName:e.target.value})}/>{renderIssues('/objectTypes/'+selectedObject+'/properties/'+i+'/apiName')}</div>
               <div><label htmlFor={'prop-'+i+'-label'}>显示名称</label><input id={'prop-'+i+'-label'} value={p.label??''} disabled={readOnly||busy} placeholder="批次编号" onChange={e=>property(i,{label:e.target.value})}/></div>
-              <div><label htmlFor={'prop-'+i+'-valueType'}>数据类型</label><select id={'prop-'+i+'-valueType'} value={p.valueType} disabled={readOnly||busy} {...issueAttr('/objectTypes/0/properties/'+i+'/valueType')} onChange={e=>{setEnumTexts(prev=>({...prev,[i]:''}));property(i,{valueType:e.target.value,enumValues:[]})}}>{['STRING','INTEGER','DECIMAL','BOOLEAN','DATETIME','ENUM'].map(v=><option key={v}>{v}</option>)}</select>{renderIssues('/objectTypes/0/properties/'+i+'/valueType')}</div>
+              <div><label htmlFor={'prop-'+i+'-valueType'}>数据类型</label><select id={'prop-'+i+'-valueType'} value={p.valueType} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/valueType')} onChange={e=>{setEnumTexts(prev=>({...prev,[i]:''}));property(i,{valueType:e.target.value,enumValues:[]})}}>{['STRING','INTEGER','DECIMAL','BOOLEAN','DATETIME','ENUM'].map(v=><option key={v}>{v}</option>)}</select>{renderIssues('/objectTypes/'+selectedObject+'/properties/'+i+'/valueType')}</div>
               <div><label htmlFor={'prop-'+i+'-classification'}>数据分类</label><select id={'prop-'+i+'-classification'} disabled={readOnly||busy} value={p.classification} onChange={e=>property(i,{classification:e.target.value})}>{['PUBLIC','INTERNAL','CONFIDENTIAL','RESTRICTED'].map(v=><option key={v}>{v}</option>)}</select></div>
               <div><label>字段配置</label><div className="model-checks"><label htmlFor={'prop-'+i+'-required'}><input id={'prop-'+i+'-required'} type="checkbox" checked={p.required} disabled={readOnly||busy} onChange={e=>property(i,{required:e.target.checked})}/> 必填</label><label htmlFor={'prop-'+i+'-searchable'}><input id={'prop-'+i+'-searchable'} type="checkbox" checked={p.searchable} disabled={readOnly||busy} onChange={e=>property(i,{searchable:e.target.checked})}/> 可搜索</label></div></div>
-              {p.valueType==='ENUM'&&<div className="model-form-wide"><label htmlFor={'prop-'+i+'-enumValues'}>ENUM 值（英文逗号分隔）</label><input id={'prop-'+i+'-enumValues'} value={enumTexts[i]??(p.enumValues??[]).join(', ')} disabled={readOnly||busy} {...issueAttr('/objectTypes/0/properties/'+i+'/enumValues')} placeholder="PLANNED, RUNNING, COMPLETED" onChange={e=>{
+              {p.valueType==='ENUM'&&<div className="model-form-wide"><label htmlFor={'prop-'+i+'-enumValues'}>ENUM 值（英文逗号分隔）</label><input id={'prop-'+i+'-enumValues'} value={enumTexts[i]??(p.enumValues??[]).join(', ')} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/enumValues')} placeholder="PLANNED, RUNNING, COMPLETED" onChange={e=>{
                 const raw=e.target.value;
                 setEnumTexts(prev=>({...prev,[i]:raw}));
                 property(i,{enumValues:raw.split(',').map(x=>x.trim()).filter(Boolean)});
-              }}/>{renderIssues('/objectTypes/0/properties/'+i+'/enumValues')}</div>}
+              }}/>{renderIssues('/objectTypes/'+selectedObject+'/properties/'+i+'/enumValues')}</div>}
             </div>
           </article>)}
         </section>
@@ -319,7 +323,7 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
                          dirty={dirty} locked={readOnly||busy} navigate={navigate}/>
         <section className="model-panel"><header className="model-panel-head"><div><h2>异常恢复</h2><p>当保存结果未知或发生并发更新时</p></div></header>
           <button className="model-btn model-full" disabled={busy} onClick={()=>void inspect()}><RefreshCw size={15}/> 核对服务器最新版</button>
-          {compare&&<div className="model-conflict"><div className="model-alert warning"><AlertCircle size={15}/> 注意：本地与服务器版本可能不同。下面仅供对照，不会自动覆盖。</div><div><b>本地 · 基于 revision {opened.revision}</b><pre>{JSON.stringify(editor,null,2)}</pre></div><div><b>服务器 · revision {serverLatest.revision}</b><pre>{JSON.stringify(serverLatest.editingContent.objectTypes[0]??{},null,2)}</pre></div>
+          {compare&&<div className="model-conflict"><div className="model-alert warning"><AlertCircle size={15}/> 注意：本地与服务器版本可能不同。下面仅供对照，不会自动覆盖。</div><div><b>本地 · 基于 revision {opened.revision}</b><pre>{JSON.stringify(editorDoc,null,2)}</pre></div><div><b>服务器 · revision {serverLatest.revision}</b><pre>{JSON.stringify(serverLatest.editingContent,null,2)}</pre></div>
             <button className="model-btn model-full" onClick={()=>{
               if(!window.confirm('确认放弃当前所有未保存编辑，并载入服务器最新版？此操作不可撤销。'))return;
               applyOpened(serverLatest,true);
