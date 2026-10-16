@@ -5,11 +5,12 @@
 
 ## Purpose and verified current scope
 
-OntoForge is an independent enterprise/industrial operational ontology platform. **Do not couple it to data-ops** or claim that S0 already implements ontology editing, authentication, object querying, connectors, policies or Actions.
+OntoForge is an independent enterprise/industrial operational ontology platform. **Do not couple it to data-ops** or claim that S0 implements authentication, trusted authorization, real object querying, connectors, production policies or Actions. S0 **does** now implement local Native ObjectType/LinkType editing and immutable schema snapshot history.
 
-Current runnable S0-MVP-0.1: Java 21/Spring Boot, PostgreSQL/Flyway V1, React/TypeScript, and an actual `GET /api/system/status`. The Native DSL/AST V0.2 JSON Schemas and PostgreSQL ObjectSet/Outbox experiments are **contracts and research fixtures**, not finished runtime modules.
+Current runnable S0-MVP-0.4 development baseline: Java 21/Spring Boot, PostgreSQL/Flyway V1–V3, React/TypeScript, real ObjectType/Property/LinkType editing, safe WIP/VALID validation, CAS revisions, immutable local Snapshot with JCS/SHA-256 and LinkType structural Diff (merged PRs #7/#11/#13). **No production release or native Windows 11 PostgreSQL acceptance.** Native V0.2 contracts for Data Binding, ObjectSet, Semantic Execution Record and the PostgreSQL ObjectSet/Outbox experiments are **design/POC**, not deployed runtime modules.
 
 Authoritative design references:
+- [Canonical bilingual glossary (256 terms)](doc/砺元本体产品统一术语词汇表.md) — use preferred product names; never conflate LinkType/LinkFact or Local Snapshot/SchemaRelease.
 - [V1.3 unified product/architecture baseline](doc/本体产品总体功能与技术架构设计_v1.3.md) — **candidate, not product/technology/security signed-off**.
 - [Native DSL/AST V0.2](doc/design/核心本体元模型与Native-DSL-AST契约_v0.2.md) — candidate machine-readable design contract.
 - [Current implementation and S0 acceptance](README.md) — read existing code and tests before making current-state claims.
@@ -25,7 +26,7 @@ Authoritative design references:
 
 ## Ownership and dependency boundaries
 
-- `ontoforge-boot`: current Spring Boot entry / minimal S0 JDBC+Flyway. Long term Boot is assembly/HTTP boundary; domain logic must not accumulate here as P0 grows.
+- `ontoforge-boot`: current Spring Boot entry, real Native Draft/Validation/Snapshot services and Flyway. Long term Boot is assembly/HTTP boundary; domain logic must not accumulate here as P0 grows.
 - `ontoforge-ui`: current single Vite/React application. No fictitious `apps/web`, multi-app workspace or extra shared component library before there are real consumers.
 - `ontoforge-core`, `ontoforge-dao`, `ontoforge-platform`, `ontoforge-spi` etc. are **planned**; create a module only when a real story, owner, caller, dependency direction and tests justify it.
 - Domain core owns Native ObjectType/LinkType/AST/contracts, not database/HTTP/LLM implementation details. Persistence and integrations are adapters; no Core → Boot, Business → Boot or Core → Connector reverse dependency.
