@@ -101,10 +101,11 @@ public class B0AuthorizationService {
         }
         String[] roles = rolesFor(operation);
         String placeholders = String.join(",", java.util.Collections.nCopies(roles.length, "?"));
-        Object[] args = new Object[2 + roles.length];
+        Object[] args = new Object[3 + roles.length];
         args[0] = issuer;
         args[1] = subject;
-        System.arraycopy(roles, 0, args, 2, roles.length);
+        args[2] = packageId;
+        System.arraycopy(roles, 0, args, 3, roles.length);
         Integer allowed = jdbc.query("""
                 SELECT 1
                   FROM b0_principal p
@@ -117,7 +118,7 @@ public class B0AuthorizationService {
                  LIMIT 1
                 """.replace("PLACEHOLDERS", placeholders),
                 rs -> rs.next() ? 1 : 0,
-                append(args, packageId));
+                args);
         if (allowed == null || allowed != 1) {
             throw new AccessDeniedException("当前身份没有该模型包的操作权限");
         }
