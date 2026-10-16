@@ -31,6 +31,28 @@
 3. 另开 PowerShell 进入 `ontoforge-ui`，运行 `npm install` 和 `npm run dev`；访问 [http://127.0.0.1:5173](http://127.0.0.1:5173)。
 4. 新开 PowerShell，重新设置相同的 DB_* 环境变量，并在仓库根目录运行 `.\scripts\verify-s0.ps1`（`psql` 未加入 PATH 时传 `-PsqlPath`）。脚本只读校验 Flyway V1/V2、数据库 UUID、`DRAFT_AVAILABLE` 与真实 API 是否一致；重启后端后可用 `-ExpectedInstallationId` 及 `-ExpectedDraftId` 验证既有安装和草稿均被保留。
 
+### S0-MVP-0.3：本地 Native 模型快照与结构差异（PR #11 实施候选）
+
+设计依据：[**Accepted OFIP-0003**](./doc/proposals/OFIP-0003-S0-MVP-0.3-模型快照与发布边界.md)。[实施 PR #11](https://github.com/gitfortian/ontoforge/pull/11) 提供 Flyway V3、真实事务冻结/Revision CAS、规范化 JCS 字节 SHA-256、只读历史、模型字段风险 Diff，以及原建模工作台的冻结确认、历史与版本选择。**本段描述当前功能 PR 的代码候选，不意味着已合并、已发布或本机验收通过。**
+
+真实用户主流程：
+
+1. 从 `http://127.0.0.1:5173/#/model/packages` 创建/打开模型包，完成 ObjectType/Property 并保存 WIP。
+2. 点击「检查模型完整性」，确保校验为 **VALID** 且对应当前修订；有本地未保存编辑时不得冻结。
+3. 点击「冻结本地只读快照」，在确认弹窗核对 packageId 和 revision；成功跳转到真正的只读快照详情，看到 `snapshotId`、`jcs-rfc8785-v1` Profile 和已核对的 SHA-256。
+4. 返回草稿，修改描述或属性配置，再保存、重新校验、冻结；在「历史快照」选择两份来源修订，查看结构差异以及潜在破坏风险。**Diff 不等于下游兼容性证明**。
+5. 遇到 `409` 核对草稿修订；遇到 `RESULT_UNKNOWN` 不要生成新键盲目重试，先点击「按原幂等键核对结果」；服务端按 `draftId + idempotencyKey` 保留同一冻结身份。
+6. 仅在**独立测试数据库**做 Windows 原生 PG 验收：在 Spring Boot 启动后运行下面的脚本，完成 Exercise 后**真实重启后端（不要重建数据库）**再执行输出的 Recheck：
+
+```powershell
+.\scripts\verify-s0.ps1
+.\scripts\verify-snapshot.ps1 -Mode Exercise -AllowCreateTestDraft
+# 重启后端后，执行 Exercise 返回的真实 EvidencePath（示例请勿直接照抄）
+.\scripts\verify-snapshot.ps1 -Mode Recheck -EvidencePath "C:\\Temp\\<actual-evidence>.json"
+```
+
+脚本仅访问本机 loopback API，但**会永久写入一个专门验收 Draft 和两份 Snapshot**，因此不得连接生产数据库；不提交 PostgreSQL 密码、真实工业模型内容或凭据到 PR。Linux CI 上执行同一脚本及真实 Chromium 只能证明自动化可运行，**不等于用户 Windows 11 本机验收 PASS**。现阶段依然无认证、授权、审查主体、发行/激活与工业 Action，禁止生产部署。
+
 ### Windows 11 一键实际验收（建议优先执行）
 
 在本机 PostgreSQL、Spring Boot 启动后，可以**直接由脚本执行真实 HTTP 建模黄金故事**，不需要反复手工填页面。脚本只连接 `127.0.0.1 / localhost`，使用一个**随机独立模型包**，不会修改或删除已有模型；由于当前没有删除 API，创建的验收草稿会留在测试数据库中。建议使用独立的开发/测试数据库。
