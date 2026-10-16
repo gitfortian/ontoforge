@@ -4,7 +4,7 @@
 
 **Review Phase:** DG-1 / TC-2 / UX-Low / UX-High 已完成受托产品决议；独立第三方代码审核及 Windows 实机验收仍各自有独立门禁
 
-**Design Review:** [PR #12 — OFIP-0004 四轮设计与原型](https://github.com/gitfortian/ontoforge/pull/12)；产品设计决议 Accepted，不等于功能发布
+**Discussion:** [PR #12 — OFIP-0004 四轮设计与原型](https://github.com/gitfortian/ontoforge/pull/12)；产品设计决议 Accepted，不等于功能发布
 
 **Decision:** [VOTE] Accepted（由 ChatGPT 按本次会话产品负责人连续指示继续实施受托记录；并非声称第三方 GitHub 审核人亲自批准）。本次仅批准 DG1–DG6 推荐 A、TC1–TC14 和 UX-Low/High 的既定 0.4 范围；不授权真实工业数据连接、Release、权限或 Action。
 
