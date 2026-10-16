@@ -2,7 +2,7 @@
 
 **Status:** Discussion
 
-**Review Phase:** DG-1 产品/领域建议已提交；TC-2 详细合同候选已提交，两轮均待维护者正式签收（非 Accepted）
+**Review Phase:** DG-1 产品/领域、TC-2 详细合同与 UX-Low 低保真交互三轮候选均已提交；尚未维护者正式签收（非 Accepted）
 
 **Discussion:** [PR #12 — OFIP-0004 第一轮产品/领域设计评审](https://github.com/gitfortian/ontoforge/pull/12)（Draft）
 
@@ -282,6 +282,23 @@ ID 改名 = REMOVED + ADDED；相同快照比较 = sameSnapshot true 和空 chan
 
 ## Proposed Changes｜推荐实施切片与产品交互
 
+### UX-Low：第三轮可操作低保真交互原型与独立检查
+
+> **阶段状态：UX-GATE-LOW 已提交、待正式审阅和签收；不是 UX-High，更不是前端/后端功能实现。** [静态交互原型 HTML](../prototypes/ofip-0004-linktype-lowfi.html) · [完整 UX-Low 交互评审与 16 项矩阵](../implementation/S0-MVP-0.4-UX-Low-交互设计与评审矩阵.md) · [可复现 Node Mock 状态检查脚本](../prototypes/tests/ofip-0004-lowfi-state-check.mjs)。
+
+这轮用一个工作台、四个 Tab 把原先相互割裂的入口串成完整故事：
+
+1. **对象类型**：一个模型包里选择、创建多个 ObjectType，保留稳定 ID、属性、主键；切换对象或关系不自动丢掉本地编辑。
+2. **关系类型**：来源对象 → 目标对象选择，四种基数中文解释，显示“未来关系是否要求证据”；只管理 LinkType，不创建实际关系记录。
+3. **保存与检查**：整包保存修订、未填完的模型仍可暂存、校验返回 VALID / INCOMPLETE / INVALID，关联对象被删除时跳转修复；模拟两个标签页修订冲突与保存回执未知。
+4. **历史与对比**：通过当前修订的完整性检查才可以留存 Mock 历史；第二次修改关系基数并留存后，可选 From/To，看到风险等级；模拟冻结回执未知后使用原请求核对。
+
+**本轮独立检查**：对提交的原型脚本完成 JavaScript 语法解析和合计 17/17 内存 Mock 状态逻辑检查；原型只使用浏览器内存，**未进行真实 Chromium 浏览器 UI 验收**，Node 仓库脚本也待独立命令复验。所有用户行为仍是 Mock，不能声明 PostgreSQL、Spring Boot 或 Native Snapshot 合同在 0.4 已实现。
+
+**UX-Low 风险审查**：当前示意性属性表单并未覆盖 0.2 的全部专业字段（例如完整枚举、分类），高保真必须继承既有能力；被引用对象删除后需更醒目的影响提示；技术 JSON Pointer 应转为业务路径；无真实身份下不可展示“审批通过/正式发布/已生效”。
+
+**推荐评审意见**：UX-Low 的“一个工作台 + 对象与关系并行编辑 + 保存校验独立 + 历史差异”方案方向建议保留，且不建议新增独立「关系专业工具」一级菜单。正式签收前需对低保真主线与异常恢复做一次可见页面检查；后续再做 UX-High 视觉与完整交互合同。
+
 ### 一、页面信息架构（与现有工作台融合，不造孤立菜单）
 
 ```text
@@ -353,7 +370,7 @@ ID 改名 = REMOVED + ADDED；相同快照比较 = sameSnapshot true 和空 chan
 | --- | --- | --- |
 | **DG-1 产品/领域（上轮建议已提交）** | 用户故事、功能范围、关系语义、不可丢失不变量与替代方案 | 经正式签收后锁定范围 |
 | **TC-2 合同（本轮候选已提交）** | TC1–TC14：WIP、关系引用、旧历史兼容、关系 Diff、错误和验收矩阵 | 经正式签收后进入 UX-Low |
-| UX-Low | 一个模型包内的对象/关系/校验/历史用户路径，正常和错误状态 | 允许高保真原型 |
+| **UX-Low（本轮原型及矩阵已提交）** | [可操作内存原型](../prototypes/ofip-0004-linktype-lowfi.html)、[16 项 UX 评审](../implementation/S0-MVP-0.4-UX-Low-交互设计与评审矩阵.md)、可复现 Mock 状态检查 | 正式审阅并签收后允许高保真原型 |
 | UX-High | 与 OntoForge 统一视觉一致，含复杂状态、错误恢复及页面验收矩阵 | 允许独立真实功能 PR |
 | Implementation | 真 Spring Boot/PG17/React、真实浏览器和合同负例、Windows 实机独立复验 | 允许最终合并/发布评审（仍不代表生产准入） |
 
@@ -383,4 +400,4 @@ ID 改名 = REMOVED + ADDED；相同快照比较 = sameSnapshot true 和空 chan
 
 ---
 
-**Decision Gate：本文已包含第一轮 DG-1 产品方向和第二轮 TC-2 详细合同候选，均未被维护者正式 Accepted；当前无功能代码更改，关系建模产品仍未实现，0.3 PR #11 Draft/Windows NOT RUN 的实施依赖必须先收口。**
+**Decision Gate：本文已有 DG-1、TC-2 与 UX-Low 三轮设计候选，均未被维护者正式 Accepted；本 PR 新增的是内存交互 Mock、可复现状态检查及评审文档，未修改生产功能代码；关系建模尚未实现，0.3 PR #11 Draft/Windows NOT RUN 的实施依赖必须先收口。**
