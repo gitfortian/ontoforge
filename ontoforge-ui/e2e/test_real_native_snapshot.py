@@ -160,7 +160,7 @@ class NativeSnapshotRealE2ETest(unittest.TestCase):
         self.page.get_by_role("button",name=re.compile("使用原键重试")).click()
         self.page.locator("#snapshot-sha").wait_for(timeout=12000)
         self.assertEqual(len(api("/packages/"+self.pkg+"/snapshots")[1]["items"]),1)
-        self.assertIsNone(self.page.evaluate("""() => sessionStorage.getItem('ontoforge-local-snapshot-pending:"+self.draft+"')"""))
+        self.assertIsNone(self.page.evaluate("(id) => sessionStorage.getItem('ontoforge-local-snapshot-pending:'+id)",self.draft))
 
     def test_s03_network_uncertainty_same_key_recovery_no_duplicates(self):
         self.prepare()
