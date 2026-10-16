@@ -269,4 +269,125 @@ class NativeSnapshotTest {
         assertThat(new String(NativeSnapshotService.canonicalize(rfc),java.nio.charset.StandardCharsets.UTF_8))
             .contains("Grinning Face");
     }
+
+    /**
+     * Fault injection requires the isolated test database table owner. The production
+     * trigger is re-enabled in a finally block, even if assertion or update fails.
+     * Never use this helper against a user / production database.
+     */
+    private void injectCorruptionForIsolatedTest(String update, Object... args) {
+        jdbc.execute("ALTER TABLE native_schema_snapshot DISABLE TRIGGER native_snapshot_immutable");
+        try {
+            jdbc.update(update,args);
+        } finally {
+            jdbc.execute("ALTER TABLE native_schema_snapshot ENABLE TRIGGER native_snapshot_immutable");
+        }
+    }
+
+    @Test void snapshotCorruptedDigestAndJsonMirrorFailClosedOverHttp() throws Exception {
+        Prepared p=prepared();
+        UUID key=UUID.randomUUID();
+        UUID id=UUID.fromString(frozen(p,2,key,201).path("snapshotId").asText());
+        String digest=jdbc.queryForObject(
+            "SELECT payload_sha256 FROM native_schema_snapshot WHERE snapshot_id=?",String.class,id);
+        String mirror=jdbc.queryForObject(
+            "SELECT snapshot_document::text FROM native_schema_snapshot WHERE snapshot_id=?",String.class,id);
+        try {
+            injectCorruptionForIsolatedTest(
+                "UPDATE native_schema_snapshot SET payload_sha256=repeat('0',64) WHERE snapshot_id=?",id);
+            assertThat(call(HttpMethod.GET,"/snapshots/"+id,null,500).path("code").asText())
+                .isEqualTo("SNAPSHOT_INTEGRITY_FAILURE");
+            assertThat(call(HttpMethod.GET,"/drafts/"+p.draft+"/snapshots/by-key/"+key,null,500)
+                .path("code").asText()).isEqualTo("SNAPSHOT_INTEGRITY_FAILURE");
+            assertThat(call(HttpMethod.GET,"/packages/"+p.pkg+"/snapshots?pageSize=1",null,500)
+                .path("code").asText()).isEqualTo("SNAPSHOT_INTEGRITY_FAILURE");
+        } finally {
+            injectCorruptionForIsolatedTest(
+                "UPDATE native_schema_snapshot SET payload_sha256=? WHERE snapshot_id=?",digest,id);
+        }
+        try {
+            injectCorruptionForIsolatedTest(
+                "UPDATE native_schema_snapshot SET snapshot_document='{}'::jsonb WHERE snapshot_id=?",id);
+            assertThat(call(HttpMethod.GET,"/snapshots/"+id,null,500).path("code").asText())
+                .isEqualTo("SNAPSHOT_INTEGRITY_FAILURE");
+            assertThat(call(HttpMethod.GET,"/snapshot-diffs?from="+id+"&to="+id,null,500)
+                .path("code").asText()).isEqualTo("SNAPSHOT_INTEGRITY_FAILURE");
+        } finally {
+            injectCorruptionForIsolatedTest(
+                "UPDATE native_schema_snapshot SET snapshot_document=?::jsonb WHERE snapshot_id=?",
+                mirror,id);
+        }
+        assertThat(call(HttpMethod.GET,"/snapshots/"+id,null,200).path("payloadSha256").asText())
+            .isEqualTo(digest);
+    }
+
+    @Test void snapshotDiffEnumSetPolicyRequiredTypeAndPrimaryKeyBoundaries() throws Exception {
+        Prepared p=prepared();
+        ObjectNode initial=p.doc.deepCopy();
+        ObjectNode initialType=(ObjectNode)initial.path("objectTypes").get(0);
+        ObjectNode status=prop("status-id","statusId","ENUM",false,true);
+        status.putArray("enumValues").add("OPEN").add("CLOSED");
+        ((ArrayNode)initialType.path("properties")).add(status);
+        call(HttpMethod.PUT,"/drafts/"+p.draft,body(2,initial),200);
+        assertThat(call(HttpMethod.POST,"/drafts/"+p.draft+"/validate",revise(3),200)
+            .path("status").asText()).isEqualTo("VALID");
+        String one=frozen(p,3,UUID.randomUUID(),201).path("snapshotId").asText();
+
+        ObjectNode second=initial.deepCopy();
+        ObjectNode secondType=(ObjectNode)second.path("objectTypes").get(0);
+        ObjectNode secondStatus=(ObjectNode)secondType.path("properties").get(1);
+        secondStatus.putArray("enumValues").add("CLOSED").add("OPEN");
+        secondStatus.put("classification","RESTRICTED");
+        ((ArrayNode)secondType.path("properties")).add(prop("note-id","noteId","STRING",false,true));
+        ((ArrayNode)secondType.path("properties")).add(prop("alternate-id","alternateId","STRING",true,true));
+        call(HttpMethod.PUT,"/drafts/"+p.draft,body(3,second),200);
+        assertThat(call(HttpMethod.POST,"/drafts/"+p.draft+"/validate",revise(4),200)
+            .path("status").asText()).isEqualTo("VALID");
+        String two=frozen(p,4,UUID.randomUUID(),201).path("snapshotId").asText();
+
+        String d1=call(HttpMethod.GET,"/snapshot-diffs?from="+one+"&to="+two,null,200)
+            .path("changes").toString();
+        assertThat(d1).contains("POLICY_REVIEW_REQUIRED","/properties/note-id",
+                                 "ADDITIVE","/properties/alternate-id","POTENTIALLY_BREAKING");
+        assertThat(d1).doesNotContain("/enumValues"); // Pure ENUM ordering has no semantic change.
+
+        ObjectNode third=second.deepCopy();
+        ObjectNode thirdType=(ObjectNode)third.path("objectTypes").get(0);
+        thirdType.put("primaryKeyRef","alternate-id");
+        ((ObjectNode)thirdType.path("properties").get(0)).put("valueType","INTEGER");
+        ObjectNode thirdStatus=(ObjectNode)thirdType.path("properties").get(1);
+        thirdStatus.put("required",true);
+        thirdStatus.putArray("enumValues").add("CLOSED").add("OPEN").add("PENDING");
+        call(HttpMethod.PUT,"/drafts/"+p.draft,body(4,third),200);
+        assertThat(call(HttpMethod.POST,"/drafts/"+p.draft+"/validate",revise(5),200)
+            .path("status").asText()).isEqualTo("VALID");
+        String three=frozen(p,5,UUID.randomUUID(),201).path("snapshotId").asText();
+        String d2=call(HttpMethod.GET,"/snapshot-diffs?from="+two+"&to="+three,null,200)
+            .path("changes").toString();
+        assertThat(d2).contains("/primaryKeyRef","/valueType","/required","/enumValues",
+                                "POTENTIALLY_BREAKING");
+        assertThat(d2).doesNotContain("POLICY_REVIEW_REQUIRED");
+        assertThat(call(HttpMethod.GET,"/snapshots/"+one,null,200)
+            .path("sourceRevision").asLong()).isEqualTo(3);
+    }
+
+    @Test void snapshotUnsupportedAssetsAreRejectedNotSilentlyDropped() throws Exception {
+        Prepared p=prepared();
+        ObjectNode withLink=p.doc.deepCopy();
+        ObjectNode link=mapper.createObjectNode();
+        link.put("id","uses-material");
+        ((ArrayNode)withLink.path("linkTypes")).add(link);
+        assertThat(call(HttpMethod.PUT,"/drafts/"+p.draft,body(2,withLink),422)
+            .path("code").asText()).isEqualTo("UNSUPPORTED_EDITOR_DOCUMENT");
+        ObjectNode withAction=p.doc.deepCopy();
+        withAction.putArray("actions");
+        assertThat(call(HttpMethod.PUT,"/drafts/"+p.draft,body(2,withAction),422)
+            .path("code").asText()).isEqualTo("UNSUPPORTED_EDITOR_DOCUMENT");
+        assertThat(call(HttpMethod.GET,"/drafts/"+p.draft,null,200)
+            .path("revision").asLong()).isEqualTo(2);
+        assertThat(jdbc.queryForObject(
+            "SELECT count(*) FROM native_schema_snapshot WHERE source_draft_id=?",
+            Integer.class,UUID.fromString(p.draft))).isZero();
+    }
+
 }
