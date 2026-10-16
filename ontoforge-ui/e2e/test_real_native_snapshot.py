@@ -109,7 +109,8 @@ class NativeSnapshotRealE2ETest(unittest.TestCase):
         self.assertIn("潜在破坏性",content)
         self.assertIn("说明变更",content)
         self.assertIn("searchable",content)
-        self.assertIn("不能",self.page.locator("#view").inner_text()) if False else None
+        self.assertIn("不提供",self.page.locator(".model-alert.warning").last.inner_text(),
+                      "Diff must explicitly deny compatibility certification")
         status,old=api("/snapshots/"+sid1)
         self.assertEqual(old["payloadSha256"],digest)
         self.assertEqual(old["snapshotContent"]["objectTypes"][0]["description"],"批次可追溯")
