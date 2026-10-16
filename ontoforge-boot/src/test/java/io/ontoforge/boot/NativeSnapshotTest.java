@@ -113,7 +113,9 @@ class NativeSnapshotTest {
         JsonNode second=frozen(p,3,UUID.randomUUID(),201);
         assertThat(second.path("snapshotId").asText()).isNotEmpty();
         ObjectNode two=p.doc.deepCopy();
-        ((ArrayNode)two.get("objectTypes")).add(obj("other-type","OtherType"));
+        ObjectNode extra=obj("other-type","OtherType");
+        ((ArrayNode)extra.get("properties")).add(prop("batch-id","batchId","STRING",true,true));
+        ((ArrayNode)two.get("objectTypes")).add(extra);
         call(HttpMethod.PUT,"/drafts/"+p.draft,body(3,two),200);
         call(HttpMethod.POST,"/drafts/"+p.draft+"/validate",revise(4),200);
         assertThat(frozen(p,4,UUID.randomUUID(),422).path("code").asText()).isEqualTo("UNSUPPORTED_DEFINITION");
