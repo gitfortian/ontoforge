@@ -101,6 +101,195 @@
 
 沿用[统一词汇表](../砺元本体产品统一术语词汇表.md)的中文主词，面向代码建议保留：`packageId`、`draftId`、`revision`、`snapshotId`、`candidateDigest`、`changeSetId`、`reviewDecisionId`、`approvalDigest`、`releaseId`、`version`、`lockDigest`、`activationId`、`activeReleaseRef`、`subjectId`、`scope`。**目前只有 S0 已实现的字段属于真实 API 合同；其他候选均待 TC-2 定义。**
 
+### TC-2｜第二轮：受信身份、资源状态、发布与激活的详细合同（评审候选）
+
+> **阶段状态：Contract Review / Decision Pending。** 本节把 DG-1 目标收敛到可编码、可拒绝、可测试的合同。所有新增 JSON 字段、REST 路径、数据库结构及安全策略均是**推荐方案**，当前不在 `main`、不具备生产能力。既有 S0 API 的实际实现以当前代码为准。DG-1 与 TC-2 应明确记录独立评审决议后，再进入 UX-Low/High；不能因本章通过文档 CI 就自动 Accepted。
+
+#### TC01 · 与现有 0.4 可运行代码的衔接事实
+
+| 已核查真实实现（main） | 精确事实 | 本轮限制 |
+| --- | --- | --- |
+| `NativeDraftController` | `/api/model/drafts` 的创建、保存、校验、读取；`expectedRevision` 乐观锁。控制器**没有身份与包授权**。 | 必须在边界增加统一受信权限，不允许给新接口加校验而旧草稿接口仍敞开可篡改 |
+| `NativeSnapshotController` | `/api/model/drafts/{draftId}/snapshots` 以 revision 和 idempotencyKey 冻结；`/snapshots/{id}`、`/snapshot-diffs` 供本地历史浏览。 | 旧路径及语义要保留；不能被误用为审核/发行/激活 API；跨工作空间读取也必须受保护 |
+| `NativeSnapshotService` | 将有效候选规范化为 JCS UTF-8 并校验 SHA-256；保存原规范化字节及 JSONB 镜像，提供不可变历史和结构 Diff。 | 通过摘要校验 ≠ 可信签名、批准或消费者兼容证明；严禁就地修改旧历史 |
+| `V2__native_package_drafts.sql` | `package_id` 在本地安装内唯一，单包一个可写 Draft，没有 workspace_id/owner/actor。 | P0-B 不得假设已有多租户隔离；新归属必须有明确迁移/认领过程 |
+| `V3__native_schema_snapshot.sql` | 唯一来源修订、幂等键；`canonical_payload BYTEA` 和 `payload_sha256`；UPDATE/DELETE 触发器拒绝。 | 只添加新 Flyway 版本和新表，不改历史 V1–V3 或原 JCS Profile |
+| `ontoforge-boot/pom.xml` | 当前 `spring-boot-starter-web/jdbc`，没有已经配置完成的 Spring Security OAuth2 Resource Server。 | 不得说 S0 已有可信 IAM。认证与 Java/React/PG 真实负例必须属于 B0 的完整故事 |
+
+**一项风险必须提前明确**：S0 旧草稿/快照接口本身无鉴权。在 B0 引入身份时，**必须把现有所有读、写、校验、快照、Diff API 纳入同一权限模型**，而不是只守护新审批接口；只有受控 loopback 历史迁移流程才可能有临时例外。
+
+#### TC02 · 身份信任链：生产 OIDC 与本地/CI 测试如何分离
+
+**推荐 A**：Spring Security Resource Server 验证 OIDC/JWT **签名、issuer、audience、有效期、not-before、密钥轮换**；将受信 `(issuer, subject)` 映射为内部 `principalId`，访问 `workspaceId/packageId + operation` 由数据库/授权服务独立检查。企业对接的 IdP 由部署配置指定，砺元不得把用户自报 role 当作权限。
+
+- **前端**：登录会话和 API Token 由已批准的 OIDC 客户端/BFF 方案承载；避免在 localStorage 保存长期 Token；跨站请求与凭证 Cookie 需有 SameSite、CSRF、TLS 明确策略。具体选择须在安全审查记录，不将任何演示 IdP 直接视为可部署 SSO。
+- **开发 Windows 11**：使用隔离测试身份服务（例如自部署的 OIDC 测试提供者或可复现的签名 JWT fixture）签发短期、受固定 issuer/audience 约束的测试 Token；仅允许在显式 `dev/test` profile、绑定 loopback、隔离数据库且 CI 禁止生产配置时使用。不得提供用户可任意编辑的 `X-User-Id`、`X-Role` 绕鉴权开关。
+- **CI**：两把独立签名密钥或两个隔离测试主体 `editor-A` / `reviewer-B`，覆盖过期签名、错 issuer/audience、撤权、跨 workspace、申请人自审、无 Token；负例应观察到真实 401/403，而不是前端模拟报错。
+- **断言**：`subjectId` 不来自请求 JSON；审计只使用服务端认证上下文。无法认证 → 401；已认证但无权限 → 403（不泄露受限包具体信息时可 404），身份服务故障不开放审核/发行/激活。
+- **留待安全专项决定**：生产采用纯 Bearer Token 还是 BFF 会话、刷新策略、OIDC Token 类型与 scope 映射、密钥泄露/撤权处置。**不应先写死单一客户 IdP**。
+
+#### TC03 · 包归属与最小操作权限
+
+资源建议至少：`Workspace(workspaceId)`、`PackageAssignment(workspaceId, packageId, owner)`、`WorkspaceMembership(principalId, role)`、`PackageRoleBinding(principalId, packageId, role)`。是否在 B0 采用 1 个 workspace 后端实现可简化，但字段及权限模型不能隐藏域边界。
+
+| 操作 | Viewer | Editor | Reviewer | Publisher | Activator | Owner |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: |
+| 阅读已授权的包与正式版本 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| 读取受限的 Draft/Local Snapshot | 按策略 | ✓ | ✓ | ✓ | 按策略 | ✓ |
+| 创建/保存 Draft、结构校验、冻结 Local Snapshot | — | ✓ | — | — | — | 可显式授权 |
+| 创建/提交 ChangeSet | — | ✓ | — | — | — | 可显式授权 |
+| 审查/退回/拒绝/批准他人 ChangeSet | — | — | ✓ | — | — | 仅具备 Reviewer 身份且满足职责分离 |
+| 发行经批准版本 | — | — | — | ✓ | — | 仅具备 Publisher 身份 |
+| 激活/回退 Active Release | — | — | — | — | ✓ | 仅具备 Activator 身份 |
+| 授予/撤销包权限与成员资格 | — | — | — | — | — | ✓ |
+
+表中 ✓ 是**角色申请资格，不是最终授权**。同一人可持有多角色，但自我批准在默认职责分离策略下必须拒绝；包角色与 workspace 资格应共同满足。Viewer 的内容读取必须区分正式公开版本与受限草稿内容。授权失败不得返回敏感候选摘要、Comment、Diff 或真实包 ID 的存在性。
+
+**旧单安装 packageId 唯一语义**：建议 B0 起保留旧存储的 packageId 及 Draft ID；让管理员在只允许本地迁移的维护流程明确认领到选定 Workspace，不自动把所有历史记录授权给任何新用户。若同名包跨 Workspace 重复，先定义唯一约束的演进策略和兼容路由，**本期不承诺跨租户同名包并存**；若未认领，默认无法经可信 API 访问。
+
+#### TC04 · 稳定资源 ID、基线/候选和不可变引用
+
+| 资源 | 身份建议 | 内容与合法引用 | 写入/不可变原则 |
+| --- | --- | --- | --- |
+| `ChangeSet` | UUID `changeSetId`、`packageId`、`workspaceId` | `baseReleaseId?`、`candidateSnapshotId`、`candidateDigest`、`targetVersion`、`reason` | 提交审核时固定候选；变更产生新提交/轮次，不在已批准记录上改 JSON |
+| `QualityReport` | UUID `reportId` | `candidateDigest`、`lockDigest`、`qualityPolicyVersion`、`checkedAt`、结构风险、来源未知 | 内容哈希锁定；策略或候选变化不得复用旧报告 |
+| `ReviewDecision` | UUID `decisionId` | `changeSetId`、`round`、`reviewerPrincipalId`、`decision`、`approvalDigest`、`decidedAt` | 只追加，不允许更新已审查记录；角色撤权之后的新动作要按当前授权 |
+| `SchemaRelease` | UUID `releaseId` + `workspaceId/packageId/version` 唯一坐标 | 复制已审核 Snapshot 的**精确规范化字节**、`payloadSha256`、`lockDigest`、审批引用 | 一旦正式完成不可修改；不共享可变 Draft JSONB |
+| `ActivationEvent` | UUID `activationId`、`scopeId`、单调顺序 | `previousReleaseId?`、`nextReleaseId`、`expectedActiveRevision`、`actor`、`reason` | 只追加事件，与唯一 Active 指针更新同事务 |
+
+**首次发行**：`baseReleaseId=null` 被显式允许，仅当该 package/scope 没有旧 Active Release 时使用；必须保留“首次发行”的日志语义。**后续发行**：基线可引用某个已发布版本（及其已验证摘要），不得把任意客户端传来的 draftId 当作版本基线。
+
+#### TC05 · 审批摘要、依赖锁和 JCS：本期最重要的一致性边界
+
+**提议分离三个 Digest**（最终命名与二进制规范由 TC-2 决议确定）：
+
+1. `payloadSha256`：沿用旧 `SchemaSnapshot` 的 **JCS RFC8785 canonicalPayload 字节**摘要；任何新发布流程都必须读取并复核这份字节，不能再次基于 JSONB 重建另一个“近似相同的旧内容”。
+2. `lockDigest`：未来依赖锁列表 `(packageId, version, digest)` 按明确顺序和字段稳定 JCS 计算；**当前 S0 不支持 imports**，P0-B0/B1 最小路径可将锁定义为 `[]` 且有精确合同，绝不能假装支持跨包动态 latest。跨包实际引用与访问另设未来 Gate。
+3. `approvalDigest`：按域分离前缀的固定 JCS 对象计算，例如：
+   `{profile:"ontoforge-approval-v1", workspaceId,packageId,targetVersion,sourceSnapshotId,candidateDigest,lockDigest,qualityPolicyVersion,reviewRound,policyId}`。审批签署时必须把当前 `approvalDigest` 与可信 ReviewDecision 关联；任一内容、版本、权限政策/审核政策标识变化后，旧批准不能用于新发行。
+
+**不能照搬**：仅使用 `payloadSha256` 作为审批许可，因为同一模型内容在不同 workspace/包版本/依赖/安全政策下仍可能需要不同批准。Digest 本身不是密码学主体签名；可信 `reviewerPrincipalId`、`authenticatedIssuer`、实际授权事件和服务器时钟才构成受控审批证据。正式保真/签名机制需单独安全评审。
+
+**证据自洽约束**：每条 Release 必须能从 `sourceSnapshotId → candidateDigest → approvalDigest → ReviewDecision → QualityReport → lockDigest` 重新核对；不能只保存空白批准人名和一段自然语言“审核通过”。
+
+#### TC06 · 正式版坐标及 Registry 不可变策略
+
+- `schemaVersion = 0.2.0` 是 Native **文档机器合同版本**；`package.version` 是业务模型包版本，二者不得混淆。实际包候选应以已校验的 **完整 Native payload** 发布，不随手修改原字节填个用户输入版本号。
+- 候选中 `version` 的真实来源、命名/递增规则和审批版目标需要在 B1 实现前核对既有 `DraftValidation` 的候选生成；若旧 Snapshot 固定生成 `0.1.0`，不能仅在 Release DB 中写 `1.0.0` 却继续宣称 payload 是 `1.0.0`。**推荐在新发行包外围建立独立可信坐标/manifest，与旧冻结 payload 的实际 version 字段显式分离；如要改变 Native payload 必须产生新候选与新审批**。
+- Registry 唯一约束：`(workspaceId,packageId,version)` 至多对应一个不可变 `releaseId` 与 digest；相同坐标、不同摘要 → 409 `VERSION_ALREADY_EXISTS`，不覆盖，不自动升版本。
+- P0-B 不允许 `latest` 浮动跨包依赖。合法发布所引用的依赖必须已固定、已批准且获授权；因为 S0 imports 不支持，首期真实发布范围先限制**无导入的完整同包 ObjectType/LinkType**。
+- 发布完成但未激活也可通过授权的 `releaseId`、版本坐标只读检索；不同范围有不同 Active 指针，绝不猜“最近的发布版本就是全部消费者当前版本”。
+
+#### TC07 · 状态机、并发前提及不可变事件
+
+```text
+Local Snapshot(immutable)
+  └─ prepare ChangeSet(PREPARED)
+       └─ submit(IN_REVIEW)
+            ├─ request_changes(CHANGES_REQUESTED) ──> 新修订/新审批轮次
+            ├─ reject(REJECTED, immutable)
+            └─ approve(APPROVED, bound approvalDigest)
+                 └─ publish(PUBLISHING/RECOVERING → PUBLISHED | FAILED)
+                      └─ activate(SWITCHING → ACTIVE | FAILED/UNKNOWN)
+                           └─ reactivate(previous approved Release) → 新 ActivationEvent
+```
+
+- `ChangeSet` 提交审核后候选快照 ID 与摘要不可更新；“退回修改”须先创建新候选/审核轮次并使老审批失效。
+- `REJECTED` 与 `APPROVED` 视为该轮终态、不可覆盖；退回后需新的轮次与明确对比。
+- 正式 `SchemaRelease` 内容与审批证据一经提交不可更新删除；准备中/失败态要存储在独立发布尝试记录而非污染已发布不可变资源。
+- `ActivationEvent` 的事件写入、单个 scope 的 `activeReleaseId` 及 `activeRevision` CAS 必须置于**一个 PostgreSQL 事务**。`expectedActiveRevision` 与当前不符 → 409；不能出现两个 Active 版本。
+- 激活是模型控制面指针变更，不自动触发 Binding、Index、Function 或 Action 部署。回退使用新的 ActivationEvent，必须在同一授权边界检查该旧 Release 是否仍有资格被激活。
+- 审批、发行、激活、角色变化应记录服务端事件和时间戳；**授权决议不能只发生在 UI 层**。
+
+#### TC08 · 未来 HTTP 接口形状及错误码（只作为候选 API，不代表路由已存在）
+
+| 未来 REST 路径候选 | 输入必须锁定 | 输出/控制面原则 |
+| --- | --- | --- |
+| `POST /api/model/changesets` | `sourceSnapshotId`、`baseReleaseId?`、`targetVersion`、reason、idempotencyKey | 201 新建；服务端读取快照验证完整候选，绑定包/主体 |
+| `POST /api/model/changesets/{id}/submit` | `expectedRevision`、`expectedCandidateDigest` | 服务端质量 Gate；形成固定审核轮次 |
+| `GET /api/model/reviews/inbox` | 授权包范围和游标（不允许客户端伪造 Reviewer ID） | 仅返回当前主体真正有资格审查的待办 |
+| `POST /api/model/changesets/{id}/decisions` | 审核轮次/预期 Approval Digest、decision、comment、idempotencyKey | 可信主体/职责分离/Policy 验证，决议只追加 |
+| `POST /api/model/releases` | `changeSetId`、预期 `approvalDigest`、`targetVersion`、idempotencyKey | 验证 Gate 后原子创建不可变 Release，超时可按原 key 恢复 |
+| `GET /api/model/releases/{releaseId}` | 无客户端自报 role | 按范围授权，返回 immutable payload+决议/摘要 |
+| `POST /api/model/activations` | scope、releaseId、expectedActiveRevision、reason、idempotencyKey | 同事务追加激活事件并 CAS Active 指针 |
+| `GET /api/model/activations/{id}` / `.../by-key/{key}` | scope 和可信身份 | 原请求核验，不能超时后盲发新 key |
+
+**统一拒绝/恢复合同建议**：
+
+| HTTP | 错误码建议 | 场景 |
+| --- | --- | --- |
+| 400 | `MALFORMED_REQUEST` | 非法结构、额外字段、非法 UUID / 包版本 |
+| 401 | `UNAUTHENTICATED` | 无 Token、签名/issuer/audience/有效期错误 |
+| 403（或安全化的 404） | `ACCESS_DENIED` / `NOT_FOUND` | 未授权的包、Review/Publish/Activate；不暴露包存在性 |
+| 404 | `RESOURCE_NOT_FOUND` | 有权上下文内资源不存在 |
+| 409 | `REVISION_CONFLICT` / `VERSION_ALREADY_EXISTS` / `ACTIVE_REVISION_CONFLICT` | 版本/审核轮次/激活指针旧值，禁止静默覆盖 |
+| 412 | `APPROVAL_DIGEST_MISMATCH` / `DEPENDENCY_LOCK_STALE` | 依据变化，旧审批必须失效 |
+| 422 | `QUALITY_GATE_FAILED` / `REVIEW_POLICY_NOT_SATISFIED` | VALID 之外的业务安全/职责分离 Gate 不满足 |
+| 503 | `AUTHORITY_UNAVAILABLE` / `RESULT_UNKNOWN`（按服务端能否判定区分） | 权威身份/策略暂不可用，或者执行结果无法安全确认 |
+
+调用者重试时 `idempotencyKey` 必须与原业务操作 scope 与请求内容摘要绑定；**相同 key 不同 body** 要拒绝，不能返回已有成功作为新请求成功。对于未知结果优先 by-key 读取当前真实持久化产物。
+
+#### TC09 · 数据库新迁移与旧安装升级（实施方案候选）
+
+- 提议从新 **Flyway V4+** 增加 workspace / subject 映射 / role assignment / change set / review decision / immutable release / activation event / active pointer / operation idempotency / audit evidence；具体拆分只按真实 B0/B1/B2 交付，不提前造空表。
+- `V1–V3` 文件及已产生的 `native_schema_snapshot.canonical_payload` / `payload_sha256` / `sourceRevision` 原样保留；禁止删旧记录、重算历史或修改不可变触发器掩盖失败。
+- **B0 引入身份对旧 API 的兼容门槛**：定义可信 workspace 认领程序，要求操作员确认唯一旧 packageId 与目标 workspace；默认旧数据拒绝未授权访问，不能“一键给当前用户 Owner”无审计。
+- 旧 `/api/model/drafts` 和 `/api/model/snapshots` 的 JSON 返回形状尽量兼容，但由服务端补强访问控制；仍基于既有真实 `DraftFailure` 错误语义，避免给一个错误再造两个互相矛盾的安全错误体系。
+- 权限必须在 SQL 查找前或受约束 SQL 里校验，列表/历史/差异和按键回查不可绕过。将来多 Workspace 支持跨包同名时要正式迁移主键与路由，不改掉 S0 已冻结的单包身份历史。
+- 不允许客户端使用超级用户 PostgreSQL 账号绕开业务角色检查；隔离测试库的数据库登录与生产系统配置分开。
+
+#### TC10 · 精确兼容风险输出（必须承认未知）
+
+`CompatibilityReport` 不等于现有 `SnapshotDiff`。前者的最小内容建议为：
+
+`candidateDigest`、`baseReleaseId?`、`structuralRisks[]`（对象/属性/LinkType）、`classificationRelaxations[]`、`dependencyRisks[]`、`knownConsumerCount`（如果真实注册）、`consumerImpactStatus`（`UNKNOWN` / `NO_REGISTERED_CONSUMERS` / `VALIDATED_FOR_KNOWN_CONSUMERS`）、`policyDecision`（`ALLOW` / `REVIEW_REQUIRED` / `BLOCK`）、`evaluationProfile`。
+
+首次 MVP 无真实消费者目录时 **禁止`VALIDATED_FOR_KNOWN_CONSUMERS`**；“注册消费者为零”不是“已证明所有消费者安全”。结构 Diff 可用于预警，不能冒充下游数据迁移、BindingVersion、ObjectSet 或 Agent Context 的实际兼容性认证。关键字段风险例如主键/LinkType 删除、基数变化、证据/分类放宽默认需要业务/安全进一步审查。
+
+#### TC11 · 三条可实际操作的未来实现路径（完整且安全）
+
+| 工程 PR | 一个用户看得见的端到端成果 | 真实拒绝路径 | 通过后仍缺 |
+| --- | --- | --- | --- |
+| **B0 身份 / 资源边界** | 以 editor-A 登录后只能操作获授权的模型包；reviewer-B 可按角色查看审核资源但不能任意改草稿；原 0.4 草稿/快照仍可用 | 无 Token、错签名、跨 workspace/包、伪造 role、旧无认证 API、登出/撤权后一律失败 | 没有正式发布；勿显示虚假“审核通过” |
+| **B1 ChangeSet → 审核 → 正式发行** | editor-A 提交绑定 Snapshot 的修改；reviewer-B 看到确切 Diff 并批准；publisher 生成一份可核验、可读取的不可变 SchemaRelease | 自审、旧批准/锁漂移、版本冲突、未知远程结果幂等、未授权发布 | 还没 Active 指针，不对真实工业消费者生效 |
+| **B2 激活与安全回退** | activator 将有效 Release 在测试 Scope 激活；从实际浏览器看到当前版；发生失效/竞态时拒绝；审核后再激活旧版 | 旧 expectedActiveRevision 409、未发布 Release、跨 scope、幂等冲突、越权 | 不意味着 P1 绑定/索引/Agent/Action 已安全迁移 |
+
+#### TC12 · 可验收的测试矩阵，防止 POC/Mock 偷换真实状态
+
+| T | 应当实际证明的事实 | 预期验证 |
+| --- | --- | --- |
+| TC2-01 | 既有无认证 S0 模型 Draft、Snapshot、Diff 与列表在 B0 受控，不泄露跨包数据 | Java API + PG17 + 浏览器 |
+| TC2-02 | OIDC 错签名、错 issuer/audience、过期 Token、无 Token → 401；合法无权 → 403/安全化 404 | Security 测试，真实服务端过滤器 |
+| TC2-03 | 角色撤销后无法继续提交/审核/发行/激活；token 存在不等于包授权仍存在 | Java/PG + API |
+| TC2-04 | 不同可信主体完成提案/审核；同一人自审被拒 | 双身份隔离 Chromium 用户故事 |
+| TC2-05 | ChangeSet 关联的快照是完整 3 ObjectTypes+2 LinkTypes 的候选；旧快照摘要不变 | 原 0.4 真实 API + PG |
+| TC2-06 | 修改候选/版本坐标/依赖锁/审核政策后，旧审批必定失效 | Java/PG/哈希反例 |
+| TC2-07 | 未通过质量门禁的模型即使结构 VALID 也不能正式发行 | API + 质量策略 |
+| TC2-08 | 首次发行 `baseReleaseId=null`；第二版必须有明确基线、单坐标不可变 | Java/PG + 唯一索引 |
+| TC2-09 | 同 IdempotencyKey 同请求产生同一发行；同 key 不同请求拒绝 | HTTP 重试 / 模拟断线 |
+| TC2-10 | SchemaRelease 发行成功但不改变 Active；发布后不可 UPDATE/DELETE | PG 事务 + UI 读取 |
+| TC2-11 | 两主体同时激活同 scope，最多一个 CAS 成功，其余明确 409 | Java/PG 并发 |
+| TC2-12 | 切回旧版会生成新 ActivationEvent；不删除新发布也不触发 ERP 外部动作 | 真实 API/PG/Chromium |
+| TC2-13 | 旧本地 V2/V3 记录、JCS SHA 字节、旧 Draft 修订冲突保护全部保持 | Flyway 升级 + 实时回归 |
+| TC2-14 | Linux 实际后端重启后完整恢复发布/审核/激活/权限；Windows 11 本机验收独立 NOT RUN | 双分层运行记录 |
+| TC2-15 | 无消费者时明确展示“未知/尚无登记”，不能签发兼容认证 | API/React 产品断言 |
+| TC2-16 | 安全日志与审核证据关联服务端主体、受控时间、digest，错误响应不泄露 Token/SQL/机密模型 | 审计负例 |
+
+#### TC13 · TC-2 尚需确认的七项核心决定（推荐 A，但不是已批准）
+
+| 合同决策 | 推荐 A | 明确不采纳的捷径 |
+| --- | --- | --- |
+| **TC-D1 身份模式** | B0 采用受信 JWT/OIDC 验证，开发用隔离测试 issuer，角色/包授权由服务器评估 | 浏览器自报审核人、生产接口无认证 |
+| **TC-D2 旧 S0 接口** | Draft/Snapshot/列表/Diff 统一纳入鉴权与归属；需要审计化旧数据认领 | 只保护新发行接口 |
+| **TC-D3 首次与重复发行** | 初版允许显式 `baseReleaseId=null`，版本坐标和 digest 唯一，重试有受限作用域 | 临时从文件名推断版本、同版本覆盖 |
+| **TC-D4 内容与审批摘要** | 分离 JCS payloadDigest、依赖 lockDigest、包含上下文的 approvalDigest | SHA 一致就自动视为审核通过 |
+| **TC-D5 跨包依赖 MVP** | 首期正式发行仅无导入的完整同包模型，锁为空数组且有合同；扩展需新的 Gate | 假装已支持跨包浮动 latest |
+| **TC-D6 并发与未知结果** | 独立审核轮次、幂等发行、Activation CAS + 原请求按 key 回查 | 依赖前端禁用按钮保证唯一 |
+| **TC-D7 消费者影响与安全** | 结构风险 + UNKNOWN/NO_REGISTERED_CONSUMERS + 独立 Policy Gate，绝不“100% 兼容” | 没消费者就自动放心发布 |
+
+**第二轮独立 Review 必须对照**：Spring Boot 没有配置 OAuth2 Resource Server、旧草稿路径无可信鉴权、Native V0.2 现有 JSON Schema `version` 字段与快照真实候选生成的关系、同包 0.4 对象/关系的双修订状态、V2/V3 不可变迁移。任何一项未核实，就保持 `Discussion`，不得生成生产代码或标记 `Accepted`。
+
+
 ## Proposed Changes｜用户完整路径与建议的实施切片
 
 ### 1. 单个制造黄金故事：把一次关系改动正式应用到选定范围
