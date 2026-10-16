@@ -86,7 +86,7 @@ class OFIP0005GovernanceHighFiBrowserTests(unittest.TestCase):
     def test_h07_technical_details_are_secondary(self):
         self.nav("待我审核 1")
         self.page.get_by_role("button", name="开始审核 →").click()
-        self.assertIn("查看技术定位信息", self.page.locator("body").inner_text())
+        self.page.get_by_text("查看技术定位信息", exact=True).click()
         self.assertIn("模型路径", self.page.locator("body").inner_text())
 
     def test_h08_review_approve_has_consequence(self):
@@ -106,8 +106,8 @@ class OFIP0005GovernanceHighFiBrowserTests(unittest.TestCase):
         self.nav("正式版本")
         body = self.page.locator("body").inner_text()
         self.assertIn("0.5.0", body)
-        self.assertIn("已发行", body)
-        self.assertIn("尚未生效", body)
+        self.assertIn("待创建", body)
+        self.assertIn("尚未形成正式版本", body)
         self.assertIn("不会自动让任何业务范围切换", body)
 
     def test_h11_release_confirmation_repeats_current_and_target_state(self):
@@ -154,7 +154,7 @@ class OFIP0005GovernanceHighFiBrowserTests(unittest.TestCase):
         self.page.get_by_role("button", name="切回此版本").click()
         self.assertIn("切回历史版本 0.3.0", self.page.locator("#activationModal").inner_text())
         self.assertIn("目标版本", self.page.locator("#activationModal").inner_text())
-        self.assertIn("切回模型版本不会", self.page.locator("body").inner_text())
+        self.assertIn("切回历史版本不会删除原正式版本", self.page.locator("body").inner_text())
 
     def test_h17_history_has_full_governance_chain(self):
         self.nav("治理记录")
