@@ -2,7 +2,7 @@
 
 **Status:** Discussion
 
-**Review Phase:** 第一轮产品/领域评审（非 Accepted）
+**Review Phase:** DG-1 产品/领域建议已提交；TC-2 详细合同候选已提交，两轮均待维护者正式签收（非 Accepted）
 
 **Discussion:** [PR #12 — OFIP-0004 第一轮产品/领域设计评审](https://github.com/gitfortian/ontoforge/pull/12)（Draft）
 
@@ -351,8 +351,8 @@ ID 改名 = REMOVED + ADDED；相同快照比较 = sameSnapshot true 和空 chan
 
 | 关口 | 本轮输出 | 通过后才允许什么 |
 | --- | --- | --- |
-| **DG-1 产品/领域（本轮）** | 上面的用户故事、功能范围、关系语义、不可丢失不变量与替代方案 | 允许进入详细技术合同设计 |
-| TC-2 接口/持久化合同 | DTO、WIP/VALID 约束、包内身份、Snapshot/Link Diff、版本/迁移与异常矩阵 | 允许低保真交互设计 |
+| **DG-1 产品/领域（上轮建议已提交）** | 用户故事、功能范围、关系语义、不可丢失不变量与替代方案 | 经正式签收后锁定范围 |
+| **TC-2 合同（本轮候选已提交）** | TC1–TC14：WIP、关系引用、旧历史兼容、关系 Diff、错误和验收矩阵 | 经正式签收后进入 UX-Low |
 | UX-Low | 一个模型包内的对象/关系/校验/历史用户路径，正常和错误状态 | 允许高保真原型 |
 | UX-High | 与 OntoForge 统一视觉一致，含复杂状态、错误恢复及页面验收矩阵 | 允许独立真实功能 PR |
 | Implementation | 真 Spring Boot/PG17/React、真实浏览器和合同负例、Windows 实机独立复验 | 允许最终合并/发布评审（仍不代表生产准入） |
@@ -368,7 +368,7 @@ ID 改名 = REMOVED + ADDED；相同快照比较 = sameSnapshot true 和空 chan
 | DG5 关系证据 | **A**：evidenceRequired 只是未来关系事实证据要求声明 | B：误认为已生成真实 LinkFact，混淆 Schema 与业务事实 |
 | DG6 版本兼容 | **A**：0.3 Snapshot 不变性完全继承，关系必须被完整收录和对比 | B：只留存对象不留关系，产生静默资产丢失 |
 
-**本次建议的通过条件**：确认以上产品方向后，再细化基数、引用、删除、空值及错误码，进入 TC-2。未经显式签收不自动创建正式开发 PR。
+**DG-1 已提出推荐 A 并进入第二轮合同候选设计；现已补齐 TC1–TC14，但两轮仍需维护者显式签收。** 未签收前可以审阅 UX 方向草图，但不得创建有实现授权含义的正式功能 PR。
 
 ## Rejected Alternatives
 
@@ -383,4 +383,4 @@ ID 改名 = REMOVED + ADDED；相同快照比较 = sameSnapshot true 和空 chan
 
 ---
 
-**Decision Gate：本文为讨论稿；第一轮产品/领域审查优先，无正式实施授权、无生产代码更改、无可宣布的新功能。0.3 Draft/Windows NOT RUN 需在未来实施依赖前明确收口。**
+**Decision Gate：本文已包含第一轮 DG-1 产品方向和第二轮 TC-2 详细合同候选，均未被维护者正式 Accepted；当前无功能代码更改，关系建模产品仍未实现，0.3 PR #11 Draft/Windows NOT RUN 的实施依赖必须先收口。**
