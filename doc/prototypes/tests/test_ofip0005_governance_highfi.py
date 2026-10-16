@@ -112,7 +112,7 @@ class OFIP0005GovernanceHighFiBrowserTests(unittest.TestCase):
 
     def test_h11_release_confirmation_repeats_current_and_target_state(self):
         self.nav("正式版本")
-        self.page.get_by_role("button", name="创建正式版本").click()
+        self.page.get_by_role("button", name="创建正式版本").first.click()
         self.assertIn("0.5.0", self.page.locator("#releaseModal").inner_text())
         self.assertIn("0.4.0 · production-core", self.page.locator("#releaseModal").inner_text())
         self.assertIn("不会自动让任何业务范围使用它", self.page.locator("#releaseModal").inner_text())
