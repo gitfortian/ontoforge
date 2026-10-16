@@ -11,7 +11,12 @@ type LinkType = {id:string;apiName:string;label?:string;sourceTypeRef:string;tar
 type EditorDoc = {editorSchemaVersion:'0.1.0';objectTypes:ObjectType[];linkTypes:LinkType[]};
 const initialDoc=():EditorDoc=>({editorSchemaVersion:'0.1.0',objectTypes:[],linkTypes:[]});
 const newLink=():LinkType=>({id:'',apiName:'',label:'',sourceTypeRef:'',targetTypeRef:'',cardinality:'',evidenceRequired:true});
-const cardinalities=['ONE_TO_ONE','ONE_TO_MANY','MANY_TO_ONE','MANY_TO_MANY'];
+const cardinalities:ReadonlyArray<readonly [string,string]>=[
+  ['ONE_TO_ONE','一对一（每个来源最多关联一个目标，反向亦然）'],
+  ['ONE_TO_MANY','一对多（一个来源可关联多个目标）'],
+  ['MANY_TO_ONE','多对一（多个来源可关联同一目标）'],
+  ['MANY_TO_MANY','多对多（双方均可关联多个）']
+];
 type Draft = {draftId: string; packageId: string; revision: number; status: 'DRAFT'; editingContent: EditorDoc; validation: Report; createdAt: string; updatedAt: string};
 type Summary = {draftId: string; packageId: string; revision: number; validationStatus: string; objectTypeCount: number; updatedAt: string};
 type Page = {items: Summary[]; nextCursor: string|null};
@@ -304,11 +309,13 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
             <div><label htmlFor="link-id">关系 ID</label><input id="link-id" value={activeLink.id} disabled={busy} onChange={e=>updateLink({...activeLink,id:e.target.value})}/>{renderIssues('/linkTypes/'+selectedLink+'/id')}</div>
             <div><label htmlFor="link-api">API 名称</label><input id="link-api" value={activeLink.apiName} disabled={busy} onChange={e=>updateLink({...activeLink,apiName:e.target.value})}/>{renderIssues('/linkTypes/'+selectedLink+'/apiName')}</div>
             <div className="model-form-wide"><label htmlFor="link-label">业务显示名称</label><input id="link-label" value={activeLink.label??''} disabled={busy} onChange={e=>updateLink({...activeLink,label:e.target.value})}/></div>
-            <div><label htmlFor="link-source">来源对象类型</label><select id="link-source" value={activeLink.sourceTypeRef} disabled={busy} onChange={e=>updateLink({...activeLink,sourceTypeRef:e.target.value})}><option value="">请选择来源对象</option>{editorDoc.objectTypes.map((t,i)=><option key={i} value={t.id}>{t.label||t.apiName||t.id}</option>)}</select>{renderIssues('/linkTypes/'+selectedLink+'/sourceTypeRef')}</div>
-            <div><label htmlFor="link-target">目标对象类型</label><select id="link-target" value={activeLink.targetTypeRef} disabled={busy} onChange={e=>updateLink({...activeLink,targetTypeRef:e.target.value})}><option value="">请选择目标对象</option>{editorDoc.objectTypes.map((t,i)=><option key={i} value={t.id}>{t.label||t.apiName||t.id}</option>)}</select>{renderIssues('/linkTypes/'+selectedLink+'/targetTypeRef')}</div>
-            <div><label htmlFor="link-cardinality">关联基数（来源 → 目标）</label><select id="link-cardinality" value={activeLink.cardinality} disabled={busy} onChange={e=>updateLink({...activeLink,cardinality:e.target.value})}><option value="">请选择关联基数</option>{cardinalities.map(v=><option key={v}>{v}</option>)}</select>{renderIssues('/linkTypes/'+selectedLink+'/cardinality')}</div>
+            <div><label htmlFor="link-source">来源对象类型</label><select id="link-source" value={activeLink.sourceTypeRef} disabled={busy} onChange={e=>updateLink({...activeLink,sourceTypeRef:e.target.value})}><option value="">请选择来源对象</option>{activeLink.sourceTypeRef&&!editorDoc.objectTypes.some(t=>t.id===activeLink.sourceTypeRef)&&<option value={activeLink.sourceTypeRef}>⚠ 已不存在：{activeLink.sourceTypeRef}（请修复）</option>}{editorDoc.objectTypes.map((t,i)=><option key={i} value={t.id}>{t.label||t.apiName||t.id}</option>)}</select>{renderIssues('/linkTypes/'+selectedLink+'/sourceTypeRef')}</div>
+            <div><label htmlFor="link-target">目标对象类型</label><select id="link-target" value={activeLink.targetTypeRef} disabled={busy} onChange={e=>updateLink({...activeLink,targetTypeRef:e.target.value})}><option value="">请选择目标对象</option>{activeLink.targetTypeRef&&!editorDoc.objectTypes.some(t=>t.id===activeLink.targetTypeRef)&&<option value={activeLink.targetTypeRef}>⚠ 已不存在：{activeLink.targetTypeRef}（请修复）</option>}{editorDoc.objectTypes.map((t,i)=><option key={i} value={t.id}>{t.label||t.apiName||t.id}</option>)}</select>{renderIssues('/linkTypes/'+selectedLink+'/targetTypeRef')}</div>
+            <div><label htmlFor="link-cardinality">关联基数（来源 → 目标）</label><select id="link-cardinality" value={activeLink.cardinality} disabled={busy} onChange={e=>updateLink({...activeLink,cardinality:e.target.value})}><option value="">请选择关联基数</option>{cardinalities.map(([code,label])=><option key={code} value={code}>{label}</option>)}</select>{renderIssues('/linkTypes/'+selectedLink+'/cardinality')}</div>
             <div><label htmlFor="link-evidence">未来关联是否必须有来源证据</label><select id="link-evidence" value={String(activeLink.evidenceRequired)} disabled={busy} onChange={e=>updateLink({...activeLink,evidenceRequired:e.target.value==='true'})}><option value="true">需要证据</option><option value="false">不强制来源证据</option></select>{renderIssues('/linkTypes/'+selectedLink+'/evidenceRequired')}</div>
-          </div><div className="model-info">仅定义关系类型。关联基数不表示已存在关系记录；尚无 Data Binding、LinkFact 或查询能力。</div>
+          </div>{[activeLink.sourceTypeRef,activeLink.targetTypeRef].some(ref=>ref&&!editorDoc.objectTypes.some(t=>t.id===ref))&&
+            <div className="model-alert warning" role="alert">此关系仍引用已删除或改名的对象，原始引用未被自动改写。可以保存修订进度，但不能通过完整校验或冻结历史；请选择正确的对象修复。</div>}
+            <div className="model-info">仅定义关系类型。关联基数不表示已存在关系记录；尚无 Data Binding、LinkFact 或查询能力。</div>
             <div className="model-actions"><button className="model-btn" onClick={removeLink} disabled={busy}><Trash2 size={14}/> 删除当前关系</button></div></>:<div className="model-empty compact">暂无关系类型；可先保存零关系的合法模型包。</div>}
         </section>}
       </div>
