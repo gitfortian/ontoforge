@@ -39,7 +39,7 @@ class OFIP0005GovernanceHighFiBrowserTests(unittest.TestCase):
         body = self.page.locator("body").inner_text()
         self.assertIn("模型包概览", body)
         self.assertIn("当前生效版本", body)
-        self.assertIn("待发行变更", body)
+        self.assertIn("待发行变更", self.page.locator("#screen-overview").inner_text())
         self.assertNotIn("ChangeSet", body)
         self.assertNotIn("SchemaRelease", body)
         self.assertNotIn("ActivationEvent", body)
