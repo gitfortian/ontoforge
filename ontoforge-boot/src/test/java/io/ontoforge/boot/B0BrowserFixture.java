@@ -118,8 +118,7 @@ public final class B0BrowserFixture {
             String code = form.getOrDefault("code", "");
             String original = challenges.remove(code);
             String verifier = form.getOrDefault("code_verifier", "");
-            String digest = Base64.getUrlEncoder().withoutPadding().encodeToString(
-                    MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII)));
+            String digest = pkceChallenge(verifier);
             if (original == null || !original.equals(digest)
                     || !"authorization_code".equals(form.get("grant_type"))
                     || !"ontoforge-e2e".equals(form.get("client_id"))
@@ -148,6 +147,16 @@ public final class B0BrowserFixture {
         System.out.println("Ephemeral loopback JWKS ready; private fixture written (not logged).");
     }
 
+
+    private static String pkceChallenge(String verifier) {
+        try {
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(
+                    MessageDigest.getInstance("SHA-256").digest(
+                            verifier.getBytes(StandardCharsets.US_ASCII)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Java SHA-256 unavailable", e);
+        }
+    }
 
     private static Map<String, String> parameters(String query) {
         Map<String, String> values = new java.util.HashMap<>();
