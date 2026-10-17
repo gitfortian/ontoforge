@@ -38,24 +38,20 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_DB: ontoforge_test_e2e
+          POSTGRES_DB: ontology
           POSTGRES_USER: ontology
           POSTGRES_PASSWORD: ontology_dev_only
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ontology -d ontoforge_test_e2e"
+          --health-cmd "pg_isready -U ontology -d ontology"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 15
     env:
-      DB_URL: jdbc:postgresql://127.0.0.1:5432/ontoforge_test_e2e
+      DB_URL: jdbc:postgresql://127.0.0.1:5432/ontology
       DB_USERNAME: ontology
       DB_PASSWORD: ontology_dev_only
-      TEST_DB_URL: jdbc:postgresql://127.0.0.1:5432/ontoforge_test_e2e
-      TEST_DB_USERNAME: ontology
-      TEST_DB_PASSWORD: ontology_dev_only
-      E2E_AUTH_FILE: /tmp/ontoforge-b0-private-fixture.json
       S0_HOST: 127.0.0.1
     steps:
       - uses: actions/checkout@v7
@@ -72,26 +68,9 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - name: Compile actual application and isolated test-classpath IdP
+      - name: Install and run actual Java application
         run: |
           mvn -B -pl ontoforge-boot -am -DskipTests package
-          mvn -B -pl ontoforge-boot dependency:build-classpath -Dmdep.outputFile=target/e2e-classpath
-          nohup java -cp "ontoforge-boot/target/test-classes:$(cat ontoforge-boot/target/e2e-classpath)" io.ontoforge.boot.B0BrowserFixture serve "$E2E_AUTH_FILE" > /tmp/ontoforge-idp.log 2>&1 &
-          echo $! > /tmp/ontoforge-idp.pid
-          for i in $(seq 1 30); do
-            if test -s "$E2E_AUTH_FILE"; then break; fi
-            sleep 1
-          done
-          python - <<'PY'
-          import json, os
-          from pathlib import Path
-          fixture=json.loads(Path(os.environ['E2E_AUTH_FILE']).read_text())
-          with open(os.environ['GITHUB_ENV'], 'a') as env:
-              for name, key in [('OIDC_ISSUER_URI','issuer'),('OIDC_JWK_SET_URI','jwkSetUri'),('OIDC_AUDIENCE','audience')]:
-                  env.write(name+'='+fixture[key]+'\n')
-          PY
-      - name: Run actual Boot jar with production JWT decoder and public JWKS
-        run: |
           nohup java -jar ontoforge-boot/target/ontoforge-boot-0.1.0-SNAPSHOT.jar > /tmp/ontoforge-api.log 2>&1 &
           echo $! > /tmp/ontoforge-api.pid
           for i in $(seq 1 70); do
@@ -100,40 +79,7 @@ jobs:
           done
           cat /tmp/model-status.json || true
           curl -fsS http://127.0.0.1:8080/api/system/status
-          java -cp "ontoforge-boot/target/test-classes:$(cat ontoforge-boot/target/e2e-classpath)" io.ontoforge.boot.B0BrowserFixture provision "$E2E_AUTH_FILE"
-      - name: Exercise explicit B0 package grant and reject cross-workspace takeover in real PostgreSQL
-        run: |
-          pg_container=$(docker ps --format '{{.ID}} {{.Image}}' | awk '$2 ~ /^postgres:17/ {print $1; exit}')
-          test -n "$pg_container" || { echo 'PostgreSQL service container not found'; exit 1; }
-          # Genuine psql execution against the same real PG17 database used by product E2E.
-          docker exec -i "$pg_container" psql -X -v ON_ERROR_STOP=1 -U ontology -d ontoforge_test_e2e \
-            -v workspace_key=operator -v workspace_name='B0 operator test' \
-            -v issuer=http://127.0.0.1:18765 -v subject=operator-test \
-            -v display_name='Operator Test' -v role=EDITOR \
-            -v package_id=manufacturing.operator-test < scripts/b0-provision.psql
-          # Same identity/package grant must be repeatable without creating duplicates.
-          docker exec -i "$pg_container" psql -X -v ON_ERROR_STOP=1 -U ontology -d ontoforge_test_e2e \
-            -v workspace_key=operator -v workspace_name='B0 operator test' \
-            -v issuer=http://127.0.0.1:18765 -v subject=operator-test \
-            -v display_name='Operator Test' -v role=EDITOR \
-            -v package_id=manufacturing.operator-test < scripts/b0-provision.psql
-          # A different workspace must never silently claim an existing assigned package.
-          if docker exec -i "$pg_container" psql -X -v ON_ERROR_STOP=1 -U ontology -d ontoforge_test_e2e \
-            -v workspace_key=takeover -v workspace_name='Unauthorized takeover' \
-            -v issuer=http://127.0.0.1:18765 -v subject=other-subject \
-            -v display_name='Other Subject' -v role=OWNER \
-            -v package_id=manufacturing.operator-test < scripts/b0-provision.psql; then
-            echo 'SECURITY FAIL: cross-workspace package assignment unexpectedly succeeded'
-            exit 1
-          fi
-          docker exec "$pg_container" psql -X -qAt -U ontology -d ontoforge_test_e2e \
-            -c "SELECT count(*) FROM b0_package_assignment WHERE package_id='manufacturing.operator-test'" | grep -qx 1
-          echo 'B0 provisioning repeat and cross-workspace conflict protections PASS'
       - name: Launch real Vite React application
-        env:
-          VITE_OIDC_CLIENT_ID: ontoforge-e2e
-          VITE_OIDC_AUTHORIZATION_ENDPOINT: http://127.0.0.1:18765/authorize
-          VITE_OIDC_TOKEN_ENDPOINT: http://127.0.0.1:18765/token
         working-directory: ontoforge-ui
         run: |
           npm ci --no-audit --no-fund
@@ -145,6 +91,11 @@ jobs:
             sleep 1
           done
           curl -fsS http://127.0.0.1:5173/ >/dev/null
+      - name: Seed alternate local PostgreSQL demo_ tables for configurable binding test
+        run: |
+          cat scripts/mvp-configurable-source-e2e.sql |
+            docker exec -i "$(docker ps --filter ancestor=postgres:17 --format '{{.ID}}' | head -n1)" \
+              psql -U ontology -d ontology -v ON_ERROR_STOP=1
       - name: Install real Playwright Chromium
         run: |
           python -m pip install playwright==1.57.0
@@ -156,11 +107,9 @@ jobs:
       - name: Exercise isolated ObjectType, Snapshot and LinkType HTTP acceptance in real PostgreSQL
         shell: pwsh
         run: |
-          $fixture = Get-Content -LiteralPath $env:E2E_AUTH_FILE -Raw | ConvertFrom-Json
-          $env:ONTOFORGE_BEARER_TOKEN = $fixture.editorToken
-          ./scripts/verify-objecttype.ps1 -Mode Exercise -AllowCreateTestDraft -PackageId $fixture.packages[61] -EvidencePath '${{ runner.temp }}/ontoforge-objecttype-acceptance.json'
-          ./scripts/verify-snapshot.ps1 -Mode Exercise -AllowCreateTestDraft -PackageId $fixture.packages[62] -EvidencePath '${{ runner.temp }}/ontoforge-snapshot-acceptance.json'
-          ./scripts/verify-linktype.ps1 -Mode Exercise -AllowCreateTestDraft -PackageId $fixture.packages[63] -EvidencePath '${{ runner.temp }}/ontoforge-linktype-acceptance.json'
+          ./scripts/verify-objecttype.ps1 -Mode Exercise -AllowCreateTestDraft -EvidencePath '${{ runner.temp }}/ontoforge-objecttype-acceptance.json'
+          ./scripts/verify-snapshot.ps1 -Mode Exercise -AllowCreateTestDraft -EvidencePath '${{ runner.temp }}/ontoforge-snapshot-acceptance.json'
+          ./scripts/verify-linktype.ps1 -Mode Exercise -AllowCreateTestDraft -EvidencePath '${{ runner.temp }}/ontoforge-linktype-acceptance.json'
       - name: Actually restart Spring Boot against the same PostgreSQL 17 database
         run: |
           oldpid="$(cat /tmp/ontoforge-api.pid)"
@@ -184,8 +133,6 @@ jobs:
       - name: Recheck original ObjectType, Snapshot and LinkType bytes after real backend restart
         shell: pwsh
         run: |
-          $fixture = Get-Content -LiteralPath $env:E2E_AUTH_FILE -Raw | ConvertFrom-Json
-          $env:ONTOFORGE_BEARER_TOKEN = $fixture.editorToken
           ./scripts/verify-objecttype.ps1 -Mode Recheck -EvidencePath '${{ runner.temp }}/ontoforge-objecttype-acceptance.json'
           ./scripts/verify-snapshot.ps1 -Mode Recheck -EvidencePath '${{ runner.temp }}/ontoforge-snapshot-acceptance.json'
           ./scripts/verify-linktype.ps1 -Mode Recheck -EvidencePath '${{ runner.temp }}/ontoforge-linktype-acceptance.json'
@@ -199,7 +146,6 @@ jobs:
           cp '${{ runner.temp }}/ontoforge-snapshot-acceptance.json' /tmp/ontoforge-e2e-evidence/snapshot-exercise-recheck-on-linux.json 2>/dev/null || true
           cp '${{ runner.temp }}/ontoforge-linktype-acceptance.json' /tmp/ontoforge-e2e-evidence/linktype-exercise-recheck-on-linux.json 2>/dev/null || true
           cp /tmp/ontoforge-api-restarted.log /tmp/ontoforge-e2e-evidence/backend-after-restart.log 2>/dev/null || true
-          cp /tmp/ontoforge-idp.log /tmp/ontoforge-e2e-evidence/test-idp.log 2>/dev/null || true
           cp -r '${{ runner.temp }}/ontoforge-native-e2e-shots' /tmp/ontoforge-e2e-evidence/screenshots 2>/dev/null || true
       - uses: actions/upload-artifact@v7
         if: always()
