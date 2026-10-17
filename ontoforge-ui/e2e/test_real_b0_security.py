@@ -100,6 +100,35 @@ class B0ProductionDecoderE2ETest(unittest.TestCase):
             finally:
                 browser.close()
 
+
+    def test_reviewer_browser_reads_restricted_draft_and_has_no_mutation_controls(self):
+        from playwright.sync_api import sync_playwright
+        package_id = assigned_package()
+        code, draft = request("/model/drafts", headers("editor"), "POST", {"packageId": package_id})
+        self.assertEqual(code, 201)
+        draft_id = draft["draftId"]
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
+            try:
+                page = browser.new_page(viewport={"width": 1370, "height": 900},
+                                        extra_http_headers=headers("reviewer"))
+                page.goto("http://127.0.0.1:5173/#/model/packages")
+                page.get_by_role("heading", name="模型包", exact=True).wait_for()
+                self.assertEqual(page.get_by_role("button", name="创建模型包").count(), 0)
+                page.get_by_role("button", name="只读查看", exact=False).first.click()
+                page.get_by_role("heading", name="受限模型草稿 · 只读").wait_for()
+                self.assertEqual(page.get_by_role("button", name="保存编辑进度").count(), 0)
+                self.assertEqual(page.get_by_role("button", name="检查模型完整性").count(), 0)
+                self.assertEqual(page.locator("#snapshot-freeze").count(), 0)
+                self.assertEqual(page.locator("#obj-id").count(), 0)
+                page.get_by_role("button", name="查看历史快照与差异").click()
+                page.get_by_role("heading", name="历史模型快照").wait_for()
+                code, error = request("/model/drafts/" + draft_id + "/validate",
+                                      headers("reviewer"), "POST", {"expectedRevision": 1})
+                self.assertEqual((code, error["code"]), (403, "ACCESS_DENIED"))
+            finally:
+                browser.close()
+
     def test_unsigned_and_invalid_signature_are_401_safe_json(self):
         self.assertEqual(request("/model/drafts"),
                          (401, {"code": "AUTHENTICATION_REQUIRED", "message": "需要登录后才能访问该资源"}))

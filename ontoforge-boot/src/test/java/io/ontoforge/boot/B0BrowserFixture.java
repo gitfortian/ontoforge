@@ -71,7 +71,7 @@ public final class B0BrowserFixture {
         config.put("jwkSetUri", ISSUER + "/jwks");
         config.put("audience", "ontoforge");
         config.put("workspaceId", UUID.randomUUID().toString());
-        for (String role : new String[]{"editor", "viewer", "outsider"}) {
+        for (String role : new String[]{"editor", "viewer", "reviewer", "outsider"}) {
             config.put(role + "Subject", role + "-" + UUID.randomUUID());
             config.put(role + "PrincipalId", UUID.randomUUID().toString());
             config.put(role + "Token", token(key, config.path(role + "Subject").asText()));
@@ -192,7 +192,7 @@ public final class B0BrowserFixture {
                 insert.setObject(1, workspace); insert.setString(2, "e2e-" + workspace);
                 insert.setString(3, "Isolated browser fixture"); insert.executeUpdate();
             }
-            for (String role : new String[]{"editor", "viewer"}) {
+            for (String role : new String[]{"editor", "viewer", "reviewer"}) {
                 UUID principal = UUID.fromString(config.path(role + "PrincipalId").asText());
                 try (var insert = db.prepareStatement("INSERT INTO b0_principal(principal_id,issuer,subject,display_name) VALUES (?,?,?,?)")) {
                     insert.setObject(1, principal); insert.setString(2, ISSUER);
@@ -211,6 +211,6 @@ public final class B0BrowserFixture {
             }
             db.commit();
         }
-        System.out.println("Explicit editor/viewer membership and 64 isolated package assignments committed.");
+        System.out.println("Explicit editor/viewer/reviewer memberships and 64 isolated package assignments committed.");
     }
 }

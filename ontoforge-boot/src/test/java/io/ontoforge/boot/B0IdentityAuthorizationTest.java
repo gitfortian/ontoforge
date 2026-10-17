@@ -35,6 +35,7 @@ class B0IdentityAuthorizationTest {
     private static final UUID EDITOR = UUID.fromString("22222222-2222-4222-8222-222222222222");
     private static final UUID VIEWER = UUID.fromString("33333333-3333-4333-8333-333333333333");
     private static final UUID OWNER = UUID.fromString("44444444-4444-4444-8444-444444444444");
+    private static final UUID REVIEWER = UUID.fromString("55555555-5555-4555-8555-555555555555");
 
     @Autowired TestRestTemplate http;
     @Autowired ObjectMapper mapper;
@@ -49,12 +50,15 @@ class B0IdentityAuthorizationTest {
         upsertPrincipal(EDITOR, "editor-A", "Test Editor");
         upsertPrincipal(VIEWER, "viewer-A", "Test Viewer");
         upsertPrincipal(OWNER, "owner-A", "Test Owner");
+        upsertPrincipal(REVIEWER, "reviewer-A", "Test Reviewer");
         jdbc.update("INSERT INTO b0_workspace_membership(workspace_id,principal_id,role) VALUES (?,?,?) ON CONFLICT DO NOTHING",
                 WORKSPACE, EDITOR, "EDITOR");
         jdbc.update("INSERT INTO b0_workspace_membership(workspace_id,principal_id,role) VALUES (?,?,?) ON CONFLICT DO NOTHING",
                 WORKSPACE, VIEWER, "VIEWER");
         jdbc.update("INSERT INTO b0_workspace_membership(workspace_id,principal_id,role) VALUES (?,?,?) ON CONFLICT DO NOTHING",
                 WORKSPACE, OWNER, "OWNER");
+        jdbc.update("INSERT INTO b0_workspace_membership(workspace_id,principal_id,role) VALUES (?,?,?) ON CONFLICT DO NOTHING",
+                WORKSPACE, REVIEWER, "REVIEWER");
     }
 
     private void upsertPrincipal(UUID id, String subject, String displayName) {
@@ -90,6 +94,9 @@ class B0IdentityAuthorizationTest {
 
     private String viewerToken() {
         return B0TestSecurityConfiguration.token(jwtEncoder, "viewer-A");
+    }
+    private String reviewerToken() {
+        return B0TestSecurityConfiguration.token(jwtEncoder, "reviewer-A");
     }
 
     private String outsiderToken() {
@@ -159,6 +166,34 @@ class B0IdentityAuthorizationTest {
                 editorToken(), mapper.writeValueAsString(freeze));
         assertThat(frozen.getStatusCode().value()).isEqualTo(201);
         return mapper.readTree(frozen.getBody()).path("snapshotId").asText();
+    }
+
+
+    @Test
+    void reviewerMayReadRestrictedDraftAndSnapshotButCannotMutateOrFreeze() throws Exception {
+        String draftId = createAuthorizedDraft();
+        ResponseEntity<String> detail = call(HttpMethod.GET,"/api/model/drafts/"+draftId,reviewerToken(),null);
+        assertThat(detail.getStatusCode().value()).isEqualTo(200);
+        ResponseEntity<String> list = call(HttpMethod.GET,"/api/model/drafts?pageSize=20",reviewerToken(),null);
+        assertThat(list.getStatusCode().value()).isEqualTo(200);
+        assertThat(list.getBody()).contains(draftId);
+        ObjectNode save = mapper.createObjectNode();
+        save.put("expectedRevision",1);
+        save.set("editingContent",mapper.createObjectNode());
+        assertThat(call(HttpMethod.PUT,"/api/model/drafts/"+draftId,reviewerToken(),
+            mapper.writeValueAsString(save)).getStatusCode().value()).isEqualTo(403);
+        ObjectNode revision = mapper.createObjectNode();
+        revision.put("expectedRevision",1);
+        assertThat(call(HttpMethod.POST,"/api/model/drafts/"+draftId+"/validate",reviewerToken(),
+            mapper.writeValueAsString(revision)).getStatusCode().value()).isEqualTo(403);
+        revision.put("idempotencyKey",UUID.randomUUID().toString());
+        assertThat(call(HttpMethod.POST,"/api/model/drafts/"+draftId+"/snapshots",reviewerToken(),
+            mapper.writeValueAsString(revision)).getStatusCode().value()).isEqualTo(403);
+        String snapshotId = createAuthorizedSnapshot();
+        assertThat(call(HttpMethod.GET,"/api/model/snapshots/"+snapshotId,reviewerToken(),null)
+            .getStatusCode().value()).isEqualTo(200);
+        assertThat(call(HttpMethod.GET,"/api/model/snapshots/"+snapshotId,viewerToken(),null)
+            .getStatusCode().value()).isEqualTo(403);
     }
 
     @Test

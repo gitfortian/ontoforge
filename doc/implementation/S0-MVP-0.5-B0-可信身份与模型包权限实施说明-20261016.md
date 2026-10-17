@@ -165,3 +165,15 @@ psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d ontoforge_test_b0 `
 禁用创建并提示管理员授权，所有 API 仍以 PostgreSQL 中的实时权限校验为准。
 VIEWER/REVIEWER/PUBLISHER 等不具备草稿编辑权的角色不展示创建按钮。
 实际细粒度包级独立授权、成员管理 UI、企业 IdP 安全签收及生产发布仍未完成。
+
+## 14. Reviewer 受限草稿只读路径（B0 候选）
+
+Reviewer / Publisher 持有工作空间成员角色且已明确分配包后，可以从草稿列表进入
+**受限模型草稿 · 只读**，查看对象类型/属性/关系、当前 revision 和校验状态，
+并进入已授权历史快照与 Diff 页面；不挂载任何保存、校验、删除、冻结的编辑操作入口。
+服务器每个 GET 仍核验包级权限，禁止通过直接 URL 绕过工作空间归属。
+Viewer 仍不能读取受限 Draft/Snapshot；Reviewer 不得执行 POST 校验/冻结或 PUT 保存。
+这不是 ReviewDecision、审批 UI 或正式 SchemaRelease，真正审批和职责分离属于 B1。
+
+新增真实 RSA/JWT + PostgreSQL Java/API 权限正反例，以及 Reviewer Chromium 只读路径，
+必须与所有既有 Editor 黄金故事一起通过；企业 IdP 与人工安全审查仍为独立门槛。
