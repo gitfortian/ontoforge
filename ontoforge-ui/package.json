@@ -13,14 +13,14 @@
     "audit:dependencies": "npm audit --audit-level=high"
   },
   "dependencies": {
-    "lucide-react": "0.468.0",
-    "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "lucide-react": "1.56.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "@types/react": "19.2.2",
-    "@types/react-dom": "19.2.2",
-    "typescript": "5.9.3",
-    "vite": "7.3.7"
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.4"
   }
 }

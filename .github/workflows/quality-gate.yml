@@ -28,7 +28,7 @@ jobs:
       e2e: ${{ steps.choose.outputs.e2e }}
       selected: ${{ steps.choose.outputs.selected }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Verify suite selector and negative evidence cases
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check architecture links, OFIP decisions, and document owners
         run: python3 -m unittest discover -s doc/tests -p 'test_*.py' -v
       - name: Record exact tested checkout identity
@@ -61,8 +61,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install pinned JSON Schema library
@@ -99,8 +99,8 @@ jobs:
       TEST_DB_ALLOW_FAULT_INJECTION: 'true'
       S0_HOST: 127.0.0.1
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -125,7 +125,7 @@ jobs:
         run: echo "PostgreSQL/Flyway PASS on $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload Surefire evidence (including failures)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ontoforge-s0-surefire
           path: ontoforge-boot/target/surefire-reports/
@@ -139,8 +139,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Install locked frontend dependencies
@@ -180,8 +180,8 @@ jobs:
       POC_LOTS: '20000'
       PYTHONUNBUFFERED: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install research PostgreSQL driver
@@ -192,7 +192,7 @@ jobs:
         run: echo "POC smoke PASS on $(git rev-parse HEAD) (NOT deployed runtime)" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload actual research artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ontoforge-poc-smoke
           path: experiments/pg-runtime/artifacts/
@@ -212,7 +212,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: No missing, skipped-selected, failed or cancelled suites may pass
         env:
           CI_SCOPE_RESULT: ${{ needs.scope.result }}
