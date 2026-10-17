@@ -55,12 +55,12 @@ jobs:
       S0_HOST: 127.0.0.1
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Verify shared Java/ECMAScript RFC 8785 golden vectors
