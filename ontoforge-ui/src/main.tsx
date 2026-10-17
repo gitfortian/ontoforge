@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Activity, Blocks, Database, GitBranch, ShieldCheck, RefreshCw } from 'lucide-react';
 import NativeModelWorkspace from './NativeModelWorkspace';
+import QualityMvpWorkspace from './QualityMvpWorkspace';
 import './style.css';
 
 type Status = {
@@ -15,7 +16,7 @@ type Status = {
 };
 type LoadState = {kind:'loading'}|{kind:'error'}|{kind:'ready';data:Status};
 const planned=[
-  {title:'数据绑定与关联',detail:'Data Binding / ObjectSet',icon:GitBranch,stage:'P1'},
+  {title:'通用数据连接与 ObjectSet',detail:'更多真实工业数据源与查询',icon:GitBranch,stage:'后续'},
   {title:'用户与访问控制',detail:'User / Policy',icon:ShieldCheck,stage:'后续'}
 ];
 function App() {
@@ -27,6 +28,7 @@ function App() {
   const locationRef=useRef(window.location.hash);
   const onDirtyChange=useCallback((v:boolean)=>{dirtyRef.current=v;setDirty(v)},[]);
   const model=location.startsWith('#/model');
+  const mvp=location.startsWith('#/mvp');
   async function reload() {
     setStatus({kind:'loading'});
     try {
@@ -65,13 +67,14 @@ function App() {
       <p className="nav-heading">平台与建模</p>
       <button className={model?'nav-inactive nav-link':'nav-active nav-link'} onClick={()=>navigate('#/system')}><Activity size={17}/> 系统概览</button>
       <button className={model?'nav-active nav-link':'nav-inactive nav-link'} onClick={()=>navigate('#/model/packages')}><Blocks size={17}/> Native 本体建模</button>
+      <button className={mvp?'nav-active nav-link':'nav-inactive nav-link'} onClick={()=>navigate('#/mvp/quality')}><GitBranch size={17}/> 工业质量追溯 · MVP</button>
       <p className="nav-heading secondary-label">规划模块</p>
       {planned.map(item=><div key={item.title} className="nav-disabled" title="当前版本暂不开放"><item.icon size={16}/>{item.title}<span>规划中</span></div>)}
       <div className="sidebar-bottom">S0 · ObjectType 草稿与快照<br/><small>本地开发验证 · 无认证/发布</small></div>
     </aside>
     <main className="main">
-      <div className="topline"><span>{model?'本体设计 / ObjectType':'平台基座 / 系统概览'}</span><span className="env-chip">LOCAL DEVELOPMENT</span></div>
-      {model?<NativeModelWorkspace onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>:<>
+      <div className="topline"><span>{mvp?'工业质量追溯 / 精简 MVP':model?'本体设计 / ObjectType':'平台基座 / 系统概览'}</span><span className="env-chip">LOCAL DEVELOPMENT · SYNTHETIC DATA</span></div>
+      {mvp?<QualityMvpWorkspace navigate={navigate}/>:model?<NativeModelWorkspace onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>:<>
         <div className="intro"><p className="eyebrow">S0 · FOUNDATION</p><h1>系统概览</h1><p>系统概览来自真实 Spring Boot + PostgreSQL。Native 本体建模支持本地草稿、不可变快照及结构差异，不提供正式审核/发布。</p></div>
         <div className="panel">
           <div className="panel-top"><div><h2>运行状态</h2><p>来自后端实时 API，并非演示数据</p></div><button type="button" onClick={()=>void reload()}><RefreshCw size={15}/> 重新检测</button></div>
