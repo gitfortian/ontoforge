@@ -11,6 +11,9 @@ type Mapping={
 };
 type TableInfo={table:string;columns:string[]};
 type Binding={packageId:string;draftId:string;boundRevision:number;sourceMap:Mapping;sourceBatchCount:number};
+type SourceSample={id:string|null;attribute:string|null;relatedId:string|null};
+type SourcePreview={batches:SourceSample[];workOrders:SourceSample[];
+  orders:SourceSample[];linkedExample:{batchId:string;workOrderId:string;orderId:string}|null};
 const defaultMap:Mapping={
   batchTable:'mvp_source_batches',batchId:'batch_id',batchStatus:'quality_status',batchWorkOrder:'work_order_id',
   workTable:'mvp_source_work_orders',workId:'work_order_id',workOrder:'order_id',
@@ -43,6 +46,8 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
   const [sources,setSources]=useState<TableInfo[]>([]);
   const [map,setMap]=useState<Mapping>(defaultMap);
   const [savedMap,setSavedMap]=useState<Mapping|null>(null);
+  const [preview,setPreview]=useState<SourcePreview|null>(null);
+  const [previewMap,setPreviewMap]=useState('');
   const [expandMapping,setExpandMapping]=useState(false);
   const [trace,setTrace]=useState<Trace|null>(null);
   const [batch,setBatch]=useState('B2026-001');
@@ -83,6 +88,12 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
       void reload().catch(e=>setError(String(e)));
     });
   }
+  function inspect(){
+    const selected={...map};
+    void run(()=>invoke<SourcePreview>('/preview','POST',selected),value=>{
+      setPreview(value);setPreviewMap(JSON.stringify(selected));
+    });
+  }
   function search(){
     void run(()=>invoke<Trace>('/trace?batchId='+encodeURIComponent(batch)),setTrace);
   }
@@ -100,8 +111,9 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
         for(const [key] of g.fields)copy[key]='';
       return copy;
     });
-    setTrace(null);
+    setTrace(null);setPreview(null);setPreviewMap('');
   }
+  const currentPreview=previewMap===JSON.stringify(map)?preview:null;
   return <div className="model-page">
     <div className="model-head">
       <div><div className="model-eyebrow">ONTOFORGE / ONE GOLDEN STORY</div>
@@ -158,6 +170,34 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
             </select>
           </div>)}
         </div>)}
+      </div>}
+      <div className="model-actions">
+        <button className="model-btn" onClick={inspect} disabled={busy||!validMapping}>
+          <Search size={15}/> 预览真实样本与关联
+        </button>
+        <span className="model-help">只读检查当前选择，不会保存或改变已有绑定</span>
+      </div>
+      {currentPreview&&<div className="model-panel" aria-label="来源预览结果">
+        <h3>来源样本（每表最多三条）</h3>
+        <div className="model-metrics">
+          {[
+            {title:'生产批次',rows:currentPreview.batches},
+            {title:'生产工单',rows:currentPreview.workOrders},
+            {title:'客户订单',rows:currentPreview.orders}
+          ].map(group=><div key={group.title}>
+            <span>{group.title}</span>
+            {group.rows.length===0?<p>来源表暂无记录</p>:
+              <ul>{group.rows.map((row,i)=><li key={i}>
+                <b>{row.id??'空 ID'}</b>
+                <small> · {row.attribute??'空值'} · 关联值 {row.relatedId??'空值'}</small>
+              </li>)}</ul>}
+          </div>)}
+        </div>
+        {currentPreview.linkedExample?<p role="status">
+          找到一条可连通的真实来源路径：
+          <strong> {currentPreview.linkedExample.batchId} → {currentPreview.linkedExample.workOrderId} → {currentPreview.linkedExample.orderId}</strong>
+        </p>:<p role="status">当前三张来源表中没有找到可连通的两跳记录，请核对关联字段或测试数据。</p>}
+        <p className="model-help">这里只预览样本及一条关联证据，并不代表全部数据都能正确关联。确认后再保存来源绑定。</p>
       </div>}
       <div className="model-actions"><button className="model-btn model-primary"
         disabled={busy||!modelReady||!validMapping} onClick={bind}>保存来源绑定</button>
