@@ -43,6 +43,7 @@ flowchart LR
 - `pageSize` 取 1–50；`nextCursor` 与批次 ID、当前模型 revision、映射 SHA-256 指纹绑定，超长/篡改/错批次/错版本游标拒绝。游标是分页定位符，不是身份凭据。
 - 服务端使用本次请求内 `REPEATABLE_READ`、3 秒 PostgreSQL statement timeout、10,000 条关系路径预算。路径预算超出显式拒绝（409），不能伪装为完整结果。不同 HTTP 请求之间数据源变化不受该事务覆盖，页面和文档均提示。
 - 固定场景通过 JDBC 预编译绑定批次 ID、游标、分页大小；来源表列必须通过已有标识符白名单与 `information_schema` 验证并引用。**不接受用户提交任意 SQL**。
+- **Native 领域一致性门禁**：新增示例的 Batch→Work 与 Work→Order LinkType 基数为 `MANY_TO_MANY`，以支持两跳多结果与多对多事实；旧本体若仍声明 `MANY_TO_ONE`、而对应来源出现一个对象关联多个目标，返回 409 `ONTOLOGY_CARDINALITY_MISMATCH`，需要由用户明确编辑关系基数、重新校验当前修订并重新绑定。**不静默修改用户已有本体模型**。当前只在批次查询范围核验“来源对象→多个目标”的方向，完整双向基数证明留给未来通用 ObjectSet/LinkFact。
 - 新增 `V6__mvp_objectset_impact_sandbox.sql`，严格只加隔离测试表，不修改历史 V1–V5，也不改变用户已经创建的真实草稿、快照和绑定。
 
 ## 3. 安全、失败与专业边界
