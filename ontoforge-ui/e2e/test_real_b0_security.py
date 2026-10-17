@@ -36,6 +36,27 @@ class B0ProductionDecoderE2ETest(unittest.TestCase):
             finally:
                 browser.close()
 
+    def test_actual_oidc_authorization_code_pkce_browser_login(self):
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
+            try:
+                page = browser.new_page(viewport={"width": 1370, "height": 900})
+                page.goto("http://127.0.0.1:5173/#/model/packages")
+                page.get_by_role("heading", name="可信身份验证").wait_for()
+                page.get_by_role("button", name="使用组织账号登录").click()
+                page.get_by_role("heading", name="模型包", exact=True).wait_for(timeout=20000)
+                self.assertEqual(page.get_by_role("button", name="创建模型包").count(), 1)
+                self.assertNotIn("code=", page.url, "OAuth code must be scrubbed from URL")
+                self.assertIn("#/model/packages", page.url)
+                # Authenticated UI now uses actual Bearer fetched via browser OIDC, not test headers.
+                page.get_by_role("button", name="创建模型包").click()
+                page.locator("#create-package-id").fill(assigned_package())
+                page.get_by_role("button", name="创建并继续").click()
+                page.locator("#obj-id").wait_for(timeout=20000)
+            finally:
+                browser.close()
+
     def test_unsigned_and_invalid_signature_are_401_safe_json(self):
         self.assertEqual(request("/model/drafts"),
                          (401, {"code": "AUTHENTICATION_REQUIRED", "message": "需要登录后才能访问该资源"}))

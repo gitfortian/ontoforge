@@ -12,6 +12,13 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.security.MessageDigest;
+import java.util.Base64;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -71,9 +78,88 @@ public final class B0BrowserFixture {
         }
         var packages = config.putArray("packages");
         for (int i = 0; i < 64; i++) packages.add("acceptance.p" + UUID.randomUUID().toString().replace("-", ""));
+        // TEST-CLASSPATH ONLY: one-time Authorization Code + PKCE simulator for Chromium.
+        // It does not authenticate real users; never package/deploy outside isolated CI.
+        Map<String, String> challenges = new ConcurrentHashMap<>();
+        server.createContext("/authorize", exchange -> {
+            var query = parameters(exchange.getRequestURI().getRawQuery());
+            String redirect = query.getOrDefault("redirect_uri", "");
+            String challenge = query.getOrDefault("code_challenge", "");
+            String state = query.getOrDefault("state", "");
+            if (!"GET".equals(exchange.getRequestMethod())
+                    || !"ontoforge-e2e".equals(query.get("client_id"))
+                    || !"code".equals(query.get("response_type"))
+                    || !"S256".equals(query.get("code_challenge_method"))
+                    || !redirect.equals("http://127.0.0.1:5173/")
+                    || !challenge.matches("[a-zA-Z0-9_-]{43}")
+                    || !state.matches("[a-zA-Z0-9_-]{32}")) {
+                exchange.sendResponseHeaders(400, -1);
+                exchange.close();
+                return;
+            }
+            String code = UUID.randomUUID().toString();
+            challenges.put(code, challenge);
+            exchange.getResponseHeaders().set("Location",
+                    redirect + "?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8)
+                    + "&state=" + URLEncoder.encode(state, StandardCharsets.UTF_8));
+            exchange.sendResponseHeaders(302, -1);
+            exchange.close();
+        });
+        server.createContext("/token", exchange -> {
+            exchange.getResponseHeaders().set("Access-Control-Allow-Origin",
+                    "http://127.0.0.1:5173");
+            if (!"POST".equals(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(405, -1);
+                exchange.close();
+                return;
+            }
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            var form = parameters(body);
+            String code = form.getOrDefault("code", "");
+            String original = challenges.remove(code);
+            String verifier = form.getOrDefault("code_verifier", "");
+            String digest = Base64.getUrlEncoder().withoutPadding().encodeToString(
+                    MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII)));
+            if (original == null || !original.equals(digest)
+                    || !"authorization_code".equals(form.get("grant_type"))
+                    || !"ontoforge-e2e".equals(form.get("client_id"))
+                    || !"http://127.0.0.1:5173/".equals(form.get("redirect_uri"))) {
+                exchange.sendResponseHeaders(400, -1);
+                exchange.close();
+                return;
+            }
+            ObjectNode answer = JSON.createObjectNode();
+            try {
+                answer.put("access_token", token(key, config.path("editorSubject").asText()));
+                answer.put("token_type", "Bearer");
+                answer.put("expires_in", 1800);
+                byte[] response = JSON.writeValueAsBytes(answer);
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.getResponseHeaders().set("Cache-Control", "no-store");
+                exchange.sendResponseHeaders(200, response.length);
+                try (var out = exchange.getResponseBody()) { out.write(response); }
+            } catch (Exception e) {
+                exchange.sendResponseHeaders(500, -1);
+                exchange.close();
+            }
+        });
         // These are short-lived fixture credentials. Do not print or upload this file as evidence.
         JSON.writeValue(file.toFile(), config);
         System.out.println("Ephemeral loopback JWKS ready; private fixture written (not logged).");
+    }
+
+
+    private static Map<String, String> parameters(String query) {
+        Map<String, String> values = new java.util.HashMap<>();
+        if (query == null || query.isBlank()) return values;
+        for (String item : query.split("&")) {
+            int i = item.indexOf('=');
+            if (i > 0) {
+                values.put(URLDecoder.decode(item.substring(0, i), StandardCharsets.UTF_8),
+                        URLDecoder.decode(item.substring(i + 1), StandardCharsets.UTF_8));
+            }
+        }
+        return values;
     }
 
     private static String token(RSAKey key, String subject) throws Exception {

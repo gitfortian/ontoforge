@@ -130,6 +130,10 @@ jobs:
             -c "SELECT count(*) FROM b0_package_assignment WHERE package_id='manufacturing.operator-test'" | grep -qx 1
           echo 'B0 provisioning repeat and cross-workspace conflict protections PASS'
       - name: Launch real Vite React application
+        env:
+          VITE_OIDC_CLIENT_ID: ontoforge-e2e
+          VITE_OIDC_AUTHORIZATION_ENDPOINT: http://127.0.0.1:18765/authorize
+          VITE_OIDC_TOKEN_ENDPOINT: http://127.0.0.1:18765/token
         working-directory: ontoforge-ui
         run: |
           npm ci --no-audit --no-fund
