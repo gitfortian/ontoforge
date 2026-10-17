@@ -1,5 +1,7 @@
 # OntoForge · MVP 功能全景、预期效果与实现成熟度
 
+> **PR #17 冲突收口候选（2026-10-17）**：已与已合并精简 MVP 的 V4 数据绑定代码整合，B0 原 V4 权限表顺延为 V5，质量追溯界面和接口使用 JWT+包授权。#17 仍为 Draft，不视作已合并主线、生产认证或 Windows 现场验收完成。
+>
 > **2026-10-17 最新精简 MVP 方向（优先于本文后续历史阶段记账）：** [PR #32](https://github.com/gitfortian/ontoforge/pull/32) 已合并 `main`，真实 Spring Boot + PostgreSQL + Chromium 验证了生产批次 → 工单 → 客户订单的**合成数据**模型、绑定、两跳关系查询。不是 P1 正式工业连接器。正在开发的 [PR #33](https://github.com/gitfortian/ontoforge/pull/33) 把写死的表和字段改为本地 `public.demo_*` / `mvp_source_*` 测试表可选配置，当前**候选分支未合并**。B0 [PR #17](https://github.com/gitfortian/ontoforge/pull/17) 保持 Draft 并从当前 MVP 主线冻结。下文中“未实现业务查询”的旧描述是历史评审快照，不代表 2026-10-17 `main` 的状态；可选测试表查询也不代表工业现场系统、企业安全或 Agent 已完成。
 >
 > | 近期交付 | 全局功能映射 | 用户可实际操作 | 成熟度与边界 |
