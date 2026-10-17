@@ -12,12 +12,16 @@
 
 - [现行 Native DSL/AST V0.2 技术合同](./doc/design/核心本体元模型与Native-DSL-AST契约_v0.2.md)
 - [文档目录、研究证据与历史清理说明](./doc/README.md)
-- [**MVP 产品功能全景：完整功能、预期效果、实现成熟度与下一步**](./doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)
+- **[当前已实现功能全景（AS-IS，按 main 代码核验）](./doc/implementation/OntoForge-AS-IS-已实现功能全景-20261017.md)**：对象/属性/关系、草稿/快照、PG 测试表绑定/预览/两跳追溯，包含状态和证据。
+- **[当前实际技术架构全景（AS-IS，按 main 代码核验）](./doc/implementation/OntoForge-AS-IS-实际架构全景-20261017.md)**：模块/调用链/Flyway V1–V4/安全边界/运行路径/CI。
+- [MVP 历史功能与成熟度总账（F01–F29，含设计候选和历史阶段）](./doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)
 - [S0-MVP-0.3 本轮交付说明与下一步进度](./doc/implementation/S0-MVP-0.3-交付说明-20261016.md)
 - [每轮交付说明模板（新增功能 / 证据 / 风险 / 下一步）](./doc/implementation/交付说明模板.md)
 - [S0-MVP-0.3 功能说明与全面 Review 验收矩阵](./doc/implementation/S0-MVP-0.3-功能说明与全面Review验收矩阵.md)
 - [PostgreSQL ObjectSet / Action Outbox 研究实验](./experiments/pg-runtime/README.md)
 
+> **2026-10-17 当前 main 更新**：#32 与 #33 已合并；除下述历史 0.2–0.4 建模与本地快照之外，**已具备隔离测试数据的制造质量追溯三步闭环**（可选 `demo_*` 测试表、真实样本预览、PG 绑定及双跳查询）。**不等于生产数据源、通用 ObjectSet、企业登录或 Agent 已完成**。当前完整可验证状态请优先读上面的两份 AS-IS 全景文档；#17 B0 仍 Draft，#34 CSV 导入仍待合并。下方 S0.2–0.4 章节属于历史实现说明。
+>
 > **S0-MVP-0.2/0.3/0.4 真实建模代码已合并 main（PR #7 / #11 / #13）**：可定义同包多个 ObjectType 与 LinkType、保存草稿、完整性检查、留存不可变本地历史及比较风险。当前环境证据统一见[产品进度总账](./doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)，区分 Windows 隔离自动化与用户既有安装人工验收。**未正式发布；没有身份权限、真实业务数据绑定、ObjectSet 生产查询或 Action**。
 
 ## S0-MVP-0.2：Windows 11 本机 PostgreSQL（默认开发方式）
