@@ -28,7 +28,7 @@ jobs:
       e2e: ${{ steps.choose.outputs.e2e }}
       selected: ${{ steps.choose.outputs.selected }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Verify suite selector and negative evidence cases
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check architecture links, OFIP decisions, and document owners
         run: python3 -m unittest discover -s doc/tests -p 'test_*.py' -v
       - name: Record exact tested checkout identity
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -99,7 +99,7 @@ jobs:
       TEST_DB_ALLOW_FAULT_INJECTION: 'true'
       S0_HOST: 127.0.0.1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -139,7 +139,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -180,7 +180,7 @@ jobs:
       POC_LOTS: '20000'
       PYTHONUNBUFFERED: '1'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -212,7 +212,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: No missing, skipped-selected, failed or cancelled suites may pass
         env:
           CI_SCOPE_RESULT: ${{ needs.scope.result }}
