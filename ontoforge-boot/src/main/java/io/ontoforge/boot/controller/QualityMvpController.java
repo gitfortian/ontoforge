@@ -384,6 +384,22 @@ public class QualityMvpController {
         if(totals.pathCount()>MAX_RESULT_PATHS)
             throw fail(409,"OBJECTSET_QUERY_BUDGET_EXCEEDED",
                 "关联路径超过本机MVP的10000条安全预算；请先缩小来源数据范围");
+        // A query result cannot contradict the cardinality in the actual Native
+        // model.  Existing MANY_TO_ONE snapshots must be explicitly reviewed
+        // and edited before running a 1:N impact search.
+        JsonNode definition=drafts.get(existingDraft()).editingContent();
+        if(totals.workCount()>1 &&
+           !allowsMultipleTargets(definition,"batch-workorder"))
+            throw fail(409,"ONTOLOGY_CARDINALITY_MISMATCH",
+                "当前本体“批次→工单”关系声明不允许一个批次关联多个工单；请修改LinkType基数、校验并重新绑定");
+        if(!allowsMultipleTargets(definition,"workorder-order")) {
+            Boolean multiplePerWork=jdbc.query("SELECT 1 FROM ("+distinctPaths+
+                ") paths GROUP BY work_id HAVING COUNT(DISTINCT order_id)>1 LIMIT 1",
+                rs->rs.next(),batchId);
+            if(Boolean.TRUE.equals(multiplePerWork))
+                throw fail(409,"ONTOLOGY_CARDINALITY_MISMATCH",
+                    "当前本体“工单→订单”关系声明不允许一个工单关联多个订单；请修改LinkType基数、校验并重新绑定");
+        }
 
         MissingCounts missing=jdbc.query("SELECT "
             +"COUNT(DISTINCT CASE WHEN "+workCol+" IS NULL THEN b."
@@ -483,6 +499,14 @@ public class QualityMvpController {
             && hasLink(doc,"workorder-order","work-order","customer-order");
     }
 
+    private static boolean allowsMultipleTargets(JsonNode doc,String linkId) {
+        for(JsonNode link:doc.path("linkTypes"))
+            if(linkId.equals(link.path("id").asText()))
+                return "ONE_TO_MANY".equals(link.path("cardinality").asText())
+                    || "MANY_TO_MANY".equals(link.path("cardinality").asText());
+        return false;
+    }
+
     private static boolean hasLink(JsonNode doc,String id,String source,String target) {
         for (JsonNode link:doc.path("linkTypes"))
             if (id.equals(link.path("id").asText())
@@ -503,7 +527,7 @@ public class QualityMvpController {
         addType(types,"customer-order","CustomerOrder","客户订单","order-id",
           new String[][]{{"order-id","orderId","客户订单号"},{"customer-name","customerName","客户名称"}});
         ArrayNode links=doc.putArray("linkTypes");
-        addLink(links,"batch-workorder","BatchWorkOrder","批次归属工单","production-batch","work-order");
+        addLink(links,"batch-workorder","BatchWorkOrder","批次关联工单","production-batch","work-order");
         addLink(links,"workorder-order","WorkOrderOrder","工单关联订单","work-order","customer-order");
         return doc;
     }
@@ -522,6 +546,7 @@ public class QualityMvpController {
         ObjectNode link=list.addObject();
         link.put("id",id);link.put("apiName",api);link.put("label",label);
         link.put("sourceTypeRef",from);link.put("targetTypeRef",to);
-        link.put("cardinality","MANY_TO_ONE");link.put("evidenceRequired",true);
+        // Real batch/work and work/order linkage can be N:M in manufacturing.
+        link.put("cardinality","MANY_TO_MANY");link.put("evidenceRequired",true);
     }
 }
