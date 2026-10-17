@@ -49,10 +49,10 @@ class LocalMvpCoreStoryTest {
         assertThat(model.getStatusCode().value()).describedAs(model.getBody()).isEqualTo(200);
         String sources=http.getForObject(url("/api/mvp/quality/sources"),String.class);
         assertThat(sources).contains("mvp_source_batches");
-        ResponseEntity<String> preview=post("/api/mvp/quality/preview","{}");
+        ResponseEntity<String> preview=post("/api/mvp/quality/preview","{\"objectTypes\":[],\"links\":[]}");
         assertThat(preview.getStatusCode().value()).describedAs(preview.getBody()).isEqualTo(200);
         assertThat(preview.getBody()).contains("B2026-001");
-        ResponseEntity<String> bind=post("/api/mvp/quality/bind","{}");
+        ResponseEntity<String> bind=post("/api/mvp/quality/bind","{\"objectTypes\":[],\"links\":[]}");
         assertThat(bind.getStatusCode().value()).describedAs(bind.getBody()).isEqualTo(200);
         String trace=http.getForObject(url("/api/mvp/quality/trace?batchId=B2026-001"),String.class);
         assertThat(trace).contains("B2026-001","WO-1001","ORD-9001");
