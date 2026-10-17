@@ -12,19 +12,21 @@
 
 - [现行 Native DSL/AST V0.2 技术合同](./doc/design/核心本体元模型与Native-DSL-AST契约_v0.2.md)
 - [文档目录、研究证据与历史清理说明](./doc/README.md)
-- [**MVP 产品功能全景：完整功能、预期效果、实现成熟度与下一步**](./doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)
+- **[当前已实现功能全景（AS-IS，按 main 代码核验）](./doc/implementation/OntoForge-AS-IS-已实现功能全景-20261017.md)**：对象/属性/关系、草稿/快照、PG 测试表绑定/预览/两跳追溯，包含状态和证据。
+- **[当前实际技术架构全景（AS-IS，按 main 代码核验）](./doc/implementation/OntoForge-AS-IS-实际架构全景-20261017.md)**：模块/调用链/Flyway V1–V4/安全边界/运行路径/CI。
+- [MVP 历史功能与成熟度总账（F01–F29，含设计候选和历史阶段）](./doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)
 - [S0-MVP-0.3 本轮交付说明与下一步进度](./doc/implementation/S0-MVP-0.3-交付说明-20261016.md)
 - [每轮交付说明模板（新增功能 / 证据 / 风险 / 下一步）](./doc/implementation/交付说明模板.md)
 - [S0-MVP-0.3 功能说明与全面 Review 验收矩阵](./doc/implementation/S0-MVP-0.3-功能说明与全面Review验收矩阵.md)
 - [PostgreSQL ObjectSet / Action Outbox 研究实验](./experiments/pg-runtime/README.md)
 
+> **2026-10-17 当前 main 更新**：#32 与 #33 已合并；除下述历史 0.2–0.4 建模与本地快照之外，**已具备隔离测试数据的制造质量追溯三步闭环**（可选 `demo_*` 测试表、真实样本预览、PG 绑定及双跳查询）。**不等于生产数据源、通用 ObjectSet、企业登录或 Agent 已完成**。当前完整可验证状态请优先读上面的两份 AS-IS 全景文档；#34 脱敏 CSV 导入与 #35 AS-IS 文档均已合并，#17 B0 是单独的**未合并候选**。下方 S0.2–0.4 章节属于历史实现说明。
+>
 > **S0-MVP-0.2/0.3/0.4 真实建模代码已合并 main（PR #7 / #11 / #13）**：可定义同包多个 ObjectType 与 LinkType、保存草稿、完整性检查、留存不可变本地历史及比较风险。当前环境证据统一见[产品进度总账](./doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)，区分 Windows 隔离自动化与用户既有安装人工验收。**未正式发布；没有身份权限、真实业务数据绑定、ObjectSet 生产查询或 Action**。
 
 ## S0-MVP-0.2：Windows 11 本机 PostgreSQL（默认开发方式）
 
-> **PR #17 / B0 分支增量（未合并 / Draft）**：本分支包含 OIDC PKCE 浏览器接续候选和管理员显式包授权脚本，详情见 [B0 实施说明](./doc/implementation/S0-MVP-0.5-B0-可信身份与模型包权限实施说明-20261016.md)。真实企业 IdP 安全签收、现有安装迁移及生产发布均未完成。
-
-> **PR #17 / B0 分支增量**：以下 S0 用户故事保留，但本分支启动还要求外部配置 `OIDC_ISSUER_URI`、`OIDC_JWK_SET_URI`、`OIDC_AUDIENCE`。模型 API 需要已授予模型包权限的有效 JWT；没有配置就拒绝启动，没有 Token 就返回 401。前端尚无 OIDC 登录/BFF。手工验收需外部设置 `ONTOFORGE_BEARER_TOKEN` 并为 Exercise 指定预授权 `-PackageId`；具体边界见 [B0 Draft 实施说明](./doc/implementation/S0-MVP-0.5-B0-可信身份与模型包权限实施说明-20261016.md)。该实现候选不表示 OFIP-0005 已获批准或可生产部署。
+> **PR #17 / B0 分支候选，尚未合并 main、尚未发布**：本分支在原有建模、快照和质量追溯上叠加 OIDC/JWT 与模型包授权。服务端依赖 `OIDC_ISSUER_URI`、`OIDC_JWK_SET_URI`、`OIDC_AUDIENCE`，且模型包 `manufacturing.quality` 需显式授权；不能匿名访问本体或追溯 API。该分支将权限库表放入新增 Flyway **V5**，既有测试来源数据仍由 V4 管理。浏览器接续方式和操作要求见 [B0 实施说明](./doc/implementation/S0-MVP-0.5-B0-可信身份与模型包权限实施说明-20261016.md)。本节下方不带 OIDC 的启动示例仅适用于已合并的本机 `main`：**在 #17 分支运行还须配置可信 IdP 与测试包成员权限**；不得连接生产 MES/ERP 或误把 B0 测试 IdP 视为企业已验收。
 
 准备：Java 21、Maven、Node.js 22（至少 22.12）、已安装运行的**本机 PostgreSQL**，不需要 Docker Desktop。前端使用提交的依赖锁文件和 `npm ci`。
 
@@ -61,7 +63,7 @@
 .\scripts\verify-snapshot.ps1 -Mode Recheck -EvidencePath "C:\\Temp\\<actual-evidence>.json"
 ```
 
-脚本仅访问本机 loopback API，但**会永久写入一个专门验收 Draft 和两份 Snapshot**，因此不得连接生产数据库；不提交 PostgreSQL 密码、真实工业模型内容或凭据到 PR。Linux CI 上执行同一脚本及真实 Chromium 只能证明自动化可运行，**不等于用户 Windows 11 本机验收 PASS**。B0 候选提供 JWT 与包权限检查，仍未交付登录体验、可信审核、发行/激活与工业 Action，禁止生产部署。
+脚本仅访问本机 loopback API，但**会永久写入一个专门验收 Draft 和两份 Snapshot**，因此不得连接生产数据库；不提交 PostgreSQL 密码、真实工业模型内容或凭据到 PR。Linux CI 上执行同一脚本及真实 Chromium 只能证明自动化可运行，**不等于用户 Windows 11 本机验收 PASS**。现阶段依然无认证、授权、审查主体、发行/激活与工业 Action，禁止生产部署。
 
 ### Windows 11 一键实际验收（建议优先执行）
 
@@ -106,6 +108,6 @@
 
 详细版本范围：[S0 极简 MVP 迭代与验收计划](./doc/implementation/S0-MVP-迭代计划.md)。
 
-**安全范围**：B0 的 JWT 与模型包权限仍为待审实现候选，缺少登录、权限管理及独立安全签收，仅适合隔离的本地开发环境；不在仓库中保存数据库密码，不得直接对外开放服务或接入生产数据。
+**安全范围**：本版本没有认证与权限控制，仅适合隔离的本地开发环境；不在仓库中保存数据库密码，不得直接对外开放服务或接入生产数据。
 
 工程目录与长期模块命名规范：[S0 模块规划](./doc/implementation/S0-工程模块规划与命名规范.md)；品牌及兼容性说明：[OntoForge · 砺元命名约定](./doc/implementation/OntoForge-品牌与工程命名约定.md)。

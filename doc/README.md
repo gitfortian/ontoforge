@@ -9,10 +9,14 @@
 > 设计方向：Enterprise-native Operational Ontology，连接 Object/Link、Data Binding、ObjectSet、Rule/Function、Decision、Policy、Action 与可追溯证据。**推理结论不等于行动授权**。
 
 - **[砺元本体产品与研发统一术语词汇表（256 个主词条）](./砺元本体产品统一术语词汇表.md)**：产品、UX、Java/React、测试与用户帮助统一用语；不是第二套架构。
-- [**MVP 全局功能总账与实现成熟度**](./implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)
+- **[当前已实现功能全景 AS-IS](./implementation/OntoForge-AS-IS-已实现功能全景-20261017.md)**：当前 main 中用户真正可操作的完整功能、成熟度、接口与证据；不替代 V1.3。
+- **[当前实际技术/数据/执行架构全景 AS-IS](./implementation/OntoForge-AS-IS-实际架构全景-20261017.md)**：运行模块、DB ER、重要调用链、部署与限制；不替代 V1.3。
+- [MVP 历史总账与未来范围 F01–F29](./implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)
 - [S0-MVP-0.3 本轮交付说明与下一步进度](./implementation/S0-MVP-0.3-交付说明-20261016.md)
 - [每轮交付说明模板](./implementation/交付说明模板.md)
 
+> **2026-10-17 AS-IS 代码状态补充**：历史架构/OFIP 描述中的“P1 尚未实现”是全功能层级；目前 main 已合并 #32/#33 的**本机 PG 测试数据两跳追溯子场景**。#17 B0 含真实候选代码但仍 Draft；#34 脱敏 CSV 导入候选已通过自动化但仍未合并。应参考上面的两份 AS-IS 盘点核对，不将这些当成正式架构签收。
+>
 ## 当前有效文件
 
 | 文档/合同 | 权威职责与状态 |
