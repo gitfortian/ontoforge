@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OntoForge M4 · Runtime 类型目录低保真原型</title>
+<style>
+:root{font-family:Arial,"Microsoft YaHei",sans-serif;color:#20242a;background:#f6f7f8}
+*{box-sizing:border-box}body{margin:0}button,select{font:inherit}
+.top{height:58px;background:white;border-bottom:1px solid #d3d6d9;display:flex;align-items:center;justify-content:space-between;padding:0 24px;gap:15px}
+.top small{color:#69737e}.layout{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:calc(100vh - 58px)}
+aside{background:#fafbfc;border-right:1px solid #d3d6d9;padding:22px 12px}
+aside strong{display:block;margin:0 12px 20px}.nav{display:block;text-align:left;width:100%;border:0;background:transparent;color:#49525b;border-radius:5px;padding:12px;cursor:pointer}.nav.active{background:#e9ecf0;color:#121921;font-weight:700}.nav[disabled]{cursor:not-allowed;opacity:.45}
+main{padding:28px;max-width:1250px;width:100%;margin:auto}.eyebrow{font-size:12px;letter-spacing:1px;color:#606b75}
+h1{font-size:24px;margin:8px 0}h2{font-size:18px;margin:0 0 8px}h3{font-size:16px;margin:0 0 12px}p{line-height:1.6}
+.sub{color:#67717c;font-size:14px}.bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:20px 0}
+button{border:1px solid #adb5bf;border-radius:5px;padding:9px 13px;background:#fff;color:#222;cursor:pointer}button:focus-visible{outline:2px solid #555}button.selected,button.primary{background:#303943;color:white;border-color:#303943}
+button:disabled{opacity:.45;cursor:not-allowed}.state{display:inline-flex;align-items:center;gap:7px;border:1px solid #adb5bf;border-radius:5px;padding:8px 11px;font-size:13px;background:white}
+.grid{display:grid;grid-template-columns:1fr 1.25fr;gap:14px}.panel{border:1px solid #d3d6d9;background:white;border-radius:7px;padding:20px;min-height:300px}
+.item{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;margin:8px 0;padding:15px;border:1px solid #d3d6d9;background:white}
+.item.current{background:#e9ecf0;border-color:#4e5b66}.item small{display:block;color:#66717c;margin-top:5px}
+.tag{border:1px solid #a3a9b0;background:#f6f7f8;border-radius:4px;padding:3px 7px;font-size:12px}
+.rows{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;border-bottom:1px solid #e1e4e7;padding:10px 7px}th{color:#5e6873}
+.alert{padding:15px;border:1px solid #9da5ac;background:#f0f2f3;border-radius:6px;margin:16px 0}.muted{color:#606b75}
+.footer{margin-top:25px;padding:15px;border-top:1px solid #d3d6d9;font-size:13px;color:#66717b}
+.toolbar{display:flex;gap:9px;flex-wrap:wrap;align-items:center}.review{display:flex;gap:8px;align-items:center;margin:10px 0;color:#5e6873;font-size:13px}
+@media(max-width:900px){.layout{display:block}aside{display:none}.grid{grid-template-columns:1fr}main{padding:16px}}
+</style>
+</head>
+<body>
+<div class="top"><div><b>OntoForge · 砺元</b> <small> / Native 本体建模 / 类型目录</small></div><div class="tag">M4 · UX-Low · 纯前端模拟</div></div>
+<div class="layout">
+<aside><strong>平台与建模</strong><button class="nav" disabled>系统概览</button><button class="nav active">本体建模</button><button class="nav" disabled>质量追溯（现有独立故事）</button><p class="sub" style="padding:12px">本原型仅验证运行时类型阅读路径，不提供编辑、绑定或查询。</p></aside>
+<main>
+<div class="eyebrow">模型包 / procurement.core / 运行时类型</div>
+<h1>运行时类型目录</h1>
+<p class="sub">仅查看已验证的 Native ObjectType 定义。没有绑定实例、没有正式发布，也没有 ObjectSet 查询。</p>
+<div class="toolbar" role="group" aria-label="类型来源">
+  <button id="draft" class="selected" onclick="switchSource('draft')">当前已验证草稿</button>
+  <button id="snapshot" onclick="switchSource('snapshot')">本地不可变快照</button>
+  <button onclick="setScenario('normal')">正常</button>
+  <button onclick="setScenario('invalid')">未通过校验</button>
+  <button onclick="setScenario('stale')">版本过期</button>
+  <button onclick="setScenario('denied')">无权限</button>
+  <button onclick="setScenario('empty')">空类型</button>
+</div>
+<div class="review"><label><input id="dirty" type="checkbox"> 模拟存在未保存编辑（切换来源时需要确认）</label></div>
+<div class="bar"><div class="state" id="sourceMeta">来源：VALIDATED_DRAFT · revision 3</div><div><button onclick="goBack()">← 返回模型包</button></div></div>
+<div id="notice" class="alert" hidden></div>
+<div class="grid" id="normalContent">
+  <section class="panel" aria-labelledby="typeTitle">
+    <h2 id="typeTitle">对象类型 <span class="tag" id="count">2 / 50</span></h2>
+    <p class="sub">从有效 Native Candidate 派生。选择一项查看只读详情。</p>
+    <div id="typeList"></div>
+  </section>
+  <section class="panel" aria-labelledby="detailTitle">
+    <h2 id="detailTitle">类型详情</h2>
+    <p class="sub" id="typeDesc"></p>
+    <div class="bar"><span class="state" id="typeRef"></span><span class="tag">未绑定 / 未正式发布</span></div>
+    <h3>属性及约束</h3>
+    <table class="rows"><thead><tr><th>字段（ID）</th><th>类型</th><th>必填</th><th>可检索</th></tr></thead><tbody id="propertyRows"></tbody></table>
+  </section>
+</div>
+<div class="footer">原型说明：所有数据均为固定演示数据；按钮只改变浏览器展示，不调用 Java / PG / REST。UX-Low 通过不代表 API 已实现，也不代表高保真已签收。</div>
+</main></div>
+<script>
+const types=[
+{id:'purchase-order-type',api:'PurchaseOrder',label:'采购单',pk:'order-id',properties:[['order-id','STRING',true,true],['amount','DECIMAL',true,false]]},
+{id:'supplier-type',api:'Supplier',label:'供应商',pk:'supplier-id',properties:[['supplier-id','STRING',true,true],['supplier-name','STRING',true,true],['status','ENUM',false,true]]}
+];
+let source='draft',scenario='normal',selected='supplier-type';
+function switchSource(next){
+ if(document.getElementById('dirty').checked && !window.confirm('存在未保存的编辑。确认切换来源？'))return;
+ source=next;scenario='normal';render();
+}
+function setScenario(next){scenario=next;render()}
+function goBack(){
+ if(document.getElementById('dirty').checked && !window.confirm('存在未保存编辑。确认返回？'))return;
+ window.alert('低保真演示：此处应返回既有模型包详情页，不创建第二套编辑器。');
+}
+function choose(id){selected=id;render()}
+function escapeText(x){return String(x).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function render(){
+ document.getElementById('draft').classList.toggle('selected',source==='draft');
+ document.getElementById('snapshot').classList.toggle('selected',source==='snapshot');
+ document.getElementById('sourceMeta').textContent=source==='draft'?'来源：VALIDATED_DRAFT · revision 3':'来源：LOCAL_SNAPSHOT_ONLY · snapshotId 123…abc · SHA-256 已核验';
+ const messages={invalid:'当前草稿不是 VALID。请回到建模工作台补齐缺失字段、保存并重新校验后再查看运行时类型。',stale:'草稿 revision 已变化。旧 revision=3 不再可作为当前草稿类型来源；请重新打开并校验最新修订。',denied:'当前身份无权读取该模型包。请联系工作区管理员获取权限（示意 403）。',empty:'该模型包没有可展示的对象类型。创建对象并通过模型校验后才能在此查看。'};
+ const hasError=scenario!=='normal';
+ const note=document.getElementById('notice');note.hidden=!hasError;note.textContent=messages[scenario]||'';
+ document.getElementById('normalContent').hidden=hasError;
+ if(hasError)return;
+ document.getElementById('typeList').innerHTML=types.map(x=>'<button class="item '+(x.id===selected?'current':'')+'" onclick="choose(\''+x.id+'\')"><span><b>'+escapeText(x.api)+'</b><small>'+escapeText(x.label)+' · '+escapeText(x.id)+'</small></span><span>›</span></button>').join('');
+ const current=types.find(t=>t.id===selected)||types[0];
+ document.getElementById('typeDesc').textContent=current.api+' / '+current.label+' · 主键：'+current.pk;
+ document.getElementById('typeRef').textContent='ObjectType.id = '+current.id;
+ document.getElementById('propertyRows').innerHTML=current.properties.map(p=>'<tr><td>'+escapeText(p[0])+'</td><td>'+escapeText(p[1])+'</td><td>'+(p[2]?'是':'否')+'</td><td>'+(p[3]?'是':'否')+'</td></tr>').join('');
+}
+render();
+</script>
+</body>
+</html>
