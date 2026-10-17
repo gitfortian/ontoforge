@@ -1,0 +1,68 @@
+name: MVP Quality CSV Local Import
+on:
+  pull_request:
+    paths:
+      - scripts/import-quality-test-data.ps1
+      - scripts/mvp-quality-csv/**
+      - .github/workflows/mvp-quality-csv-import.yml
+      - doc/implementation/MVP-脱敏工业测试CSV数据导入-20261017.md
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-syntax:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check Windows PowerShell 5.1 parser
+        shell: powershell
+        run: |
+          $tokens=$null
+          $errors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'scripts/import-quality-test-data.ps1').Path,[ref]$tokens,[ref]$errors)
+          if($errors.Count -ne 0){throw ($errors | Out-String)}
+          Write-Host 'Windows PowerShell 5.1 parser PASS'
+  postgres-import:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: ontoforge_test_quality
+          POSTGRES_USER: ontology
+          POSTGRES_PASSWORD: ontology_dev_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ontology -d ontoforge_test_quality"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      PGPASSWORD: ontology_dev_only
+    steps:
+      - uses: actions/checkout@v7
+      - name: Ensure PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
+      - name: Import sanitized CSV twice using actual PowerShell and PostgreSQL
+        shell: pwsh
+        run: |
+          ./scripts/import-quality-test-data.ps1 -Database ontoforge_test_quality -DbUser ontology
+          ./scripts/import-quality-test-data.ps1 -Database ontoforge_test_quality -DbUser ontology
+      - name: Check actual source rows and two-hop join
+        run: |
+          count=$(psql -X -qAt -v ON_ERROR_STOP=1 -h 127.0.0.1 -U ontology -d ontoforge_test_quality -c 'SELECT count(*) FROM demo_quality_lots')
+          test "$count" = 2 || exit 1
+          found=$(psql -X -qAt -v ON_ERROR_STOP=1 -h 127.0.0.1 -U ontology -d ontoforge_test_quality -c "SELECT o.sales_no FROM demo_quality_lots b JOIN demo_prod_jobs w ON w.job_no=b.job_ref JOIN demo_sales_orders o ON o.sales_no=w.sales_ref WHERE b.lot_no='LOT-701'")
+          test "$found" = SO-88 || exit 1
+      - name: Reject unsafe database selection
+        shell: pwsh
+        run: |
+          try {
+            ./scripts/import-quality-test-data.ps1 -Database production -DbUser ontology
+            throw 'Unsafe database unexpectedly accepted'
+          } catch {
+            if($_.Exception.Message -notmatch 'database must be'){throw}
+            Write-Host 'Non-test database rejected'
+          }
