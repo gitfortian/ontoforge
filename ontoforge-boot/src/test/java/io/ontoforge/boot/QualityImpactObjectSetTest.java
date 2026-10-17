@@ -2,6 +2,10 @@ package io.ontoforge.boot;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.ontoforge.boot.model.NativeDraftService;
+import java.util.UUID;
+import org.springframework.jdbc.core.JdbcTemplate;
 import java.net.URI;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -29,6 +33,8 @@ class QualityImpactObjectSetTest {
     @LocalServerPort int port;
     @Autowired TestRestTemplate http;
     @Autowired ObjectMapper mapper;
+    @Autowired NativeDraftService drafts;
+    @Autowired JdbcTemplate jdbc;
 
     private static final String SOURCE_MAP="""
         {"batchTable":"demo_impact_lots","batchId":"lot_no",
@@ -102,6 +108,38 @@ class QualityImpactObjectSetTest {
         assertThat(json(request("GET","/trace?batchId=LOT-900",null),409)
             .path("code").asText()).isEqualTo("AMBIGUOUS_RELATIONSHIP");
     }
+    private void reviseLink(UUID draftId,String linkId,String cardinality) throws Exception {
+        var existing=drafts.get(draftId);
+        ObjectNode editor=(ObjectNode)existing.editingContent().deepCopy();
+        for(JsonNode link:editor.path("linkTypes"))
+            if(linkId.equals(link.path("id").asText()))
+                ((ObjectNode)link).put("cardinality",cardinality);
+        var saved=drafts.save(draftId,existing.revision(),editor);
+        assertThat(drafts.validate(draftId,saved.revision()).status()).isEqualTo("VALID");
+        json(request("POST","/bind",SOURCE_MAP),200);
+    }
+
+    @Test void nativeCardinalityMustPermitOneBatchAndWorkWithManyLinks() throws Exception {
+        ready();
+        UUID draftId=jdbc.queryForObject(
+            "SELECT draft_id FROM native_package_draft WHERE package_id='manufacturing.quality'",
+            UUID.class);
+        try {
+            reviseLink(draftId,"batch-workorder","MANY_TO_ONE");
+            assertThat(json(request("GET","/trace-set?batchId=LOT-900",null),409)
+                .path("code").asText()).isEqualTo("ONTOLOGY_CARDINALITY_MISMATCH");
+            reviseLink(draftId,"batch-workorder","MANY_TO_MANY");
+            reviseLink(draftId,"workorder-order","MANY_TO_ONE");
+            assertThat(json(request("GET","/trace-set?batchId=LOT-900",null),409)
+                .path("code").asText()).isEqualTo("ONTOLOGY_CARDINALITY_MISMATCH");
+        } finally {
+            reviseLink(draftId,"batch-workorder","MANY_TO_MANY");
+            reviseLink(draftId,"workorder-order","MANY_TO_MANY");
+        }
+        assertThat(json(request("GET","/trace-set?batchId=LOT-900",null),200)
+            .path("pathCount").asLong()).isEqualTo(4);
+    }
+
     @Test void absentAndDisconnectedAndConflictingBatchFacts() throws Exception {
         ready();
         assertThat(json(request("GET","/trace-set?batchId=LOT-999",null),404)
