@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: ontoforge
+  http:
+    converters:
+      # Existing controllers and persisted JSON use Jackson 2 JsonNode.
+      preferred-json-mapper: jackson2
   datasource:
     # Windows native PostgreSQL is the default local development target.
     url: ${DB_URL:jdbc:postgresql://127.0.0.1:5432/ontoforge}
