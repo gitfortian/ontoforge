@@ -142,7 +142,7 @@ jobs:
           cp '${{ runner.temp }}/ontoforge-linktype-acceptance.json' /tmp/ontoforge-e2e-evidence/linktype-exercise-recheck-on-linux.json 2>/dev/null || true
           cp /tmp/ontoforge-api-restarted.log /tmp/ontoforge-e2e-evidence/backend-after-restart.log 2>/dev/null || true
           cp -r '${{ runner.temp }}/ontoforge-native-e2e-shots' /tmp/ontoforge-e2e-evidence/screenshots 2>/dev/null || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ontoforge-native-real-e2e

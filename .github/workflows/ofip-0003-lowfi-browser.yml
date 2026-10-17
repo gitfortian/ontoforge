@@ -36,7 +36,7 @@ jobs:
         run: python -m unittest discover -s doc/prototypes/tests -p 'test_ofip0003_snapshot_*.py' -v
       - name: Store screenshots on success and failure
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ofip-0003-low-highfi-chromium-screenshots
           path: '${{ runner.temp }}/ofip-0003-shots'

@@ -125,7 +125,7 @@ jobs:
         run: echo "PostgreSQL/Flyway PASS on $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload Surefire evidence (including failures)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ontoforge-s0-surefire
           path: ontoforge-boot/target/surefire-reports/
@@ -192,7 +192,7 @@ jobs:
         run: echo "POC smoke PASS on $(git rev-parse HEAD) (NOT deployed runtime)" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload actual research artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ontoforge-poc-smoke
           path: experiments/pg-runtime/artifacts/
