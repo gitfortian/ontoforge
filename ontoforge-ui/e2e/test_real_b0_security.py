@@ -63,6 +63,43 @@ class B0ProductionDecoderE2ETest(unittest.TestCase):
             finally:
                 browser.close()
 
+    def test_viewer_ui_has_no_create_and_displays_permission_guidance(self):
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
+            try:
+                page = browser.new_page(viewport={"width": 1280, "height": 900},
+                                        extra_http_headers=headers("viewer"))
+                page.goto("http://127.0.0.1:5173/#/model/packages")
+                page.get_by_role("heading", name="模型包", exact=True).wait_for()
+                self.assertEqual(page.get_by_role("button", name="创建模型包").count(), 0)
+                self.assertEqual(page.get_by_role("button", name="新建第一个模型包").count(), 0)
+                page.get_by_text("当前身份没有可编辑的模型包", exact=False).wait_for()
+            finally:
+                browser.close()
+
+    def test_editor_ui_chooses_only_explicitly_assigned_package(self):
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
+            try:
+                page = browser.new_page(viewport={"width": 1280, "height": 900},
+                                        extra_http_headers=headers())
+                page.goto("http://127.0.0.1:5173/#/model/packages")
+                page.get_by_role("heading", name="模型包", exact=True).wait_for()
+                page.get_by_role("button", name="创建模型包").click()
+                selector = page.locator("#authorized-package-choice")
+                self.assertGreater(selector.locator("option").count(), 1)
+                assigned = assigned_package()
+                selector.select_option(assigned)
+                self.assertEqual(page.locator("#create-package-id").input_value(), assigned)
+                page.locator("#create-package-id").fill("manufacturing.notassigned")
+                self.assertTrue(page.get_by_role("button", name="创建并继续").is_disabled())
+                selector.select_option(assigned)
+                self.assertTrue(page.get_by_role("button", name="创建并继续").is_enabled())
+            finally:
+                browser.close()
+
     def test_unsigned_and_invalid_signature_are_401_safe_json(self):
         self.assertEqual(request("/model/drafts"),
                          (401, {"code": "AUTHENTICATION_REQUIRED", "message": "需要登录后才能访问该资源"}))

@@ -157,3 +157,11 @@ psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d ontoforge_test_b0 `
 - F20：仅有操作前的当前权限判断与既有快照证据；正式审计轨迹尚未完成。
 - F25：ChangeSet/ReviewDecision 未实现；B1 仍未开始。
 - 生产 IdP 联调、操作者本地安装 UAT、权限迁移审批、人工安全签收和正式发布均为 **NOT RUN**。
+
+## 13. B0 登录后模型包授权接续
+
+已授权用户在模型包页面可查看来自 /api/me 的可信工作空间、角色及分配包数量。
+创建新草稿前，从已授权 EDITOR/OWNER 模型包中选择；前端对未分配模型包
+禁用创建并提示管理员授权，所有 API 仍以 PostgreSQL 中的实时权限校验为准。
+VIEWER/REVIEWER/PUBLISHER 等不具备草稿编辑权的角色不展示创建按钮。
+实际细粒度包级独立授权、成员管理 UI、企业 IdP 安全签收及生产发布仍未完成。

@@ -88,7 +88,7 @@ function App() {
     <main className="main">
       <div className="topline"><span>{model?'本体设计 / ObjectType':'平台基座 / 系统概览'}</span><span className="env-chip">{auth.kind==='ready'?'已验证身份：'+auth.identity?.displayName:'B0 · 认证待接入'}</span>{auth.kind==='ready'&&<button type="button" onClick={logout}>退出会话</button>}</div>
       {model?(auth.kind==='ready'
-        ? <NativeModelWorkspace onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>
+        ? <NativeModelWorkspace identity={auth.identity!} onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>
         : <section className="panel" aria-live="polite">
             <h1>可信身份验证</h1>
             <p>{auth.kind==='checking'?'正在核对身份…':auth.kind==='error'?auth.message:'访问模型包前，需要使用组织的 OIDC 账号登录。'}</p>
