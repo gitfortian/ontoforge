@@ -22,6 +22,8 @@
 
 ## S0-MVP-0.2：Windows 11 本机 PostgreSQL（默认开发方式）
 
+> **PR #17 / B0 分支增量（未合并 / Draft）**：本分支包含 OIDC PKCE 浏览器接续候选和管理员显式包授权脚本，详情见 [B0 实施说明](./doc/implementation/S0-MVP-0.5-B0-可信身份与模型包权限实施说明-20261016.md)。真实企业 IdP 安全签收、现有安装迁移及生产发布均未完成。
+
 > **PR #17 / B0 分支增量**：以下 S0 用户故事保留，但本分支启动还要求外部配置 `OIDC_ISSUER_URI`、`OIDC_JWK_SET_URI`、`OIDC_AUDIENCE`。模型 API 需要已授予模型包权限的有效 JWT；没有配置就拒绝启动，没有 Token 就返回 401。前端尚无 OIDC 登录/BFF。手工验收需外部设置 `ONTOFORGE_BEARER_TOKEN` 并为 Exercise 指定预授权 `-PackageId`；具体边界见 [B0 Draft 实施说明](./doc/implementation/S0-MVP-0.5-B0-可信身份与模型包权限实施说明-20261016.md)。该实现候选不表示 OFIP-0005 已获批准或可生产部署。
 
 准备：Java 21、Maven、Node.js 22（至少 22.12）、已安装运行的**本机 PostgreSQL**，不需要 Docker Desktop。前端使用提交的依赖锁文件和 `npm ci`。

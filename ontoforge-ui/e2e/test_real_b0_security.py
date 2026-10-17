@@ -21,6 +21,21 @@ def request(path, auth=None, method="GET", payload=None):
 
 
 class B0ProductionDecoderE2ETest(unittest.TestCase):
+    def test_unauthenticated_browser_cannot_enter_model_workspace(self):
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True, args=['--no-sandbox'])
+            try:
+                page = browser.new_page(viewport={'width': 1280, 'height': 900})
+                page.goto('http://127.0.0.1:5173/#/model/packages')
+                page.get_by_role('heading', name='可信身份验证').wait_for()
+                self.assertEqual(page.get_by_role('button', name='创建模型包').count(), 0)
+                self.assertEqual(page.locator('#obj-id').count(), 0)
+                response = page.request.get(BASE + '/model/drafts')
+                self.assertEqual(response.status, 401)
+            finally:
+                browser.close()
+
     def test_unsigned_and_invalid_signature_are_401_safe_json(self):
         self.assertEqual(request("/model/drafts"),
                          (401, {"code": "AUTHENTICATION_REQUIRED", "message": "需要登录后才能访问该资源"}))

@@ -107,3 +107,53 @@ B0 完成后进入 B1：模型变更与真实审核。
 B1 完成：提交模型变更、固定候选内容、质量检查、审核、退回、拒绝、批准。
 
 再进入 B2：正式版本、生效与安全回退。
+
+## 10. B0 OIDC 登录接续（开发候选，不是正式产品发布）
+
+已新增 Authorization Code + PKCE 公共 SPA 登录路径：Vite 构建时设置
+`VITE_OIDC_CLIENT_ID`、`VITE_OIDC_AUTHORIZATION_ENDPOINT`、`VITE_OIDC_TOKEN_ENDPOINT`，
+可选 `VITE_OIDC_SCOPE`（默认 `openid`）。在企业 IdP 注册 Redirect URI 为
+前端实际 origin + pathname；Windows 本地示例为 `http://127.0.0.1:5173/`。
+IdP 必须明确允许公共 SPA Client、PKCE S256、授权码模式、浏览器 Token Endpoint CORS，
+并签发包含 OntoForge API audience 的短期 Bearer **访问令牌**（而不是拿 ID Token 访问 API）。
+后端以受信 issuer / JWKS / audience 独立验证，页面仅消费 `/api/me` 的服务端身份/权限。
+
+前端强制校验 OAuth state、五分钟回调时限、PKCE SHA-256；访问令牌只存于页面内存，
+不写 localStorage，不保存长期刷新令牌。刷新页面后需要重新登录；未配置 IdP 时阻止进入
+模型工作台，401 发生时清除令牌、重新要求认证。不可用 `X-User-Id` 或 `X-Role` 冒充。
+企业真实 IdP 联调、Token 生命周期、CSP、安全威胁建模及生产 TLS/会话设计
+**尚未验收，不得标为生产 SSO 已完成**。CI 浏览器通过 Playwright 注入真实签名 Bearer
+验证页面/API/PG 路径，与企业 IdP 的完整重定向测试是两件事。
+
+## 11. 既有模型包管理员显式归属与初始化
+
+Flyway V4 只创建 Workspace / Principal / Membership / Package Assignment 表，
+不会自动认领任何旧 Draft/Snapshot。数据库管理员可在独立测试库使用
+`scripts/b0-provision.psql` 明确授予指定主体某个工作空间角色，并显式分配一个模型包：
+
+```powershell
+psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d ontoforge_test_b0 `
+  -v workspace_key=quality -v workspace_name="质量模型组" `
+  -v issuer="https://your-idp.example/real-issuer" -v subject="exact-oidc-subject" `
+  -v display_name="测试建模用户" -v role=EDITOR `
+  -v package_id=manufacturing.quality -f scripts/b0-provision.psql
+```
+
+这条命令是测试库示例，不应复制到现有生产库。脚本单一事务、参数校验、原有归属不变：
+已绑定其他 Workspace 的同名包会抛错并回滚；同工作空间重试是幂等的；没有删表、
+迁移旧快照、禁用 ACL 或匿名后门。执行者必须拥有足够的数据库管理员权限。
+将旧 packageId 输入上例即可显式归属，不修改既有 draftId、revision、snapshotId 和摘要。
+
+当前授权颗粒度为 **Workspace Membership × Workspace Package Assignment**，
+不是用户对单个包的独立授权。加入工作空间将按角色继承该空间全部已分配模型包；
+因此每个 Workspace 的成员和包都必须由管理员核实，跨部门应使用不同工作空间。
+命令行主体 subject、目标库、审批单、运行时间及输出回执应记录在运维审计中，
+真实用户权限管理 UI/撤权工作流留待后续治理阶段。
+
+## 12. 本轮门槛与功能映射
+
+- F01/F19：真实 JWT 验签、/api/me、Workspace/Package 操作授权已有候选实现；前端 OIDC PKCE 登录候选接续。
+- F02/F04：现有草稿、校验、快照、Diff API 接入包级鉴权；不将本地快照说成正式发行。
+- F20：仅有操作前的当前权限判断与既有快照证据；正式审计轨迹尚未完成。
+- F25：ChangeSet/ReviewDecision 未实现；B1 仍未开始。
+- 生产 IdP 联调、操作者本地安装 UAT、权限迁移审批、人工安全签收和正式发布均为 **NOT RUN**。
