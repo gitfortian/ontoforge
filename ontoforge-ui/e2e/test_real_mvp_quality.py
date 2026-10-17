@@ -35,7 +35,7 @@ class QualityMvpRealBrowserTest(unittest.TestCase):
                 page.get_by_text("绑定已保存 PostgreSQL",exact=False).wait_for()
                 page.get_by_role("button",name="查询影响订单").click()
                 result=page.get_by_label("真实关联查询结果")
-                result.get_by_text("ORD-9001").wait_for()
+                result.get_by_text("ORD-9001", exact=True).first.wait_for()
                 self.assertIn("WO-1001",result.inner_text())
                 self.assertIn("mvp_source_batches",result.inner_text())
                 self.assertIn("mvp_source_work_orders.work_order_id",result.inner_text())
