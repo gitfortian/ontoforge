@@ -45,7 +45,13 @@ class B0ProductionDecoderE2ETest(unittest.TestCase):
                 page.goto("http://127.0.0.1:5173/#/model/packages")
                 page.get_by_role("heading", name="可信身份验证").wait_for()
                 page.get_by_role("button", name="使用组织账号登录").click()
-                page.get_by_role("heading", name="模型包", exact=True).wait_for(timeout=20000)
+                try:
+                    page.get_by_role("heading", name="模型包", exact=True).wait_for(timeout=20000)
+                except Exception:
+                    # No access tokens, authorization codes, or secrets are logged.
+                    print("OIDC_FAIL_PATH:", page.url.split("?")[0])
+                    print("OIDC_FAIL_SCREEN:", page.locator("body").inner_text()[:650])
+                    raise
                 self.assertEqual(page.get_by_role("button", name="创建模型包").count(), 1)
                 self.assertNotIn("code=", page.url, "OAuth code must be scrubbed from URL")
                 self.assertIn("#/model/packages", page.url)
