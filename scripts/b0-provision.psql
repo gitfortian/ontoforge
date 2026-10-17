@@ -1,0 +1,73 @@
+\set ON_ERROR_STOP on
+-- Explicit B0 operator provisioning; PostgreSQL/psql; never run on production without approval.
+-- Mandatory -v parameters: workspace_key workspace_name issuer subject display_name role package_id.
+BEGIN;
+SELECT
+  set_config('ontoforge.b0.workspace_key', :'workspace_key', true),
+  set_config('ontoforge.b0.workspace_name', :'workspace_name', true),
+  set_config('ontoforge.b0.issuer', :'issuer', true),
+  set_config('ontoforge.b0.subject', :'subject', true),
+  set_config('ontoforge.b0.display_name', :'display_name', true),
+  set_config('ontoforge.b0.role', :'role', true),
+  set_config('ontoforge.b0.package_id', :'package_id', true);
+DO $b0$
+DECLARE
+  v_workspace_key text := current_setting('ontoforge.b0.workspace_key');
+  v_workspace_name text := current_setting('ontoforge.b0.workspace_name');
+  v_issuer text := current_setting('ontoforge.b0.issuer');
+  v_subject text := current_setting('ontoforge.b0.subject');
+  v_name text := current_setting('ontoforge.b0.display_name');
+  v_role text := current_setting('ontoforge.b0.role');
+  v_package text := current_setting('ontoforge.b0.package_id');
+  v_workspace uuid;
+  v_principal uuid;
+BEGIN
+  IF length(trim(v_workspace_key)) NOT BETWEEN 2 AND 100
+    OR v_workspace_key !~ '^[a-z][a-z0-9-]+$'
+    OR length(trim(v_workspace_name)) NOT BETWEEN 1 AND 160
+    OR length(trim(v_issuer)) NOT BETWEEN 8 AND 512
+    OR length(trim(v_subject)) NOT BETWEEN 1 AND 512
+    OR length(trim(v_name)) NOT BETWEEN 1 AND 160
+    OR length(v_package) > 160
+    OR v_package !~ '^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$'
+    OR v_role NOT IN ('VIEWER','EDITOR','REVIEWER','PUBLISHER','ACTIVATOR','OWNER') THEN
+    RAISE EXCEPTION 'Invalid B0 provisioning parameters' USING ERRCODE='22023';
+  END IF;
+  IF v_issuer !~ '^https://' AND v_issuer !~ '^http://(127\.0\.0\.1|localhost)(:[0-9]+)?(/|$)' THEN
+    RAISE EXCEPTION 'Issuer must use HTTPS, except explicit loopback test issuer';
+  END IF;
+  INSERT INTO b0_workspace(workspace_id,workspace_key,display_name)
+    VALUES (gen_random_uuid(),v_workspace_key,v_workspace_name)
+    ON CONFLICT (workspace_key) DO NOTHING;
+  SELECT workspace_id INTO STRICT v_workspace
+    FROM b0_workspace WHERE workspace_key=v_workspace_key FOR UPDATE;
+  INSERT INTO b0_principal(principal_id,issuer,subject,display_name)
+    VALUES (gen_random_uuid(),v_issuer,v_subject,v_name)
+    ON CONFLICT (issuer,subject) DO NOTHING;
+  SELECT principal_id INTO STRICT v_principal
+    FROM b0_principal WHERE issuer=v_issuer AND subject=v_subject;
+  IF EXISTS (SELECT 1 FROM b0_package_assignment
+       WHERE package_id=v_package AND workspace_id<>v_workspace) THEN
+    RAISE EXCEPTION 'Package already belongs to another workspace; manual review required';
+  END IF;
+  INSERT INTO b0_package_assignment(workspace_id,package_id)
+    VALUES (v_workspace,v_package) ON CONFLICT (package_id) DO NOTHING;
+  IF NOT EXISTS (SELECT 1 FROM b0_package_assignment
+       WHERE package_id=v_package AND workspace_id=v_workspace) THEN
+    RAISE EXCEPTION 'Package assignment was not confirmed';
+  END IF;
+  INSERT INTO b0_workspace_membership(workspace_id,principal_id,role)
+    VALUES (v_workspace,v_principal,v_role) ON CONFLICT DO NOTHING;
+END
+$b0$;
+SELECT w.workspace_key,a.package_id,wm.role,'EXPLICIT_GRANT_RECORDED' AS result
+FROM b0_workspace w
+JOIN b0_package_assignment a ON a.workspace_id=w.workspace_id
+JOIN b0_workspace_membership wm ON wm.workspace_id=w.workspace_id
+JOIN b0_principal p ON p.principal_id=wm.principal_id
+WHERE w.workspace_key=current_setting('ontoforge.b0.workspace_key')
+  AND a.package_id=current_setting('ontoforge.b0.package_id')
+  AND wm.role=current_setting('ontoforge.b0.role')
+  AND p.issuer=current_setting('ontoforge.b0.issuer')
+  AND p.subject=current_setting('ontoforge.b0.subject');
+COMMIT;
