@@ -20,13 +20,37 @@
 - [S0-MVP-0.3 功能说明与全面 Review 验收矩阵](./doc/implementation/S0-MVP-0.3-功能说明与全面Review验收矩阵.md)
 - [PostgreSQL ObjectSet / Action Outbox 研究实验](./experiments/pg-runtime/README.md)
 
-> **2026-10-17 当前 main 更新**：#32 与 #33 已合并；除下述历史 0.2–0.4 建模与本地快照之外，**已具备隔离测试数据的制造质量追溯三步闭环**（可选 `demo_*` 测试表、真实样本预览、PG 绑定及双跳查询）。**不等于生产数据源、通用 ObjectSet、企业登录或 Agent 已完成**。当前完整可验证状态请优先读上面的两份 AS-IS 全景文档；#34 脱敏 CSV 导入与 #35 AS-IS 文档均已合并，#17 B0 是单独的**未合并候选**。下方 S0.2–0.4 章节属于历史实现说明。
+> **2026-10-17 当前 main 更新**：#32 与 #33 已合并；除下述历史 0.2–0.4 建模与本地快照之外，**已具备隔离测试数据的制造质量追溯三步闭环**（可选 `demo_*` 测试表、真实样本预览、PG 绑定及双跳查询）。**不等于生产数据源、通用 ObjectSet、企业登录或 Agent 已完成**。当前完整可验证状态请优先读上面的两份 AS-IS 全景文档；#34 脱敏 CSV 导入与 #35 AS-IS 文档均已合并，#17 B0 **已合并但不再是精简 MVP 的认证研发方向**。下方 S0.2–0.4 章节属于历史实现说明。
 >
 > **S0-MVP-0.2/0.3/0.4 真实建模代码已合并 main（PR #7 / #11 / #13）**：可定义同包多个 ObjectType 与 LinkType、保存草稿、完整性检查、留存不可变本地历史及比较风险。当前环境证据统一见[产品进度总账](./doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)，区分 Windows 隔离自动化与用户既有安装人工验收。**未正式发布；没有身份权限、真实业务数据绑定、ObjectSet 生产查询或 Action**。
 
+## 当前精简 MVP：无需登录的本机隔离运行（需显式启用）
+
+**开发优先级已调整**：本体定义 → 测试数据绑定 → ObjectSet/多结果查询 → 工业业务追溯。登录、用户和角色不是 MVP 核心能力；未来优先复用 [yak-ops](https://github.com/weifuwan/yak-ops) 的 `HttpSession` 认证，而不是单独开发 OntoForge 身份产品。
+
+#17 的 JWT/OIDC 已经合并 main，**没有直接删除或改写已执行的 Flyway V5**。本 PR 增加单独的 `mvp-local` Spring Profile（**不是默认开启**），把本地建模和追溯从企业 OIDC 的前置要求中释放出来，已有 JWT 分支先作为独立兼容运行方式保留，不当做今后优选方向。
+
+仅在自己的 Windows 11 本机新建 **`ontoforge_test_quality`** PostgreSQL 测试数据库，设置后端环境变量：
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE = 'mvp-local'
+$env:DB_URL = 'jdbc:postgresql://127.0.0.1:5432/ontoforge_test_quality'
+$env:DB_USERNAME = 'postgres'
+$env:DB_PASSWORD = [System.Net.NetworkCredential]::new('', (Read-Host 'Local test PostgreSQL password' -AsSecureString)).Password
+mvn -pl ontoforge-boot spring-boot:run
+# 第二终端：cd ontoforge-ui; npm ci; npm run dev
+# 浏览器访问 http://127.0.0.1:5173/#/model/packages
+```
+
+此模式后端只接受 `server.address=127.0.0.1/localhost` 和本机 `ontoforge` / `ontoforge_test_*` 数据库；**不需要 OIDC 配置、Token、管理员预分配模型包**，但没有多用户权限边界。UI 显示“本机隔离 MVP”，可自行创建草稿、编辑/校验/冻结和进入质量追溯。不能使用公网代理、隧道或端口转发，不能接生产数据；需要更严格隔离时请只用 `ontoforge_test_*` 库。
+
+不启用 `mvp-local` 的原有 JWT/OIDC 路径仍 **fail-closed**，必须配置 IdP，不得因本地体验而全局放行。
+
+详细决策、[yak-ops](https://github.com/weifuwan/yak-ops) 复用边界和 ObjectSet 下一步任务见[核心 MVP 优先级与认证复用决策](./doc/implementation/MVP-核心优先与yak-ops认证复用决策-20261017.md)。
+
 ## S0-MVP-0.2：Windows 11 本机 PostgreSQL（默认开发方式）
 
-> **PR #17 / B0 分支候选，尚未合并 main、尚未发布**：本分支在原有建模、快照和质量追溯上叠加 OIDC/JWT 与模型包授权。服务端依赖 `OIDC_ISSUER_URI`、`OIDC_JWK_SET_URI`、`OIDC_AUDIENCE`，且模型包 `manufacturing.quality` 需显式授权；不能匿名访问本体或追溯 API。该分支将权限库表放入新增 Flyway **V5**，既有测试来源数据仍由 V4 管理。浏览器接续方式和操作要求见 [B0 实施说明](./doc/implementation/S0-MVP-0.5-B0-可信身份与模型包权限实施说明-20261016.md)。本节下方不带 OIDC 的启动示例仅适用于已合并的本机 `main`：**在 #17 分支运行还须配置可信 IdP 与测试包成员权限**；不得连接生产 MES/ERP 或误把 B0 测试 IdP 视为企业已验收。
+> **历史说明：#17 已合并，旧 B0/JWT 运行方式非当前 MVP 默认路径、未获生产签收**：本分支在原有建模、快照和质量追溯上叠加 OIDC/JWT 与模型包授权。服务端依赖 `OIDC_ISSUER_URI`、`OIDC_JWK_SET_URI`、`OIDC_AUDIENCE`，且模型包 `manufacturing.quality` 需显式授权；不能匿名访问本体或追溯 API。该分支将权限库表放入新增 Flyway **V5**，既有测试来源数据仍由 V4 管理。浏览器接续方式和操作要求见 [B0 实施说明](./doc/implementation/S0-MVP-0.5-B0-可信身份与模型包权限实施说明-20261016.md)。本节下方的旧无 Profile 启动示例是历史记录；现请优先采用上面的显式 `mvp-local` 开发流程；若不用该 Profile，仍须配置可信 IdP 与测试包成员权限；不得连接生产 MES/ERP 或误把 B0 测试 IdP 视为企业已验收。
 
 准备：Java 21、Maven、Node.js 22（至少 22.12）、已安装运行的**本机 PostgreSQL**，不需要 Docker Desktop。前端使用提交的依赖锁文件和 `npm ci`。
 

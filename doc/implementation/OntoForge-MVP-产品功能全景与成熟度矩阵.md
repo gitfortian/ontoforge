@@ -1,8 +1,10 @@
 # OntoForge · MVP 功能全景、预期效果与实现成熟度
 
-> **PR #17 与新主线冲突收口（2026-10-17，候选分支）**：以最新 `main`（包括已合并 #34 脱敏 CSV 与 #35 已实现功能/架构全景）为基础；保留 B0/OIDC 的服务端登录、模型包授权和 Flyway V5。**#17 不是已合并/正式发布的身份系统**；安全端点必须使用有效 JWT 及 `manufacturing.quality` 包的显式权限，不能因测试数据导入而开放匿名访问。当前实际功能与架构请以 [功能 AS-IS](./OntoForge-AS-IS-已实现功能全景-20261017.md)及[架构 AS-IS](./OntoForge-AS-IS-实际架构全景-20261017.md)为准。
+> **2026-10-17 核心 MVP 最新实施方向**：优先交付 Native 建模、测试数据绑定与 ObjectSet 多结果业务追溯；#17 虽已合并，但其 OIDC/JWT 不再作为本机 MVP 的必要前置要求。使用单独的 `mvp-local` 隔离开发配置恢复无登录用户流程；后续通用登录复用 [yak-ops HttpSession](https://github.com/weifuwan/yak-ops)。详情见[核心优先与认证复用决策](./MVP-核心优先与yak-ops认证复用决策-20261017.md)。本文历史表格中的“无企业安全/业务源”仍成立。
 >
-> **2026-10-17 最新精简 MVP 方向（优先于本文后续历史阶段记账）：** [PR #32](https://github.com/gitfortian/ontoforge/pull/32) 已合并 `main`，真实 Spring Boot + PostgreSQL + Chromium 验证了生产批次 → 工单 → 客户订单的**合成数据**模型、绑定、两跳关系查询。不是 P1 正式工业连接器。[PR #33](https://github.com/gitfortian/ontoforge/pull/33) **已合并 main**：把写死的表和字段改成 `public.demo_*` / `mvp_source_*` 测试表可选映射，并可在保存前预览真实样本与一条关联；不是完整通用数据连接器。B0 [PR #17](https://github.com/gitfortian/ontoforge/pull/17) 仍为未合并的身份授权候选，与本机 MVP 的正式发布状态分开管理。下文中“未实现业务查询”的旧描述是历史评审快照，不代表 2026-10-17 `main` 的状态；可选测试表查询也不代表工业现场系统、企业安全或 Agent 已完成。
+> **PR #17 与新主线冲突收口（2026-10-17，候选分支）**：以最新 `main`（包括已合并 #34 脱敏 CSV 与 #35 已实现功能/架构全景）为基础；保留 B0/OIDC 的服务端登录、模型包授权和 Flyway V5。**#17 已合并代码，但不是正式发布的身份系统**；安全端点必须使用有效 JWT 及 `manufacturing.quality` 包的显式权限，不能因测试数据导入而开放匿名访问。当前实际功能与架构请以 [功能 AS-IS](./OntoForge-AS-IS-已实现功能全景-20261017.md)及[架构 AS-IS](./OntoForge-AS-IS-实际架构全景-20261017.md)为准。
+>
+> **2026-10-17 最新精简 MVP 方向（优先于本文后续历史阶段记账）：** [PR #32](https://github.com/gitfortian/ontoforge/pull/32) 已合并 `main`，真实 Spring Boot + PostgreSQL + Chromium 验证了生产批次 → 工单 → 客户订单的**合成数据**模型、绑定、两跳关系查询。不是 P1 正式工业连接器。[PR #33](https://github.com/gitfortian/ontoforge/pull/33) **已合并 main**：把写死的表和字段改成 `public.demo_*` / `mvp_source_*` 测试表可选映射，并可在保存前预览真实样本与一条关联；不是完整通用数据连接器。B0 [PR #17](https://github.com/gitfortian/ontoforge/pull/17) **已合并但改变了本机启动前置依赖**；现采用本机明确 opt-in profile 恢复无登录 MVP，未来登录优先复用 yak-ops HttpSession，而非继续自研 JWT/OIDC。下文中“未实现业务查询”的旧描述是历史评审快照，不代表 2026-10-17 `main` 的状态；可选测试表查询也不代表工业现场系统、企业安全或 Agent 已完成。
 >
 > | 近期交付 | 全局功能映射 | 用户可实际操作 | 成熟度与边界 |
 > | --- | --- | --- | --- |

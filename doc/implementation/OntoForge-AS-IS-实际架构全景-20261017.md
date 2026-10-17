@@ -6,6 +6,8 @@
 >
 > **版本分界**：PR #32/#33 已合并；PR #17（B0 OIDC/JWT，Draft）及 PR #34（CSV 导入，Ready for review）均**未合并**，不得列入本部署图或应用依赖。
 
+> **主线演进更正（2026-10-17）**：本页原始 AS-IS 冻结于 `763fbfe...`（#17 合并前）；之后 #34 CSV 导入、#35 全景说明及 **#17 B0 OIDC/JWT 与 Flyway V5** 已合并 `main`。因此下方“当前 main 没有身份认证”“V1–V4”只代表**旧冻结基线**，不能再被引用为最新主线实际状态。#17 的 B0 代码虽已合并，仍未经企业 IdP/生产签收，且其缺少 OIDC 配置会阻塞无登录启动。本轮实施的 `mvp-local` 本机隔离 Profile **仅是当前 PR 的待合并候选**，详情见[实施决策](./MVP-核心优先与yak-ops认证复用决策-20261017.md)。未来 yak-ops HttpSession 复用还未移植实现。
+>
 ## 1. 架构总览：实际是一个本机三层模块化单体
 
 当前只有 **Maven Parent + `ontoforge-boot` 一个 Java 运行模块 + 独立 `ontoforge-ui` 前端工程 + 一套 PostgreSQL 17**。应用不存在单独的服务发现、微服务、消息队列、图数据库、独立 ObjectSet Runtime 或 Action Worker。

@@ -21,6 +21,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 
 /** B0 trusted authentication boundary. No request header or JSON field is an identity or role. */
 @Configuration
+@Profile("!mvp-local")
 @EnableMethodSecurity
 public class SecurityConfig {
 
