@@ -82,7 +82,7 @@ public class NativeDraftController {
 }
 
 /** Uniform safe errors; never expose SQL, passwords, stack traces or an artificial success. */
-@RestControllerAdvice(assignableTypes={NativeDraftController.class,NativeSnapshotController.class})
+@RestControllerAdvice(assignableTypes={NativeDraftController.class,NativeSnapshotController.class,QualityMvpController.class})
 class DraftErrorAdvice {
     record ApiError(String code,String message,List<io.ontoforge.boot.model.DraftValidation.Issue> issues) {}
     @ExceptionHandler(DraftFailure.class)
