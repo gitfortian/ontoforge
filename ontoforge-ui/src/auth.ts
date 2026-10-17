@@ -104,7 +104,7 @@ export async function authorizedFetch(input:RequestInfo|URL,init:RequestInit={})
   if(accessToken && Date.now()<expiresAt-15000)headers.set('Authorization','Bearer '+accessToken);
   else {accessToken=null;expiresAt=0;}
   const response=await fetch(input,{...init,headers,credentials:'omit'});
-  if(response.status===401 && String(input).startsWith('/api/model/')){
+  if(response.status===401 && (String(input).startsWith('/api/model/')||String(input).startsWith('/api/mvp/'))){
     forget();window.dispatchEvent(new Event('ontoforge-auth-expired'));
   }
   return response;

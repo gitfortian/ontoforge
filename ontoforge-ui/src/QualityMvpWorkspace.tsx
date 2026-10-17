@@ -1,4 +1,5 @@
 import React, {useEffect,useState} from 'react';
+import {authorizedFetch} from './auth';
 import {ArrowRight, Blocks, Database, GitBranch, RefreshCw, Search} from 'lucide-react';
 import './model.css';
 
@@ -31,7 +32,7 @@ type Trace={batchId:string;qualityStatus:string;
 type ApiError={code?:string;message?:string};
 const api='/api/mvp/quality';
 async function invoke<T>(route:string,method='GET',body?:unknown):Promise<T>{
-  const response=await fetch(api+route,{method,cache:'no-store',
+  const response=await authorizedFetch(api+route,{method,cache:'no-store',
     headers:body===undefined?undefined:{'Content-Type':'application/json'},
     body:body===undefined?undefined:JSON.stringify(body)});
   const result=await response.json() as T&ApiError;
@@ -122,7 +123,7 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
       </div>
       <button className="model-btn" onClick={()=>void run(reload,()=>{})} disabled={busy}><RefreshCw size={15}/> 更新状态</button>
     </div>
-    <div className="model-alert warning">隔离演示：本机开发用合成数据，不连接真实 MES/ERP，不提供企业权限、正式发布、Agent 或 Action。</div>
+    <div className="model-alert warning">B0 候选需要可信组织身份及 manufacturing.quality 包授权。仅用于本机测试数据；没有正式发布、Agent 或 Action。</div>
     {error&&<div role="alert" className="model-alert error">{error}</div>}
     {loading&&<p>正在读取本地 PostgreSQL 状态…</p>}
     <section className="model-panel">

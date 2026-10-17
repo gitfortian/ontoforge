@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.ontoforge.boot.model.NativeDraftService;
+import io.ontoforge.boot.security.B0AuthorizationService;
+import org.springframework.security.core.Authentication;
 import io.ontoforge.boot.model.DraftValidation;
 import io.ontoforge.boot.model.NativeDraftService.DraftFailure;
 import java.util.List;
@@ -45,9 +47,17 @@ public class QualityMvpController {
     private final JdbcTemplate jdbc;
     private final NativeDraftService drafts;
     private final ObjectMapper json;
+    private final B0AuthorizationService authorization;
 
-    public QualityMvpController(JdbcTemplate jdbc, NativeDraftService drafts, ObjectMapper json) {
-        this.jdbc = jdbc; this.drafts = drafts; this.json = json;
+    public QualityMvpController(JdbcTemplate jdbc, NativeDraftService drafts, ObjectMapper json,
+                                B0AuthorizationService authorization) {
+        this.jdbc = jdbc; this.drafts = drafts; this.json = json; this.authorization=authorization;
+    }
+    private void readAllowed(Authentication auth) {
+        authorization.requirePackage(auth,PACKAGE,B0AuthorizationService.Operation.READ_DRAFT);
+    }
+    private void writeAllowed(Authentication auth) {
+        authorization.requirePackage(auth,PACKAGE,B0AuthorizationService.Operation.WRITE_DRAFT);
     }
 
     public record Status(String packageId, String draftId, Long revision,
@@ -60,7 +70,11 @@ public class QualityMvpController {
                         List<Edge> links, String provenance) {}
 
     @GetMapping("/sources")
-    public List<TableInfo> sources(){
+    public List<TableInfo> sources(Authentication auth){
+        readAllowed(auth);
+        return sourcesInternal();
+    }
+    private List<TableInfo> sourcesInternal(){
         Map<String,List<String>> tables=new LinkedHashMap<>();
         jdbc.query("""
             SELECT c.table_name,c.column_name,c.data_type FROM information_schema.columns c
@@ -94,7 +108,7 @@ public class QualityMvpController {
     }
     private void validateSource(Mapping m){
         Map<String,List<String>> tables=new LinkedHashMap<>();
-        for(TableInfo t:sources())tables.put(t.table(),t.columns());
+        for(TableInfo t:sourcesInternal())tables.put(t.table(),t.columns());
         // A single table playing multiple semantic roles is unsupported in this MVP.
         if(List.of(m.batchTable(),m.workTable(),m.orderTable()).stream().distinct().count()!=3)
             throw fail(422,"SOURCE_SCHEMA_MISMATCH","请选择三张不同的测试表");
@@ -118,7 +132,9 @@ public class QualityMvpController {
         }
     }
     @GetMapping("/binding")
-    public Mapping binding(){return savedMapping();}
+    public Mapping binding(Authentication auth){
+        readAllowed(auth);return savedMapping();
+    }
 
     public record SourceSample(String id,String attribute,String relatedId) {}
     public record LinkedSample(String batchId,String workOrderId,String orderId) {}
@@ -130,7 +146,8 @@ public class QualityMvpController {
      * This is intentionally NOT a data-quality score or a claim that all rows link.
      */
     @PostMapping("/preview")
-    public SourcePreview preview(@RequestBody JsonNode requested){
+    public SourcePreview preview(@RequestBody JsonNode requested,Authentication auth){
+        readAllowed(auth);
         Mapping m=parseMapping(requested);
         validateSource(m);  // The only path from external identifiers into SQL.
         List<SourceSample> batches=sample(m.batchTable(),m.batchId(),
@@ -167,7 +184,8 @@ public class QualityMvpController {
     }
 
     @GetMapping("/status")
-    public Status status() {
+    public Status status(Authentication auth) {
+        readAllowed(auth);
         UUID id = existingDraft();
         if (id == null) return new Status(PACKAGE,null,null,"NOT_CREATED",false,"B2026-001");
         var draft = drafts.get(id);
@@ -180,7 +198,8 @@ public class QualityMvpController {
     }
 
     @PostMapping("/model")
-    public Status prepareModel() {
+    public Status prepareModel(Authentication auth) {
+        writeAllowed(auth);
         UUID id = existingDraft();
         if (id == null) {
             try { id = UUID.fromString(drafts.create(PACKAGE).draftId()); }
@@ -196,11 +215,12 @@ public class QualityMvpController {
                 drafts.validate(id,saved.revision());
             }
         }
-        return status();
+        return status(auth);
     }
 
     @PostMapping("/bind")
-    public Binding bind(@RequestBody(required=false) JsonNode chosen){
+    public Binding bind(@RequestBody(required=false) JsonNode chosen,Authentication auth){
+        writeAllowed(auth);
         UUID id=existingDraft();
         if(id==null)throw fail(409,"MODEL_REQUIRED","请先建立示例本体");
         var draft=drafts.get(id);
@@ -227,7 +247,8 @@ public class QualityMvpController {
     }
 
     @GetMapping("/trace")
-    public Trace trace(@RequestParam String batchId) {
+    public Trace trace(@RequestParam String batchId,Authentication auth) {
+        readAllowed(auth);
         if (batchId == null || !batchId.matches("[A-Za-z0-9-]{1,64}"))
             throw fail(400,"INVALID_BATCH_ID","批次号仅允许字母、数字和连字符，最多64位");
         UUID id = existingDraft();

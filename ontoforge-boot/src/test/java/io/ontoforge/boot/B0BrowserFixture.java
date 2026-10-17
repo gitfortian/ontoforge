@@ -209,8 +209,11 @@ public final class B0BrowserFixture {
                     insert.setObject(1, workspace); insert.setString(2, packageId.asText()); insert.executeUpdate();
                 }
             }
+            try(var insert=db.prepareStatement("INSERT INTO b0_package_assignment(workspace_id,package_id) VALUES (?,?)")){
+                insert.setObject(1,workspace);insert.setString(2,"manufacturing.quality");insert.executeUpdate();
+            }
             db.commit();
         }
-        System.out.println("Explicit editor/viewer/reviewer memberships and 64 isolated package assignments committed.");
+        System.out.println("Explicit memberships, 64 acceptance packages and quality MVP package committed.");
     }
 }
