@@ -106,6 +106,38 @@ class QualityMvpRealBrowserTest(unittest.TestCase):
                 ]
                 for field,value in config:
                     page.locator("#source-"+field).select_option(value)
+                # Preview uses the submitted mapping without persisting it.
+                expected_map={
+                    "batchTable":"demo_quality_lots","batchId":"lot_no",
+                    "batchStatus":"outcome","batchWorkOrder":"job_ref",
+                    "workTable":"demo_prod_jobs","workId":"job_no",
+                    "workOrder":"sales_ref","orderTable":"demo_sales_orders",
+                    "orderId":"sales_no","orderName":"buyer"}
+                code,preview=call("/preview","POST",expected_map)
+                self.assertEqual(code,200)
+                self.assertEqual(preview["batches"][0]["id"],"LOT-701")
+                self.assertEqual(preview["workOrders"][0]["id"],"JOB-77")
+                self.assertEqual(preview["orders"][0]["id"],"SO-88")
+                self.assertEqual(preview["linkedExample"]["orderId"],"SO-88")
+                # The existing source mapping is unchanged until explicit save.
+                before_save=call("/binding")[1]["batchTable"]
+                self.assertNotEqual(before_save,"demo_quality_lots")
+                page.get_by_role("button",name="预览真实样本与关联").click()
+                preview_panel=page.get_by_label("来源预览结果")
+                preview_panel.get_by_text("LOT-701",exact=True).first.wait_for()
+                self.assertIn("LOT-701 → JOB-77 → SO-88",preview_panel.inner_text())
+                self.assertIn("关联值 JOB-77",preview_panel.inner_text())
+                self.assertEqual(call("/binding")[1]["batchTable"],before_save)
+                # Prevent even a read-only preview from querying native internal tables.
+                bad={**expected_map,"orderTable":"native_package_draft"}
+                code,err=call("/preview","POST",bad)
+                self.assertEqual((code,err["code"]),(422,"SOURCE_SCHEMA_MISMATCH"))
+                # Updating a selected field clears the prior preview evidence.
+                page.locator("#source-orderName").select_option("sales_no")
+                self.assertEqual(preview_panel.count(),0)
+                page.locator("#source-orderName").select_option("buyer")
+                page.get_by_role("button",name="预览真实样本与关联").click()
+                preview_panel.get_by_text("LOT-701",exact=True).first.wait_for()
                 page.get_by_role("button",name="保存来源绑定").click()
                 page.get_by_text("绑定已保存 PostgreSQL",exact=False).wait_for()
                 code,saved=call("/binding")
