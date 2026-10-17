@@ -462,7 +462,7 @@ public class QualityMvpController {
                 throw new IllegalArgumentException("cursor mismatch");
             return new ImpactCursor(batchId,revision,fingerprint,
                 data.path("lastWork").asText(),data.path("lastOrder").asText());
-        } catch(IllegalArgumentException|com.fasterxml.jackson.core.JsonProcessingException ex) {
+        } catch(IllegalArgumentException|java.io.IOException ex) {
             throw fail(400,"INVALID_TRACE_CURSOR","分页游标无效，或绑定/模型修订已变更，请重新查询");
         }
     }
