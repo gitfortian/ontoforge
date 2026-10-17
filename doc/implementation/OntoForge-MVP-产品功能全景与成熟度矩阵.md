@@ -168,6 +168,7 @@ P0-B 不是一个孤立的“审批模块”。它补齐的是 P0 建模产品�
 | F01 / F19 身份与空间 | OIDC PKCE 公共浏览器登录候选，/api/me 服务端可信主体、工作空间/包清单 | 真实 RSA JWKS + Chromium 登录回调与 PostgreSQL | 企业 IdP/TLS/CSP、角色范围安全评审、生产运维 |
 | F01 / F05 包级入口 | 登录后可见工作空间、角色及分配数量；仅可从 EDITOR/OWNER 授权包创建草稿 | 两条新增 Chromium Editor/Viewer UX 回归 | 独立包级细粒度角色、Owner 权限 UI |
 | F19 API 权限 | Draft、保存、校验、快照、历史与 Diff 由后端操作鉴权；无权 403、无 Token 401、撤权立即失效 | 签名 JWT + 真实 PostgreSQL、伪造身份负例 | 正式安全审查、对象/属性/查询及 Action 策略未实现 |
+| F01 / F19 Reviewer 只读 | Reviewer / Publisher 打开受限草稿，阅读对象类型/属性/关系、校验状态和版本历史、结构 Diff；不会挂载编辑器、冻结/保存/校验入口，Viewer 不能阅读受限内容 | PR #17 Draft 的真实 JWT + PostgreSQL Java 正反例、真实 Chromium 只读路径与原 Editor 黄金故事同轮 SUCCESS | 非 ReviewDecision；B1 独立审批、职责分离、审计与正式发行未实现 |
 | F05 旧包接续 | 管理员显式创建工作空间和包归属；重复授权幂等，跨空间抢包回滚；旧快照保留 | psql 真实 PG17 正向/拒绝用例 + 旧安装迁移单测 | 用户现有 Windows 11 安装的人工备份、审批、迁移与验收 |
 | F02 / F04 原有链路不退化 | OIDC 下真实保存/校验 ObjectType/LinkType，冻结和 Diff 及重启后复验 | React + Boot 4 + PG17 真实浏览器黄金故事 | 这仍是 Local Snapshot，不是 SchemaRelease |
 | F20 审计、F25 审查 | B0 尚未形成可信审核/审批决议的不可变证据或完整审计 | **未实现** | B1 ChangeSet / QualityReport / ReviewDecision / SchemaRelease |
