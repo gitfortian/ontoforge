@@ -82,8 +82,8 @@ export async function initializeIdentity():Promise<WorkspaceIdentity|null> {
     accessToken=payload.access_token;expiresAt=Date.now()+payload.expires_in*1000;
     if(pending.route.startsWith('#/'))window.location.hash=pending.route;
   }
-  // Also supports a future same-origin BFF that authenticates requests by a secure cookie.
-  // It cannot authenticate anonymously: backend /api/me must return verified principal.
+  // Probe trusted /api/me. No cookies or anonymous fallback; in E2E the browser context
+  // itself sends a real signed Bearer header via Playwright's network configuration.
   const response=await authorizedFetch('/api/me',{cache:'no-store'});
   if(response.status===401||response.status===403){forget();return null;}
   if(!response.ok)throw new Error('读取服务端可信身份失败（HTTP '+response.status+'）');
@@ -96,7 +96,7 @@ export async function authorizedFetch(input:RequestInfo|URL,init:RequestInit={})
   const headers=new Headers(init.headers);
   if(accessToken && Date.now()<expiresAt-15000)headers.set('Authorization','Bearer '+accessToken);
   else {accessToken=null;expiresAt=0;}
-  const response=await fetch(input,{...init,headers,credentials:'same-origin'});
+  const response=await fetch(input,{...init,headers,credentials:'omit'});
   if(response.status===401 && String(input).startsWith('/api/model/')){
     forget();window.dispatchEvent(new Event('ontoforge-auth-expired'));
   }

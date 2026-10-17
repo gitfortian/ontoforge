@@ -3,13 +3,14 @@
 -- Mandatory -v parameters: workspace_key workspace_name issuer subject display_name role package_id.
 BEGIN;
 SELECT
-  set_config('ontoforge.b0.workspace_key', :'workspace_key', true),
-  set_config('ontoforge.b0.workspace_name', :'workspace_name', true),
-  set_config('ontoforge.b0.issuer', :'issuer', true),
-  set_config('ontoforge.b0.subject', :'subject', true),
-  set_config('ontoforge.b0.display_name', :'display_name', true),
-  set_config('ontoforge.b0.role', :'role', true),
-  set_config('ontoforge.b0.package_id', :'package_id', true);
+  set_config('ontoforge.b0.workspace_key', :'workspace_key', true) AS workspace_key_ok,
+  set_config('ontoforge.b0.workspace_name', :'workspace_name', true) AS workspace_name_ok,
+  set_config('ontoforge.b0.issuer', :'issuer', true) AS issuer_ok,
+  set_config('ontoforge.b0.subject', :'subject', true) AS subject_ok,
+  set_config('ontoforge.b0.display_name', :'display_name', true) AS name_ok,
+  set_config('ontoforge.b0.role', :'role', true) AS role_ok,
+  set_config('ontoforge.b0.package_id', :'package_id', true) AS package_ok
+\gset
 DO $b0$
 DECLARE
   v_workspace_key text := current_setting('ontoforge.b0.workspace_key');
