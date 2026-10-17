@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, FilePlus2, Layers3, LoaderCircle, Plus, RefreshCw, Save, ShieldAlert, Trash2 } from 'lucide-react';
 import './model.css';
+import {authorizedFetch} from './auth';
 import NativeSnapshotWorkspace, {SnapshotActions} from './NativeSnapshotWorkspace';
 
 type Issue = {path: string; code: string; message: string};
@@ -30,7 +31,7 @@ const apiPrefix='/api/model/drafts';
 async function call<T>(path:string, init?:RequestInit):Promise<T> {
   let response:Response;
   try {
-    response=await fetch(apiPrefix+path,{cache:'no-store',...init,headers:{'Content-Type':'application/json',...init?.headers}});
+    response=await authorizedFetch(apiPrefix+path,{cache:'no-store',...init,headers:{'Content-Type':'application/json',...init?.headers}});
   } catch { throw {code:'NETWORK_UNKNOWN',message:'网络不可用或结果未知。请保留本地编辑，恢复后先核对服务器 revision。'} as ApiError; }
   let payload:unknown;
   try {payload=await response.json();} catch {throw {code:'INVALID_RESPONSE',message:'服务器返回了无法解析的响应，请先核对保存状态。'} as ApiError;}

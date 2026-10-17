@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Activity, Blocks, Database, GitBranch, ShieldCheck, RefreshCw } from 'lucide-react';
 import NativeModelWorkspace from './NativeModelWorkspace';
+import {beginSignIn,initializeIdentity,oidcConfigured,signOut,WorkspaceIdentity} from './auth';
 import './style.css';
 
 type Status = {
@@ -16,10 +17,25 @@ type Status = {
 type LoadState = {kind:'loading'}|{kind:'error'}|{kind:'ready';data:Status};
 const planned=[
   {title:'数据绑定与关联',detail:'Data Binding / ObjectSet',icon:GitBranch,stage:'P1'},
-  {title:'用户与访问控制',detail:'User / Policy',icon:ShieldCheck,stage:'后续'}
+  {title:'数据权限与策略',detail:'Object/Field Policy',icon:ShieldCheck,stage:'P1'}
 ];
 function App() {
   const [status,setStatus]=useState<LoadState>({kind:'loading'});
+  const [auth,setAuth]=useState<{kind:'checking'|'missing'|'error'|'ready';identity?:WorkspaceIdentity;message?:string}>({kind:'checking'});
+  useEffect(()=>{
+    let active=true;
+    void initializeIdentity().then(identity=>{
+      if(active)setAuth(identity?{kind:'ready',identity}:{kind:'missing'});
+    }).catch(e=>{if(active)setAuth({kind:'error',message:e instanceof Error?e.message:'身份初始化失败'});});
+    const expired=()=>setAuth({kind:'missing'});
+    window.addEventListener('ontoforge-auth-expired',expired);
+    return ()=>{active=false;window.removeEventListener('ontoforge-auth-expired',expired);};
+  },[]);
+  const logout=()=>{
+    if(dirtyRef.current&&!window.confirm('尚有未保存编辑。退出会放弃当前编辑，是否继续？'))return;
+    signOut();setAuth({kind:'missing'});
+    navigate('#/system');
+  };
   const [location,setLocation]=useState(window.location.hash);
   const [dirty,setDirty]=useState(false);
   // Synchronous refs protect navigation even before React's next paint.
@@ -67,11 +83,19 @@ function App() {
       <button className={model?'nav-active nav-link':'nav-inactive nav-link'} onClick={()=>navigate('#/model/packages')}><Blocks size={17}/> Native 本体建模</button>
       <p className="nav-heading secondary-label">规划模块</p>
       {planned.map(item=><div key={item.title} className="nav-disabled" title="当前版本暂不开放"><item.icon size={16}/>{item.title}<span>规划中</span></div>)}
-      <div className="sidebar-bottom">S0 · ObjectType 草稿与快照<br/><small>本地开发验证 · 无认证/发布</small></div>
+      <div className="sidebar-bottom">S0 · ObjectType 草稿与快照<br/><small>B0 可信身份候选 · 未正式发布</small></div>
     </aside>
     <main className="main">
-      <div className="topline"><span>{model?'本体设计 / ObjectType':'平台基座 / 系统概览'}</span><span className="env-chip">LOCAL DEVELOPMENT</span></div>
-      {model?<NativeModelWorkspace onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>:<>
+      <div className="topline"><span>{model?'本体设计 / ObjectType':'平台基座 / 系统概览'}</span><span className="env-chip">{auth.kind==='ready'?'已验证身份：'+auth.identity?.displayName:'B0 · 认证待接入'}</span>{auth.kind==='ready'&&<button type="button" onClick={logout}>退出会话</button>}</div>
+      {model?(auth.kind==='ready'
+        ? <NativeModelWorkspace onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>
+        : <section className="panel" aria-live="polite">
+            <h1>可信身份验证</h1>
+            <p>{auth.kind==='checking'?'正在核对身份…':auth.kind==='error'?auth.message:'访问模型包前，需要使用组织的 OIDC 账号登录。'}</p>
+            {auth.kind!=='checking'&&oidcConfigured&&<button type="button" onClick={()=>void beginSignIn().catch(e=>setAuth({kind:'error',message:String(e)}))}>使用组织账号登录</button>}
+            {!oidcConfigured&&<p>尚未配置 OIDC 公共客户端。请按 B0 实施说明配置授权端点、令牌端点和客户端 ID；服务端不会开放匿名模型 API。</p>}
+          </section>)
+        :<>
         <div className="intro"><p className="eyebrow">S0 · FOUNDATION</p><h1>系统概览</h1><p>系统概览来自真实 Spring Boot + PostgreSQL。Native 本体建模支持本地草稿、不可变快照及结构差异，不提供正式审核/发布。</p></div>
         <div className="panel">
           <div className="panel-top"><div><h2>运行状态</h2><p>来自后端实时 API，并非演示数据</p></div><button type="button" onClick={()=>void reload()}><RefreshCw size={15}/> 重新检测</button></div>

@@ -1,6 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {ArrowLeft,CheckCircle2,GitCompareArrows,History,LockKeyhole,RefreshCw,ShieldAlert} from 'lucide-react';
 import './model.css';
+import {authorizedFetch} from './auth';
 
 type Issue={path:string;code:string;message:string};
 type Report={status:string;validatedRevision:number|null;issues:Issue[]};
@@ -22,7 +23,7 @@ const errorText=(e:unknown)=>{const x=e as Partial<Failure>;
   return (x.code??'API_ERROR')+' · '+(x.message??'请求失败');};
 async function request<T>(path:string,method='GET',body?:unknown):Promise<T>{
   let resp:Response;
-  try{resp=await fetch(API+path,{method,cache:'no-store',
+  try{resp=await authorizedFetch(API+path,{method,cache:'no-store',
     headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});}
   catch{throw {code:'RESULT_UNKNOWN',message:'网络故障，提交结果未知。请按原幂等键核对服务端。'} as Failure;}
   let json:unknown;
