@@ -34,7 +34,7 @@ class QualityMvpRealBrowserTest(unittest.TestCase):
                 self.assertEqual(status["validation"],"VALID")
                 self.assertIsNotNone(status["draftId"])
                 self.assertFalse(status["bound"])
-                page.get_by_role("button",name="绑定示例数据源").click()
+                page.get_by_role("button",name="保存来源绑定").click()
                 page.get_by_text("绑定已保存 PostgreSQL",exact=False).wait_for()
                 page.get_by_role("button",name="查询影响订单").click()
                 result=page.get_by_label("真实关联查询结果")
