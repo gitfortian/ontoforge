@@ -140,6 +140,79 @@ class QualityImpactObjectSetTest {
             .path("pathCount").asLong()).isEqualTo(4);
     }
 
+
+    @Test void typedObjectSetFiltersCountsDuplicatesAndPaginates() throws Exception {
+        ready();
+        JsonNode page1=json(request("GET",
+            "/object-set?objectTypeId=customer-order&filterField=id&operator=prefix&pageSize=2",null),200);
+        assertThat(page1.path("totalCount").asLong()).isEqualTo(3);
+        assertThat(page1.path("objects").size()).isEqualTo(2);
+        assertThat(page1.path("objects").get(0).path("id").asText()).isEqualTo("SO-91");
+        assertThat(page1.path("objects").get(0).path("attributeName").asText()).isEqualTo("customerName");
+        assertThat(page1.path("objects").get(0).path("attributeSourceColumn").asText())
+            .isEqualTo("demo_impact_orders.buyer");
+        assertThat(page1.path("objects").get(1).path("id").asText()).isEqualTo("SO-92");
+        String cursor=page1.path("nextCursor").asText();
+        assertThat(cursor).isNotBlank();
+        JsonNode page2=json(request("GET",
+            "/object-set?objectTypeId=customer-order&filterField=id&operator=prefix&pageSize=2&cursor="+cursor,null),200);
+        assertThat(page2.path("totalCount").asLong()).isEqualTo(3);
+        assertThat(page2.path("objects").size()).isEqualTo(1);
+        assertThat(page2.path("objects").get(0).path("id").asText()).isEqualTo("SO-93");
+        assertThat(page2.path("nextCursor").isNull()).isTrue();
+        assertThat(json(request("GET",
+            "/object-set?objectTypeId=customer-order&filterField=id&operator=prefix&pageSize=2",null),200))
+            .isEqualTo(page1);
+
+        JsonNode customer=json(request("GET",
+            "/object-set?objectTypeId=customer-order&filterField=customerName&operator=prefix&filterValue=%E5%8D%8E&pageSize=10",null),200);
+        assertThat(customer.path("totalCount").asLong()).isEqualTo(2);
+        JsonNode batch=json(request("GET",
+            "/object-set?objectTypeId=production-batch&filterField=qualityStatus&operator=eq&filterValue=PASSED",null),200);
+        assertThat(batch.path("totalCount").asLong()).isEqualTo(1);
+        assertThat(batch.path("objects").get(0).path("id").asText()).isEqualTo("LOT-901");
+        JsonNode work=json(request("GET",
+            "/object-set?objectTypeId=work-order&filterField=id&operator=eq&filterValue=JOB-70",null),200);
+        assertThat(work.path("totalCount").asLong()).isEqualTo(1);
+        assertThat(work.path("objects").get(0).path("physicalRowCount").asLong()).isEqualTo(3);
+        assertThat(work.path("objects").get(0).path("idSourceColumn").asText())
+            .isEqualTo("demo_impact_jobs.job_no");
+        assertThat(work.path("objects").get(0).path("attributeName").asText())
+            .isEqualTo("workOrderId");
+    }
+
+    @Test void invalidObjectQueriesSourceConflictsAndCrossQueryCursorsReject() throws Exception {
+        ready();
+        assertThat(json(request("GET",
+            "/object-set?objectTypeId=production-batch&filterField=id&operator=eq&filterValue=LOT-904",null),409)
+            .path("code").asText()).isEqualTo("OBJECTSET_ATTRIBUTE_CONFLICT");
+        assertThat(json(request("GET",
+            "/object-set?objectTypeId=unknown",null),422)
+            .path("code").asText()).isEqualTo("UNSUPPORTED_OBJECT_TYPE");
+        assertThat(json(request("GET",
+            "/object-set?objectTypeId=production-batch&filterField=batchWorkOrder",null),422)
+            .path("code").asText()).isEqualTo("UNSUPPORTED_OBJECTSET_PROPERTY");
+        assertThat(json(request("GET",
+            "/object-set?objectTypeId=customer-order&operator=regex",null),422)
+            .path("code").asText()).isEqualTo("UNSUPPORTED_OBJECTSET_OPERATOR");
+        assertThat(json(request("GET",
+            "/object-set?objectTypeId=customer-order&pageSize=51",null),400)
+            .path("code").asText()).isEqualTo("INVALID_PAGE_SIZE");
+        JsonNode first=json(request("GET",
+            "/object-set?objectTypeId=customer-order&pageSize=1",null),200);
+        String cursor=first.path("nextCursor").asText();
+        assertThat(cursor).isNotBlank();
+        assertThat(json(request("GET",
+            "/object-set?objectTypeId=production-batch&pageSize=1&cursor="+cursor,null),400)
+            .path("code").asText()).isEqualTo("INVALID_OBJECTSET_CURSOR");
+        assertThat(json(request("GET",
+            "/object-set?objectTypeId=customer-order&filterValue=SO-&pageSize=1&cursor="+cursor,null),400)
+            .path("code").asText()).isEqualTo("INVALID_OBJECTSET_CURSOR");
+        assertThat(json(request("GET",
+            "/object-set?objectTypeId=customer-order&cursor=corrupted",null),400)
+            .path("code").asText()).isEqualTo("INVALID_OBJECTSET_CURSOR");
+    }
+
     @Test void absentAndDisconnectedAndConflictingBatchFacts() throws Exception {
         ready();
         assertThat(json(request("GET","/trace-set?batchId=LOT-999",null),404)

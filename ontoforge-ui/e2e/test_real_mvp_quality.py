@@ -224,3 +224,48 @@ class QualityMvpRealBrowserTest(unittest.TestCase):
                 self.assertEqual((missing["pathCount"],missing["missingOrderRefs"]),(0,1))
             finally:
                 browser.close()
+
+    def test_zzzz_typed_objectset_browse_filters_and_page_in_real_browser(self):
+        # The preceding M2 test explicitly binds demo_impact_* in the SAME
+        # real PostgreSQL instance; this test proves the consumer can reuse it.
+        with sync_playwright() as pw:
+            browser=pw.chromium.launch(headless=True,args=["--no-sandbox"])
+            try:
+                page=browser.new_page(viewport={"width":1370,"height":900},
+                                      locale="zh-CN",extra_http_headers=headers())
+                page.goto(BASE+"/#/mvp/quality")
+                page.get_by_role("heading",name="工业质量追溯 · 精简 MVP").wait_for()
+                browser_panel=page.get_by_label("Native 对象集合浏览器")
+                browser_panel.get_by_role("heading",name="04 · 浏览本体对象集合").wait_for()
+                page.locator("#objectset-type").select_option("customer-order")
+                browser_panel.get_by_role("button",name="查询对象集合").click()
+                results=page.get_by_label("对象集合查询结果")
+                results.get_by_text("SO-91",exact=True).wait_for()
+                results.get_by_text("SO-92",exact=True).wait_for()
+                self.assertIn("匹配对象 3 个",results.inner_text())
+                self.assertIn("demo_impact_orders.buyer",results.inner_text())
+                results.get_by_role("button",name="对象下一页").click()
+                results.get_by_text("SO-93",exact=True).wait_for()
+                self.assertIn("第 2 页",results.inner_text())
+                results.get_by_role("button",name="对象上一页").click()
+                results.get_by_text("SO-91",exact=True).wait_for()
+                page.locator("#objectset-field").select_option("customerName")
+                page.locator("#objectset-value").fill("华")
+                browser_panel.get_by_role("button",name="查询对象集合").click()
+                results.get_by_text("SO-91",exact=True).wait_for()
+                self.assertIn("匹配对象 2 个",results.inner_text())
+                self.assertNotIn("SO-93",results.inner_text())
+                page.locator("#objectset-type").select_option("production-batch")
+                page.locator("#objectset-field").select_option("qualityStatus")
+                page.locator("#objectset-operator").select_option("eq")
+                page.locator("#objectset-value").fill("PASSED")
+                browser_panel.get_by_role("button",name="查询对象集合").click()
+                results.get_by_text("LOT-901",exact=True).wait_for()
+                self.assertIn("匹配对象 1 个",results.inner_text())
+                self.assertIn("demo_impact_lots.outcome",results.inner_text())
+                code,objects=call("/object-set?objectTypeId=work-order&filterField=id&operator=eq&filterValue=JOB-70")
+                self.assertEqual(code,200)
+                self.assertEqual(objects["totalCount"],1)
+                self.assertEqual(objects["objects"][0]["physicalRowCount"],3)
+            finally:
+                browser.close()

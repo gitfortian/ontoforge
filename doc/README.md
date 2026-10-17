@@ -11,6 +11,7 @@
 - **[砺元本体产品与研发统一术语词汇表（256 个主词条）](./砺元本体产品统一术语词汇表.md)**：产品、UX、Java/React、测试与用户帮助统一用语；不是第二套架构。
 - **[当前已实现功能全景 AS-IS](./implementation/OntoForge-AS-IS-已实现功能全景-20261017.md)**：当前 main 中用户真正可操作的完整功能、成熟度、接口与证据；不替代 V1.3。
 - **[当前实际技术/数据/执行架构全景 AS-IS](./implementation/OntoForge-AS-IS-实际架构全景-20261017.md)**：运行模块、DB ER、重要调用链、部署与限制；不替代 V1.3。
+- **[M3 Native 对象集合浏览与标量字段筛选（PR #40 开发候选）](./implementation/M3-Native-ObjectSet-对象浏览实现与验收-20261017.md)**：用户选择对象类型、筛选、去重与来源追溯。
 - **[M2 质量追溯 ObjectSet 影响集合与分页实施说明](./implementation/M2-ObjectSet-制造质量影响集合实现与验收-20261017.md)**：一个批次完整关系路径/去重订单/断链和分页，#38 开发候选。
 - **[精简 MVP 核心优先与 yak-ops HttpSession 复用决策](./implementation/MVP-核心优先与yak-ops认证复用决策-20261017.md)**：含本机开发路径、#17 修正、ObjectSet 下一轮验收。
 - [MVP 历史总账与未来范围 F01–F29](./implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)

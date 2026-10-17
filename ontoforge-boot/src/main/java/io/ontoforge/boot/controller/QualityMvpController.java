@@ -483,6 +483,152 @@ public class QualityMvpController {
         }
     }
 
+
+    /**
+     * M3: typed, bounded object browsing for the three Native manufacturing types.
+     * Relation cardinality is intentionally NOT flattened into a scalar property.
+     * This is a small executable ObjectSet read operation, not an arbitrary SQL API.
+     */
+    public record ObjectSetObject(String id,String attributeName,String attributeValue,
+                                  String sourceTable,String idSourceColumn,
+                                  String attributeSourceColumn,long physicalRowCount) {}
+    public record ObjectSetPage(String objectTypeId,String filterField,String operator,
+                                String filterValue,long boundRevision,String sourceFingerprint,
+                                long totalCount,List<ObjectSetObject> objects,String nextCursor) {}
+    private record ObjectBrowseRole(String table,String idCol,String attributeCol,String attributeName) {}
+    private record BrowseCursor(String objectTypeId,String filterField,String operator,
+                                String filterValue,long revision,String fingerprint,String lastId) {}
+    private record BrowseRow(String id,String attribute,long valueVariants,long missingValues,
+                             long sourceRows) {}
+
+    private static ObjectBrowseRole browseRole(String typeId,Mapping mapping){
+        return switch(typeId) {
+            case "production-batch" -> new ObjectBrowseRole(mapping.batchTable(),
+                mapping.batchId(),mapping.batchStatus(),"qualityStatus");
+            case "work-order" -> new ObjectBrowseRole(mapping.workTable(),
+                mapping.workId(),mapping.workId(),"workOrderId");
+            case "customer-order" -> new ObjectBrowseRole(mapping.orderTable(),
+                mapping.orderId(),mapping.orderName(),"customerName");
+            default -> throw fail(422,"UNSUPPORTED_OBJECT_TYPE",
+                "此本机MVP仅支持生产批次、生产工单、客户订单三个Native类型");
+        };
+    }
+
+    @GetMapping("/object-set")
+    @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
+    public ObjectSetPage objectSet(@RequestParam String objectTypeId,
+                                   @RequestParam(defaultValue="id") String filterField,
+                                   @RequestParam(defaultValue="prefix") String operator,
+                                   @RequestParam(defaultValue="") String filterValue,
+                                   @RequestParam(defaultValue="10") int pageSize,
+                                   @RequestParam(required=false) String cursor,
+                                   Authentication auth) {
+        readAllowed(auth);
+        if(pageSize<1||pageSize>50)
+            throw fail(400,"INVALID_PAGE_SIZE","每页对象数量必须是1至50");
+        if(filterValue==null||filterValue.length()>128)
+            throw fail(400,"INVALID_OBJECTSET_FILTER","筛选值不得超过128个字符");
+        if(!"eq".equals(operator)&&!"prefix".equals(operator))
+            throw fail(422,"UNSUPPORTED_OBJECTSET_OPERATOR","仅支持eq或prefix筛选");
+        Mapping mapping=verifiedMapping();
+        ObjectBrowseRole role=browseRole(objectTypeId,mapping);
+        if(!"id".equals(filterField)&&!role.attributeName().equals(filterField))
+            throw fail(422,"UNSUPPORTED_OBJECTSET_PROPERTY",
+                "仅支持对象标识符与当前类型的受控标量属性，关联字段不可作为单值属性");
+        var nativeDoc=drafts.get(existingDraft());
+        if(!hasObject(nativeDoc.editingContent(),objectTypeId))
+            throw fail(409,"OBJECT_TYPE_NOT_IN_MODEL","当前有效Native本体不包含目标对象类型");
+        long revision=nativeDoc.revision();
+        String fp=mappingFingerprint(mapping);
+        BrowseCursor last=decodeBrowseCursor(cursor,objectTypeId,filterField,operator,
+                                                filterValue,revision,fp);
+        jdbc.execute("SET LOCAL statement_timeout = '3000ms'");
+        String id="t."+qi(role.idCol())+"::text";
+        String attribute="t."+qi(role.attributeCol())+"::text";
+        String source="SELECT "+id+" AS object_id, MIN("+attribute+") AS attribute_value,"
+               +" COUNT(DISTINCT "+attribute+") AS variants,"
+               +" COUNT(*) FILTER(WHERE "+attribute+" IS NULL) AS null_count,"
+               +" COUNT(*) AS row_count"
+               +" FROM "+qt(role.table())+" t WHERE "+id+" IS NOT NULL"
+               +" GROUP BY 1";
+        String scalar="id".equals(filterField)?"object_id":"attribute_value";
+        String filter=filterValue.isEmpty()?"":" WHERE "+
+            ("eq".equals(operator)?scalar+" = ?":"starts_with("+scalar+",?)");
+        String outer=" FROM ("+source+") object_rows"+filter;
+        Object[] countArgs=filterValue.isEmpty()?new Object[]{}:new Object[]{filterValue};
+        Long total=jdbc.queryForObject("SELECT count(*)"+outer,Long.class,countArgs);
+        long totalCount=total==null?0:total;
+        if(totalCount>MAX_RESULT_PATHS)
+            throw fail(409,"OBJECTSET_QUERY_BUDGET_EXCEEDED",
+                       "匹配对象超过10000个的本机测试安全预算，请缩小筛选条件");
+        String continuation=last==null?"":(filterValue.isEmpty()?" WHERE ":" AND ")+"object_id > ?";
+        String query="SELECT object_id,attribute_value,variants,null_count,row_count"
+            +outer+continuation+" ORDER BY object_id LIMIT ?";
+        List<Object> args=new ArrayList<>();
+        if(!filterValue.isEmpty())args.add(filterValue);
+        if(last!=null)args.add(last.lastId());
+        args.add(pageSize+1);
+        List<BrowseRow> result=jdbc.query(query,(rs,i)->new BrowseRow(
+            rs.getString("object_id"),rs.getString("attribute_value"),
+            rs.getLong("variants"),rs.getLong("null_count"),rs.getLong("row_count")),
+            args.toArray());
+        for(BrowseRow row:result){
+            if(row.valueVariants()!=1||row.missingValues()!=0)
+                throw fail(409,"OBJECTSET_ATTRIBUTE_CONFLICT",
+                           "来源对象的受控标量属性存在空值或互相冲突的事实，不能安全输出");
+        }
+        boolean hasMore=result.size()>pageSize;
+        List<BrowseRow> page=hasMore?result.subList(0,pageSize):result;
+        List<ObjectSetObject> objects=page.stream().map(row->new ObjectSetObject(
+            row.id(),role.attributeName(),row.attribute(),role.table(),
+            role.table()+"."+role.idCol(),role.table()+"."+role.attributeCol(),
+            row.sourceRows())).toList();
+        String next=null;
+        if(hasMore&&!page.isEmpty())next=encodeBrowseCursor(new BrowseCursor(
+            objectTypeId,filterField,operator,filterValue,revision,fp,page.getLast().id()));
+        return new ObjectSetPage(objectTypeId,filterField,operator,filterValue,
+                                 revision,fp,totalCount,objects,next);
+    }
+
+    private static boolean hasObject(JsonNode content,String id){
+        for(JsonNode object:content.path("objectTypes"))
+            if(id.equals(object.path("id").asText()))return true;
+        return false;
+    }
+
+    private String encodeBrowseCursor(BrowseCursor value){
+        try{return Base64.getUrlEncoder().withoutPadding().encodeToString(
+            json.writeValueAsBytes(value));}
+        catch(com.fasterxml.jackson.core.JsonProcessingException ex){
+            throw new IllegalStateException("Cannot encode ObjectSet cursor",ex);
+        }
+    }
+    private BrowseCursor decodeBrowseCursor(String raw,String typeId,String field,
+                                             String operator,String filterValue,
+                                             long revision,String fingerprint){
+        if(raw==null||raw.isBlank())return null;
+        if(raw.length()>2048||!raw.matches("[A-Za-z0-9_-]+"))
+            throw fail(400,"INVALID_OBJECTSET_CURSOR","分页游标格式不合法");
+        try {
+            JsonNode c=json.readTree(Base64.getUrlDecoder().decode(raw));
+            if(!c.isObject()||c.size()!=7 ||
+                !typeId.equals(c.path("objectTypeId").asText())||
+                !field.equals(c.path("filterField").asText())||
+                !operator.equals(c.path("operator").asText())||
+                !filterValue.equals(c.path("filterValue").asText())||
+                revision!=c.path("revision").asLong(-1)||
+                !fingerprint.equals(c.path("fingerprint").asText())||
+                !c.path("lastId").isTextual()||
+                c.path("lastId").asText().length()>1024)
+                throw new IllegalArgumentException("cursor/query mismatch");
+            return new BrowseCursor(typeId,field,operator,filterValue,revision,
+                                    fingerprint,c.path("lastId").asText());
+        } catch(IllegalArgumentException|java.io.IOException ex) {
+            throw fail(400,"INVALID_OBJECTSET_CURSOR",
+                "分页游标已损坏，或筛选/模型/来源绑定已变更，请重新查询");
+        }
+    }
+
     private static DraftFailure fail(int code,String key,String message) {
         return new DraftFailure(code,key,message);
     }
