@@ -9,9 +9,12 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Profile;
+import io.ontoforge.boot.model.NativeDraftService;
 
 /** Database-backed package authorization. Client-supplied roles are never consulted. */
 @Service
+@Profile("!mvp-local")
 public class B0AuthorizationService {
     private final JdbcTemplate jdbc;
 
@@ -85,6 +88,13 @@ public class B0AuthorizationService {
         return new Identity(
                 principal.principalId(), issuer, subject, principal.displayName(),
                 groupWorkspaceRows(workspaces));
+    }
+
+    /** Authorized listing is delegated here to keep local MVP and JWT paths isolated. */
+    public NativeDraftService.DraftPage listDrafts(NativeDraftService drafts, int pageSize,
+            String cursor, Authentication authentication) {
+        Identity current = identity(authentication);
+        return drafts.list(pageSize, cursor, current.issuer(), current.subject());
     }
 
     public void requirePackage(Authentication authentication, String packageId, Operation operation) {
