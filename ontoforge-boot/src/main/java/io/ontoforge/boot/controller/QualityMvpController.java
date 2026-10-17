@@ -64,7 +64,7 @@ public class QualityMvpController {
         boolean bound = jdbc.query("""
             SELECT 1 FROM mvp_demo_binding
              WHERE package_id=? AND draft_id=? AND bound_revision=?
-            """, rs -> rs.next(), PACKAGE, id, draft.revision());
+            """, (org.springframework.jdbc.core.ResultSetExtractor<Boolean>) rs -> rs.next(), PACKAGE, id, draft.revision());
         return new Status(PACKAGE,id.toString(),draft.revision(),
              draft.validation().path("status").asText("NOT_RUN"),bound,"B2026-001");
     }
@@ -122,7 +122,7 @@ public class QualityMvpController {
         boolean active = jdbc.query("""
            SELECT 1 FROM mvp_demo_binding
             WHERE package_id=? AND draft_id=? AND bound_revision=?
-           """,rs -> rs.next(),PACKAGE,id,draft.revision());
+           """,(org.springframework.jdbc.core.ResultSetExtractor<Boolean>) rs -> rs.next(),PACKAGE,id,draft.revision());
         if (!active || !"VALID".equals(draft.validation().path("status").asText())
                 || draft.validation().path("validatedRevision").asLong(-1)!=draft.revision()
                 || !compatible(draft.editingContent()))
