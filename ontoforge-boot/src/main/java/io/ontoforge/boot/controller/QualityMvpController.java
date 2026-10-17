@@ -120,6 +120,47 @@ public class QualityMvpController {
     @GetMapping("/binding")
     public Mapping binding(){return savedMapping();}
 
+    public record SourceSample(String id,String attribute,String relatedId) {}
+    public record LinkedSample(String batchId,String workOrderId,String orderId) {}
+    public record SourcePreview(List<SourceSample> batches,List<SourceSample> workOrders,
+         List<SourceSample> orders,LinkedSample linkedExample) {}
+
+    /** No write occurs: inspect up to three rows from each explicitly allowlisted test
+     * source and find at most one real two-hop match before a user saves the mapping.
+     * This is intentionally NOT a data-quality score or a claim that all rows link.
+     */
+    @PostMapping("/preview")
+    public SourcePreview preview(@RequestBody JsonNode requested){
+        Mapping m=parseMapping(requested);
+        validateSource(m);  // The only path from external identifiers into SQL.
+        List<SourceSample> batches=sample(m.batchTable(),m.batchId(),
+            m.batchStatus(),m.batchWorkOrder());
+        List<SourceSample> work=sample(m.workTable(),m.workId(),
+            m.workOrder(),m.workOrder());
+        List<SourceSample> orders=sample(m.orderTable(),m.orderId(),
+            m.orderName(),m.orderId());
+        String sql="SELECT b."+qi(m.batchId())+"::text AS batch_id,"
+            +"w."+qi(m.workId())+"::text AS work_id,"
+            +"o."+qi(m.orderId())+"::text AS order_id"
+            +" FROM "+qt(m.batchTable())+" b"
+            +" JOIN "+qt(m.workTable())+" w ON b."+qi(m.batchWorkOrder())
+               +"::text=w."+qi(m.workId())+"::text"
+            +" JOIN "+qt(m.orderTable())+" o ON w."+qi(m.workOrder())
+               +"::text=o."+qi(m.orderId())+"::text LIMIT 1";
+        List<LinkedSample> matches=jdbc.query(sql,(rs,index)->
+            new LinkedSample(rs.getString("batch_id"),rs.getString("work_id"),
+                rs.getString("order_id")));
+        return new SourcePreview(batches,work,orders,matches.isEmpty()?null:matches.getFirst());
+    }
+
+    private List<SourceSample> sample(String table,String id,String attribute,String related){
+        String sql="SELECT "+qi(id)+"::text AS row_id,"
+            +qi(attribute)+"::text AS row_attribute,"
+            +qi(related)+"::text AS row_related FROM "+qt(table)+" LIMIT 3";
+        return jdbc.query(sql,(rs,index)->new SourceSample(rs.getString("row_id"),
+            rs.getString("row_attribute"),rs.getString("row_related")));
+    }
+
     private UUID existingDraft() {
         return jdbc.query("SELECT draft_id FROM native_package_draft WHERE package_id = ?",
              rs -> rs.next() ? rs.getObject(1,UUID.class) : null, PACKAGE);
