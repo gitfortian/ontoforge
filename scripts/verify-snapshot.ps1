@@ -15,7 +15,8 @@ param(
   [ValidateSet('Exercise','Recheck')][string]$Mode='Exercise',
   [switch]$AllowCreateTestDraft,
   [string]$EvidencePath='',
-  [string]$ApiBase='http://127.0.0.1:8080'
+  [string]$ApiBase='http://127.0.0.1:8080',
+  [string]$PackageId=''
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
@@ -35,6 +36,9 @@ function Must([bool]$ok,[string]$description) {
 }
 function Call([string]$path,[string]$verb='GET',[object]$payload=$null) {
   $req=@{Uri=$base+$path;Method=$verb;TimeoutSec=20;ErrorAction='Stop'}
+  if(-not [string]::IsNullOrWhiteSpace($env:ONTOFORGE_BEARER_TOKEN)) {
+    $req.Headers=@{Authorization='Bearer '+$env:ONTOFORGE_BEARER_TOKEN}
+  }
   if($null -ne $payload) {
     $req.ContentType='application/json; charset=utf-8'
     $req.Body=ConvertTo-Json -InputObject $payload -Depth 25 -Compress
@@ -81,7 +85,7 @@ if($Mode -eq 'Recheck'){
 }
 Must ($AllowCreateTestDraft.IsPresent) 'Explicit -AllowCreateTestDraft is required: this writes a persistent test draft and two snapshots.'
 $token=[Guid]::NewGuid().ToString('N')
-$package='acceptance.p'+$token
+$package=if([string]::IsNullOrWhiteSpace($PackageId)){'acceptance.p'+$token}else{$PackageId}
 $created=Post '/api/model/drafts' @{packageId=$package}
 Must ($created.packageId -eq $package -and [long]$created.revision -eq 1) 'Draft creation failed'
 $draftId=$created.draftId
@@ -118,7 +122,7 @@ Must ($second.snapshotId -ne $first.snapshotId -and $second.payloadSha256 -ne $f
 Check409 ('/api/model/drafts/'+$draftId+'/snapshots') @{expectedRevision=3;idempotencyKey=([Guid]::NewGuid().ToString())}
 $diff=Call ('/api/model/snapshot-diffs?from='+$first.snapshotId+'&to='+$second.snapshotId)
 Must ($diff.packageId -eq $package -and $diff.changes.Count -ge 2) 'Missing real structural diff'
-Must (($diff.changes | Where-Object { $_.riskLevel -eq 'POTENTIALLY_BREAKING' }).Count -ge 1) 'Must flag searchable regression'
+Must (@($diff.changes | Where-Object { $_.riskLevel -eq 'POTENTIALLY_BREAKING' }).Count -ge 1) 'Must flag searchable regression'
 $reloaded=Call ('/api/model/snapshots/'+$first.snapshotId)
 Must ($reloaded.payloadSha256 -eq $first.payloadSha256) 'Historical SHA changed'
 Must ($reloaded.snapshotContent.objectTypes[0].description -eq 'Before snapshot') 'Old snapshot overwritten'

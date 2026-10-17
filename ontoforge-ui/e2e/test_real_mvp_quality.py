@@ -4,6 +4,7 @@ import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from playwright.sync_api import sync_playwright
+from b0_fixture import headers
 
 BASE="http://127.0.0.1:5173"
 API="http://127.0.0.1:8080/api/mvp/quality"
@@ -11,7 +12,7 @@ API="http://127.0.0.1:8080/api/mvp/quality"
 def call(route,method="GET",payload=None):
     data=json.dumps(payload).encode("utf-8") if payload is not None else None
     request=Request(API+route,method=method,data=data,
-                    headers={"Content-Type":"application/json"})
+                    headers={**headers(),"Content-Type":"application/json"})
     try:
         with urlopen(request,timeout=15) as res:
             return res.status,json.load(res)
@@ -23,7 +24,7 @@ class QualityMvpRealBrowserTest(unittest.TestCase):
         with sync_playwright() as pw:
             browser=pw.chromium.launch(headless=True,args=["--no-sandbox"])
             try:
-                page=browser.new_page(viewport={"width":1370,"height":900},locale="zh-CN")
+                page=browser.new_page(viewport={"width":1370,"height":900},locale="zh-CN",extra_http_headers=headers())
                 page.goto(BASE+"/#/mvp/quality")
                 page.get_by_role("heading",name="工业质量追溯 · 精简 MVP").wait_for()
                 self.assertEqual(call("/trace?batchId=B2026-001")[0],409)
@@ -52,14 +53,14 @@ class QualityMvpRealBrowserTest(unittest.TestCase):
                 self.assertEqual(call("/trace?batchId=x%27%20OR%201%3D1")[0],400)
                 # An edited model revision cannot silently keep the old binding.
                 draft_id=status["draftId"]
-                req=Request("http://127.0.0.1:8080/api/model/drafts/"+draft_id)
+                req=Request("http://127.0.0.1:8080/api/model/drafts/"+draft_id,headers=headers())
                 with urlopen(req,timeout=12) as res:
                     draft=json.load(res)
                 content=draft["editingContent"]
                 content["objectTypes"][0]["description"]="revision changed after binding"
                 update=Request("http://127.0.0.1:8080/api/model/drafts/"+draft_id,
                          method="PUT",
-                         headers={"Content-Type":"application/json"},
+                         headers={**headers(),"Content-Type":"application/json"},
                          data=json.dumps({"expectedRevision":draft["revision"],
                                           "editingContent":content}).encode())
                 with urlopen(update,timeout=12) as res:
@@ -86,14 +87,14 @@ class QualityMvpRealBrowserTest(unittest.TestCase):
         # The preceding golden story changed the draft, so explicitly validate
         # the new revision rather than pretending that the prior VALID remains.
         native=Request("http://127.0.0.1:8080/api/model/drafts/"+draft_id+"/validate",
-                       method="POST",headers={"Content-Type":"application/json"},
+                       method="POST",headers={**headers(),"Content-Type":"application/json"},
                        data=json.dumps({"expectedRevision":status["revision"]}).encode())
         with urlopen(native,timeout=12) as reply:
             self.assertEqual(json.load(reply)["status"],"VALID")
         with sync_playwright() as pw:
             browser=pw.chromium.launch(headless=True,args=["--no-sandbox"])
             try:
-                page=browser.new_page(viewport={"width":1370,"height":900},locale="zh-CN")
+                page=browser.new_page(viewport={"width":1370,"height":900},locale="zh-CN",extra_http_headers=headers())
                 page.goto(BASE+"/#/mvp/quality")
                 page.get_by_role("button",name="选择 PostgreSQL 表与字段").click()
                 config=[

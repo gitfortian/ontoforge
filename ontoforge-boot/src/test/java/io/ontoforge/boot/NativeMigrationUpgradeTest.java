@@ -6,7 +6,7 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Exercises existing V2 installation -> latest migration, preserving legacy data in isolated schema. */
+/** Exercises existing V2 installation -> V5, in a new owned test schema only. */
 class NativeMigrationUpgradeTest {
     @Test void upgradePreservesExistingInstallationAndDraft() throws Exception {
         String url=System.getenv("TEST_DB_URL");
@@ -43,14 +43,16 @@ class NativeMigrationUpgradeTest {
                 }
                 assertThat(current.migrate().migrationsExecuted).isZero();
                 try(var row=sql.executeQuery("SELECT count(*) FROM flyway_schema_history WHERE success")) {
-                    row.next();assertThat(row.getInt(1)).isEqualTo(4);
+                    row.next();assertThat(row.getInt(1)).isEqualTo(5);
                 }
-                // V4 demo sources must not claim or rewrite any pre-existing package.
                 try(var row=sql.executeQuery("SELECT count(*) FROM mvp_source_batches")) {
                     row.next();assertThat(row.getInt(1)).isEqualTo(2);
                 }
                 try(var row=sql.executeQuery("SELECT count(*) FROM mvp_demo_binding")) {
                     row.next();assertThat(row.getInt(1)).isZero();
+                }
+                try(var row=sql.executeQuery("SELECT count(*) FROM b0_package_assignment WHERE package_id='manufacturing.legacy'")) {
+                    row.next();assertThat(row.getInt(1)).isZero(); // V5 must not auto-claim historical packages.
                 }
             } finally {
                 // Only this randomly named schema created above is removed.

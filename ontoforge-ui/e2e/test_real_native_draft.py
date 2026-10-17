@@ -10,6 +10,7 @@ import uuid
 from pathlib import Path
 from urllib.request import Request, urlopen
 from playwright.sync_api import sync_playwright
+from b0_fixture import headers, assigned_package
 
 BASE = "http://127.0.0.1:5173"
 API = "http://127.0.0.1:8080/api/model/drafts"
@@ -18,7 +19,7 @@ API = "http://127.0.0.1:8080/api/model/drafts"
 def api(path, method="GET", payload=None):
     body = json.dumps(payload).encode("utf-8") if payload is not None else None
     req = Request(API + path, data=body, method=method,
-                  headers={"Content-Type": "application/json"})
+                  headers={"Content-Type": "application/json", **headers()})
     with urlopen(req, timeout=12) as response:
         return json.load(response)
 
@@ -35,12 +36,13 @@ class NativeDraftRealBrowserTest(unittest.TestCase):
         cls.playwright.stop()
 
     def setUp(self):
-        self.page = self.browser.new_page(viewport={"width": 1370, "height": 900}, locale="zh-CN")
+        self.page = self.browser.new_page(viewport={"width": 1370, "height": 900}, locale="zh-CN",
+                                          extra_http_headers=headers())
         self.errors = []
         self.page.on("pageerror", lambda e: self.errors.append(str(e)))
         self.page.goto(BASE + "/#/model/packages")
         self.page.get_by_role("heading", name="模型包", exact=True).wait_for()
-        self.pkg = "manufacturing.p" + uuid.uuid4().hex
+        self.pkg = assigned_package()
 
     def tearDown(self):
         if os.getenv("E2E_SHOTS"):
@@ -226,7 +228,7 @@ class NativeDraftRealBrowserTest(unittest.TestCase):
         self.assertTrue(self.page.get_by_role("button", name="保存编辑进度").is_enabled())
 
     def open_other_draft_and_edit(self):
-        other=api("", "POST", {"packageId": "manufacturing.p"+uuid.uuid4().hex})
+        other=api("", "POST", {"packageId": assigned_package()})
         self.page.evaluate("id=>window.location.hash='#/model/drafts/'+id", other["draftId"])
         self.page.locator("#obj-desc").wait_for()
         self.page.locator("#obj-desc").fill("B 的未保存输入")

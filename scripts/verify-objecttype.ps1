@@ -18,7 +18,8 @@ param(
     [string]$Mode = 'Exercise',
     [switch]$AllowCreateTestDraft,
     [string]$EvidencePath = '',
-    [string]$ApiBase = 'http://127.0.0.1:8080'
+    [string]$ApiBase = 'http://127.0.0.1:8080',
+    [string]$PackageId = ''
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -48,6 +49,9 @@ function Invoke-LocalJson {
         Method = $Method
         TimeoutSec = 20
         ErrorAction = 'Stop'
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:ONTOFORGE_BEARER_TOKEN)) {
+        $params.Headers = @{Authorization = 'Bearer ' + $env:ONTOFORGE_BEARER_TOKEN}
     }
     if ($null -ne $Body) {
         $params.ContentType = 'application/json; charset=utf-8'
@@ -91,7 +95,7 @@ function Assert-ApiError {
 $status = Invoke-LocalJson -Path '/api/system/status'
 Assert-Condition ($status.service -eq 'ontoforge' -and $status.version -in @('S0-MVP-0.2','S0-MVP-0.3')) 'Unexpected OntoForge API/version.'
 Assert-Condition ($status.database -eq 'CONNECTED' -and $status.modelModule -eq 'DRAFT_AVAILABLE') 'A REAL connected PostgreSQL Draft service is required.'
-Assert-Condition ($status.authModule -eq 'NOT_IMPLEMENTED') 'This acceptance only supports the local unauthenticated S0 runtime.'
+Assert-Condition ($status.authModule -eq 'JWT_PACKAGE_AUTHORIZATION') 'Expected B0 JWT package authorization.'
 Assert-Condition ($status.installationId -match '^[0-9a-fA-F-]{36}$') 'Missing installation ID.'
 
 if ($Mode -eq 'Recheck') {
@@ -116,7 +120,7 @@ if (-not $AllowCreateTestDraft) {
 }
 
 $token = [Guid]::NewGuid().ToString('N')
-$packageId = 'acceptance.p' + $token
+if ([string]::IsNullOrWhiteSpace($PackageId)) { $PackageId = 'acceptance.p' + $token }
 $created = Invoke-LocalJson -Path '/api/model/drafts' -Method 'POST' -Body @{packageId = $packageId}
 Assert-Condition ($created.packageId -eq $packageId -and [long]$created.revision -eq 1) 'Create draft failed.'
 $draftId = $created.draftId

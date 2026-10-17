@@ -6,8 +6,11 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.net.URI;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -17,18 +20,33 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Actual HTTP on random Spring Boot port AND CI PostgreSQL 17, not mocks/in-memory database. */
 @org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
-@org.springframework.test.context.ActiveProfiles("integration-test")
+@ActiveProfiles({"test", "integration-test"})
+@Import(B0TestSecurityConfiguration.class)
 @org.springframework.test.context.ContextConfiguration(initializers=IsolatedPostgresTestDatabase.class)
 class NativeDraftTest {
+    private static final UUID WORKSPACE = UUID.fromString("11111111-1111-4111-8111-111111111111");
     @LocalServerPort int port;
     @Autowired TestRestTemplate http;
     @Autowired ObjectMapper mapper;
     @Autowired JdbcTemplate jdbc;
+    @Autowired JwtEncoder jwtEncoder;
+
+    @BeforeEach
+    void seedB0Access() {
+        jdbc.update("INSERT INTO b0_workspace(workspace_id,workspace_key,display_name) VALUES (?,?,?) ON CONFLICT DO NOTHING",
+                WORKSPACE,"test-manufacturing","B0 Test Manufacturing");
+        jdbc.update("INSERT INTO b0_principal(principal_id,issuer,subject,display_name) VALUES (?,?,?,?) ON CONFLICT (issuer,subject) DO NOTHING",
+                UUID.fromString("22222222-2222-4222-8222-222222222222"),
+                B0TestSecurityConfiguration.ISSUER,"editor-A","Test Editor");
+        jdbc.update("INSERT INTO b0_workspace_membership(workspace_id,principal_id,role) VALUES (?,?,?) ON CONFLICT DO NOTHING",
+                WORKSPACE,UUID.fromString("22222222-2222-4222-8222-222222222222"),"EDITOR");
+    }
 
     @Test void saveResponseRetainsOwnRevisionWhenAnotherWriterCommitsImmediatelyAfter() throws Exception {
         UUID id=UUID.fromString(create("manufacturing.p"+UUID.randomUUID().toString().replace("-",""))
@@ -61,13 +79,18 @@ class NativeDraftTest {
     private String url(String suffix) {return "http://127.0.0.1:"+port+"/api/model/drafts"+suffix;}
     private JsonNode call(HttpMethod method,String path,ObjectNode body,int expected) throws Exception {
         HttpHeaders headers=new HttpHeaders();headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(B0TestSecurityConfiguration.token(jwtEncoder,"editor-A"));
         HttpEntity<String> entity=new HttpEntity<>(body==null?null:mapper.writeValueAsString(body),headers);
         ResponseEntity<String> response=http.exchange(URI.create(url(path)),method,entity,String.class);
         assertThat(response.getStatusCode().value()).describedAs(response.getBody()).isEqualTo(expected);
         return mapper.readTree(response.getBody());
     }
     private ObjectNode req(String key,String value) {ObjectNode node=mapper.createObjectNode();node.put(key,value);return node;}
-    private JsonNode create(String packageId) throws Exception {return call(HttpMethod.POST,"",req("packageId",packageId),201);}
+    private JsonNode create(String packageId) throws Exception {
+        jdbc.update("INSERT INTO b0_package_assignment(workspace_id,package_id) VALUES (?,?) ON CONFLICT DO NOTHING",
+                WORKSPACE,packageId);
+        return call(HttpMethod.POST,"",req("packageId",packageId),201);
+    }
     private ObjectNode editor() {
         ObjectNode node=mapper.createObjectNode();node.put("editorSchemaVersion","0.1.0");
         node.putArray("objectTypes");node.putArray("linkTypes");return node;

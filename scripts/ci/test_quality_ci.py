@@ -127,6 +127,13 @@ class ScopeTests(unittest.TestCase):
             )
             quality_ci.require_foundation_reports(Path(folder))
 
+            # Foundation evidence alone cannot qualify a checkout with authentication.
+            security = Path(folder) / "ontoforge-boot/src/main/java/io/ontoforge/boot/security/SecurityConfig.java"
+            security.parent.mkdir(parents=True)
+            security.write_text("// test presence", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "missing real JWT/PostgreSQL authorization tests"):
+                quality_ci.require_foundation_reports(Path(folder))
+
 
 if __name__ == "__main__":
     unittest.main()

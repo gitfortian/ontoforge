@@ -69,8 +69,8 @@ try {
 if ($status.service -ne 'ontoforge' -or $status.version -ne 'S0-MVP-0.3' -or $status.database -ne 'CONNECTED') {
     throw 'The status API did not report the expected real S0-MVP-0.3 service and PostgreSQL connection.'
 }
-if ($status.modelModule -ne 'DRAFT_AVAILABLE' -or $status.snapshotModule -ne 'LOCAL_SNAPSHOT_AVAILABLE' -or $status.authModule -ne 'NOT_IMPLEMENTED') {
-    throw 'Expected draft modeling available, and auth honestly not implemented.'
+if ($status.modelModule -ne 'DRAFT_AVAILABLE' -or $status.snapshotModule -ne 'LOCAL_SNAPSHOT_AVAILABLE' -or $status.authModule -ne 'JWT_PACKAGE_AUTHORIZATION') {
+    throw 'Expected draft modeling, local snapshots and B0 JWT package authorization.'
 }
 if ($status.installationId -ne $databaseInstallationId) {
     throw "API installationId does not match the PostgreSQL row. Check that both target the same database."
@@ -84,7 +84,11 @@ if (-not [string]::IsNullOrWhiteSpace($ExpectedDraftId)) {
         throw 'ExpectedDraftId must be a UUID. It is never passed into SQL.'
     }
     $draftUrl = "http://127.0.0.1:$apiPort/api/model/drafts/$ExpectedDraftId"
-    try { $draft = Invoke-RestMethod -Uri $draftUrl -Method Get -TimeoutSec 10 }
+    $draftHeaders = @{}
+    if (-not [string]::IsNullOrWhiteSpace($env:ONTOFORGE_BEARER_TOKEN)) {
+        $draftHeaders.Authorization = 'Bearer ' + $env:ONTOFORGE_BEARER_TOKEN
+    }
+    try { $draft = Invoke-RestMethod -Uri $draftUrl -Method Get -Headers $draftHeaders -TimeoutSec 10 }
     catch { throw "Cannot reload persisted draft $ExpectedDraftId. $($_.Exception.Message)" }
     if ($draft.draftId -ne $ExpectedDraftId -or $draft.revision -lt 1 -or $draft.status -ne 'DRAFT') {
         throw 'Persisted draft API does not match the supplied draft identity.'

@@ -2,6 +2,8 @@ package io.ontoforge.boot.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.ontoforge.boot.model.NativeDraftService;
+import io.ontoforge.boot.security.B0AuthorizationService;
+import org.springframework.security.core.Authentication;
 import io.ontoforge.boot.model.NativeDraftService.DraftFailure;
 import java.net.URI;
 import java.util.List;
@@ -23,31 +25,41 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-/** Explicit S0 local-only API; NO workspace auth, publishing or Action execution. */
+/** Explicit S0 local-only API; B0 package authorization; no formal publishing or Action execution. */
 @RestController
 @RequestMapping("/api/model/drafts")
 public class NativeDraftController {
     private final NativeDraftService service;
-    public NativeDraftController(NativeDraftService service) {this.service=service;}
+    private final B0AuthorizationService authorization;
+    public NativeDraftController(NativeDraftService service, B0AuthorizationService authorization) {
+        this.service = service;
+        this.authorization = authorization;
+    }
 
     @GetMapping
     public NativeDraftService.DraftPage list(@RequestParam(defaultValue="20") int pageSize,
-                                            @RequestParam(required=false) String cursor) {
-        return service.list(pageSize,cursor);
+                                            @RequestParam(required=false) String cursor,
+                                            Authentication authentication) {
+        var identity = authorization.identity(authentication);
+        return service.list(pageSize,cursor,identity.issuer(),identity.subject());
     }
     @PostMapping
-    public ResponseEntity<NativeDraftService.DraftDetail> create(@RequestBody JsonNode body) {
+    public ResponseEntity<NativeDraftService.DraftDetail> create(@RequestBody JsonNode body, Authentication authentication) {
         strict(body,"packageId");
         String packageId=requiredText(body,"packageId");
+        authorization.requirePackage(authentication, packageId, B0AuthorizationService.Operation.WRITE_DRAFT);
         var draft=service.create(packageId);
         return ResponseEntity.created(URI.create("/api/model/drafts/"+draft.draftId())).body(draft);
     }
     @GetMapping("/{draftId}")
-    public NativeDraftService.DraftDetail get(@PathVariable UUID draftId) {
+    public NativeDraftService.DraftDetail get(@PathVariable UUID draftId, Authentication authentication) {
+        authorization.requireDraft(authentication, draftId, B0AuthorizationService.Operation.READ_DRAFT);
         return service.get(draftId);
     }
     @PutMapping("/{draftId}")
-    public NativeDraftService.DraftDetail save(@PathVariable UUID draftId,@RequestBody JsonNode body) {
+    public NativeDraftService.DraftDetail save(@PathVariable UUID draftId,@RequestBody JsonNode body,
+                                             Authentication authentication) {
+        authorization.requireDraft(authentication, draftId, B0AuthorizationService.Operation.WRITE_DRAFT);
         strict(body,"expectedRevision","editingContent");
         long rev=requiredRevision(body);
         JsonNode content=body.path("editingContent");
@@ -55,7 +67,9 @@ public class NativeDraftController {
         return service.save(draftId,rev,content);
     }
     @PostMapping("/{draftId}/validate")
-    public NativeDraftService.ValidationReport validate(@PathVariable UUID draftId,@RequestBody JsonNode body) {
+    public NativeDraftService.ValidationReport validate(@PathVariable UUID draftId,@RequestBody JsonNode body,
+                                                        Authentication authentication) {
+        authorization.requireDraft(authentication, draftId, B0AuthorizationService.Operation.VALIDATE_DRAFT);
         strict(body,"expectedRevision");
         return service.validate(draftId,requiredRevision(body));
     }

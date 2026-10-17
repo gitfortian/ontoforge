@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, FilePlus2, Layers3, LoaderCircle, Plus, RefreshCw, Save, ShieldAlert, Trash2 } from 'lucide-react';
 import './model.css';
+import {authorizedFetch, type WorkspaceIdentity} from './auth';
 import NativeSnapshotWorkspace, {SnapshotActions} from './NativeSnapshotWorkspace';
 
 type Issue = {path: string; code: string; message: string};
@@ -30,7 +31,7 @@ const apiPrefix='/api/model/drafts';
 async function call<T>(path:string, init?:RequestInit):Promise<T> {
   let response:Response;
   try {
-    response=await fetch(apiPrefix+path,{cache:'no-store',...init,headers:{'Content-Type':'application/json',...init?.headers}});
+    response=await authorizedFetch(apiPrefix+path,{cache:'no-store',...init,headers:{'Content-Type':'application/json',...init?.headers}});
   } catch { throw {code:'NETWORK_UNKNOWN',message:'网络不可用或结果未知。请保留本地编辑，恢复后先核对服务器 revision。'} as ApiError; }
   let payload:unknown;
   try {payload=await response.json();} catch {throw {code:'INVALID_RESPONSE',message:'服务器返回了无法解析的响应，请先核对保存状态。'} as ApiError;}
@@ -43,7 +44,14 @@ async function call<T>(path:string, init?:RequestInit):Promise<T> {
 const post=(obj:unknown):RequestInit=>({method:'POST',body:JSON.stringify(obj)});
 const put=(obj:unknown):RequestInit=>({method:'PUT',body:JSON.stringify(obj)});
 
-export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onDirtyChange:(value:boolean)=>void;route:string;navigate:(hash:string)=>void}) {
+export default function NativeModelWorkspace({identity,onDirtyChange,route,navigate}:{
+  identity:WorkspaceIdentity;onDirtyChange:(value:boolean)=>void;route:string;navigate:(hash:string)=>void;
+}) {
+  // Only present verified grants from /api/me, but never substitute UI for server ACL.
+  const writablePackages=Array.from(new Set(identity.workspaces
+    .filter(w=>w.roles.some(role=>role==='EDITOR'||role==='OWNER'))
+    .flatMap(w=>w.packageIds))).sort();
+  const canCreate=writablePackages.length>0;
   const [items,setItems]=useState<Summary[]>([]);
   const [cursor,setCursor]=useState<string|null>(null);
   const [listLoading,setListLoading]=useState(false);
@@ -57,7 +65,7 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
   const [dirty,setDirty]=useState(false);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState<Message|null>(null);
-  const [packageId,setPackageId]=useState('manufacturing.production');
+  const [packageId,setPackageId]=useState('');
   const [creating,setCreating]=useState(false);
   const [serverLatest,setServerLatest]=useState<Draft|null>(null);
   const [enumTexts,setEnumTexts]=useState<Record<number,string>>({});
@@ -133,6 +141,10 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
     else navigate(hash);
   };
   async function createPackage() {
+    if(!writablePackages.includes(packageId.trim())){
+      alert('目标模型包未获得编辑授权。请向管理员申请工作空间角色和模型包归属。','error');
+      return;
+    }
     const generation=view.current.generation;
     setBusy(true);setMessage(null);
     try {
@@ -265,22 +277,46 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
   if(!opened) return <div className="model-page">
     <div className="model-head"><div><div className="model-eyebrow">ONTOLOGY DESIGN / NATIVE MODEL</div><h1>模型包</h1>
       <p>从业务概念出发定义本体。这里展示真实 PostgreSQL 草稿；保存进度、校验与发布是不同操作。</p></div>
-      <button className="model-btn model-primary" onClick={()=>setCreating(true)}><FilePlus2 size={16}/> 创建模型包</button></div>
+      {canCreate&&<button className="model-btn model-primary" onClick={()=>{setPackageId(writablePackages[0]);setCreating(true)}}><FilePlus2 size={16}/> 创建模型包</button>}</div>
+    <section className="model-panel" aria-label="当前身份和模型包授权">
+      <h2>当前工作空间与模型包授权</h2>
+      <p>登录身份：{identity.displayName} · 已加入 {identity.workspaces.length} 个工作空间。创建草稿前必须先由管理员分配模型包，服务端仍逐请求核验权限。</p>
+      {identity.workspaces.length===0?<p role="status">尚未加入任何工作空间，请联系管理员开通。</p>:
+        <ul>{identity.workspaces.map(w=><li key={w.workspaceId}>
+          <strong>{w.displayName}</strong>（{w.workspaceKey}） · {w.roles.join(' / ')} · 已分配 {w.packageIds.length} 个模型包
+        </li>)}</ul>}
+      {!canCreate&&<p role="status">当前身份没有可编辑的模型包。请联系管理员授予 EDITOR 或 OWNER 角色并显式分配模型包。</p>}
+    </section>
     {message&&<div role="alert" className={'model-alert '+message.kind}>{message.text}</div>}
     {creating&&<section className="model-panel model-create"><h2>创建模型包草稿</h2><p>建议按业务域命名，例如 manufacturing.production</p>
-      <label htmlFor="create-package-id">模型包 ID</label><input id="create-package-id" value={packageId} onChange={e=>setPackageId(e.target.value)}/>
-      <div className="model-actions"><button className="model-btn model-primary" disabled={busy} onClick={()=>void createPackage()}>创建并继续 <ChevronRight size={16}/></button><button className="model-btn" onClick={()=>setCreating(false)}>取消</button></div></section>}
-    <section className="model-panel"><header className="model-panel-head"><div><h2>当前可编辑模型包</h2><p>每个模型包包含多个对象类型和 LinkType；使用同一个保存和校验流程。</p></div>
+      <label htmlFor="authorized-package-choice">已授权可编辑模型包</label>
+      <select id="authorized-package-choice" value={writablePackages.includes(packageId)?packageId:''}
+        onChange={e=>setPackageId(e.target.value)}>
+        <option value="">请选择已授权模型包</option>
+        {writablePackages.map(id=><option key={id} value={id}>{id}</option>)}
+      </select>
+      <label htmlFor="create-package-id">模型包 ID（须与授权清单一致）</label>
+      <input id="create-package-id" value={packageId} onChange={e=>setPackageId(e.target.value)}
+        aria-describedby="package-permission-help"/>
+      <p id="package-permission-help" className="model-help">只有管理员预先分配的 packageId 才能创建草稿，不会自动授予权限。</p>
+      <div className="model-actions"><button className="model-btn model-primary" disabled={busy||!writablePackages.includes(packageId.trim())} onClick={()=>void createPackage()}>创建并继续 <ChevronRight size={16}/></button><button className="model-btn" onClick={()=>setCreating(false)}>取消</button></div></section>}
+    <section className="model-panel"><header className="model-panel-head"><div><h2>当前可访问的模型草稿</h2><p>每个模型包包含多个对象类型和 LinkType；使用同一个保存和校验流程。</p></div>
       <button className="model-btn" onClick={()=>void loadList()} disabled={listLoading}><RefreshCw size={15}/> 刷新</button></header>
       {listLoading?<div className="model-empty"><LoaderCircle size={24}/> 正在读取模型包…</div>:
-      items.length===0?<div className="model-empty"><Layers3 size={30}/><strong>还没有模型包草稿</strong><span>创建模型包后，从第一个 ObjectType 开始定义业务概念。</span><button className="model-btn" onClick={()=>setCreating(true)}>新建第一个模型包</button></div>:
+      items.length===0?<div className="model-empty"><Layers3 size={30}/><strong>还没有模型包草稿</strong><span>{canCreate?'从已授权模型包创建第一个草稿，再定义业务概念。':'当前没有可访问的草稿。如需建模，请联系管理员授权。'}</span>{canCreate&&<button className="model-btn" onClick={()=>{setPackageId(writablePackages[0]);setCreating(true)}}>新建第一个模型包</button>}</div>:
       <div className="model-table-wrap"><table className="model-table"><thead><tr><th>模型包</th><th>对象类型</th><th>验证</th><th>Revision</th><th>最后修改</th><th></th></tr></thead><tbody>
-        {items.map(x=><tr key={x.draftId}><td><b>{x.packageId}</b><small>草稿 · 未发布</small></td><td>{x.objectTypeCount}</td><td><span className={'model-status '+x.validationStatus.toLowerCase()}>{statusLabel[x.validationStatus]??x.validationStatus}</span></td><td>{x.revision}</td><td>{new Date(x.updatedAt).toLocaleString('zh-CN')}</td><td><button className="model-link" onClick={()=>navigateView('#/model/drafts/'+x.draftId)}>进入建模 <ChevronRight size={14}/></button></td></tr>)}
+        {items.map(x=><tr key={x.draftId}><td><b>{x.packageId}</b><small>草稿 · 未发布</small></td><td>{x.objectTypeCount}</td><td><span className={'model-status '+x.validationStatus.toLowerCase()}>{statusLabel[x.validationStatus]??x.validationStatus}</span></td><td>{x.revision}</td><td>{new Date(x.updatedAt).toLocaleString('zh-CN')}</td><td><button className="model-link" onClick={()=>navigateView('#/model/drafts/'+x.draftId)}>{writablePackages.includes(x.packageId)?'进入建模':'只读查看'} <ChevronRight size={14}/></button></td></tr>)}
       </tbody></table></div>}
       {cursor&&<div className="model-pager"><span>第 {listPage} 页</span><button className="model-btn" onClick={()=>void loadList(cursor,listPage+1)}>下一页</button></div>}
     </section>
-    <div className="model-footnote"><ShieldAlert size={15}/> 当前仅限本机开发环境。尚未提供认证、授权、模型发布或工业 Action。</div>
+    <div className="model-footnote"><ShieldAlert size={15}/> B0 登录与包级授权仍是评审候选；正式审核、SchemaRelease、Activation 和工业 Action 尚未提供。</div>
   </div>;
+
+  if(!writablePackages.includes(opened.packageId)){
+    // Reviewer / Publisher may READ_DRAFT and READ_SNAPSHOT, but may not write,
+    // validate or create snapshots. Do not mount any mutable editor subtree.
+    return <ReadOnlyDraftView draft={opened} navigate={navigate}/>;
+  }
 
   return <div className="model-page">
     <div className="model-head"><div><div className="model-eyebrow"><button className="model-breadcrumb" onClick={()=>navigateView('#/model/packages')}><ArrowLeft size={14}/> 模型包</button> / {opened.packageId}</div>
@@ -369,5 +405,49 @@ export default function NativeModelWorkspace({onDirtyChange,route,navigate}:{onD
       </div>
     </div>
     <div className="model-sticky"><span>{dirty?'● 有未保存的本地编辑':'✓ 当前编辑已与服务器同步'}　 ·　草稿 revision {opened.revision}</span><div><button className="model-btn" onClick={()=>navigate('#/model/packages')}><ArrowLeft size={15}/> 返回模型包</button><button className="model-btn model-primary" disabled={busy||readOnly||!dirty} onClick={()=>void save()}><Save size={16}/> 保存编辑进度</button></div></div>
+  </div>;
+}
+
+/** B0: read-only inspection of server-authorized restricted drafts.
+ * No editor controls, snapshot creation, validation mutation, or client-role escalation.
+ * All fetches (including history and diff) are authorized again by Spring Boot.
+ */
+function ReadOnlyDraftView({draft,navigate}:{draft:Draft;navigate:(hash:string)=>void}) {
+  const historyRoute='#/model/packages/'+encodeURIComponent(draft.packageId)+'/snapshots';
+  return <div className="model-page">
+    <div className="model-head"><div><div className="model-eyebrow">NATIVE MODEL / RESTRICTED DRAFT</div>
+      <h1>受限模型草稿 · 只读</h1>
+      <p>模型包：{draft.packageId}。当前身份只有受限草稿阅读权限，无法保存、校验、冻结本地快照或批准正式版本。</p>
+    </div><button className="model-btn" onClick={()=>navigate('#/model/packages')}><ArrowLeft size={15}/> 返回模型包</button></div>
+    <section className="model-panel" aria-label="已授权只读模型信息">
+      <header className="model-panel-head"><div><h2>模型信息与验证证据</h2>
+        <p>内容直接来自受保护的 PostgreSQL 草稿 API；仅供审核前浏览，不是 ReviewDecision 或已发布版本。</p>
+      </div><span className="model-status neutral">READ ONLY</span></header>
+      <div className="model-metrics"><div><span>服务器 revision</span><b>{draft.revision}</b></div>
+        <div><span>校验状态</span><b>{statusLabel[draft.validation.status]??draft.validation.status}</b></div>
+        <div><span>对象类型</span><b>{draft.editingContent.objectTypes.length}</b></div>
+        <div><span>关系类型</span><b>{draft.editingContent.linkTypes.length}</b></div></div>
+      {draft.validation.issues.length>0&&<p role="status">当前记录 {draft.validation.issues.length} 项校验问题；不可在只读界面修改。</p>}
+    </section>
+    <section className="model-panel"><h2>对象类型与属性</h2>
+      {draft.editingContent.objectTypes.length===0?<p>此草稿尚未定义对象类型。</p>:
+        draft.editingContent.objectTypes.map((obj,i)=><article className="model-property" key={obj.id||i}>
+          <h3>{obj.label||obj.apiName||obj.id||'未命名对象'}</h3>
+          <p>{obj.apiName} · {obj.id} · 主键：{obj.primaryKeyRef??'尚未配置'}</p>
+          {obj.description&&<p>{obj.description}</p>}
+          {obj.properties.length===0?<p>暂无属性</p>:<ul>{obj.properties.map((p,j)=>
+            <li key={p.id||j}>{p.label||p.apiName||p.id||'未命名属性'} · {p.valueType} · {p.classification}{p.required?' · 必填':''}</li>)}</ul>}
+        </article>)}
+    </section>
+    <section className="model-panel"><h2>关系类型</h2>
+      {draft.editingContent.linkTypes.length===0?<p>暂无关系类型</p>:
+        <ul>{draft.editingContent.linkTypes.map((link,i)=><li key={link.id||i}>
+          {link.label||link.apiName||link.id||'未命名关系'}：{link.sourceTypeRef} → {link.targetTypeRef} · {link.cardinality}
+        </li>)}</ul>}
+    </section>
+    <section className="model-panel"><h2>不可变本地历史</h2>
+      <p>可以按现有包权限只读浏览历史快照、结构差异；本地快照不等于正式审核通过。</p>
+      <button className="model-btn" onClick={()=>navigate(historyRoute)}><RefreshCw size={15}/> 查看历史快照与差异</button>
+    </section>
   </div>;
 }

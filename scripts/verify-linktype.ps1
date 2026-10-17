@@ -19,7 +19,8 @@ param(
   [ValidateSet('Exercise','Recheck')][string]$Mode='Exercise',
   [switch]$AllowCreateTestDraft,
   [string]$EvidencePath='',
-  [string]$ApiBase='http://127.0.0.1:8080'
+  [string]$ApiBase='http://127.0.0.1:8080',
+  [string]$PackageId=''
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
@@ -39,6 +40,9 @@ function Must([bool]$ok,[string]$detail){
 }
 function Call([string]$path,[string]$verb='GET',[object]$data=$null){
   $arg=@{Uri=$base+$path;Method=$verb;TimeoutSec=20;ErrorAction='Stop'}
+  if(-not [string]::IsNullOrWhiteSpace($env:ONTOFORGE_BEARER_TOKEN)){
+    $arg.Headers=@{Authorization='Bearer '+$env:ONTOFORGE_BEARER_TOKEN}
+  }
   if($null -ne $data){
     $arg.ContentType='application/json; charset=utf-8'
     $arg.Body=ConvertTo-Json -InputObject $data -Depth 30 -Compress
@@ -103,7 +107,7 @@ if($Mode -eq 'Recheck'){
 }
 Must ($AllowCreateTestDraft.IsPresent) 'Exercise requires -AllowCreateTestDraft; writes a persistent isolated draft and two snapshots'
 $token=[Guid]::NewGuid().ToString('N')
-$package='acceptance.p'+$token
+$package=if([string]::IsNullOrWhiteSpace($PackageId)){'acceptance.p'+$token}else{$PackageId}
 $new=Post '/api/model/drafts' @{packageId=$package}
 Must ($new.packageId -eq $package -and [long]$new.revision -eq 1) 'Draft create failed'
 $id=$new.draftId

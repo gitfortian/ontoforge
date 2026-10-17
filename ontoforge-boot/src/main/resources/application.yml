@@ -17,3 +17,11 @@ spring:
   flyway:
     enabled: true
     validate-on-migrate: true
+
+ontoforge:
+  security:
+    oidc:
+      # Production must provide all three values. Missing values fail application startup.
+      issuer: ${OIDC_ISSUER_URI:}
+      jwk-set-uri: ${OIDC_JWK_SET_URI:}
+      audience: ${OIDC_AUDIENCE:}

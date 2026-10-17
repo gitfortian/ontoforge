@@ -5,6 +5,8 @@
 
 ## Purpose and verified current scope
 
+Branch delta for PR #17: B0 JWT/package authorization is an unapproved Draft implementation candidate, documented in its [runbook](doc/implementation/S0-MVP-0.5-B0-可信身份与模型包权限实施说明-20261016.md). It requires external OIDC configuration and explicit database package grants; there is no shipped login UI, permission administration, production security acceptance or OFIP-0005 approval. The S0 statements below describe the accepted baseline. All integration suites, including B0, must retain isolated TEST_DB_* and signed-token negative cases.
+
 OntoForge is an independent enterprise/industrial operational ontology platform. **Do not couple it to data-ops** or claim that S0 implements authentication, trusted authorization, real object querying, connectors, production policies or Actions. S0 **does** now implement local Native ObjectType/LinkType editing and immutable schema snapshot history.
 
 Current runnable S0-MVP-0.4 development baseline: Java 21/Spring Boot, PostgreSQL/Flyway V1–V3, React/TypeScript, real ObjectType/Property/LinkType editing, safe WIP/VALID validation, CAS revisions, immutable local Snapshot with JCS/SHA-256 and LinkType structural Diff (merged PRs #7/#11/#13). **No production release.** Bounded isolated Windows automation and the still-pending user's existing-installation/manual acceptance are recorded separately in the [current maturity ledger](doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md). Native V0.2 contracts for Data Binding, ObjectSet, Semantic Execution Record and the PostgreSQL ObjectSet/Outbox experiments are **design/POC**, not deployed runtime modules.

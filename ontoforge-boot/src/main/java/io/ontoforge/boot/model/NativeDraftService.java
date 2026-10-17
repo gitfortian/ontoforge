@@ -82,20 +82,55 @@ public class NativeDraftService {
         return items.getFirst();
     }
     public DraftPage list(int pageSize,String cursor) {
+        return listInternal(pageSize, cursor, null, null);
+    }
+
+    /** Controller-facing listing restricted to packages assigned to the authenticated subject. */
+    public DraftPage list(int pageSize,String cursor,String issuer,String subject) {
+        if (issuer == null || issuer.isBlank() || subject == null || subject.isBlank()) {
+            throw new IllegalArgumentException("Authenticated identity is required");
+        }
+        return listInternal(pageSize, cursor, issuer, subject);
+    }
+
+    private DraftPage listInternal(int pageSize,String cursor,String issuer,String subject) {
         if(pageSize<1 || pageSize>50)throw new DraftFailure(400,"MALFORMED_REQUEST","pageSize 必须在 1 到 50 之间");
+        String access = "";
+        if (issuer != null) {
+            access = """
+                 AND EXISTS (
+                       SELECT 1
+                         FROM b0_principal p
+                         JOIN b0_workspace_membership wm ON wm.principal_id = p.principal_id
+                         JOIN b0_package_assignment pa ON pa.workspace_id = wm.workspace_id
+                        WHERE p.issuer = ?
+                          AND p.subject = ?
+                          AND pa.package_id = d.package_id
+                          AND wm.role IN ('EDITOR','REVIEWER','PUBLISHER','OWNER')
+                 )
+                 """;
+        }
         List<DraftDetail> items;
         if(cursor==null || cursor.isBlank()) {
-            items=jdbc.query("SELECT "+FIELDS+" FROM native_package_draft ORDER BY updated_at DESC,draft_id DESC LIMIT ?",
-                    this::map,pageSize+1);
+            String sql = "SELECT "+FIELDS+" FROM native_package_draft d WHERE 1=1 "+access
+                    +" ORDER BY d.updated_at DESC,d.draft_id DESC LIMIT ?";
+            items=issuer == null
+                    ? jdbc.query(sql,this::map,pageSize+1)
+                    : jdbc.query(sql,this::map,issuer,subject,pageSize+1);
         } else {
-            String[] parts;
             try {
-                parts=new String(Base64.getUrlDecoder().decode(cursor),StandardCharsets.UTF_8).split("\\|",-1);
-                if(parts.length!=2)throw new IllegalArgumentException();
-                Instant t=Instant.parse(parts[0]);
-                UUID id=UUID.fromString(parts[1]);
-                items=jdbc.query("SELECT "+FIELDS+" FROM native_package_draft WHERE (updated_at,draft_id)<(?,?) ORDER BY updated_at DESC,draft_id DESC LIMIT ?",
-                        this::map,Timestamp.from(t),id,pageSize+1);
+                byte[] parts;
+                parts=Base64.getUrlDecoder().decode(cursor);
+                String decoded = new String(parts, StandardCharsets.UTF_8);
+                String[] cursorParts = decoded.split("\\|",-1);
+                if(cursorParts.length!=2)throw new IllegalArgumentException();
+                Instant t=Instant.parse(cursorParts[0]);
+                UUID id=UUID.fromString(cursorParts[1]);
+                String sql = "SELECT "+FIELDS+" FROM native_package_draft d WHERE (d.updated_at,d.draft_id)<(?,?) "
+                        + access + " ORDER BY d.updated_at DESC,d.draft_id DESC LIMIT ?";
+                items=issuer == null
+                        ? jdbc.query(sql,this::map,Timestamp.from(t),id,pageSize+1)
+                        : jdbc.query(sql,this::map,Timestamp.from(t),id,issuer,subject,pageSize+1);
             } catch(IllegalArgumentException | DateTimeException e){throw new DraftFailure(400,"MALFORMED_REQUEST","无效的分页游标");}
         }
         boolean hasMore=items.size()>pageSize;

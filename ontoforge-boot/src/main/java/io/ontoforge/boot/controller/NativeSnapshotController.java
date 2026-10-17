@@ -2,6 +2,8 @@ package io.ontoforge.boot.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.ontoforge.boot.model.NativeSnapshotService;
+import io.ontoforge.boot.security.B0AuthorizationService;
+import org.springframework.security.core.Authentication;
 import io.ontoforge.boot.model.NativeDraftService.DraftFailure;
 import java.net.URI;
 import java.util.Set;
@@ -20,11 +22,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/model")
 public class NativeSnapshotController {
     private final NativeSnapshotService service;
-    public NativeSnapshotController(NativeSnapshotService service){this.service=service;}
+    private final B0AuthorizationService authorization;
+    public NativeSnapshotController(NativeSnapshotService service, B0AuthorizationService authorization){
+        this.service=service;this.authorization=authorization;
+    }
 
     @PostMapping("/drafts/{draftId}/snapshots")
     public ResponseEntity<NativeSnapshotService.Snapshot> freeze(@PathVariable UUID draftId,
-                                                                  @RequestBody JsonNode body){
+                                                                  @RequestBody JsonNode body,
+                                                                  Authentication authentication){
+        authorization.requireDraft(authentication,draftId,B0AuthorizationService.Operation.CREATE_SNAPSHOT);
         strict(body,Set.of("expectedRevision","idempotencyKey"));
         JsonNode revision=body.path("expectedRevision");
         if(!revision.isIntegralNumber()||!revision.canConvertToLong()||revision.longValue()<1)
@@ -37,26 +44,36 @@ public class NativeSnapshotController {
     }
     @GetMapping("/drafts/{draftId}/snapshots/by-key/{idempotencyKey}")
     public NativeSnapshotService.Snapshot byKey(@PathVariable UUID draftId,
-                                                @PathVariable UUID idempotencyKey){
+                                                @PathVariable UUID idempotencyKey,
+                                                Authentication authentication){
+        authorization.requireDraft(authentication,draftId,B0AuthorizationService.Operation.READ_SNAPSHOT);
         return service.byKey(draftId,idempotencyKey);
     }
     @GetMapping("/drafts/{draftId}/snapshots/by-revision/{revision}")
     public NativeSnapshotService.Snapshot byRevision(@PathVariable UUID draftId,
-                                                      @PathVariable long revision){
+                                                      @PathVariable long revision,
+                                                      Authentication authentication){
+        authorization.requireDraft(authentication,draftId,B0AuthorizationService.Operation.READ_SNAPSHOT);
         return service.byRevision(draftId,revision);
     }
     @GetMapping("/packages/{packageId}/snapshots")
     public NativeSnapshotService.SnapshotPage list(@PathVariable String packageId,
-                @RequestParam(defaultValue="20") int pageSize,@RequestParam(required=false) String cursor){
+                @RequestParam(defaultValue="20") int pageSize,@RequestParam(required=false) String cursor,
+                Authentication authentication){
+        authorization.requirePackage(authentication,packageId,B0AuthorizationService.Operation.READ_SNAPSHOT);
         return service.list(packageId,pageSize,cursor);
     }
     @GetMapping("/snapshots/{snapshotId}")
-    public NativeSnapshotService.Snapshot get(@PathVariable UUID snapshotId){
+    public NativeSnapshotService.Snapshot get(@PathVariable UUID snapshotId, Authentication authentication){
+        authorization.requireSnapshot(authentication,snapshotId,B0AuthorizationService.Operation.READ_SNAPSHOT);
         return service.get(snapshotId);
     }
     @GetMapping("/snapshot-diffs")
     public NativeSnapshotService.SnapshotDiff diff(@RequestParam("from") UUID from,
-                                                   @RequestParam("to") UUID to){
+                                                   @RequestParam("to") UUID to,
+                                                   Authentication authentication){
+        authorization.requireSnapshot(authentication,from,B0AuthorizationService.Operation.READ_SNAPSHOT);
+        authorization.requireSnapshot(authentication,to,B0AuthorizationService.Operation.READ_SNAPSHOT);
         return service.diff(from,to);
     }
     private static UUID requiredUuid(JsonNode body,String key){

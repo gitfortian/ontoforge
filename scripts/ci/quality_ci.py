@@ -201,6 +201,23 @@ def require_foundation_reports(root: Path = ROOT) -> None:
             raise ValueError(f"FAIL: missing real PostgreSQL Snapshot tests: {sorted(must_run - seen)}")
 
 
+    security_source = root / "ontoforge-boot/src/main/java/io/ontoforge/boot/security/SecurityConfig.java"
+    if security_source.exists():
+        required_security = {"wrongIssuerAudienceAndExpiredTokensAreRejected",
+                             "revokedEditorMembershipImmediatelyRemovesPackageAccess",
+                             "clientSuppliedIdentityHeadersDoNotElevateViewer"}
+        seen_security = set()
+        for file in files:
+            doc = ET.parse(file).getroot()
+            suites = [doc] if doc.tag == "testsuite" else doc.findall("testsuite")
+            for suite in suites:
+                for case in suite.findall("testcase"):
+                    if case.attrib.get("classname", "").endswith(".B0IdentityAuthorizationTest"):
+                        seen_security.add(case.attrib.get("name", ""))
+        if not required_security <= seen_security:
+            raise ValueError(f"FAIL: missing real JWT/PostgreSQL authorization tests: {sorted(required_security - seen_security)}")
+
+
 def evaluate_results(selected: dict[str, bool], results: dict[str, str], scope_result: str) -> list[tuple[str, str]]:
     if scope_result != "success":
         raise ValueError(f"FAIL: selection job {scope_result}")
