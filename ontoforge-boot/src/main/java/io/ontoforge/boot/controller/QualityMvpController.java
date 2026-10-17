@@ -14,6 +14,13 @@ import java.util.Map;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.regex.Pattern;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.HexFormat;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.web.bind.annotation.RequestBody;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,6 +39,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/mvp/quality")
 public class QualityMvpController {
     private static final String PACKAGE = "manufacturing.quality";
+    private static final int MAX_RESULT_PATHS = 10000;
+    private static final int MAX_PAGE_SIZE = 50;
     private static final Pattern IDENT=Pattern.compile("[a-z][a-z0-9_]{0,62}");
     public record Mapping(String batchTable,String batchId,String batchStatus,String batchWorkOrder,
         String workTable,String workId,String workOrder,
@@ -68,6 +77,22 @@ public class QualityMvpController {
     public record Edge(String linkTypeId, String from, String to, String sourceColumn) {}
     public record Trace(String batchId, String qualityStatus, List<Fact> objects,
                         List<Edge> links, String provenance) {}
+
+
+    /** One semantic path is keyed by (batch, work order, customer order).
+     * Repeated physical source rows are de-duplicated as link evidence, not as separate objects.
+     */
+    public record ImpactPath(String workOrderId, String orderId, String customerName,
+                             List<Fact> objects, List<Edge> links) {}
+    public record TraceSet(String batchId, String qualityStatus, long boundRevision,
+                           String sourceFingerprint, long workOrderCount, long orderCount,
+                           long pathCount, long missingWorkRefs, long missingOrderRefs,
+                           List<ImpactPath> paths, String nextCursor, String provenance) {}
+    private record ImpactCursor(String batchId, long revision, String sourceFingerprint,
+                                String lastWork, String lastOrder) {}
+    private record ImpactCounts(long pathCount,long workCount,long orderCount) {}
+    private record MissingCounts(long workRefs,long orderRefs) {}
+    private record ImpactRow(String work,String order,String customer,long labelVariants) {}
 
     @GetMapping("/sources")
     public List<TableInfo> sources(Authentication auth){
@@ -251,21 +276,7 @@ public class QualityMvpController {
         readAllowed(auth);
         if (batchId == null || !batchId.matches("[A-Za-z0-9-]{1,64}"))
             throw fail(400,"INVALID_BATCH_ID","批次号仅允许字母、数字和连字符，最多64位");
-        UUID id = existingDraft();
-        if (id == null) throw fail(409,"BINDING_REQUIRED","请先创建本体并绑定数据");
-        var draft = drafts.get(id);
-        boolean active = jdbc.query("""
-           SELECT 1 FROM mvp_demo_binding
-            WHERE package_id=? AND draft_id=? AND bound_revision=?
-           """,(org.springframework.jdbc.core.ResultSetExtractor<Boolean>) rs -> rs.next(),PACKAGE,id,draft.revision());
-        if (!active || !"VALID".equals(draft.validation().path("status").asText())
-                || draft.validation().path("validatedRevision").asLong(-1)!=draft.revision()
-                || !compatible(draft.editingContent()))
-            throw fail(409,"BINDING_STALE","当前绑定已失效，请校验模型后重新绑定");
-        Mapping m=savedMapping();
-        try{validateSource(m);}
-        catch(DraftFailure e){throw fail(409,"BINDING_SCHEMA_DRIFT",
-            "已保存的来源表或字段发生变化，请重新配置绑定");}
+        Mapping m=verifiedMapping();
         // Identifiers are schema-checked and quoted; batch ID is a bound SQL parameter.
         String sql="SELECT b."+qi(m.batchId())+"::text AS batch_id,"
             +"b."+qi(m.batchStatus())+"::text AS quality_status,"
@@ -297,6 +308,181 @@ public class QualityMvpController {
         return rows.getFirst();
     }
 
+    private Mapping verifiedMapping() {
+        UUID id=existingDraft();
+        if (id==null)throw fail(409,"BINDING_REQUIRED","请先创建本体并绑定数据");
+        var draft=drafts.get(id);
+        boolean active=jdbc.query("""
+                SELECT 1 FROM mvp_demo_binding
+                 WHERE package_id=? AND draft_id=? AND bound_revision=?
+                """,(org.springframework.jdbc.core.ResultSetExtractor<Boolean>) rs->rs.next(),
+                PACKAGE,id,draft.revision());
+        if(!active || !"VALID".equals(draft.validation().path("status").asText())
+                || draft.validation().path("validatedRevision").asLong(-1)!=draft.revision()
+                || !compatible(draft.editingContent()))
+            throw fail(409,"BINDING_STALE","当前绑定已失效，请校验模型后重新绑定");
+        Mapping m=savedMapping();
+        try {validateSource(m);}
+        catch(DraftFailure ex) {
+            throw fail(409,"BINDING_SCHEMA_DRIFT",
+                "已保存的来源表或字段发生变化，请重新配置绑定");
+        }
+        return m;
+    }
+
+    /**
+     * A bounded, read-only ObjectSet-like result for the fixed manufacturing quality scenario.
+     * Not a generic ObjectSet planner.  All source identifiers are validated/quoted; all
+     * request values and cursor keys are JDBC parameters.  Each HTTP response uses one
+     * repeatable-read PostgreSQL snapshot; cross-request source mutations are not frozen.
+     */
+    @GetMapping("/trace-set")
+    @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
+    public TraceSet traceSet(@RequestParam String batchId,
+                             @RequestParam(defaultValue="10") int pageSize,
+                             @RequestParam(required=false) String cursor,
+                             Authentication authentication) {
+        readAllowed(authentication);
+        if(batchId==null||!batchId.matches("[A-Za-z0-9-]{1,64}"))
+            throw fail(400,"INVALID_BATCH_ID","批次号仅允许字母、数字和连字符，最多64位");
+        if(pageSize<1||pageSize>MAX_PAGE_SIZE)
+            throw fail(400,"INVALID_PAGE_SIZE","每页只允许1至50条关系路径");
+        Mapping m=verifiedMapping();
+        long revision=drafts.get(existingDraft()).revision();
+        String fingerprint=mappingFingerprint(m);
+        ImpactCursor previous=decodeCursor(cursor,batchId,revision,fingerprint);
+
+        // Bound the complexity of the *whole* query; a page of 50 must never
+        // imply that there are only 50 affected orders.
+        jdbc.execute("SET LOCAL statement_timeout = '3000ms'");
+        String batchCol="b."+qi(m.batchId())+"::text";
+        String workCol="w."+qi(m.workId())+"::text";
+        String orderCol="o."+qi(m.orderId())+"::text";
+        String from=" FROM "+qt(m.batchTable())+" b"
+             +" LEFT JOIN "+qt(m.workTable())+" w ON b."+qi(m.batchWorkOrder())
+             +"::text="+workCol
+             +" LEFT JOIN "+qt(m.orderTable())+" o ON w."+qi(m.workOrder())
+             +"::text="+orderCol;
+
+        List<String> statuses=jdbc.query("SELECT DISTINCT b."+qi(m.batchStatus())
+            +"::text AS status FROM "+qt(m.batchTable())+" b WHERE "+batchCol
+            +"=? LIMIT 2",(rs,i)->rs.getString("status"),batchId);
+        if(statuses.isEmpty())throw fail(404,"BATCH_NOT_FOUND","测试数据源中不存在该批次");
+        if(statuses.size()!=1||statuses.getFirst()==null)
+            throw fail(409,"SOURCE_FACT_CONFLICT","同一批次的质量状态不一致或为空，请核验来源事实");
+
+        String where=" WHERE "+batchCol+"=?";
+        String distinctPaths="SELECT DISTINCT "+workCol+" AS work_id,"
+            +orderCol+" AS order_id"+from+where
+            +" AND "+workCol+" IS NOT NULL AND "+orderCol+" IS NOT NULL";
+        ImpactCounts totals=jdbc.query("""
+            SELECT count(*) AS paths, count(DISTINCT work_id) AS works,
+                   count(DISTINCT order_id) AS orders FROM (
+            """+distinctPaths+") links",
+            rs->{rs.next();return new ImpactCounts(rs.getLong("paths"),rs.getLong("works"),rs.getLong("orders"));},
+            batchId);
+        if(totals.pathCount()>MAX_RESULT_PATHS)
+            throw fail(409,"OBJECTSET_QUERY_BUDGET_EXCEEDED",
+                "关联路径超过本机MVP的10000条安全预算；请先缩小来源数据范围");
+        // A query result cannot contradict the cardinality in the actual Native
+        // model.  Existing MANY_TO_ONE snapshots must be explicitly reviewed
+        // and edited before running a 1:N impact search.
+        JsonNode definition=drafts.get(existingDraft()).editingContent();
+        if(totals.workCount()>1 &&
+           !allowsMultipleTargets(definition,"batch-workorder"))
+            throw fail(409,"ONTOLOGY_CARDINALITY_MISMATCH",
+                "当前本体“批次→工单”关系声明不允许一个批次关联多个工单；请修改LinkType基数、校验并重新绑定");
+        if(!allowsMultipleTargets(definition,"workorder-order")) {
+            Boolean multiplePerWork=jdbc.query("SELECT 1 FROM ("+distinctPaths+
+                ") paths GROUP BY work_id HAVING COUNT(DISTINCT order_id)>1 LIMIT 1",
+                (org.springframework.jdbc.core.ResultSetExtractor<Boolean>) rs->rs.next(),batchId);
+            if(Boolean.TRUE.equals(multiplePerWork))
+                throw fail(409,"ONTOLOGY_CARDINALITY_MISMATCH",
+                    "当前本体“工单→订单”关系声明不允许一个工单关联多个订单；请修改LinkType基数、校验并重新绑定");
+        }
+
+        MissingCounts missing=jdbc.query("SELECT "
+            +"COUNT(DISTINCT CASE WHEN "+workCol+" IS NULL THEN b."
+                 +qi(m.batchWorkOrder())+"::text ELSE NULL END) AS work_missing,"
+            +"COUNT(DISTINCT CASE WHEN "+workCol+" IS NOT NULL AND "+orderCol
+                 +" IS NULL THEN w."+qi(m.workOrder())+"::text ELSE NULL END) AS order_missing"
+            +from+where,rs->{rs.next();return new MissingCounts(
+                rs.getLong("work_missing"),rs.getLong("order_missing"));},batchId);
+
+        String filter=previous==null?"":" AND ("+workCol+","+orderCol+")>(?,?)";
+        String select="SELECT "+workCol+" AS work_id,"+orderCol+" AS order_id,"
+            +"MIN(o."+qi(m.orderName())+"::text) AS customer_name,"
+            +"COUNT(DISTINCT o."+qi(m.orderName())+"::text) AS label_variants"
+            +from+where+" AND "+workCol+" IS NOT NULL AND "+orderCol+" IS NOT NULL"
+            +filter+" GROUP BY 1,2 ORDER BY 1,2 LIMIT ?";
+        Object[] args=previous==null?new Object[]{batchId,pageSize+1}:
+            new Object[]{batchId,previous.lastWork(),previous.lastOrder(),pageSize+1};
+        List<ImpactRow> rows=jdbc.query(select,(rs,i)->new ImpactRow(rs.getString("work_id"),
+            rs.getString("order_id"),rs.getString("customer_name"),rs.getLong("label_variants")),args);
+        for(ImpactRow row:rows)
+            if(row.customer()==null||row.labelVariants()!=1)
+                throw fail(409,"SOURCE_FACT_CONFLICT",
+                    "同一客户订单存在不一致或空的显示属性，不能生成可信影响清单");
+        boolean more=rows.size()>pageSize;
+        List<ImpactRow> page=more?rows.subList(0,pageSize):rows;
+        List<ImpactPath> paths=page.stream().map(row->new ImpactPath(row.work(),
+            row.order(),row.customer(),List.of(
+                new Fact("production-batch",batchId,"生产批次",m.batchTable()),
+                new Fact("work-order",row.work(),"生产工单",m.workTable()),
+                new Fact("customer-order",row.order(),row.customer(),m.orderTable())),
+            List.of(new Edge("batch-workorder",batchId,row.work(),
+                         m.batchTable()+"."+m.batchWorkOrder()),
+                    new Edge("workorder-order",row.work(),row.order(),
+                         m.workTable()+"."+m.workOrder())))).toList();
+        String next=null;
+        if(more&&!page.isEmpty()) {
+            ImpactRow last=page.getLast();
+            next=encodeCursor(new ImpactCursor(batchId,revision,fingerprint,last.work(),last.order()));
+        }
+        return new TraceSet(batchId,statuses.getFirst(),revision,fingerprint,
+            totals.workCount(),totals.orderCount(),totals.pathCount(),
+            missing.workRefs(),missing.orderRefs(),paths,next,
+            m.batchTable().startsWith("mvp_source_")?
+                "ISOLATED_SYNTHETIC_POSTGRES":"LOCAL_TEST_POSTGRES");
+    }
+
+    private String mappingFingerprint(Mapping mapping) {
+        try {
+            byte[] bytes=MessageDigest.getInstance("SHA-256").digest(
+                json.writeValueAsBytes(mapping));
+            return HexFormat.of().formatHex(bytes);
+        } catch(NoSuchAlgorithmException|com.fasterxml.jackson.core.JsonProcessingException ex) {
+            throw new IllegalStateException("Cannot fingerprint binding",ex);
+        }
+    }
+    private String encodeCursor(ImpactCursor value) {
+        try{return Base64.getUrlEncoder().withoutPadding().encodeToString(
+            json.writeValueAsBytes(value));}
+        catch(com.fasterxml.jackson.core.JsonProcessingException ex) {
+            throw new IllegalStateException("Cannot encode trace cursor",ex);
+        }
+    }
+    private ImpactCursor decodeCursor(String raw,String batchId,long revision,String fingerprint) {
+        if(raw==null||raw.isBlank())return null;
+        if(raw.length()>1536 || !raw.matches("[A-Za-z0-9_-]+"))
+            throw fail(400,"INVALID_TRACE_CURSOR","分页游标格式不合法");
+        try {
+            JsonNode data=json.readTree(Base64.getUrlDecoder().decode(raw));
+            if(!data.isObject() || data.size()!=5 ||
+               !batchId.equals(data.path("batchId").asText()) ||
+               revision!=data.path("revision").asLong(-1) ||
+               !fingerprint.equals(data.path("sourceFingerprint").asText()) ||
+               !data.path("lastWork").isTextual() || !data.path("lastOrder").isTextual() ||
+               data.path("lastWork").asText().length()>1024 ||
+               data.path("lastOrder").asText().length()>1024)
+                throw new IllegalArgumentException("cursor mismatch");
+            return new ImpactCursor(batchId,revision,fingerprint,
+                data.path("lastWork").asText(),data.path("lastOrder").asText());
+        } catch(IllegalArgumentException|java.io.IOException ex) {
+            throw fail(400,"INVALID_TRACE_CURSOR","分页游标无效，或绑定/模型修订已变更，请重新查询");
+        }
+    }
+
     private static DraftFailure fail(int code,String key,String message) {
         return new DraftFailure(code,key,message);
     }
@@ -311,6 +497,14 @@ public class QualityMvpController {
         }
         return hasLink(doc,"batch-workorder","production-batch","work-order")
             && hasLink(doc,"workorder-order","work-order","customer-order");
+    }
+
+    private static boolean allowsMultipleTargets(JsonNode doc,String linkId) {
+        for(JsonNode link:doc.path("linkTypes"))
+            if(linkId.equals(link.path("id").asText()))
+                return "ONE_TO_MANY".equals(link.path("cardinality").asText())
+                    || "MANY_TO_MANY".equals(link.path("cardinality").asText());
+        return false;
     }
 
     private static boolean hasLink(JsonNode doc,String id,String source,String target) {
@@ -333,7 +527,7 @@ public class QualityMvpController {
         addType(types,"customer-order","CustomerOrder","客户订单","order-id",
           new String[][]{{"order-id","orderId","客户订单号"},{"customer-name","customerName","客户名称"}});
         ArrayNode links=doc.putArray("linkTypes");
-        addLink(links,"batch-workorder","BatchWorkOrder","批次归属工单","production-batch","work-order");
+        addLink(links,"batch-workorder","BatchWorkOrder","批次关联工单","production-batch","work-order");
         addLink(links,"workorder-order","WorkOrderOrder","工单关联订单","work-order","customer-order");
         return doc;
     }
@@ -352,6 +546,7 @@ public class QualityMvpController {
         ObjectNode link=list.addObject();
         link.put("id",id);link.put("apiName",api);link.put("label",label);
         link.put("sourceTypeRef",from);link.put("targetTypeRef",to);
-        link.put("cardinality","MANY_TO_ONE");link.put("evidenceRequired",true);
+        // Real batch/work and work/order linkage can be N:M in manufacturing.
+        link.put("cardinality","MANY_TO_MANY");link.put("evidenceRequired",true);
     }
 }

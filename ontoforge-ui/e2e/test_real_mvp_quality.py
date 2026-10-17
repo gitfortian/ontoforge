@@ -170,3 +170,57 @@ class QualityMvpRealBrowserTest(unittest.TestCase):
                 self.assertTrue(page.get_by_role("button",name="查询影响订单").is_enabled())
             finally:
                 browser.close()
+
+    def test_zz_multi_order_objectset_pagination_in_real_browser(self):
+        # Preceding tests leave the fixed Native schema VALID and source mapping persisted.
+        code,catalog=call("/sources")
+        self.assertEqual(code,200)
+        self.assertIn("demo_impact_lots",{r["table"] for r in catalog})
+        new_map={
+            "batchTable":"demo_impact_lots","batchId":"lot_no",
+            "batchStatus":"outcome","batchWorkOrder":"job_ref",
+            "workTable":"demo_impact_jobs","workId":"job_no","workOrder":"sales_ref",
+            "orderTable":"demo_impact_orders","orderId":"sales_no","orderName":"buyer"}
+        with sync_playwright() as pw:
+            browser=pw.chromium.launch(headless=True,args=["--no-sandbox"])
+            try:
+                page=browser.new_page(viewport={"width":1370,"height":900},
+                                      locale="zh-CN",extra_http_headers=headers())
+                page.goto(BASE+"/#/mvp/quality")
+                page.get_by_role("heading",name="工业质量追溯 · 精简 MVP").wait_for()
+                page.get_by_role("button",name="选择 PostgreSQL 表与字段").click()
+                for key in ("batchTable","workTable","orderTable"):
+                    page.locator("#source-"+key).select_option(new_map[key])
+                    group=("batchId","batchStatus","batchWorkOrder") if key=="batchTable" else (
+                          ("workId","workOrder") if key=="workTable" else ("orderId","orderName"))
+                    for field in group:
+                        page.locator("#source-"+field).select_option(new_map[field])
+                page.get_by_role("button",name="预览真实样本与关联").click()
+                page.get_by_label("来源预览结果").get_by_text("LOT-900",exact=True).first.wait_for()
+                page.get_by_role("button",name="保存来源绑定").click()
+                page.get_by_text("绑定已保存 PostgreSQL",exact=False).wait_for()
+                page.locator("#mvp-batch-id").fill("LOT-900")
+                page.get_by_role("button",name="查询影响订单").click()
+                result=page.get_by_label("真实关联查询结果")
+                result.get_by_text("LOT-900 → JOB-70 → SO-91",exact=False).first.wait_for()
+                self.assertIn("2",result.inner_text())
+                self.assertIn("3",result.inner_text())
+                self.assertIn("4",result.inner_text())
+                self.assertIn("demo_impact_jobs.sales_ref",result.inner_text())
+                self.assertNotIn("JOB-71 → SO-93",result.inner_text())
+                result.get_by_role("button",name="下一页").click()
+                result.get_by_text("LOT-900 → JOB-71 → SO-93",exact=False).wait_for()
+                self.assertIn("第 2 页",result.inner_text())
+                result.get_by_role("button",name="上一页").click()
+                result.get_by_text("LOT-900 → JOB-70 → SO-91",exact=False).wait_for()
+                code,impact=call("/trace-set?batchId=LOT-900&pageSize=2")
+                self.assertEqual(code,200)
+                self.assertEqual((impact["workOrderCount"],impact["orderCount"],impact["pathCount"]),
+                                 (2,3,4))
+                self.assertEqual(len(impact["paths"]),2)
+                # A missing source linkage is reported, not rewritten as a missing batch.
+                code,missing=call("/trace-set?batchId=LOT-903")
+                self.assertEqual(code,200)
+                self.assertEqual((missing["pathCount"],missing["missingOrderRefs"]),(0,1))
+            finally:
+                browser.close()
