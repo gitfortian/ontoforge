@@ -33,6 +33,18 @@ type TraceSet={batchId:string;qualityStatus:string;boundRevision:number;
   sourceFingerprint:string;workOrderCount:number;orderCount:number;
   pathCount:number;missingWorkRefs:number;missingOrderRefs:number;
   paths:ImpactPath[];nextCursor:string|null;provenance:string};
+
+type ObjectSetItem={id:string;attributeName:string;attributeValue:string;sourceTable:string;
+  idSourceColumn:string;attributeSourceColumn:string;physicalRowCount:number};
+type ObjectSetPage={objectTypeId:string;filterField:string;operator:string;filterValue:string;
+  boundRevision:number;sourceFingerprint:string;totalCount:number;objects:ObjectSetItem[];
+  nextCursor:string|null};
+type ObjectKind='production-batch'|'work-order'|'customer-order';
+const objectKinds:{id:ObjectKind;label:string;field:string;fieldLabel:string}[]=[
+  {id:'production-batch',label:'生产批次',field:'qualityStatus',fieldLabel:'质量状态'},
+  {id:'work-order',label:'生产工单',field:'workOrderId',fieldLabel:'工单编号'},
+  {id:'customer-order',label:'客户订单',field:'customerName',fieldLabel:'客户名称'}
+];
 type ApiError={code?:string;message?:string};
 const api='/api/mvp/quality';
 async function invoke<T>(route:string,method='GET',body?:unknown):Promise<T>{
@@ -58,6 +70,13 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
   const [pageIndex,setPageIndex]=useState(0);
   const [pageStarts,setPageStarts]=useState<Array<string|null>>([null]);
   const [batch,setBatch]=useState('B2026-001');
+  const [kind,setKind]=useState<ObjectKind>('production-batch');
+  const [objectField,setObjectField]=useState('id');
+  const [objectOperator,setObjectOperator]=useState('prefix');
+  const [objectValue,setObjectValue]=useState('');
+  const [objectResult,setObjectResult]=useState<ObjectSetPage|null>(null);
+  const [objectPage,setObjectPage]=useState(0);
+  const [objectCursors,setObjectCursors]=useState<Array<string|null>>([null]);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [loading,setLoading]=useState(true);
@@ -86,12 +105,12 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
   }
   function model(){
     void run(()=>invoke<Status>('/model','POST'),value=>{
-      setStatus(value);setTrace(null);setBinding(null);
+      setStatus(value);setTrace(null);setBinding(null);setObjectResult(null);
     });
   }
   function bind(){
     void run(()=>invoke<Binding>('/bind','POST',map),value=>{
-      setBinding(value);setSavedMap(value.sourceMap);setTrace(null);
+      setBinding(value);setSavedMap(value.sourceMap);setTrace(null);setObjectResult(null);
       void reload().catch(e=>setError(String(e)));
     });
   }
@@ -115,6 +134,19 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
     });
   }
   function search(){loadImpactPage(null,0);}
+  function browseObjects(cursor:string|null,index:number){
+    const params=new URLSearchParams({objectTypeId:kind,filterField:objectField,
+      operator:objectOperator,filterValue:objectValue,pageSize:'2'});
+    if(cursor)params.set('cursor',cursor);
+    void run(()=>invoke<ObjectSetPage>('/object-set?'+params.toString()),value=>{
+      setObjectResult(value);setObjectPage(index);
+      setObjectCursors(previous=>{
+        const pages=previous.slice(0,index+1);pages[index]=cursor;return pages;
+      });
+    });
+  }
+  function clearObjectResult(){setObjectResult(null);setObjectPage(0);setObjectCursors([null]);}
+  const selectedKind=objectKinds.find(x=>x.id===kind)??objectKinds[0];
   const modelReady=status?.validation==='VALID';
   const mapChanged=Boolean(savedMap&&JSON.stringify(map)!==JSON.stringify(savedMap));
   const validMapping=groups.every(group=>{
@@ -129,7 +161,7 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
         for(const [key] of g.fields)copy[key]='';
       return copy;
     });
-    setTrace(null);setPreview(null);setPreviewMap('');
+    setTrace(null);setObjectResult(null);setPreview(null);setPreviewMap('');
   }
   const currentPreview=previewMap===JSON.stringify(map)?preview:null;
   return <div className="model-page">
@@ -265,6 +297,62 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
         </div>
         <p className="model-help">按工单 ID / 客户订单 ID 稳定排序；分页期间测试表变化可能影响跨请求一致性。
           仅为本机测试数据的有限 ObjectSet 查询，不代表通用执行引擎或生产数据源。</p>
+      </div>}
+    </section>
+    <section className="model-panel" aria-label="Native 对象集合浏览器">
+      <header className="model-panel-head"><div><h2>04 · 浏览本体对象集合</h2>
+        <p>选择本体对象类型，通过已保存的来源绑定查询实际 PostgreSQL 对象；属性筛选、去重和分页均由服务端处理。</p>
+      </div><Search size={20}/></header>
+      <div className="model-form-grid">
+        <div><label htmlFor="objectset-type">对象类型</label>
+          <select id="objectset-type" value={kind}
+            onChange={e=>{setKind(e.target.value as ObjectKind);setObjectField('id');setObjectValue('');clearObjectResult()}}>
+            {objectKinds.map(x=><option key={x.id} value={x.id}>{x.label}</option>)}
+          </select></div>
+        <div><label htmlFor="objectset-field">筛选字段</label>
+          <select id="objectset-field" value={objectField}
+            onChange={e=>{setObjectField(e.target.value);clearObjectResult()}}>
+            <option value="id">对象 ID</option>
+            <option value={selectedKind.field}>{selectedKind.fieldLabel}</option>
+          </select></div>
+        <div><label htmlFor="objectset-operator">筛选方式</label>
+          <select id="objectset-operator" value={objectOperator}
+            onChange={e=>{setObjectOperator(e.target.value);clearObjectResult()}}>
+            <option value="prefix">以文字开头</option>
+            <option value="eq">精确等于</option>
+          </select></div>
+        <div><label htmlFor="objectset-value">筛选值（留空查询全部）</label>
+          <input id="objectset-value" value={objectValue} maxLength={128}
+            onChange={e=>{setObjectValue(e.target.value);clearObjectResult()}}
+            placeholder={objectField==='id'?'例如 LOT-':'例如 BLOCKED'} />
+        </div>
+      </div>
+      <div className="model-actions">
+        <button className="model-btn model-primary" onClick={()=>browseObjects(null,0)}
+          disabled={busy||!status?.bound||mapChanged}>
+          <Search size={15}/> 查询对象集合</button>
+        <span className="model-help">仅限当前 Native 三类对象与本机安全白名单测试表；不执行任意 SQL。</span>
+      </div>
+      {objectResult&&<div className="model-panel" aria-label="对象集合查询结果">
+        <h3>{selectedKind.label} · 匹配对象 {objectResult.totalCount} 个</h3>
+        <p className="model-help">绑定 revision {objectResult.boundRevision} · 来源映射指纹 {objectResult.sourceFingerprint.slice(0,12)}…</p>
+        {objectResult.objects.length===0?<p role="status">没有符合条件的对象。</p>:
+          <div className="model-table-wrap"><table className="model-table">
+            <thead><tr><th>对象 ID</th><th>{selectedKind.fieldLabel}</th><th>来源表和字段证据</th><th>原始记录数</th></tr></thead>
+            <tbody>{objectResult.objects.map(item=><tr key={item.id}>
+              <td><strong>{item.id}</strong></td><td>{item.attributeValue}</td>
+              <td><small>{item.idSourceColumn} · {item.attributeSourceColumn}</small></td>
+              <td>{item.physicalRowCount}</td>
+            </tr>)}</tbody>
+          </table></div>}
+        <div className="model-actions">
+          <button className="model-btn" disabled={busy||objectPage===0}
+            onClick={()=>browseObjects(objectCursors[objectPage-1]??null,objectPage-1)}>对象上一页</button>
+          <span className="model-help">第 {objectPage+1} 页 · 当前 {objectResult.objects.length} 个 / 总 {objectResult.totalCount} 个</span>
+          <button className="model-btn" disabled={busy||!objectResult.nextCursor}
+            onClick={()=>browseObjects(objectResult.nextCursor,objectPage+1)}>对象下一页</button>
+        </div>
+        <p className="model-help">对象 ID 去重；多对多关系字段不作为单值属性。不同分页请求间来源数据变化不保证历史一致性。</p>
       </div>}
     </section>
   </div>;
