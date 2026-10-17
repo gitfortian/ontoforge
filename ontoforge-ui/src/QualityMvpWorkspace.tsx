@@ -123,7 +123,7 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
       </div>
       <button className="model-btn" onClick={()=>void run(reload,()=>{})} disabled={busy}><RefreshCw size={15}/> 更新状态</button>
     </div>
-    <div className="model-alert warning">B0 候选需要可信组织身份及 manufacturing.quality 包授权。仅用于本机测试数据；没有正式发布、Agent 或 Action。</div>
+    <div className="model-alert warning">本机 MVP 模式无需登录，但仅限隔离测试数据库；独立 B0/JWT 模式仍使用包授权。不是生产 MES/ERP、Agent 或 Action。</div>
     {error&&<div role="alert" className="model-alert error">{error}</div>}
     {loading&&<p>正在读取本地 PostgreSQL 状态…</p>}
     <section className="model-panel">

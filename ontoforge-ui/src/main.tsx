@@ -86,10 +86,10 @@ function App() {
       <button className={mvp?'nav-active nav-link':'nav-inactive nav-link'} onClick={()=>navigate('#/mvp/quality')}><GitBranch size={17}/> 工业质量追溯 · MVP</button>
       <p className="nav-heading secondary-label">规划模块</p>
       {planned.map(item=><div key={item.title} className="nav-disabled" title="当前版本暂不开放"><item.icon size={16}/>{item.title}<span>规划中</span></div>)}
-      <div className="sidebar-bottom">S0 · ObjectType 草稿与快照<br/><small>B0 可信身份候选 · 未正式发布</small></div>
+      <div className="sidebar-bottom">S0 · 本体与质量追溯 MVP<br/><small>本机 MVP 无认证；生产安全需另行集成</small></div>
     </aside>
     <main className="main">
-      <div className="topline"><span>{mvp?'工业质量追溯 / 精简 MVP':model?'本体设计 / ObjectType':'平台基座 / 系统概览'}</span><span className="env-chip">{auth.kind==='ready'?'已验证身份：'+auth.identity?.displayName:'B0 · 认证待接入'}</span>{auth.kind==='ready'&&<button type="button" onClick={logout}>退出会话</button>}</div>
+      <div className="topline"><span>{mvp?'工业质量追溯 / 精简 MVP':model?'本体设计 / ObjectType':'平台基座 / 系统概览'}</span><span className="env-chip">{auth.kind==='ready'?(auth.identity?.issuer==='local-mvp'?'本机隔离 MVP · 无登录': '已验证身份：'+auth.identity?.displayName):'身份模式待初始化'}</span>{auth.kind==='ready'&&auth.identity?.issuer!=='local-mvp'&&<button type="button" onClick={logout}>退出会话</button>}</div>
       {(model||mvp)?(auth.kind==='ready'
         ? (mvp?<QualityMvpWorkspace navigate={navigate}/>:<NativeModelWorkspace identity={auth.identity!} onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>)
         : <section className="panel" aria-live="polite">
@@ -111,7 +111,7 @@ function App() {
         </div>
         <div className="section-heading"><h2>下一阶段建设</h2><span>以下内容当前均未实现</span></div>
         <div className="cards">{planned.map(item=><div key={item.title} className="feature"><div className="feature-icon"><item.icon size={20}/></div><div className="stage">{item.stage}</div><h3>{item.title}</h3><p>{item.detail}</p><span className="planned">暂未开放</span></div>)}</div>
-        <footer>OntoForge · 本地质量追溯 MVP 已实现；B0 身份授权仅为候选，不提供通用连接器、正式发布或工业 Action。</footer>
+        <footer>OntoForge · 工业追溯仅限本机隔离测试；通用认证后续复用 yak-ops HttpSession，不提供正式发布或工业 Action。</footer>
       </>}
     </main>
   </div>;
