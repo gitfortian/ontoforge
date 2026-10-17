@@ -395,7 +395,7 @@ public class QualityMvpController {
         if(!allowsMultipleTargets(definition,"workorder-order")) {
             Boolean multiplePerWork=jdbc.query("SELECT 1 FROM ("+distinctPaths+
                 ") paths GROUP BY work_id HAVING COUNT(DISTINCT order_id)>1 LIMIT 1",
-                rs->rs.next(),batchId);
+                (org.springframework.jdbc.core.ResultSetExtractor<Boolean>) rs->rs.next(),batchId);
             if(Boolean.TRUE.equals(multiplePerWork))
                 throw fail(409,"ONTOLOGY_CARDINALITY_MISMATCH",
                     "当前本体“工单→订单”关系声明不允许一个工单关联多个订单；请修改LinkType基数、校验并重新绑定");
