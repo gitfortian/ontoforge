@@ -250,7 +250,7 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
         {trace.pathCount===0&&<p role="status">找到批次但没有完整的两跳关联，请核对来源事实和绑定。</p>}
         <h3>本体关系与来源证据 · 第 {pageIndex+1} 页</h3>
         <ul>{trace.paths.map((path,index)=><li key={path.workOrderId+'|'+path.orderId+'|'+index}>
-          <div><strong>{trace.batchId} → {path.workOrderId} → {path.orderId}</strong> · {path.customerName}</div>
+          <div><strong>{trace.batchId} → {path.workOrderId} → <span>{path.orderId}</span></strong> · {path.customerName}</div>
           <div className="model-help">{path.objects.map(object=><span key={object.objectTypeId}>
             {object.objectTypeId}：{object.id}（{object.sourceTable}）　</span>)}</div>
           <div className="model-help">{path.links.map(edge=><span key={edge.linkTypeId}>
