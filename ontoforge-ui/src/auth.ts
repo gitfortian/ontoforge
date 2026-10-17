@@ -56,7 +56,14 @@ function forget():void {
   accessToken=null;expiresAt=0;sessionStorage.removeItem(KEY);
 }
 export function signOut():void {forget();}
-export async function initializeIdentity():Promise<WorkspaceIdentity|null> {
+// React StrictMode mounts effects twice in development; exchange each OAuth code ONCE.
+let initialization:Promise<WorkspaceIdentity|null>|null=null;
+export function initializeIdentity():Promise<WorkspaceIdentity|null> {
+  if(initialization)return initialization;
+  initialization=initializeIdentityOnce().finally(()=>{initialization=null;});
+  return initialization;
+}
+async function initializeIdentityOnce():Promise<WorkspaceIdentity|null> {
   const u=new URL(window.location.href);
   if(u.searchParams.has('error')){const reason=u.searchParams.get('error')||'login_failed';
     cleanCallback();forget();throw new Error('OIDC 登录未完成：'+reason);}
