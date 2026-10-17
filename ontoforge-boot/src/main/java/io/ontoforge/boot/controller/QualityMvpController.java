@@ -8,6 +8,11 @@ import io.ontoforge.boot.model.NativeDraftService;
 import io.ontoforge.boot.model.DraftValidation;
 import io.ontoforge.boot.model.NativeDraftService.DraftFailure;
 import java.util.List;
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.regex.Pattern;
+import org.springframework.web.bind.annotation.RequestBody;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,15 +30,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/mvp/quality")
 public class QualityMvpController {
     private static final String PACKAGE = "manufacturing.quality";
-    private static final String SOURCE_MAP = """
-      {"objectTypes":[
-        {"objectTypeId":"production-batch","table":"mvp_source_batches","key":"batch_id"},
-        {"objectTypeId":"work-order","table":"mvp_source_work_orders","key":"work_order_id"},
-        {"objectTypeId":"customer-order","table":"mvp_source_orders","key":"order_id"}],
-       "links":[
-        {"linkTypeId":"batch-workorder","sourceColumn":"work_order_id","targetColumn":"work_order_id"},
-        {"linkTypeId":"workorder-order","sourceColumn":"order_id","targetColumn":"order_id"}]}
-      """;
+    private static final Pattern IDENT=Pattern.compile("[a-z][a-z0-9_]{0,62}");
+    public record Mapping(String batchTable,String batchId,String batchStatus,String batchWorkOrder,
+        String workTable,String workId,String workOrder,
+        String orderTable,String orderId,String orderName){}
+    public record TableInfo(String table,List<String> columns){}
+    private static final Mapping DEFAULT=new Mapping("mvp_source_batches","batch_id","quality_status",
+        "work_order_id","mvp_source_work_orders","work_order_id","order_id",
+        "mvp_source_orders","order_id","customer_name");
+    private static boolean permitted(String t){return t!=null&&IDENT.matcher(t).matches()
+        &&(t.startsWith("mvp_source_")||t.startsWith("demo_"));}
+    private static String qi(String t){return "\"" + t + "\"";}
+    private static String qt(String t){return "public."+qi(t);}
     private final JdbcTemplate jdbc;
     private final NativeDraftService drafts;
     private final ObjectMapper json;
@@ -50,6 +58,67 @@ public class QualityMvpController {
     public record Edge(String linkTypeId, String from, String to, String sourceColumn) {}
     public record Trace(String batchId, String qualityStatus, List<Fact> objects,
                         List<Edge> links, String provenance) {}
+
+    @GetMapping("/sources")
+    public List<TableInfo> sources(){
+        Map<String,List<String>> tables=new LinkedHashMap<>();
+        jdbc.query("""
+            SELECT c.table_name,c.column_name,c.data_type FROM information_schema.columns c
+             JOIN information_schema.tables t ON t.table_name=c.table_name
+               AND t.table_schema=c.table_schema
+             WHERE c.table_schema='public' AND t.table_type='BASE TABLE'
+             ORDER BY c.table_name,c.ordinal_position
+        """,(org.springframework.jdbc.core.RowCallbackHandler) rs->{
+            String table=rs.getString(1),type=rs.getString(3);
+            if(permitted(table)&&List.of("text","character varying","character",
+                "uuid","integer","bigint").contains(type))
+                tables.computeIfAbsent(table,k->new ArrayList<>()).add(rs.getString(2));
+        });
+        return tables.entrySet().stream().limit(100)
+           .map(e->new TableInfo(e.getKey(),List.copyOf(e.getValue()))).toList();
+    }
+    private Mapping parseMapping(JsonNode input){
+        if(input==null||input.isNull()||(input.has("objectTypes")&&input.has("links")))return DEFAULT;
+        String[] names={"batchTable","batchId","batchStatus","batchWorkOrder",
+            "workTable","workId","workOrder","orderTable","orderId","orderName"};
+        if(!input.isObject()||input.size()!=names.length)
+            throw fail(422,"INVALID_SOURCE_MAPPING","必须填写10项来源表和字段");
+        List<String> v=new ArrayList<>();
+        for(String key:names){
+            if(!input.path(key).isTextual()||!IDENT.matcher(input.path(key).asText()).matches())
+                throw fail(422,"INVALID_SOURCE_MAPPING","非法的来源标识符："+key);
+            v.add(input.path(key).asText());
+        }
+        return new Mapping(v.get(0),v.get(1),v.get(2),v.get(3),v.get(4),
+            v.get(5),v.get(6),v.get(7),v.get(8),v.get(9));
+    }
+    private void validateSource(Mapping m){
+        Map<String,List<String>> tables=new LinkedHashMap<>();
+        for(TableInfo t:sources())tables.put(t.table(),t.columns());
+        // A single table playing multiple semantic roles is unsupported in this MVP.
+        if(List.of(m.batchTable(),m.workTable(),m.orderTable()).stream().distinct().count()!=3)
+            throw fail(422,"SOURCE_SCHEMA_MISMATCH","请选择三张不同的测试表");
+        Map<String,List<String>> required=Map.of(
+            m.batchTable(),List.of(m.batchId(),m.batchStatus(),m.batchWorkOrder()),
+            m.workTable(),List.of(m.workId(),m.workOrder()),
+            m.orderTable(),List.of(m.orderId(),m.orderName()));
+        for(var entry:required.entrySet())
+            if(!permitted(entry.getKey())||!tables.containsKey(entry.getKey())
+                    ||!tables.get(entry.getKey()).containsAll(entry.getValue()))
+                throw fail(422,"SOURCE_SCHEMA_MISMATCH",
+                    "来源表或字段不可访问（仅允许 public 的 demo_ / mvp_source_ 测试表）");
+    }
+    private Mapping savedMapping(){
+        List<String> values=jdbc.query("SELECT source_map::text FROM mvp_demo_binding WHERE package_id=?",
+            (rs,i)->rs.getString(1),PACKAGE);
+        if(values.isEmpty())throw fail(409,"BINDING_REQUIRED","请先保存来源绑定");
+        try{return parseMapping(json.readTree(values.getFirst()));}
+        catch(com.fasterxml.jackson.core.JsonProcessingException e){
+            throw fail(409,"BINDING_CORRUPT","来源映射损坏");
+        }
+    }
+    @GetMapping("/binding")
+    public Mapping binding(){return savedMapping();}
 
     private UUID existingDraft() {
         return jdbc.query("SELECT draft_id FROM native_package_draft WHERE package_id = ?",
@@ -90,26 +159,30 @@ public class QualityMvpController {
     }
 
     @PostMapping("/bind")
-    public Binding bind() {
-        UUID id = existingDraft();
-        if (id == null) throw fail(409,"MODEL_REQUIRED","请先建立示例本体");
-        var draft = drafts.get(id);
-        // Current model MUST actually define all three source-backed types and both
-        // links with their expected topology. No dynamic table/column SQL is accepted.
-        if (!"VALID".equals(draft.validation().path("status").asText()) ||
-             draft.validation().path("validatedRevision").asLong(-1) != draft.revision() ||
-             !compatible(draft.editingContent()))
-            throw fail(409,"MODEL_NOT_READY","当前模型已变更或未通过校验，不能绑定示例数据");
+    public Binding bind(@RequestBody(required=false) JsonNode chosen){
+        UUID id=existingDraft();
+        if(id==null)throw fail(409,"MODEL_REQUIRED","请先建立示例本体");
+        var draft=drafts.get(id);
+        if(!"VALID".equals(draft.validation().path("status").asText())||
+            draft.validation().path("validatedRevision").asLong(-1)!=draft.revision()||
+            !compatible(draft.editingContent()))
+            throw fail(409,"MODEL_NOT_READY","模型未通过当前修订校验，不能绑定");
+        Mapping mapping=parseMapping(chosen);
+        validateSource(mapping);
+        String encoded;
+        try{encoded=json.writeValueAsString(mapping);}
+        catch(com.fasterxml.jackson.core.JsonProcessingException e){
+            throw new IllegalStateException("Mapping encoding failed",e);
+        }
         jdbc.update("""
             INSERT INTO mvp_demo_binding(package_id,draft_id,bound_revision,source_map)
-            VALUES (?,?,?,?::jsonb)
-            ON CONFLICT (package_id) DO UPDATE SET
-             draft_id=EXCLUDED.draft_id, bound_revision=EXCLUDED.bound_revision,
-             source_map=EXCLUDED.source_map, updated_at=clock_timestamp()
-            """,PACKAGE,id,draft.revision(),SOURCE_MAP);
-        int count = jdbc.queryForObject("SELECT count(*) FROM mvp_source_batches",Integer.class);
-        try { return new Binding(PACKAGE,id.toString(),draft.revision(),json.readTree(SOURCE_MAP),count); }
-        catch(Exception exception) { throw new IllegalStateException("Invalid built-in source map",exception); }
+              VALUES (?,?,?,?::jsonb) ON CONFLICT(package_id) DO UPDATE SET
+              draft_id=EXCLUDED.draft_id,bound_revision=EXCLUDED.bound_revision,
+              source_map=EXCLUDED.source_map,updated_at=clock_timestamp()
+        """,PACKAGE,id,draft.revision(),encoded);
+        int count=jdbc.queryForObject("SELECT count(*) FROM (SELECT 1 FROM "+
+            qt(mapping.batchTable())+" LIMIT 1000) t",Integer.class);
+        return new Binding(PACKAGE,id.toString(),draft.revision(),json.valueToTree(mapping),count);
     }
 
     @GetMapping("/trace")
@@ -127,28 +200,38 @@ public class QualityMvpController {
                 || draft.validation().path("validatedRevision").asLong(-1)!=draft.revision()
                 || !compatible(draft.editingContent()))
             throw fail(409,"BINDING_STALE","当前绑定已失效，请校验模型后重新绑定");
-        // Only fixed, allowlisted demo sources. Input value is a JDBC parameter:
-        // no client-provided table, column, join, SQL or arbitrary executable query.
-        List<Trace> rows = jdbc.query("""
-            SELECT b.batch_id,b.quality_status,b.work_order_id,w.order_id,o.customer_name
-              FROM mvp_source_batches b
-              JOIN mvp_source_work_orders w ON b.work_order_id=w.work_order_id
-              JOIN mvp_source_orders o ON w.order_id=o.order_id
-             WHERE b.batch_id=?
-            """,(rs,i)-> {
-                String batch=rs.getString("batch_id");
-                String work=rs.getString("work_order_id");
-                String order=rs.getString("order_id");
-                return new Trace(batch,rs.getString("quality_status"),List.of(
-                    new Fact("production-batch",batch,"生产批次","mvp_source_batches"),
-                    new Fact("work-order",work,"生产工单","mvp_source_work_orders"),
-                    new Fact("customer-order",order,rs.getString("customer_name"),"mvp_source_orders")
-                ),List.of(
-                    new Edge("batch-workorder",batch,work,"mvp_source_batches.work_order_id"),
-                    new Edge("workorder-order",work,order,"mvp_source_work_orders.order_id")
-                ),"ISOLATED_SYNTHETIC_POSTGRES");
-            },batchId);
+        Mapping m=savedMapping();
+        try{validateSource(m);}
+        catch(DraftFailure e){throw fail(409,"BINDING_SCHEMA_DRIFT",
+            "已保存的来源表或字段发生变化，请重新配置绑定");}
+        // Identifiers are schema-checked and quoted; batch ID is a bound SQL parameter.
+        String sql="SELECT b."+qi(m.batchId())+"::text AS batch_id,"
+            +"b."+qi(m.batchStatus())+"::text AS quality_status,"
+            +"w."+qi(m.workId())+"::text AS work_order_id,"
+            +"o."+qi(m.orderId())+"::text AS order_id,"
+            +"o."+qi(m.orderName())+"::text AS customer_name"
+            +" FROM "+qt(m.batchTable())+" b"
+            +" JOIN "+qt(m.workTable())+" w ON b."+qi(m.batchWorkOrder())+
+              "::text=w."+qi(m.workId())+"::text"
+            +" JOIN "+qt(m.orderTable())+" o ON w."+qi(m.workOrder())+
+              "::text=o."+qi(m.orderId())+"::text"
+            +" WHERE b."+qi(m.batchId())+"::text=? LIMIT 2";
+        List<Trace> rows=jdbc.query(sql,(rs,i)->{
+            String batch=rs.getString("batch_id"),work=rs.getString("work_order_id"),
+              order=rs.getString("order_id");
+            return new Trace(batch,rs.getString("quality_status"),List.of(
+                new Fact("production-batch",batch,"生产批次",m.batchTable()),
+                new Fact("work-order",work,"生产工单",m.workTable()),
+                new Fact("customer-order",order,rs.getString("customer_name"),m.orderTable())
+            ),List.of(
+                new Edge("batch-workorder",batch,work,m.batchTable()+"."+m.batchWorkOrder()),
+                new Edge("workorder-order",work,order,m.workTable()+"."+m.workOrder())
+            ),m.batchTable().startsWith("mvp_source_")?
+                "ISOLATED_SYNTHETIC_POSTGRES":"LOCAL_TEST_POSTGRES");
+        },batchId);
         if (rows.isEmpty()) throw fail(404,"BATCH_NOT_FOUND","示例数据源中不存在该批次");
+        if(rows.size()>1)throw fail(409,"AMBIGUOUS_RELATIONSHIP",
+            "一个批次对应多条订单路径，本阶段不截断后冒充完整结果");
         return rows.getFirst();
     }
 
