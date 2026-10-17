@@ -38,7 +38,7 @@ class QualityMvpRealBrowserTest(unittest.TestCase):
                 result.get_by_text("ORD-9001", exact=True).first.wait_for()
                 self.assertIn("WO-1001",result.inner_text())
                 self.assertIn("mvp_source_batches",result.inner_text())
-                self.assertIn("mvp_source_work_orders.work_order_id",result.inner_text())
+                self.assertIn("mvp_source_work_orders.order_id",result.inner_text())
                 code,data=call("/trace?batchId=B2026-001")
                 self.assertEqual(code,200)
                 self.assertEqual([o["objectTypeId"] for o in data["objects"]],
