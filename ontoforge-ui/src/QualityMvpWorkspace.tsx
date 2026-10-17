@@ -25,10 +25,14 @@ const groups=[
  {title:'生产工单',table:'workTable',fields:[['workId','工单唯一 ID'],['workOrder','关联客户订单 ID']]},
  {title:'客户订单',table:'orderTable',fields:[['orderId','客户订单唯一 ID'],['orderName','客户名称/显示字段']]}
 ] as const;
-type Trace={batchId:string;qualityStatus:string;
-  objects:Array<{objectTypeId:string;id:string;label:string;sourceTable:string}>;
-  links:Array<{linkTypeId:string;from:string;to:string;sourceColumn:string}>;
-  provenance:string};
+type TraceFact={objectTypeId:string;id:string;label:string;sourceTable:string};
+type TraceEdge={linkTypeId:string;from:string;to:string;sourceColumn:string};
+type ImpactPath={workOrderId:string;orderId:string;customerName:string;
+  objects:TraceFact[];links:TraceEdge[]};
+type TraceSet={batchId:string;qualityStatus:string;boundRevision:number;
+  sourceFingerprint:string;workOrderCount:number;orderCount:number;
+  pathCount:number;missingWorkRefs:number;missingOrderRefs:number;
+  paths:ImpactPath[];nextCursor:string|null;provenance:string};
 type ApiError={code?:string;message?:string};
 const api='/api/mvp/quality';
 async function invoke<T>(route:string,method='GET',body?:unknown):Promise<T>{
@@ -50,7 +54,9 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
   const [preview,setPreview]=useState<SourcePreview|null>(null);
   const [previewMap,setPreviewMap]=useState('');
   const [expandMapping,setExpandMapping]=useState(false);
-  const [trace,setTrace]=useState<Trace|null>(null);
+  const [trace,setTrace]=useState<TraceSet|null>(null);
+  const [pageIndex,setPageIndex]=useState(0);
+  const [pageStarts,setPageStarts]=useState<Array<string|null>>([null]);
   const [batch,setBatch]=useState('B2026-001');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -95,9 +101,20 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
       setPreview(value);setPreviewMap(JSON.stringify(selected));
     });
   }
-  function search(){
-    void run(()=>invoke<Trace>('/trace?batchId='+encodeURIComponent(batch)),setTrace);
+  function loadImpactPage(cursor:string|null, index:number){
+    const url='/trace-set?batchId='+encodeURIComponent(batch)
+      +'&pageSize=2'+(cursor?'&cursor='+encodeURIComponent(cursor):'');
+    void run(()=>invoke<TraceSet>(url),value=>{
+      setTrace(value);
+      setPageIndex(index);
+      setPageStarts(previous=>{
+        const pages=previous.slice(0,index+1);
+        pages[index]=cursor;
+        return pages;
+      });
+    });
   }
+  function search(){loadImpactPage(null,0);}
   const modelReady=status?.validation==='VALID';
   const mapChanged=Boolean(savedMap&&JSON.stringify(map)!==JSON.stringify(savedMap));
   const validMapping=groups.every(group=>{
@@ -119,7 +136,7 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
     <div className="model-head">
       <div><div className="model-eyebrow">ONTOFORGE / ONE GOLDEN STORY</div>
         <h1>工业质量追溯 · 精简 MVP</h1>
-        <p>真实 PostgreSQL 示例数据：定义本体 → 建立来源绑定 → 沿业务关系追溯订单。只验证这一条路径。</p>
+        <p>真实 PostgreSQL 测试数据：定义本体 → 建立来源绑定 → 查询批次影响的工单与客户订单集合，逐页检查来源证据。</p>
       </div>
       <button className="model-btn" onClick={()=>void run(reload,()=>{})} disabled={busy}><RefreshCw size={15}/> 更新状态</button>
     </div>
@@ -207,28 +224,47 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
     </section>
     <section className="model-panel">
       <header className="model-panel-head"><div><h2>03 · 沿关系查找受影响订单</h2>
-        <p>输入你选择的来源表中的批次 ID，查询受控的两跳关系并显示来源字段。</p>
+        <p>输入批次 ID，汇总所有受影响的工单与订单；去重、两跳关联、来源证据及逐页结果均由 PostgreSQL 返回。</p>
       </div><GitBranch size={20}/></header>
       <label htmlFor="mvp-batch-id">生产批次 ID</label>
       <div className="model-actions">
-        <input id="mvp-batch-id" value={batch} onChange={e=>setBatch(e.target.value)}
+        <input id="mvp-batch-id" value={batch} onChange={e=>{setBatch(e.target.value);setTrace(null);setPageIndex(0);setPageStarts([null]);}}
           placeholder="B2026-001" style={{maxWidth:260,padding:9}}/>
         <button className="model-btn model-primary" disabled={busy||!status?.bound||mapChanged||!batch.trim()}
           onClick={search}><Search size={15}/> 查询影响订单</button>
       </div>
       {!status?.bound&&<p className="model-help">完成第 1、2 步后才能查询；模型修改后需重新校验并绑定。</p>}
       {trace&&<div aria-label="真实关联查询结果" className="model-panel">
-        <h3>批次 {trace.batchId} 的业务追溯结果</h3>
+        <h3>批次 {trace.batchId} 的业务影响集合</h3>
         <p>质量状态：<strong>{trace.qualityStatus}</strong> · 来源：{trace.provenance==='LOCAL_TEST_POSTGRES'?'当前本机 PostgreSQL 测试表':'内置合成 PostgreSQL 数据'}</p>
-        <div className="model-metrics">{trace.objects.map(item=><div key={item.objectTypeId}>
-          <span>{item.objectTypeId}</span><b>{item.id}</b>
-          <small>{item.label} · {item.sourceTable}</small>
-        </div>)}</div>
-        <h3>本体关系与来源证据</h3>
-        <ul>{trace.links.map(item=><li key={item.linkTypeId}>
-          {item.from} → {item.to} · {item.linkTypeId} · 来源字段 {item.sourceColumn}
+        <div className="model-metrics">
+          <div><span>受影响工单（去重）</span><b>{trace.workOrderCount}</b></div>
+          <div><span>受影响客户订单（去重）</span><b>{trace.orderCount}</b></div>
+          <div><span>关系路径总数</span><b>{trace.pathCount}</b></div>
+        </div>
+        {(trace.missingWorkRefs>0||trace.missingOrderRefs>0)&&
+          <p role="status" className="model-alert warning">
+            来源存在不完整关联：{trace.missingWorkRefs} 个工单引用无法匹配，
+            {trace.missingOrderRefs} 个订单引用无法匹配。这些断链不计入完整路径。
+          </p>}
+        {trace.pathCount===0&&<p role="status">找到批次但没有完整的两跳关联，请核对来源事实和绑定。</p>}
+        <h3>本体关系与来源证据 · 第 {pageIndex+1} 页</h3>
+        <ul>{trace.paths.map((path,index)=><li key={path.workOrderId+'|'+path.orderId+'|'+index}>
+          <div><strong>{trace.batchId} → {path.workOrderId} → {path.orderId}</strong> · {path.customerName}</div>
+          <div className="model-help">{path.objects.map(object=><span key={object.objectTypeId}>
+            {object.objectTypeId}：{object.id}（{object.sourceTable}）　</span>)}</div>
+          <div className="model-help">{path.links.map(edge=><span key={edge.linkTypeId}>
+            {edge.linkTypeId} · 来源字段 {edge.sourceColumn}　</span>)}</div>
         </li>)}</ul>
-        <p className="model-help">这是两跳、固定安全白名单的只读关系查询示例，不代表通用 ObjectSet 已完成。</p>
+        <div className="model-actions">
+          <button className="model-btn" disabled={busy||pageIndex===0}
+             onClick={()=>loadImpactPage(pageStarts[pageIndex-1]??null,pageIndex-1)}>上一页</button>
+          <span className="model-help">当前页 {trace.paths.length} 条路径；共 {trace.pathCount} 条，模型 revision {trace.boundRevision}</span>
+          <button className="model-btn" disabled={busy||!trace.nextCursor}
+             onClick={()=>loadImpactPage(trace.nextCursor,pageIndex+1)}>下一页</button>
+        </div>
+        <p className="model-help">按工单 ID / 客户订单 ID 稳定排序；分页期间测试表变化可能影响跨请求一致性。
+          仅为本机测试数据的有限 ObjectSet 查询，不代表通用执行引擎或生产数据源。</p>
       </div>}
     </section>
   </div>;
