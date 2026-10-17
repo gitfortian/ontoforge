@@ -91,6 +91,11 @@ jobs:
             sleep 1
           done
           curl -fsS http://127.0.0.1:5173/ >/dev/null
+      - name: Seed alternate local PostgreSQL demo_ tables for configurable binding test
+        run: |
+          cat scripts/mvp-configurable-source-e2e.sql |
+            docker exec -i "$(docker ps --filter ancestor=postgres:17 --format '{{.ID}}' | head -n1)" \
+              psql -U ontology -d ontology -v ON_ERROR_STOP=1
       - name: Install real Playwright Chromium
         run: |
           python -m pip install playwright==1.57.0
