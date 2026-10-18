@@ -6,7 +6,7 @@ import './binding.css';
 
 type Property={id:string;apiName:string;label?:string;valueType:string;required:boolean;searchable:boolean;classification:string;enumValues?:string[]};
 type TypeDescriptor={packageId:string;objectTypeId:string;apiName:string;label?:string;primaryKeyRef:string;properties:Property[];payloadSha256:string};
-type SourceColumn={name:string;dataType:string;udtName:string;nullable:boolean;ordinalPosition:number;primaryKey:boolean;uniqueKey:boolean};
+type SourceColumn={name:string;dataType:string;udtName:string;nullable:boolean;ordinalPosition:number;primaryKey:boolean;uniqueKey:boolean;characterMaximumLength?:number|null;numericPrecision?:number|null;numericScale?:number|null;datetimePrecision?:number|null};
 type SourceTable={sourceId:string;schema:string;table:string;columns:SourceColumn[];schemaFingerprint:string};
 type FieldMapping={propertyRef:string;sourceColumn:string;authority:'AUTHORITATIVE'};
 type BindingSummary={bindingId:string;packageId:string;objectTypeId:string;currentRevision:number;sourceId:string;sourceSchema:string;sourceTable:string;validationStatus:string;checkedAt:string;checkedRows:number;digest:string};
@@ -28,6 +28,13 @@ async function request<T>(path:string,init:RequestInit={}):Promise<T>{
   return body as T;
 }
 const norm=(value:string)=>value.replace(/[-_]/g,'').toLowerCase();
+const sourceTypeLabel=(column:SourceColumn)=>{
+  const type=column.dataType.toLowerCase();
+  if((type==='numeric'||type==='decimal')&&column.numericPrecision!=null&&column.numericScale!=null)return `${type}(${column.numericPrecision},${column.numericScale})`;
+  if(type==='character varying'&&column.characterMaximumLength!=null)return `${type}(${column.characterMaximumLength})`;
+  if(type==='timestamp with time zone'&&column.datetimePrecision!=null)return `${type}(${column.datetimePrecision})`;
+  return column.dataType;
+};
 
 export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{route:string;navigate:(hash:string)=>void;onDirtyChange:(dirty:boolean)=>void}){
   const [packageId,setPackageId]=useState('');
@@ -46,6 +53,7 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
   const [revisions,setRevisions]=useState<RevisionSummary[]>([]);
   const [bindingId,setBindingId]=useState('');
   const [revision,setRevision]=useState(0);
+  const [identityDomainBeforeEdit,setIdentityDomainBeforeEdit]=useState('');
   const [editing,setEditing]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -89,6 +97,7 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
         });
       }
       setDescriptor(type);setPackageId(type.packageId);setSnapshotInput(snapshot);setTypeInput(typeId);
+      setIdentityDomainBeforeEdit(current?.identityDomainId||'');
       setTables(sourceTables);setTableName(table.table);setSourceKey(key);setMappingState(nextMappings);
       setFingerprint(current?.sourceSchemaFingerprint||'');setBindingId(current?.bindingId||'');setRevision(current?.revision||0);
       setDetail(null);setRevisions([]);setEditing(true);setDirty(false);setNotice(current?'该 ObjectType 已有绑定；保存将创建不可变的新 revision。':'选择来源列并完成映射后，先预览、再校验、最后保存。');
@@ -149,7 +158,11 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
       });
       setBindingId(saved.bindingId);setRevision(saved.revision);setDetail(saved);setEditing(false);setPreview(null);setValidation(null);
       setRevisions(await request<RevisionSummary[]>(API+'/bindings/'+saved.bindingId+'/revisions'));
-      onDirtyChange(false);setDirty(false);setNotice('绑定 revision '+saved.revision+' 已持久化。历史版本保持不可变。');
+      const identityChanged=Boolean(identityDomainBeforeEdit)&&identityDomainBeforeEdit!==saved.identityDomainId;
+      onDirtyChange(false);setDirty(false);
+      setNotice(identityChanged
+        ?'来源表或身份键语义变化，已生成新身份域；旧 ObjectRef 不会自动重定位。绑定 revision '+saved.revision+' 已持久化。'
+        :'绑定 revision '+saved.revision+' 已持久化。历史版本保持不可变。');
       await loadBindings(saved.packageId);
     }catch(e){setError(messageOf(e));}
     finally{setBusy(false);}
@@ -200,14 +213,14 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
             {tables.map(t=><option key={t.table} value={t.table}>{t.schema}.{t.table} · {t.columns.length} 列</option>)}
           </select></label>
           <label>来源身份键<select value={sourceKey} onChange={e=>{setSourceKey(e.target.value);if(descriptor)setMappingState(old=>({...old,[descriptor.primaryKeyRef]:e.target.value}));setFingerprint('');setPreview(null);setValidation(null);setDirty(true);onDirtyChange(true);}}>
-            <option value="">选择主键 / 唯一列</option>{(selectedTable?.columns||[]).filter(c=>c.primaryKey||c.uniqueKey).map(c=><option key={c.name} value={c.name}>{c.name} · {c.dataType}</option>)}
+            <option value="">选择主键 / 唯一列</option>{(selectedTable?.columns||[]).filter(c=>c.primaryKey||c.uniqueKey).map(c=><option key={c.name} value={c.name}>{c.name} · {sourceTypeLabel(c)}</option>)}
           </select></label>
         </div>
         <div className="binding-map-head"><div><h3>属性映射</h3><p>主键必须映射到 primaryKeyRef；只支持 AUTHORITATIVE，不执行隐式类型转换。</p></div><span>{mappings.length} 项已配置</span></div>
         <div className="binding-map-table"><table className="model-table"><thead><tr><th>对象属性</th><th>类型</th><th>来源列</th><th>约束</th></tr></thead><tbody>
           {descriptor.properties.map(p=><tr key={p.id}><td><b>{p.label||p.apiName}</b><small>{p.apiName} · {p.id}</small></td><td>{p.valueType}</td>
             <td><select aria-label={'来源列 '+p.apiName} value={mappingState[p.id]||''} onChange={e=>{setMappingState(old=>({...old,[p.id]:e.target.value}));if(p.id===descriptor.primaryKeyRef)setSourceKey(e.target.value);setPreview(null);setValidation(null);setDirty(true);onDirtyChange(true);}}>
-              <option value="">不映射</option>{(selectedTable?.columns||[]).map(c=><option key={c.name} value={c.name}>{c.name} · {c.dataType}</option>)}
+              <option value="">不映射</option>{(selectedTable?.columns||[]).map(c=><option key={c.name} value={c.name}>{c.name} · {sourceTypeLabel(c)}</option>)}
             </select></td><td>{p.id===descriptor.primaryKeyRef?<span className="binding-chip required">主键</span>:p.required?<span className="binding-chip required">必填</span>:<span className="binding-chip">可选</span>}</td>
           </tr>)}
         </tbody></table></div>

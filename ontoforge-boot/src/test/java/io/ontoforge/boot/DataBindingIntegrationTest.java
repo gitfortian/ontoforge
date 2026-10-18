@@ -133,6 +133,7 @@ class DataBindingIntegrationTest {
         addProperty(properties, "supplier-rating", "rating", "DECIMAL", false);
         addProperty(properties, "supplier-active", "active", "BOOLEAN", true);
         addProperty(properties, "supplier-onboarded", "onboardedAt", "DATETIME", false);
+        addProperty(properties, "supplier-sequence", "sequence", "INTEGER", true);
         ObjectNode category = addProperty(properties, "supplier-category", "category", "ENUM", false);
         ArrayNode enumValues = category.putArray("enumValues");
         enumValues.add("ELECTRONICS"); enumValues.add("METAL"); enumValues.add("LOGISTICS"); enumValues.add("HARDWARE");
@@ -166,6 +167,8 @@ class DataBindingIntegrationTest {
         JsonNode previewBody = mapper.readTree(preview.getBody());
         assertThat(previewBody.path("sourceRows").size()).isEqualTo(5);
         assertThat(previewBody.path("mappedRows").toString()).contains("Northwind Components");
+        assertThat(previewBody.path("mappedRows").get(0).path("supplier-sequence").asText())
+                .isEqualTo("9007199254740993");
         String fingerprint = previewBody.path("source").path("schemaFingerprint").asText();
         request.put("expectedSchemaFingerprint", fingerprint);
         assertThat(previewBody.path("sourceRows").get(0).path("vendor_code").asText()).isEqualTo("SUP-1001");
@@ -229,9 +232,22 @@ class DataBindingIntegrationTest {
         } finally {
             jdbc.execute("ALTER TABLE public.m5_supplier_source DROP COLUMN IF EXISTS m5_test_drift");
         }
+        request.put("sourceKey", "alternate_code");
+        for (JsonNode item : request.withArray("fieldMappings")) {
+            if ("supplier-code".equals(item.path("propertyRef").asText())) {
+                ((ObjectNode) item).put("sourceColumn", "alternate_code");
+            }
+        }
         ResponseEntity<String> updated = put("/api/runtime/bindings/" + bindingId, request);
         assertThat(updated.getStatusCode().value()).isEqualTo(200);
-        assertThat(mapper.readTree(updated.getBody()).path("revision").asLong()).isEqualTo(2);
+        JsonNode second = mapper.readTree(updated.getBody());
+        assertThat(second.path("revision").asLong()).isEqualTo(2);
+        assertThat(second.path("identityDomainId").asText())
+                .isNotEqualTo(first.path("identityDomainId").asText());
+        JsonNode preservedFirst = mapper.readTree(http.getForEntity(URI.create(url(
+                "/api/runtime/bindings/" + bindingId + "?revision=1")), String.class).getBody());
+        assertThat(preservedFirst.path("digest").asText()).isEqualTo(first.path("digest").asText());
+        assertThat(preservedFirst.path("identityDomainId").asText()).isEqualTo(first.path("identityDomainId").asText());
 
         ResponseEntity<String> stale = put("/api/runtime/bindings/" + bindingId, request);
         assertThat(stale.getStatusCode().value()).isEqualTo(409);
@@ -267,6 +283,7 @@ class DataBindingIntegrationTest {
         mapping(mappings, "supplier-rating", "rating");
         mapping(mappings, "supplier-active", "active");
         mapping(mappings, "supplier-onboarded", "onboarded_at");
+        mapping(mappings, "supplier-sequence", "sequence_no");
         mapping(mappings, "supplier-category", "category");
         return request;
     }

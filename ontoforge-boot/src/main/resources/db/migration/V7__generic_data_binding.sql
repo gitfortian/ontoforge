@@ -58,6 +58,8 @@ FOR EACH ROW EXECUTE FUNCTION reject_runtime_binding_revision_mutation();
 -- Synthetic, typed source data used by M5 local PostgreSQL acceptance.
 CREATE TABLE m5_supplier_source (
     vendor_code TEXT PRIMARY KEY,
+    alternate_code TEXT NOT NULL UNIQUE,
+    sequence_no BIGINT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     rating NUMERIC(4,2),
     active BOOLEAN NOT NULL DEFAULT true,
@@ -65,12 +67,12 @@ CREATE TABLE m5_supplier_source (
     category TEXT
 );
 
-INSERT INTO m5_supplier_source(vendor_code, name, rating, active, onboarded_at, category) VALUES
-('SUP-1001', 'Northwind Components', 4.75, true,  '2026-01-15T09:00:00Z', 'ELECTRONICS'),
-('SUP-1002', 'ForgeWorks Supply',    4.20, true,  '2026-02-10T10:30:00Z', 'METAL'),
-('SUP-1003', 'Harbor Industrial',   3.90, true,  '2026-02-25T12:00:00Z', 'LOGISTICS'),
-('SUP-1004', 'Precision Materials', 4.95, true,  '2026-03-03T08:15:00Z', 'METAL'),
-('SUP-1005', 'Atlas Fasteners',     4.10, false, '2026-03-20T14:00:00Z', 'HARDWARE');
+INSERT INTO m5_supplier_source(vendor_code, alternate_code, sequence_no, name, rating, active, onboarded_at, category) VALUES
+('SUP-1001', 'ALT-SUP-1001', 9007199254740993, 'Northwind Components', 4.75, true,  '2026-01-15T09:00:00Z', 'ELECTRONICS'),
+('SUP-1002', 'ALT-SUP-1002', 9007199254740994, 'ForgeWorks Supply',    4.20, true,  '2026-02-10T10:30:00Z', 'METAL'),
+('SUP-1003', 'ALT-SUP-1003', 9007199254740995, 'Harbor Industrial',   3.90, true,  '2026-02-25T12:00:00Z', 'LOGISTICS'),
+('SUP-1004', 'ALT-SUP-1004', 9007199254740996, 'Precision Materials', 4.95, true,  '2026-03-03T08:15:00Z', 'METAL'),
+('SUP-1005', 'ALT-SUP-1005', 9007199254740997, 'Atlas Fasteners',     4.10, false, '2026-03-20T14:00:00Z', 'HARDWARE');
 
 -- Group role contains only read privileges for the explicit M5 fixture.
 -- A separate LOGIN role is provisioned by scripts/provision-m5-source-reader.ps1.

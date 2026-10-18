@@ -161,10 +161,55 @@ class DataBindingRealBrowserTest(unittest.TestCase):
             set(mappings.values()),
         )
         self.assertRegex(saved["digest"], r"^[0-9a-f]{64}$")
+        revision1_identity = saved["identityDomainId"]
+        revision1_digest = saved["digest"]
 
-        # Reopen from the persisted directory after leaving the editor.
+        # Reopen from the persisted directory, then explicitly change identity key semantics.
         page.get_by_role("button", name="返回目录").click()
         page.get_by_role("button", name="查看 / 历史").click()
         page.get_by_role("heading", name="绑定详情", exact=True).wait_for()
         self.assertIn("revision 1", page.locator(".model-panel").inner_text())
-        self.assertEqual(api(RUNTIME_API, f"/bindings/{binding_id}?revision=1")["digest"], saved["digest"])
+        self.assertEqual(api(RUNTIME_API, f"/bindings/{binding_id}?revision=1")["digest"], revision1_digest)
+
+        page.get_by_role("button", name="创建新 revision").click()
+        page.get_by_label("来源身份键").select_option("alternate_code")
+        page.get_by_role("button", name="预览映射").click()
+        page.locator(".binding-preview").wait_for(timeout=15000)
+        self.assertIn("ALT-SUP-1001", page.locator(".binding-preview").inner_text())
+        page.get_by_role("button", name="运行有界校验").click()
+        page.locator(".binding-validation.pass").wait_for(timeout=15000)
+        page.get_by_role("button", name="保存 Binding revision").click()
+        page.get_by_role("heading", name="绑定详情", exact=True).wait_for(timeout=15000)
+        page.get_by_text("旧 ObjectRef 不会自动重定位", exact=False).wait_for(timeout=15000)
+
+        current = api(RUNTIME_API, f"/bindings/{binding_id}?revision=2")
+        self.assertEqual(current["revision"], 2)
+        self.assertEqual(current["sourceKey"], "alternate_code")
+        self.assertNotEqual(current["identityDomainId"], revision1_identity)
+        self.assertEqual(api(RUNTIME_API, f"/bindings/{binding_id}?revision=1")["digest"], revision1_digest)
+        preserved = api(RUNTIME_API, f"/bindings/{binding_id}?revision=1")
+        self.assertEqual(preserved["identityDomainId"], revision1_identity)
+
+        evidence_path = os.getenv("E2E_M5_BINDING_EVIDENCE")
+        if evidence_path:
+            Path(evidence_path).write_text(json.dumps({
+                "packageId": self.package,
+                "bindingId": binding_id,
+                "snapshotId": snapshot_id,
+                "revision1": 1,
+                "digest1": revision1_digest,
+                "identityDomainId1": revision1_identity,
+                "revision2": 2,
+                "digest2": current["digest"],
+                "identityDomainId2": current["identityDomainId"],
+            }, indent=2), encoding="utf-8")
+
+        # Reopen both the current head and the immutable historical revision.
+        page.get_by_role("button", name="返回目录").click()
+        page.get_by_role("button", name="查看 / 历史").click()
+        page.get_by_role("heading", name="绑定详情", exact=True).wait_for()
+        self.assertIn("revision 2", page.locator(".model-panel").inner_text())
+        page.get_by_role("button", name="重开历史版").click()
+        page.get_by_role("heading", name="绑定详情", exact=True).wait_for()
+        self.assertIn("revision 1", page.locator(".model-panel").inner_text())
+        self.assertIn(revision1_identity, page.locator(".model-panel").inner_text())
