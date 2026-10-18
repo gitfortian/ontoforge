@@ -91,7 +91,7 @@ class RuntimeTypeRealBrowserTest(unittest.TestCase):
 
         page.get_by_role("button", name="查看运行时类型").click()
         page.get_by_role("heading", name="运行时类型目录").wait_for()
-        page.get_by_text("VALIDATED_DRAFT_ONLY", exact=True).wait_for()
+        page.locator(".runtime-source-panel").get_by_text("VALIDATED_DRAFT_ONLY", exact=True).wait_for()
         page.locator(".runtime-type-item").get_by_text("供应商", exact=True).click()
         page.get_by_text("供应商编号", exact=True).wait_for()
         self.assertIn("supplier-id", page.locator(".runtime-type-detail").inner_text())
@@ -109,7 +109,7 @@ class RuntimeTypeRealBrowserTest(unittest.TestCase):
         self.assertRegex(snapshot_id, r"^[a-f0-9-]{36}$")
         page.get_by_role("button", name="查看运行时类型").click()
         page.get_by_role("heading", name="运行时类型目录").wait_for()
-        page.get_by_text("LOCAL_SNAPSHOT_ONLY", exact=True).wait_for()
+        page.locator(".runtime-source-panel").get_by_text("LOCAL_SNAPSHOT_ONLY", exact=True).wait_for()
         page.locator(".runtime-type-item").get_by_text("供应商", exact=True).click()
         page.locator(".runtime-type-detail").get_by_text(re.compile(r"[0-9a-f]{64}")).wait_for()
         detail = api(f"/type-sources/snapshots/{snapshot_id}/types/supplier-type")
