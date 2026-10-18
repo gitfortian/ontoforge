@@ -70,6 +70,12 @@ Native V0.2 候选包含 SemVer、sourceSchemaVersion 等不同字段。本合�
 
 上述 `/api/runtime/**` 目前不在本机安全路由白名单中；实施须精确新增所需路径及拒绝测试，不能使用 `/api/** permitAll`。
 
+## UX-Low Prototype Candidate
+
+[M5 Data Binding low-fidelity interactive prototype](../prototypes/m5-data-binding-lowfi.html) is a review artifact, not production UI. It demonstrates the end-to-end path from a fixed Local Snapshot and custom ObjectType through allowlisted PostgreSQL table selection, typed field mapping, bounded preview/validation, immutable binding revision, and reopening. It includes simulated source drift, duplicate-key conflict, source unavailability, budget exhaustion, and save-time CAS conflict states. The sample supplier table and data are explicitly marked as future isolated-test fixtures; they are not claimed to exist on `main`.
+
+**Prototype status:** Candidate for UX-Low review only. No UX sign-off, high-fidelity sign-off, runtime API, Flyway migration, or M5 implementation is implied. The standard workflow still requires review of this prototype, then a high-fidelity prototype and explicit sign-off before the production UI is developed.
+
 ## Proposed Changes
 
 ### 1. 用户流程与校验边界
