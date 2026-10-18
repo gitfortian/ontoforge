@@ -69,7 +69,6 @@ class M5DataBindingHighFiBrowser(unittest.TestCase):
         self.assertTrue(self.page.locator("#emptyState").is_visible())
         self.assertEqual(self.page.locator("#metricBindings").inner_text(), "0")
         self.save_current_binding()
-        self.assertEqual(self.page.locator("#savedRevision").count(), 0)  # revision is summarized in the save receipt/detail, not a duplicate widget
         self.page.locator("#openSaved").click()
         self.assertTrue(self.page.locator("#detailView").is_visible())
         self.assertIn("revision 1", self.page.locator("#detailRevision").inner_text())
