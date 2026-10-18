@@ -103,6 +103,7 @@ class M7ObjectSetLowFiBrowser(unittest.TestCase):
         self.page.locator("[data-filter-row]").nth(1).locator("[data-remove]").click()
         self.page.locator("#sort-property").select_option("rating")
         self.page.locator("#sort-direction").select_option("DESC")
+        self.page.locator("#page-size").select_option("50")
         self.page.get_by_role("button", name="执行查询").click()
         rows = self.page.locator("#result-rows tr")
         self.assertEqual(rows.count(), 12)
