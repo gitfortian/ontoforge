@@ -29,7 +29,7 @@ class ObjectRuntimeValueSemanticsTest {
     }
  
     @Test
-    void rejectsConflictsInMappedPropertiesEvenWhenCallerDidNotRequestThem() {
+    void checksDuplicateConflictsOnlyWithinRequestedPropertyScope() {
         var key = property("supplier-code", "STRING", true);
         var name = property("supplier-name", "STRING", true);
         var rating = property("supplier-rating", "DECIMAL", false);
@@ -41,10 +41,14 @@ class ObjectRuntimeValueSemanticsTest {
                 Map.<String, Object>of("source_key", "SUP-1", "name", "Forge Works", "rating", new java.math.BigDecimal("4.75")),
                 Map.<String, Object>of("source_key", "SUP-1", "name", "Forge Works", "rating", new java.math.BigDecimal("4.10")));
 
-        // The caller's selected list may omit rating, but duplicate identity folding
-        // must compare every authoritative mapped property to avoid hiding conflicts.
+        // OFIP-0008 defines conflict evaluation over the requested property scope.
+        // An unrequested rating conflict must not fail a key+name read, but it must fail
+        // as soon as rating is explicitly requested.
+        assertThatCode(() -> ObjectRuntimeService.validateDuplicateRows(
+                rows, List.of(key, name), mappings, key.id(), "exec-4"))
+                .doesNotThrowAnyException();
         assertThatThrownBy(() -> ObjectRuntimeService.validateDuplicateRows(
-                rows, List.of(key, name, rating), mappings, key.id(), "exec-4"))
+                rows, List.of(key, name, rating), mappings, key.id(), "exec-5"))
                 .isInstanceOf(ObjectRuntimeService.ObjectRuntimeFailure.class)
                 .satisfies(error -> assertThat(((ObjectRuntimeService.ObjectRuntimeFailure) error).code())
                         .isEqualTo("PROPERTY_VALUE_CONFLICT"));
