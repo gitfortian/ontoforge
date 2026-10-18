@@ -201,6 +201,26 @@ def require_foundation_reports(root: Path = ROOT) -> None:
             raise ValueError(f"FAIL: missing real PostgreSQL Snapshot tests: {sorted(must_run - seen)}")
 
 
+    runtime_type_source = root / "ontoforge-boot/src/main/java/io/ontoforge/boot/model/RuntimeTypeResolver.java"
+    if runtime_type_source.exists():
+        required_runtime = {
+            "validatedDraftCatalogIsDeterministicAndReturnsHonestPropertyContracts",
+            "staleUnvalidatedAndMalformedRefsFailClosed",
+            "localSnapshotCatalogUsesVerifiedImmutableSnapshotAndDigest",
+            "packageAuthorizationIsRecheckedForEveryTypeRead",
+        }
+        seen_runtime = set()
+        for file in files:
+            doc = ET.parse(file).getroot()
+            suites = [doc] if doc.tag == "testsuite" else doc.findall("testsuite")
+            for suite in suites:
+                for case in suite.findall("testcase"):
+                    if case.attrib.get("classname", "").endswith(".RuntimeTypeTest"):
+                        seen_runtime.add(case.attrib.get("name", ""))
+        if not required_runtime <= seen_runtime:
+            raise ValueError(f"FAIL: missing real PostgreSQL Runtime Type tests: {sorted(required_runtime - seen_runtime)}")
+
+
     security_source = root / "ontoforge-boot/src/main/java/io/ontoforge/boot/security/SecurityConfig.java"
     if security_source.exists():
         required_security = {"wrongIssuerAudienceAndExpiredTokensAreRejected",

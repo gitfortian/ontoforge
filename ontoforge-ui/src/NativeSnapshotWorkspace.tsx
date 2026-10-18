@@ -1,5 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
-import {ArrowLeft,CheckCircle2,GitCompareArrows,History,LockKeyhole,RefreshCw,ShieldAlert} from 'lucide-react';
+import {ArrowLeft,CheckCircle2,GitCompareArrows,History,LockKeyhole,RefreshCw,ShieldAlert,Eye} from 'lucide-react';
 import './model.css';
 import {authorizedFetch} from './auth';
 
@@ -229,6 +229,7 @@ export default function NativeSnapshotWorkspace({route,navigate}:{route:string;n
      <button className="model-btn" onClick={()=>navigate('#/model/packages')}>返回模型包</button></section>}
    {snapshot&&<><div className="model-actions">
        <button className="model-btn" onClick={()=>navigate(historyLink(snapshot.packageId))}><ArrowLeft size={15}/> 历史快照</button>
+       <button className="model-btn model-primary" onClick={()=>navigate('#/model/runtime-types/snapshots/'+snapshot.snapshotId)}><Eye size={15}/> 查看运行时类型</button>
        <button className="model-btn" onClick={()=>navigate('#/model/drafts/'+snapshot.sourceDraftId)}>回到当前草稿</button>
      </div>
      <section className="model-panel">

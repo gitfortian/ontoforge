@@ -10,12 +10,13 @@
 > | --- | --- | --- | --- |
 > | PR #32 已合并 | F02、F08 子项、F09 子项、F11 子项 | 创建三类型与两关系、持久绑定内置 PostgreSQL 测试表、输入批次两跳查询订单和来源证据 | **已合并的隔离测试 MVP 闭环**；非通用连接器、ObjectSet、Agent |
 > | PR #33 已合并 | F08 可配置源映射子项、F11 受控查询子项 | 在原页面选本地测试表/各段字段，预览样本和一条关联后保存并真正查询，刷新重开 | **main 已合并的隔离测试场景**；无企业级源权限、跨数据库、查询优化与任意遍历 |
+> | PR #56 M4 Runtime Type Catalog | F02/F03/F04 类型定义与历史引用子项 | 从已 VALID 草稿或经核验的本地快照读取 ObjectType 列表、Property 合同和来源；明确切换来源 | **真实实现与自动化测试已提交；验收证据见 [PR #56](https://github.com/gitfortian/ontoforge/pull/56)**；不代表实例、Binding、ObjectSet 或正式发布已完成 |
 > | 后续按场景评估 | F06、F16 等 | 真实工业系统连接、受控 Agent 上下文 | **未实现**；不再为 MVP 提前铺陈全套治理 |
 
 
 > **产品进度总账（2026-10-16，含 P0-B UX-High 设计候选）**。本文件维护当前功能与环境状态；提案、历史交付和原型评审通过链接引用本账，不逐处复制当前状态。保留 F01–F29 编号；P0/P1 的未来范围仍须产品评审。
 >
-> **当前结论**：0.3/0.4 提供同包建模、完整性检查、本地历史和结构风险比较的基础闭环，**未正式发布**，没有可信审核/授权、真实工业数据查询或 Agent 执行。功能覆盖与可靠性分开计算；Windows 隔离自动化和用户既有安装/人工验收分别见第 10 节。
+> **当前结论（2026-10-18）**：0.3/0.4 提供同包建模、完整性检查、本地历史和结构风险比较的基础闭环；M4 Runtime Type Catalog 的真实类型解析、只读 API 与前端目录已提交 [PR #56](https://github.com/gitfortian/ontoforge/pull/56)，自动化验收结果以该 PR 最新 head 的检查为准。整体仍**未正式发布**，M4 不包含对象实例、Data Binding、ObjectSet、正式 Release 或 Agent 执行。功能覆盖与可靠性分开计算；Windows 隔离自动化和用户既有安装/人工验收分别见第 10 节。
 
 > **最新可信的当前代码快照（2026-10-17）**：[已实现功能全景](./OntoForge-AS-IS-已实现功能全景-20261017.md)与[实际架构全景](./OntoForge-AS-IS-实际架构全景-20261017.md)。本文件后面 0.3/0.4、P0-B 的文本保留历史评审语境，不等于当前 main 最新状态。#34 脱敏 CSV 导入脚本已合并 main，但真实生产连接仍未实现。
 >
@@ -73,6 +74,21 @@ P0 是**建模产品可用门槛**，P1 才是**工业业务价值开始成立�
 | 不可变历史和异常路径 | F04 | 沿用 PR #11 不改旧版内容的 JCS、SHA、同键恢复、revision 保护 | **0.3 已合并**；Linux 真重启复核通过；Windows 11 本机真重启 NOT RUN |
 
 **判定要求**：0.4 已在真实 Java/PG17/HTTP/React/Chromium 对 `main` 集成提交通过，正式设计决议、0.3 与 0.4 代码合并完成；有限的关系建模子链路现评定为「开发主线基础可用」；这些都**不能代表 F02 或 F04 的全部功能成熟**。
+
+## 3.2 M4 Runtime Type Catalog：通用类型解析与只读目录（PR #56）
+
+**产品目的**：把已有 Native ObjectType 定义转成运行时可读取、可被后续模块稳定引用的类型描述。M4 交付的是“类型合同可被通用运行时理解”，不是“已存在的业务对象可查询”。
+
+| 交付能力 | 实际行为 | 当前边界 |
+| --- | --- | --- |
+| 草稿类型解析 | 只有请求的 draftId + revision 与当前 revision 一致、校验状态为 VALID 且 validatedRevision 匹配时，才重新生成 Native Candidate 并返回类型描述 | 草稿保存后旧 revision 返回 409；不隐式重定向到 latest |
+| 快照类型解析 | 通过现有 Snapshot Service 核验 RFC 8785/JCS 字节、SHA-256、JSONB 镜像和 Native Schema，再返回不可变类型描述 | 仅 LOCAL_SNAPSHOT_ONLY，不代表正式发布 |
+| 只读 API | 提供草稿/快照各自的类型列表与详情，共 4 个 GET 接口 | 复用现有 /api/model/** 安全域及包授权；不新增 Registry 表或 Flyway 迁移 |
+| Property 合同 | 展示稳定 ID、API 名称、类型、必填、可检索、分类、枚举值和主键引用 | 主键不会自动推导 searchable=true；不返回对象实例或来源事实 |
+| 工作台入口 | 从有效草稿或本地快照进入统一只读目录，显式切换可用来源 | 不复制第二套 ObjectType 编辑器；来源不可用/无权限时显示错误，不伪装为空成功 |
+| 自动化验收 | [PR #56](https://github.com/gitfortian/ontoforge/pull/56) 包含真实 PostgreSQL 17 HTTP/JUnit 正反例、React 构建与 Chromium 黄金故事 | 自动化通过不代替用户既有 Windows 安装人工验收，也不代表生产发布 |
+
+**功能成熟度**：M4 类型目录是 F02/F03/F04 的基础子能力。它为后续 Data Binding 锁定类型版本、为 ObjectSet 建立字段类型约束提供稳定入口；它本身不实现 Data Binding、ObjectFact、ObjectSet 查询、正式 SchemaRelease/Activation、Action 或 Agent。上述后续能力不得因为 M4 完成而标记为已实现。
 
 ## 4. P0「完整建模产品 MVP」建议功能包
 

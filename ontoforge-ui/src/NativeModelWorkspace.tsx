@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, FilePlus2, Layers3, LoaderCircle, Plus, RefreshCw, Save, ShieldAlert, Trash2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, FilePlus2, Layers3, LoaderCircle, Plus, RefreshCw, Save, ShieldAlert, Trash2, Eye } from 'lucide-react';
 import './model.css';
 import {authorizedFetch, type WorkspaceIdentity} from './auth';
 import NativeSnapshotWorkspace, {SnapshotActions} from './NativeSnapshotWorkspace';
@@ -321,7 +321,10 @@ export default function NativeModelWorkspace({identity,onDirtyChange,route,navig
 
   return <div className="model-page">
     <div className="model-head"><div><div className="model-eyebrow"><button className="model-breadcrumb" onClick={()=>navigateView('#/model/packages')}><ArrowLeft size={14}/> 模型包</button> / {opened.packageId}</div>
-      <h1>本体建模工作台 <span className="model-status neutral">DRAFT</span></h1><p>先保存编辑进度，再校验当前修订。这个页面使用真实 API，不执行发布或业务动作。</p></div></div>
+      <h1>本体建模工作台 <span className="model-status neutral">DRAFT</span></h1><p>先保存编辑进度，再校验当前修订。这个页面使用真实 API，不执行发布或业务动作。</p></div>
+      <div className="model-actions">{!dirty&&validated?.status==='VALID'&&validated.validatedRevision===opened.revision&&
+        <button className="model-btn model-primary" onClick={()=>navigate('#/model/runtime-types/drafts/'+opened.draftId+'?revision='+opened.revision)}><Eye size={15}/> 查看运行时类型</button>}</div>
+    </div>
     {message&&<div role="alert" className={'model-alert '+message.kind}>{message.text}</div>}
     {readOnly&&<div className="model-alert warning">编辑文档包含暂不支持的定义，已限制保存以防资产损坏。</div>}
     {busy&&<div className="model-busy"><LoaderCircle size={15}/> 正在处理请求…</div>}
@@ -415,11 +418,15 @@ export default function NativeModelWorkspace({identity,onDirtyChange,route,navig
  */
 function ReadOnlyDraftView({draft,navigate}:{draft:Draft;navigate:(hash:string)=>void}) {
   const historyRoute='#/model/packages/'+encodeURIComponent(draft.packageId)+'/snapshots';
+  const runtimeTypesReady=draft.validation.status==='VALID'&&draft.validation.validatedRevision===draft.revision;
   return <div className="model-page">
     <div className="model-head"><div><div className="model-eyebrow">NATIVE MODEL / RESTRICTED DRAFT</div>
       <h1>受限模型草稿 · 只读</h1>
       <p>模型包：{draft.packageId}。当前身份只有受限草稿阅读权限，无法保存、校验、冻结本地快照或批准正式版本。</p>
-    </div><button className="model-btn" onClick={()=>navigate('#/model/packages')}><ArrowLeft size={15}/> 返回模型包</button></div>
+    </div><div className="model-actions">
+      {runtimeTypesReady&&<button className="model-btn model-primary" onClick={()=>navigate('#/model/runtime-types/drafts/'+draft.draftId+'?revision='+draft.revision)}><Eye size={15}/> 查看运行时类型</button>}
+      <button className="model-btn" onClick={()=>navigate('#/model/packages')}><ArrowLeft size={15}/> 返回模型包</button>
+    </div></div>
     <section className="model-panel" aria-label="已授权只读模型信息">
       <header className="model-panel-head"><div><h2>模型信息与验证证据</h2>
         <p>内容直接来自受保护的 PostgreSQL 草稿 API；仅供审核前浏览，不是 ReviewDecision 或已发布版本。</p>

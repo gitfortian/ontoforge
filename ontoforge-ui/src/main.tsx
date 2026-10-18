@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Activity, Blocks, Database, GitBranch, ShieldCheck, RefreshCw } from 'lucide-react';
 import NativeModelWorkspace from './NativeModelWorkspace';
+import RuntimeTypeWorkspace from './RuntimeTypeWorkspace';
 import QualityMvpWorkspace from './QualityMvpWorkspace';
 import {beginSignIn,initializeIdentity,oidcConfigured,signOut,WorkspaceIdentity} from './auth';
 import './style.css';
@@ -91,7 +92,9 @@ function App() {
     <main className="main">
       <div className="topline"><span>{mvp?'工业质量追溯 / 精简 MVP':model?'本体设计 / ObjectType':'平台基座 / 系统概览'}</span><span className="env-chip">{auth.kind==='ready'?(auth.identity?.issuer==='local-mvp'?'本机隔离 MVP · 无登录': '已验证身份：'+auth.identity?.displayName):'身份模式待初始化'}</span>{auth.kind==='ready'&&auth.identity?.issuer!=='local-mvp'&&<button type="button" onClick={logout}>退出会话</button>}</div>
       {(model||mvp)?(auth.kind==='ready'
-        ? (mvp?<QualityMvpWorkspace navigate={navigate}/>:<NativeModelWorkspace identity={auth.identity!} onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>)
+        ? (mvp?<QualityMvpWorkspace navigate={navigate}/>:location.startsWith('#/model/runtime-types/')
+          ? <RuntimeTypeWorkspace route={location} navigate={navigate}/>
+          : <NativeModelWorkspace identity={auth.identity!} onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>)
         : <section className="panel" aria-live="polite">
             <h1>可信身份验证</h1>
             <p>{auth.kind==='checking'?'正在核对身份…':auth.kind==='error'?auth.message:'访问模型包前，需要使用组织的 OIDC 账号登录。'}</p>
