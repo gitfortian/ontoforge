@@ -50,12 +50,13 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
+  const [dirty,setDirty]=useState(false);
 
   const selectedTable=tables.find(t=>t.table===tableName)||null;
   const mappings:FieldMapping[]=(descriptor?.properties||[]).filter(p=>Boolean(mappingState[p.id])).map(p=>({
     propertyRef:p.id,sourceColumn:mappingState[p.id],authority:'AUTHORITATIVE'
   }));
-  const isDirty=editing&&Boolean(descriptor);
+  const isDirty=editing&&dirty;
 
   async function loadBindings(pkg=packageId){
     if(!pkg.trim()){setBindings([]);return;}
@@ -90,8 +91,8 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
       setDescriptor(type);setPackageId(type.packageId);setSnapshotInput(snapshot);setTypeInput(typeId);
       setTables(sourceTables);setTableName(table.table);setSourceKey(key);setMappingState(nextMappings);
       setFingerprint(current?.sourceSchemaFingerprint||'');setBindingId(current?.bindingId||'');setRevision(current?.revision||0);
-      setDetail(null);setRevisions([]);setEditing(true);setNotice(current?'该 ObjectType 已有绑定；保存将创建不可变的新 revision。':'选择来源列并完成映射后，先预览、再校验、最后保存。');
-      onDirtyChange(false);
+      setDetail(null);setRevisions([]);setEditing(true);setDirty(false);setNotice(current?'该 ObjectType 已有绑定；保存将创建不可变的新 revision。':'选择来源列并完成映射后，先预览、再校验、最后保存。');
+      onDirtyChange(false);setDirty(false);
     }catch(e){setError(messageOf(e));}
     finally{setBusy(false);}
   }
@@ -147,7 +148,7 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
         method:bindingId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
       });
       setBindingId(saved.bindingId);setRevision(saved.revision);setDetail(saved);setEditing(false);setPreview(null);setValidation(null);
-      onDirtyChange(false);setNotice('绑定 revision '+saved.revision+' 已持久化。历史版本保持不可变。');
+      onDirtyChange(false);setDirty(false);setNotice('绑定 revision '+saved.revision+' 已持久化。历史版本保持不可变。');
       await loadBindings(saved.packageId);
     }catch(e){setError(messageOf(e));}
     finally{setBusy(false);}
@@ -158,14 +159,14 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
     try{
       const loaded=await request<BindingDetail>(API+'/bindings/'+id+(rev?'?revision='+rev:''));
       const history=await request<RevisionSummary[]>(API+'/bindings/'+id+'/revisions');
-      setDetail(loaded);setRevisions(history);setEditing(false);onDirtyChange(false);
+      setDetail(loaded);setRevisions(history);setEditing(false);setDirty(false);onDirtyChange(false);
     }catch(e){setError(messageOf(e));}
     finally{setBusy(false);}
   }
 
   function discardEditor(){
     if(isDirty&&!window.confirm('当前编辑尚未保存，离开将放弃这些更改。确定继续吗？'))return;
-    setEditing(false);setDescriptor(null);setPreview(null);setValidation(null);setError('');setNotice('');
+    setEditing(false);setDescriptor(null);setPreview(null);setValidation(null);setError('');setNotice('');setDirty(false);
     onDirtyChange(false);
   }
 
@@ -194,10 +195,10 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
           {bindingId&&<div><span>当前 revision</span><b>{revision}</b></div>}
         </div>
         <div className="binding-form-grid">
-          <label>来源表<select value={tableName} onChange={e=>{setTableName(e.target.value);setFingerprint('');setPreview(null);setValidation(null);onDirtyChange(true);}}>
+          <label>来源表<select value={tableName} onChange={e=>{setTableName(e.target.value);setFingerprint('');setPreview(null);setValidation(null);setDirty(true);setDirty(true);onDirtyChange(true);}}>
             {tables.map(t=><option key={t.table} value={t.table}>{t.schema}.{t.table} · {t.columns.length} 列</option>)}
           </select></label>
-          <label>来源身份键<select value={sourceKey} onChange={e=>{setSourceKey(e.target.value);setFingerprint('');setPreview(null);setValidation(null);onDirtyChange(true);}}>
+          <label>来源身份键<select value={sourceKey} onChange={e=>{setSourceKey(e.target.value);setFingerprint('');setPreview(null);setValidation(null);setDirty(true);onDirtyChange(true);}}>
             <option value="">选择主键 / 唯一列</option>{(selectedTable?.columns||[]).filter(c=>c.primaryKey||c.uniqueKey).map(c=><option key={c.name} value={c.name}>{c.name} · {c.dataType}</option>)}
           </select></label>
         </div>
