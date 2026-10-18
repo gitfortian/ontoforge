@@ -62,6 +62,10 @@ public class ObjectRuntimeController {
                 throw new ObjectRuntimeFailure(400, "INVALID_OBJECT_REQUEST",
                         "propertyRefs 必须是字符串数组", "propertyRefs", executionId);
             }
+            if (refs.size() > 100) {
+                throw new ObjectRuntimeFailure(422, "INVALID_OBJECT_REQUEST",
+                        "单次最多请求 100 个属性；请求已在复制数组前拒绝", "propertyRefs", executionId);
+            }
             propertyRefs = new ArrayList<>();
             for (JsonNode ref : refs) {
                 if (!ref.isTextual()) {
