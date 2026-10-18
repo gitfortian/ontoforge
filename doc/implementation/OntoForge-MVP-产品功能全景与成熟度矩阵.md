@@ -1,6 +1,6 @@
 # OntoForge · MVP 功能全景、预期效果与实现成熟度
 
-> **2026-10-18 M6 生产实施更新（优先于下方较早的阶段快照）**：通用只读 Object Runtime 已通过 [PR #68](https://github.com/gitfortian/ontoforge/pull/68) 合并；来源访问撤权与结构漂移的失败语义已通过 [PR #71](https://github.com/gitfortian/ontoforge/pull/71) 合并。两条 PR 的 Required Quality Gate、真实 PG17 + API + React/Chromium 黄金故事及 S0 前后端 CI 均 PASS。M6 当前交付的是一个有界、只读、按需读取纵向切片，不代表全量 Object Runtime、M7 ObjectSet、M8 关系遍历或产品 Release 已完成。Windows 11 用户既有 PostgreSQL 的人工 UAT 仍为 NOT RUN。
+> **2026-10-18 M6 生产实施更新（优先于下方较早的阶段快照）**：通用只读 Object Runtime 已通过 [PR #68](https://github.com/gitfortian/ontoforge/pull/68) 合并；来源访问撤权与结构漂移的失败语义已通过 [PR #71](https://github.com/gitfortian/ontoforge/pull/71) 合并。两条 PR 的 Required Quality Gate、真实 PG17 + API + React/Chromium 黄金故事及 S0 前后端 CI 均 PASS；合并提交 `67f7919` 的 main post-merge S0 与 Required Quality Gate 也均 PASS（[S0](https://github.com/gitfortian/ontoforge/actions/runs/39107566534)、[Required Quality](https://github.com/gitfortian/ontoforge/actions/runs/39107566591)）。M6 当前交付的是一个有界、只读、按需读取纵向切片，不代表全量 Object Runtime、M7 ObjectSet、M8 关系遍历或产品 Release 已完成。Windows 11 用户既有 PostgreSQL 的人工 UAT 仍为 NOT RUN。
 >
 > **2026-10-17 核心 MVP 最新实施方向**：优先交付 Native 建模、测试数据绑定与 ObjectSet 多结果业务追溯；#17 虽已合并，但其 OIDC/JWT 不再作为本机 MVP 的必要前置要求。使用单独的 `mvp-local` 隔离开发配置恢复无登录用户流程；后续通用登录复用 [yak-ops HttpSession](https://github.com/weifuwan/yak-ops)。详情见[核心优先与认证复用决策](./MVP-核心优先与yak-ops认证复用决策-20261017.md)。本文历史表格中的“无企业安全/业务源”仍成立。
 >
@@ -161,6 +161,7 @@ P0 是**建模产品可用门槛**，P1 才是**工业业务价值开始成立�
 - [PR #71 S0 前后端 CI](https://github.com/gitfortian/ontoforge/actions/runs/39107278433)：PASS。
 - [PR #71 Required Quality Gate](https://github.com/gitfortian/ontoforge/actions/runs/39107278475)：PASS，含真实来源权限撤销/恢复、PG17/Flyway、真实 PG17 + API + React/Chromium 黄金故事及 PowerShell 5.1 语法检查。
 - PR #71 已合并，提交：`67f791946b8ff65142860370afec3af40d42bb00`。
+- 合并后 main 验收：[S0 前后端 CI PASS](https://github.com/gitfortian/ontoforge/actions/runs/39107566534)；[Required Quality Gate PASS](https://github.com/gitfortian/ontoforge/actions/runs/39107566591)，含真实 PG17 + API + React/Chromium 黄金故事。
 
 **仍未完成 / 风险边界**
 
