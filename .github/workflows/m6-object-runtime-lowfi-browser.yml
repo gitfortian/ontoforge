@@ -1,0 +1,43 @@
+name: M6 Object Runtime UX-Low Browser Review
+
+# Static UX prototype evidence only. This is not a production Object Runtime gate.
+on:
+  pull_request:
+    paths:
+      - 'doc/prototypes/m6-object-runtime-lowfi.html'
+      - 'doc/prototypes/tests/test_m6_object_runtime_lowfi_browser.py'
+      - 'doc/implementation/M6-ObjectRuntime-UX-Low评审说明.md'
+      - 'doc/proposals/OFIP-0008-M6-通用ObjectRuntime.md'
+      - '.github/workflows/m6-object-runtime-lowfi-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  m6-lowfi-chromium:
+    name: M6 Object Runtime UX-Low Real Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install Playwright
+        run: python -m pip install playwright==1.57.0
+      - name: Install actual Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Verify M6 UX-Low state and recovery flows
+        env:
+          UX_CAPTURE_SCREENSHOTS: '1'
+          UX_SCREENSHOT_DIR: '\${{ runner.temp }}/m6-object-runtime-lowfi-shots'
+        run: python -m unittest doc.prototypes.tests.test_m6_object_runtime_lowfi_browser -v
+      - name: Upload prototype screenshots on success and failure
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: m6-object-runtime-lowfi-chromium
+          path: '\${{ runner.temp }}/m6-object-runtime-lowfi-shots'
+          if-no-files-found: warn
+          retention-days: 14
