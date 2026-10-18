@@ -108,7 +108,7 @@ class M5DataBindingLowFiBrowser(unittest.TestCase):
                 self.assertTrue(self.page.locator("#to5").is_disabled())
                 self.assertTrue(self.page.locator("#saveBinding").is_disabled())
 
-    def test_compare_and_swap_conflict_keeps_binding_unsaved(self):
+    def test_compare_and_swap_conflict_keeps_edits_and_supports_recovery(self):
         self.to_preview()
         self.page.locator("#scenario").select_option("cas")
         self.preview_and_validate()
@@ -117,6 +117,14 @@ class M5DataBindingLowFiBrowser(unittest.TestCase):
         self.assertIn("BINDING_REVISION_CONFLICT", self.page.locator("#saveState").inner_text())
         self.assertEqual(self.page.locator("#savedId").inner_text(), "尚未创建")
         self.assertTrue(self.page.locator("#reopenBinding").is_disabled())
+        self.page.get_by_role("button", name="载入最新版本并比较差异").click()
+        self.assertIn("revision 1", self.page.locator("#casRecovery").inner_text())
+        self.page.get_by_role("button", name="返回：校验").click()
+        self.preview_and_validate()
+        self.page.get_by_role("button", name="继续：保存绑定").click()
+        self.page.get_by_role("button", name="保存绑定").click()
+        self.assertIn("已保存", self.page.locator("#saveState").inner_text())
+        self.assertEqual(self.page.locator("#savedRevision").inner_text(), "revision 2")
 
     def test_narrow_viewport_keeps_current_step_controls_visible(self):
         self.page.set_viewport_size({"width": 390, "height": 844})
