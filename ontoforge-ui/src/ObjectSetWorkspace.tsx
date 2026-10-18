@@ -77,7 +77,7 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
 
   async function loadBindings(pkg=packageInput){
     const generation=++operationGeneration.current;
-    if(!pkg.trim()){setLoadingBindings(false);setListError({code:'PACKAGE_REQUIRED',message:'请输入模型包 ID。'});setBindings([]);return;}
+    if(!pkg.trim()){setLoadingBindings(false);setListError({code:'PACKAGE_REQUIRED',message:'请输入模型包 ID。'});setBindings([]);setBinding(null);setDescriptor(null);clearResultState();return;}
     setLoadingBindings(true);setListError(null);setBindings([]);setBinding(null);setDescriptor(null);clearResultState();
     try{
       const rows=await request<BindingSummary[]>(API+'/bindings?packageId='+encodeURIComponent(pkg.trim()));
