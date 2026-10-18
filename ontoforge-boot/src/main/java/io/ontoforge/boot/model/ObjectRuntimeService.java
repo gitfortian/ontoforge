@@ -181,7 +181,7 @@ public class ObjectRuntimeService {
                             "来源行的规范键与请求身份不一致，拒绝选择任意记录", "key", executionId);
                 }
             }
-            validateDuplicateRows(raw.rows(), type.properties(), mappings, type.primaryKeyRef(), executionId);
+            validateDuplicateRows(raw.rows(), selected, mappings, type.primaryKeyRef(), executionId);
 
             String sourceReadId = UUID.randomUUID().toString();
             SourceReadRef sourceReadRef = new SourceReadRef(sourceReadId, binding.sourceId(),
@@ -300,13 +300,14 @@ public class ObjectRuntimeService {
                             "Binding 的属性映射无法通过当前 Snapshot 与来源列合同复核", "fieldMappings", executionId);
                 }
             }
-            // Duplicate rows may only be folded when every authoritative mapped value agrees,
-            // including properties the caller did not request for the response. Read all mapped
-            // columns for conflict detection; the response remains limited to selected properties.
+            // Read only the explicitly requested property columns plus the identity key.
+            // Conflict checks are scoped to requested properties by the accepted OFIP-0008
+            // contract; unrequested values are neither materialized nor used to widen the result.
             LinkedHashSet<String> selectedColumns = new LinkedHashSet<>();
             selectedColumns.add(binding.sourceKey());
-            for (DataBindingService.FieldMapping mapping : mappings.values()) {
-                selectedColumns.add(mapping.sourceColumn());
+            for (RuntimeTypeResolver.PropertyDescriptor property : selected) {
+                DataBindingService.FieldMapping mapping = mappings.get(property.id());
+                if (mapping != null) selectedColumns.add(mapping.sourceColumn());
             }
             for (String column : selectedColumns) {
                 if (!columnsByName.containsKey(column) || !IDENT.matcher(column).matches()) {
