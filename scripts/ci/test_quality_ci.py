@@ -135,5 +135,39 @@ class ScopeTests(unittest.TestCase):
                 quality_ci.require_foundation_reports(Path(folder))
 
 
+    def test_runtime_type_source_requires_positive_postgres_test_evidence(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            reports = root / "ontoforge-boot/target/surefire-reports"
+            reports.mkdir(parents=True)
+            foundation = reports / "TEST-io.ontoforge.boot.FoundationTest.xml"
+            foundation.write_text(
+                '<testsuite tests="2" failures="0" errors="0" skipped="0">'
+                '<testcase classname="io.ontoforge.boot.FoundationTest" name="realPostgresMigrationAndApiStatus"/>'
+                '<testcase classname="io.ontoforge.boot.FoundationTest" name="migrationVersionOneExists"/>'
+                '</testsuite>', encoding="utf-8"
+            )
+            source = root / "ontoforge-boot/src/main/java/io/ontoforge/boot/model/RuntimeTypeResolver.java"
+            source.parent.mkdir(parents=True)
+            source.write_text("// M4 resolver exists", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "missing real PostgreSQL Runtime Type tests"):
+                quality_ci.require_foundation_reports(root)
+
+            runtime_cases = (
+                "validatedDraftCatalogIsDeterministicAndReturnsHonestPropertyContracts",
+                "staleUnvalidatedAndMalformedRefsFailClosed",
+                "localSnapshotCatalogUsesVerifiedImmutableSnapshotAndDigest",
+                "packageAuthorizationIsRecheckedForEveryTypeRead",
+            )
+            cases = "".join(
+                f'<testcase classname="io.ontoforge.boot.RuntimeTypeTest" name="{name}"/>'
+                for name in runtime_cases
+            )
+            (reports / "TEST-io.ontoforge.boot.RuntimeTypeTest.xml").write_text(
+                f'<testsuite tests="{len(runtime_cases)}" failures="0" errors="0" skipped="0">{cases}</testsuite>',
+                encoding="utf-8"
+            )
+            quality_ci.require_foundation_reports(root)
+
 if __name__ == "__main__":
     unittest.main()
