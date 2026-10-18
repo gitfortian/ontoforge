@@ -540,4 +540,174 @@ class DataBindingIntegrationTest {
         return http.exchange(URI.create(url(path)), HttpMethod.PUT,
                 new HttpEntity<>(body.toString(), headers), String.class);
     }
+
+
+    @Test
+    void m7CustomSupplierObjectSetSupportsFilteringProjectionAndFrozenPaging() throws Exception {
+        String bindingId = createSupplierBindingForM7();
+        ObjectNode query = objectSetQuery(bindingId, 2);
+        ArrayNode steps = query.withArray("steps");
+        ObjectNode filter = mapper.createObjectNode();
+        filter.put("kind", "FILTER");
+        ObjectNode condition = filter.putArray("conditions").addObject();
+        condition.put("propertyRef", "supplier-name");
+        condition.put("operator", "PREFIX");
+        condition.putObject("literal").put("valueType", "STRING").put("value", "North");
+        steps.insert(0, filter);
+
+        ResponseEntity<String> filteredResponse = post("/api/runtime/object-sets/query", query);
+        assertThat(filteredResponse.getStatusCode().value()).as(filteredResponse.getBody()).isEqualTo(200);
+        JsonNode filtered = mapper.readTree(filteredResponse.getBody());
+        assertThat(filtered.path("queryVersion").asText()).isEqualTo("local-query-v1");
+        assertThat(filtered.path("totalCount").asInt()).isEqualTo(1);
+        assertThat(filtered.path("items").size()).isEqualTo(1);
+        assertThat(filtered.path("items").get(0).path("objectRef").path("key").path("value").asText()).isEqualTo("SUP-1001");
+        assertThat(filtered.path("quality").path("freshness").asText()).isEqualTo("UNKNOWN");
+        assertThat(filtered.path("resultSnapshotRef").asText()).startsWith("local-result:");
+        assertThat(filtered.path("items").get(0).path("properties").toString()).contains("Northwind Components");
+
+        ObjectNode allRowsQuery = objectSetQuery(bindingId, 2);
+        ResponseEntity<String> firstResponse = post("/api/runtime/object-sets/query", allRowsQuery);
+        assertThat(firstResponse.getStatusCode().value()).as(firstResponse.getBody()).isEqualTo(200);
+        JsonNode first = mapper.readTree(firstResponse.getBody());
+        assertThat(first.path("totalCount").asInt()).isEqualTo(5);
+        assertThat(first.path("items").size()).isEqualTo(2);
+        assertThat(first.path("pageNumber").asInt()).isEqualTo(1);
+        assertThat(first.path("nextCursor").asText()).startsWith("cursor:");
+        String snapshotRef = first.path("resultSnapshotRef").asText();
+        String originalName = jdbc.queryForObject(
+                "SELECT name FROM public.m5_supplier_source WHERE vendor_code='SUP-1003'", String.class);
+        try {
+            jdbc.update("UPDATE public.m5_supplier_source SET name='Changed after first page' WHERE vendor_code='SUP-1003'");
+            ObjectNode nextRequest = mapper.createObjectNode().put("cursor", first.path("nextCursor").asText());
+            ResponseEntity<String> secondResponse = post("/api/runtime/object-sets/pages", nextRequest);
+            assertThat(secondResponse.getStatusCode().value()).as(secondResponse.getBody()).isEqualTo(200);
+            JsonNode second = mapper.readTree(secondResponse.getBody());
+            assertThat(second.path("resultSnapshotRef").asText()).isEqualTo(snapshotRef);
+            assertThat(second.path("pageNumber").asInt()).isEqualTo(2);
+            assertThat(second.path("items").size()).isEqualTo(2);
+            assertThat(second.path("items").toString()).contains(originalName).doesNotContain("Changed after first page");
+            ObjectNode thirdRequest = mapper.createObjectNode().put("cursor", second.path("nextCursor").asText());
+            ResponseEntity<String> thirdResponse = post("/api/runtime/object-sets/pages", thirdRequest);
+            assertThat(thirdResponse.getStatusCode().value()).as(thirdResponse.getBody()).isEqualTo(200);
+            JsonNode third = mapper.readTree(thirdResponse.getBody());
+            assertThat(third.path("resultSnapshotRef").asText()).isEqualTo(snapshotRef);
+            assertThat(third.path("pageNumber").asInt()).isEqualTo(3);
+            assertThat(third.path("items").size()).isEqualTo(1);
+            assertThat(third.path("nextCursor").isMissingNode() || third.path("nextCursor").isNull()).isTrue();
+        } finally {
+            jdbc.update("UPDATE public.m5_supplier_source SET name=? WHERE vendor_code='SUP-1003'", originalName);
+        }
+
+        ObjectNode driftQuery = objectSetQuery(bindingId, 2);
+        JsonNode driftFirst = mapper.readTree(post("/api/runtime/object-sets/query", driftQuery).getBody());
+        jdbc.execute("ALTER TABLE public.m5_supplier_source ADD COLUMN m7_test_drift TEXT");
+        try {
+            ObjectNode next = mapper.createObjectNode().put("cursor", driftFirst.path("nextCursor").asText());
+            ResponseEntity<String> drift = post("/api/runtime/object-sets/pages", next);
+            assertThat(drift.getStatusCode().value()).isEqualTo(409);
+            assertThat(drift.getBody()).contains("BINDING_SCHEMA_DRIFT");
+            assertThat(drift.getBody()).doesNotContain("\"items\"", "\"aggregate\"");
+        } finally {
+            jdbc.execute("ALTER TABLE public.m5_supplier_source DROP COLUMN IF EXISTS m7_test_drift");
+        }
+    }
+
+    @Test
+    void m7AggregateUsesExactValuesAndFailsClosedOnNullOrInvalidAst() throws Exception {
+        String bindingId = createSupplierBindingForM7();
+        ObjectNode sum = mapper.createObjectNode();
+        sum.put("queryVersion", "local-query-v1");
+        sum.put("bindingId", bindingId);
+        sum.put("bindingRevision", 1);
+        sum.putArray("steps").addObject().put("kind", "AGGREGATE")
+                .put("operation", "SUM").put("propertyRef", "supplier-rating");
+        ResponseEntity<String> sumResponse = post("/api/runtime/object-sets/query", sum);
+        assertThat(sumResponse.getStatusCode().value()).as(sumResponse.getBody()).isEqualTo(200);
+        JsonNode aggregate = mapper.readTree(sumResponse.getBody());
+        assertThat(aggregate.path("aggregate").path("operation").asText()).isEqualTo("SUM");
+        assertThat(aggregate.path("aggregate").path("valueType").asText()).isEqualTo("DECIMAL");
+        assertThat(new java.math.BigDecimal(aggregate.path("aggregate").path("value").asText())).isPositive();
+
+        jdbc.update("UPDATE public.m5_supplier_source SET rating=NULL WHERE vendor_code='SUP-1005'");
+        try {
+            ResponseEntity<String> unavailable = post("/api/runtime/object-sets/query", sum);
+            assertThat(unavailable.getStatusCode().value()).isEqualTo(422);
+            assertThat(unavailable.getBody()).contains("AGGREGATE_VALUE_UNAVAILABLE");
+            assertThat(unavailable.getBody()).doesNotContain("\"items\"", "\"aggregate\"");
+        } finally {
+            jdbc.update("UPDATE public.m5_supplier_source SET rating=4.10 WHERE vendor_code='SUP-1005'");
+        }
+
+        ObjectNode invalid = objectSetQuery(bindingId, 2);
+        ObjectNode sort = (ObjectNode) invalid.withArray("steps").get(0);
+        sort.withArray("fields").get(0).with("direction").asText();
+        ((ObjectNode) sort.withArray("fields").get(0)).put("direction", "SIDEWAYS");
+        ResponseEntity<String> rejected = post("/api/runtime/object-sets/query", invalid);
+        assertThat(rejected.getStatusCode().value()).isEqualTo(422);
+        assertThat(rejected.getBody()).contains("INVALID_QUERY_AST");
+        assertThat(rejected.getBody()).doesNotContain("\"items\"", "\"aggregate\"");
+    }
+
+    private String createSupplierBindingForM7() throws Exception {
+        String packageId = "m7.test.p" + UUID.randomUUID().toString().replace("-", "");
+        NativeDraftService.DraftDetail draft = drafts.create(packageId);
+        ObjectNode editor = mapper.createObjectNode();
+        editor.put("editorSchemaVersion", "0.1.0");
+        ArrayNode types = editor.putArray("objectTypes");
+        editor.putArray("linkTypes");
+        ObjectNode supplier = types.addObject();
+        supplier.put("id", "supplier");
+        supplier.put("apiName", "Supplier");
+        supplier.put("label", "供应商");
+        supplier.put("primaryKeyRef", "supplier-code");
+        ArrayNode properties = supplier.putArray("properties");
+        addProperty(properties, "supplier-code", "vendorCode", "STRING", true);
+        addProperty(properties, "supplier-name", "name", "STRING", true);
+        addProperty(properties, "supplier-rating", "rating", "DECIMAL", false);
+        addProperty(properties, "supplier-active", "active", "BOOLEAN", true);
+        addProperty(properties, "supplier-onboarded", "onboardedAt", "DATETIME", false);
+        addProperty(properties, "supplier-sequence", "sequence", "INTEGER", true);
+        ObjectNode category = addProperty(properties, "supplier-category", "category", "ENUM", false);
+        ArrayNode enumValues = category.putArray("enumValues");
+        enumValues.add("ELECTRONICS"); enumValues.add("METAL"); enumValues.add("LOGISTICS"); enumValues.add("HARDWARE");
+        addProperty(properties, "supplier-legacy", "legacyCode", "STRING", false);
+        NativeDraftService.DraftDetail saved = drafts.save(UUID.fromString(draft.draftId()), draft.revision(), editor);
+        assertThat(drafts.validate(UUID.fromString(draft.draftId()), saved.revision()).status()).isEqualTo("VALID");
+        NativeSnapshotService.FreezeResult frozen = snapshots.freeze(
+                UUID.fromString(draft.draftId()), saved.revision(), UUID.randomUUID());
+        ObjectNode request = bindingRequest(frozen.snapshot().snapshotId());
+        ResponseEntity<String> preview = post("/api/runtime/bindings/preview", request);
+        assertThat(preview.getStatusCode().value()).as(preview.getBody()).isEqualTo(200);
+        request.put("expectedSchemaFingerprint", mapper.readTree(preview.getBody()).path("source").path("schemaFingerprint").asText());
+        ResponseEntity<String> validation = post("/api/runtime/bindings/validate", request);
+        assertThat(validation.getStatusCode().value()).as(validation.getBody()).isEqualTo(200);
+        assertThat(mapper.readTree(validation.getBody()).path("status").asText()).isEqualTo("VALID");
+        ResponseEntity<String> created = post("/api/runtime/bindings", request);
+        assertThat(created.getStatusCode().value()).as(created.getBody()).isEqualTo(201);
+        return mapper.readTree(created.getBody()).path("bindingId").asText();
+    }
+
+    private ObjectNode objectSetQuery(String bindingId, int pageSize) {
+        ObjectNode query = mapper.createObjectNode();
+        query.put("queryVersion", "local-query-v1");
+        query.put("bindingId", bindingId);
+        query.put("bindingRevision", 1);
+        ArrayNode steps = query.putArray("steps");
+        ObjectNode sort = steps.addObject();
+        sort.put("kind", "SORT");
+        ObjectNode field = sort.putArray("fields").addObject();
+        field.put("propertyRef", "supplier-code");
+        field.put("direction", "ASC");
+        ObjectNode project = steps.addObject();
+        project.put("kind", "PROJECT");
+        ArrayNode refs = project.putArray("propertyRefs");
+        refs.add("supplier-name");
+        refs.add("supplier-rating");
+        ObjectNode page = steps.addObject();
+        page.put("kind", "PAGE");
+        page.put("pageSize", pageSize);
+        return query;
+    }
+
 }
