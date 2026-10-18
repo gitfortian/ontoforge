@@ -826,8 +826,13 @@ class DataBindingIntegrationTest {
         String cursor = first.path("nextCursor").asText();
         assertThat(cursor).startsWith("cursor:v1:");
 
-        String last = cursor.substring(cursor.length() - 1);
-        String tampered = cursor.substring(0, cursor.length() - 1) + ("A".equals(last) ? "B" : "A");
+        int signatureStart = cursor.lastIndexOf('.') + 1;
+        assertThat(signatureStart).isGreaterThan(0);
+        // Change a significant character in the signature, not the final base64
+        // character whose unused padding bits can decode to the same byte sequence.
+        String signatureChar = cursor.substring(signatureStart, signatureStart + 1);
+        String replacement = "A".equals(signatureChar) ? "B" : "A";
+        String tampered = cursor.substring(0, signatureStart) + replacement + cursor.substring(signatureStart + 1);
         ResponseEntity<String> forged = post("/api/runtime/object-sets/pages", mapper.createObjectNode().put("cursor", tampered));
         assertThat(forged.getStatusCode().value()).isEqualTo(400);
         assertThat(forged.getBody()).contains("INVALID_CURSOR");
