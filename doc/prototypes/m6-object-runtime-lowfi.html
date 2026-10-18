@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OntoForge M6 · Object Runtime 低保真原型</title>
+<style>
+:root{font-family:Inter,"Microsoft YaHei",Arial,sans-serif;color:#252b32;background:#f4f5f6}*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{border:1px solid #bdc4ca;border-radius:5px;background:white;color:#27313a;padding:9px 13px;cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #40566a;outline-offset:2px}.primary{background:#303943;border-color:#303943;color:white}.top{height:58px;background:white;border-bottom:1px solid #d7dadd;display:flex;align-items:center;justify-content:space-between;padding:0 24px;gap:16px}.brand{display:flex;align-items:center;gap:10px;font-weight:700}.brand-mark{width:29px;height:29px;border:1px solid #707983;border-radius:5px;display:grid;place-items:center}.muted,small{color:#69737d}.flag{font-size:11px;border:1px solid #c9cdd1;border-radius:4px;padding:4px 7px;color:#505a64;background:#fafafa}.layout{display:grid;grid-template-columns:210px minmax(0,1fr);min-height:calc(100vh - 58px)}aside{background:#fafbfc;border-right:1px solid #d7dadd;padding:22px 12px}.nav-heading{font-size:11px;letter-spacing:.08em;color:#78818a;padding:8px 10px}.nav-item{padding:10px;border-radius:5px;color:#4e5862;font-size:13px;margin:2px 0}.nav-item.active{background:#e9edf0;color:#202932;font-weight:700}.nav-item.disabled{color:#a1a7ad}.main{padding:26px clamp(16px,3vw,42px) 48px;max-width:1440px;width:100%;margin:auto}.crumb{font-size:12px;color:#707a83;margin-bottom:14px}.heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:22px}.heading h1{font-size:24px;margin:0 0 8px;font-weight:650}.heading p{margin:0;color:#69737d;line-height:1.6;font-size:13px}.notice{border:1px solid #d5d9dd;background:white;padding:11px 14px;border-radius:5px;font-size:12px;color:#58636d;margin-bottom:18px}.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(320px,.95fr);gap:16px;align-items:start}.stack{display:grid;gap:16px}.panel{border:1px solid #d8dce0;border-radius:6px;background:white;min-width:0}.panel-head{padding:16px 18px;border-bottom:1px solid #e1e4e7;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.panel-head h2{font-size:15px;margin:0 0 5px;font-weight:650}.panel-head p{font-size:12px;color:#6e7882;margin:0;line-height:1.55}.panel-body,.result-content,.error-body{padding:17px 18px}.field{display:grid;gap:6px;margin-bottom:15px}.field label{font-size:12px;font-weight:650;color:#3c4650}.field input,.field select{width:100%;border:1px solid #cbd0d5;border-radius:5px;padding:10px 11px;background:white;color:#252b32;font-size:13px}.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}.summary-item{border:1px solid #e0e3e6;border-radius:5px;padding:10px;min-width:0}.summary-item span{display:block;color:#6d7780;font-size:11px;margin-bottom:6px}.summary-item strong{font-size:12px;font-weight:650;overflow-wrap:anywhere}.subheading{font-size:12px;font-weight:700;margin:17px 0 9px}.check-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.check-item{display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid #e0e3e6;border-radius:5px;font-size:12px;min-width:0}.check-item input{accent-color:#3a4855}.check-item span{min-width:0;overflow-wrap:anywhere}.check-item small{display:block;font-size:10px;margin-top:3px}.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:16px}.scenario{font-size:11px;color:#6c7680}.empty{padding:38px 22px;text-align:center;color:#6f7983;font-size:13px;line-height:1.8}.pill{display:inline-flex;align-items:center;border:1px solid #cfd4d8;border-radius:4px;padding:4px 7px;font-size:11px;font-weight:650;background:#f7f8f9;color:#414b55}.pill.success{border-color:#a9c9b6;background:#f1f8f3;color:#245b3b}.pill.error{border-color:#d9b2b2;background:#fcf3f3;color:#873737}.pill.warning{border-color:#d8c9a7;background:#fbf8ef;color:#765d24}.state-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.object-title{font-size:18px;font-weight:700;margin:12px 0 4px}.object-subtitle{font-size:12px;color:#68737d;line-height:1.6;overflow-wrap:anywhere}.property-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:13px}.property-table th,.property-table td{text-align:left;vertical-align:top;padding:10px 8px;border-bottom:1px solid #e4e7ea}.property-table th{color:#69737d;font-weight:600;background:#fafbfc}.property-table td code{font-family:ui-monospace,Consolas,monospace;font-size:11px;overflow-wrap:anywhere}.value{font-weight:600;overflow-wrap:anywhere}.property-state{display:inline-block;border:1px solid #d2d7dc;border-radius:4px;padding:3px 5px;font-size:10px;white-space:nowrap}.present{background:#f1f8f3;color:#285b3d;border-color:#b8d2c0}.null{background:#f8f5ed;color:#7c632b;border-color:#ded1af}.missing{background:#f3f4f5;color:#626b74;border-color:#d9dde0}.evidence-list{display:grid;grid-template-columns:130px minmax(0,1fr);gap:10px 14px;font-size:12px}.evidence-list dt{color:#6d7780}.evidence-list dd{margin:0;overflow-wrap:anywhere;font-family:ui-monospace,Consolas,monospace;font-size:11px}.quality{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}.quality div{border:1px solid #e1e4e7;border-radius:5px;padding:9px}.quality span{display:block;font-size:10px;color:#6f7983;margin-bottom:5px}.quality strong{font-size:11px}.error-code{font-family:ui-monospace,Consolas,monospace;font-size:13px;font-weight:700;margin:13px 0 7px}.error-body p{font-size:13px;line-height:1.7;color:#4d5862;margin:0 0 12px}.error-hint{font-size:12px;padding:11px 12px;background:#f7f8f9;border:1px solid #e1e4e7;border-radius:5px;color:#5d6771;line-height:1.65}.hidden{display:none!important}.foot{font-size:11px;color:#737d86;line-height:1.7;margin-top:17px}
+@media(max-width:1000px){.layout{grid-template-columns:165px minmax(0,1fr)}.grid{grid-template-columns:1fr}.quality{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.top{padding:0 14px}.top .top-sub{display:none}.layout{display:block}aside{display:none}.heading{display:block}.heading .flag{display:inline-block;margin-top:12px}.field-row,.summary{grid-template-columns:1fr}.check-list{grid-template-columns:1fr}.panel-head,.panel-body,.result-content,.error-body{padding-left:13px;padding-right:13px}.property-table th,.property-table td{padding:8px 5px}.evidence-list{grid-template-columns:100px minmax(0,1fr)}.quality{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<header class="top"><div class="brand"><div class="brand-mark">OF</div><div>OntoForge <small>砺元</small></div></div><div style="display:flex;align-items:center;gap:12px"><small class="top-sub">M6 · 通用 Object Runtime</small><span class="flag">交互原型 · Mock 数据</span></div></header>
+<div class="layout">
+<aside aria-label="主导航"><div class="nav-heading">本体工作台</div><div class="nav-item">模型定义</div><div class="nav-item">数据绑定</div><div class="nav-item active">对象运行时</div><div class="nav-item disabled">对象集合 · M7</div><div class="nav-item disabled">关系读取 · M8</div><div class="nav-heading" style="margin-top:22px">当前演示</div><div class="nav-item">supplier-type</div><div class="nav-item">本地隔离来源</div></aside>
+<main class="main">
+<div class="crumb">本体工作台 / 对象运行时 / 按键读取</div>
+<div class="heading"><div><h1>对象读取</h1><p>按已保存的 ObjectType 与 Binding 版本读取一个业务对象。对象身份、属性值和来源证据分开展示；读取失败不会伪装成空对象。</p></div><span class="flag">UX-Low 候选 · 不连接后端</span></div>
+<div class="notice"><strong>原型说明：</strong>使用合成 supplier 数据演示状态与交互，不调用 API、不访问数据库、不代表 M6 已获实施授权。</div>
+<div class="grid">
+<div class="stack">
+<section class="panel" aria-labelledby="request-title"><div class="panel-head"><div><h2 id="request-title">1. 选择读取上下文</h2><p>固定读取已保存的 Snapshot 和 Binding revision；不允许在请求中临时改选“最新模型”。</p></div><span class="pill">只读</span></div>
+<div class="panel-body">
+<div class="field"><label for="binding">数据绑定</label><select id="binding"><option value="binding-21">supplier-type · Binding revision 2</option><option value="binding-20">supplier-type · Binding revision 1（旧身份域）</option></select></div>
+<div class="summary"><div class="summary-item"><span>模型来源</span><strong>Local Snapshot</strong></div><div class="summary-item"><span>Snapshot</span><strong>snap-7f2a…c901</strong></div><div class="summary-item"><span>身份域</span><strong id="identity-domain">supplier-key-v2</strong></div></div>
+<div class="field-row">
+<div class="field"><label for="object-key">对象业务键</label><input id="object-key" value="SUP-001" autocomplete="off" spellcheck="false" aria-describedby="key-help"><small id="key-help">首版支持规范 STRING / INTEGER 单列键；大小写和空白不会被自动折叠。</small></div>
+<div class="field"><label for="scenario">演示场景</label><select id="scenario"><option value="success">成功：一致重复行折叠</option><option value="not-found">对象不存在（404）</option><option value="source-unavailable">来源不可用（503）</option><option value="identity-conflict">身份属性冲突（409）</option><option value="property-conflict">属性值冲突（409）</option><option value="schema-drift">来源结构漂移（409）</option><option value="budget">查询超预算（429）</option><option value="invalid-key">键格式不规范（422）</option><option value="forbidden">当前主体无权（403）</option></select></div>
+</div>
+<div class="subheading">请求属性（最多 100 个）</div>
+<div class="check-list" id="property-choices">
+<label class="check-item"><input type="checkbox" value="supplierName" checked><span>供应商名称<small>supplierName · STRING · 必填</small></span></label>
+<label class="check-item"><input type="checkbox" value="supplierTier" checked><span>供应商等级<small>supplierTier · ENUM · 必填</small></span></label>
+<label class="check-item"><input type="checkbox" value="creditLimit" checked><span>授信额度<small>creditLimit · DECIMAL · 可选</small></span></label>
+<label class="check-item"><input type="checkbox" value="enabled" checked><span>是否启用<small>enabled · BOOLEAN · 可选</small></span></label>
+<label class="check-item"><input type="checkbox" value="taxCode" checked><span>税务代码<small>taxCode · STRING · 可选</small></span></label>
+<label class="check-item"><input type="checkbox" value="legacyCode" checked><span>旧系统编码<small>legacyCode · STRING · 未映射</small></span></label>
+</div>
+<div class="actions"><button class="primary" id="read-button">读取对象</button><button id="reset-button">重置</button><span class="scenario" id="request-status" role="status" aria-live="polite">尚未执行读取</span></div>
+</div></section>
+<section class="panel"><div class="panel-head"><div><h2>读取合同提示</h2><p>本原型按 OFIP-0008 的候选合同展示结果边界。</p></div></div><div class="panel-body">
+<div class="subheading" style="margin-top:0">三种属性状态不能混淆</div>
+<table class="property-table"><thead><tr><th>状态</th><th>含义</th><th>展示约束</th></tr></thead><tbody><tr><td><span class="property-state present">PRESENT</span></td><td>已读取到类型化值</td><td>0、false、空字符串都可能是有效值</td></tr><tr><td><span class="property-state null">NULL</span></td><td>来源列实际 SQL NULL</td><td>不改写成空字符串</td></tr><tr><td><span class="property-state missing">MISSING</span></td><td>模型有属性，但 Binding 未映射</td><td>不伪造来源值或列</td></tr></tbody></table>
+<div class="foot">重复物理行只有在所需属性全部一致时才能折叠。矛盾值、必填 NULL、无权、来源中断和超预算均不返回部分成功对象。</div>
+</div></section>
+</div>
+<div class="stack">
+<section class="panel" aria-labelledby="result-title"><div class="panel-head"><div><h2 id="result-title">2. 读取结果</h2><p>成功载荷与失败响应互斥；不存在与来源故障使用不同错误语义。</p></div><span class="pill" id="result-badge">等待读取</span></div>
+<div id="result-empty" class="empty">—<br>尚未读取对象<br>选择业务键并执行读取后，结果与来源证据将在此显示。</div>
+<div id="object-result" class="result-content hidden" aria-live="polite"><div class="state-line"><span class="pill success">SUCCESS</span><span class="pill">请求范围完整</span><span class="pill" id="duplicate-note">2 条一致物理行 → 1 个对象</span></div>
+<div class="object-title">星河精密制造有限公司</div><div class="object-subtitle" id="object-ref">ObjectRef · package=manufacturing.procurement / type=supplier-type / identityDomain=supplier-key-v2 / key=SUP-001</div>
+<table class="property-table"><thead><tr><th>属性</th><th>值状态</th><th>类型化值</th><th>来源</th></tr></thead><tbody id="property-results"></tbody></table>
+<div class="foot">仅在所需行完成读取并通过冲突检查后展示载荷；不会选择“第一条”或使用 MIN/最新值掩盖冲突。</div></div>
+<div id="error-result" class="error-body hidden" aria-live="assertive"><div class="state-line"><span class="pill error" id="error-status">FAILED</span><span class="pill">不返回对象载荷</span></div><div class="error-code" id="error-code">OBJECT_NOT_FOUND</div><p id="error-message">已完成授权和来源读取，但请求的身份不存在。</p><div class="error-hint" id="error-hint"></div></div>
+</section>
+<section class="panel"><div class="panel-head"><div><h2>3. 读取证据</h2><p>描述本次执行使用的模型、Binding 和来源读取；不声称业务资料一定最新。</p></div><span class="pill" id="evidence-badge">尚无证据</span></div>
+<div id="evidence-empty" class="empty">执行成功读取后展示本次证据。失败时仅展示 executionId 与安全错误码，不附带对象值。</div>
+<div id="evidence-result" class="result-content hidden"><dl class="evidence-list"><dt>executionId</dt><dd>exec-20261018-000184</dd><dt>executedAt</dt><dd>2026-10-18T04:20:31Z</dd><dt>typeSourceRef</dt><dd>snapshot:snap-7f2a…c901</dd><dt>payloadSha256</dt><dd>9f2b1d…c6a1</dd><dt>bindingVersions</dt><dd id="evidence-binding-version">binding-21 / revision 2 / jcs-rfc8785-v1</dd><dt>sourceReadRef</dt><dd>pg-source-schema-v1 / public.m5_supplier_source</dd><dt>accessMode</dt><dd>LOCAL_ISOLATED</dd><dt>事务隔离</dt><dd>REPEATABLE READ · 单次来源读取</dd></dl>
+<div class="quality"><div><span>accuracy</span><strong>EXACT</strong></div><div><span>completeness</span><strong>COMPLETE</strong></div><div><span>freshness</span><strong>UNKNOWN</strong></div><div><span>answerScope</span><strong>REQUESTED_SCOPE</strong></div></div><div class="foot">UNKNOWN 是诚实状态：没有可靠业务水位时，SQL 刚刚执行并不证明来源业务资料最新。</div></div>
+</section>
+<section class="panel"><div class="panel-head"><div><h2>恢复路径</h2><p>不同失败必须给出可理解且互不混淆的后续动作。</p></div></div><div class="panel-body"><table class="property-table" style="margin-top:0"><thead><tr><th>结果</th><th>下一步</th></tr></thead><tbody><tr><td>404 OBJECT_NOT_FOUND</td><td>检查键值或身份域</td></tr><tr><td>409 身份/属性冲突</td><td>停止成功返回；核查来源重复记录</td></tr><tr><td>409 BINDING_SCHEMA_DRIFT</td><td>返回 M5 修复映射，禁止同名列自动重绑</td></tr><tr><td>503 SOURCE_UNAVAILABLE</td><td>保留输入并重试来源连接</td></tr><tr><td>429 QUERY_BUDGET_EXCEEDED</td><td>收窄请求属性/修复来源数据，不放大服务端硬上限</td></tr></tbody></table></div></section>
+</div>
+</div></main></div>
+<script>
+(function(){
+const $=function(id){return document.getElementById(id);};
+const data={
+supplierName:{label:"供应商名称",type:"STRING",state:"PRESENT",value:"星河精密制造有限公司",column:"supplier_name"},
+supplierTier:{label:"供应商等级",type:"ENUM",state:"PRESENT",value:"A",column:"supplier_tier"},
+creditLimit:{label:"授信额度",type:"DECIMAL",state:"PRESENT",value:"0",column:"credit_limit"},
+enabled:{label:"是否启用",type:"BOOLEAN",state:"PRESENT",value:"false",column:"enabled"},
+taxCode:{label:"税务代码",type:"STRING",state:"NULL",value:"SQL NULL",column:"tax_code"},
+legacyCode:{label:"旧系统编码",type:"STRING",state:"MISSING",value:"未映射",column:"—"}
+};
+const errors={
+"not-found":{status:"404 · NOT FOUND",code:"OBJECT_NOT_FOUND",message:"已完成授权且来源读取成功，但此身份键不存在。",hint:"检查业务键、类型或身份域。此状态不同于来源连接失败。"},
+"source-unavailable":{status:"503 · SERVICE UNAVAILABLE",code:"SOURCE_UNAVAILABLE",message:"来源数据库当前不可用；无法判断对象是否存在。",hint:"保留当前输入，检查本地来源连接后重试。不能降级成空对象或 404。"},
+"identity-conflict":{status:"409 · CONFLICT",code:"OBJECT_IDENTITY_CONFLICT",message:"同一身份键对应的来源行存在不一致的身份语义，无法形成唯一 ObjectRef。",hint:"停止成功返回，核查来源键与身份域。禁止选择第一条记录。"},
+"property-conflict":{status:"409 · CONFLICT",code:"PROPERTY_VALUE_CONFLICT",message:"同身份的重复物理行在属性 taxCode 上出现 NULL 与非 NULL 冲突。",hint:"不返回部分对象；修复来源数据或明确经治理的权威规则。"},
+"schema-drift":{status:"409 · CONFLICT",code:"BINDING_SCHEMA_DRIFT",message:"来源结构指纹已变化，当前 Binding 版本不再匹配已核验结构。",hint:"返回 M5 重新核验并修复映射；禁止按同名列自动重绑。"},
+"budget":{status:"429 · TOO MANY REQUESTS",code:"QUERY_BUDGET_EXCEEDED",message:"读取超过服务端固定行数、时间或输出预算，结果不完整。",hint:"请求不会被标记为成功；可收窄属性范围，不能要求服务端突破硬上限。"},
+"invalid-key":{status:"422 · INVALID KEY",code:"INVALID_OBJECT_KEY",message:"对象键不是首版接受的规范键格式。",hint:"STRING 保留原始大小写与空白；INTEGER 必须使用规范十进制形式。系统不会静默 trim 或转换。"},
+"forbidden":{status:"403 · FORBIDDEN",code:"FORBIDDEN",message:"当前服务端主体没有该模型包的读取权限。",hint:"授权拒绝发生在来源读取之前；不泄露对象是否存在。"}
+};
+function selected(){return Array.from(document.querySelectorAll("#property-choices input:checked")).map(function(x){return x.value;});}
+function hide(){["result-empty","object-result","error-result","evidence-empty","evidence-result"].forEach(function(id){$(id).classList.add("hidden");});}
+function success(){
+const tbody=$("property-results");tbody.replaceChildren();
+selected().forEach(function(key){const item=data[key];if(!item)return;const tr=document.createElement("tr");const name=document.createElement("td");name.textContent=item.label+" ("+key+") · "+item.type;const stateTd=document.createElement("td");const badge=document.createElement("span");badge.className="property-state "+item.state.toLowerCase();badge.textContent=item.state;stateTd.appendChild(badge);const val=document.createElement("td");val.className="value";val.textContent=item.value;const src=document.createElement("td");const code=document.createElement("code");code.textContent=item.column;src.appendChild(code);tr.append(name,stateTd,val,src);tbody.appendChild(tr);});
+const oldBinding=$("binding").value==="binding-20";const domain=oldBinding?"supplier-key-v1":"supplier-key-v2";$("identity-domain").textContent=domain;$("object-ref").textContent="ObjectRef · package=manufacturing.procurement / type=supplier-type / identityDomain="+domain+" / key="+$("object-key").value;$("evidence-binding-version").textContent=$("binding").value+" / revision "+(oldBinding?"1":"2")+" / jcs-rfc8785-v1";
+$("result-badge").textContent="读取成功";$("result-badge").className="pill success";$("object-result").classList.remove("hidden");$("evidence-result").classList.remove("hidden");$("evidence-badge").textContent="证据完整";$("evidence-badge").className="pill success";
+}
+function failure(scenario){
+const e=errors[scenario];$("error-status").textContent=e.status;$("error-code").textContent=e.code;$("error-message").textContent=e.message;$("error-hint").textContent=e.hint;$("result-badge").textContent="读取失败";$("result-badge").className="pill error";$("error-result").classList.remove("hidden");$("evidence-badge").textContent="仅错误证据";$("evidence-badge").className="pill warning";$("evidence-empty").textContent="executionId · exec-20261018-failed-0001 / code · "+e.code+"。失败响应不附带对象值、原始 SQL 或来源异常。";$("evidence-empty").classList.remove("hidden");
+}
+function read(){
+hide();let scenario=$("scenario").value;
+if(!$("object-key").value.length&&scenario!=="invalid-key"){scenario="invalid-key";$("scenario").value=scenario;}
+$("request-status").textContent=scenario==="success"?"读取完成 · 2 行一致记录已折叠":"读取终止 · "+errors[scenario].code;
+if(scenario==="success")success();else failure(scenario);
+}
+function reset(){
+$("object-key").value="SUP-001";$("binding").value="binding-21";$("scenario").value="success";document.querySelectorAll("#property-choices input").forEach(function(x){x.checked=true;});$("identity-domain").textContent="supplier-key-v2";$("request-status").textContent="尚未执行读取";$("result-badge").textContent="等待读取";$("result-badge").className="pill";$("evidence-badge").textContent="尚无证据";$("evidence-badge").className="pill";$("result-empty").classList.remove("hidden");$("error-result").classList.add("hidden");$("object-result").classList.add("hidden");$("evidence-result").classList.add("hidden");$("evidence-empty").textContent="执行成功读取后展示本次证据。失败时仅展示 executionId 与安全错误码，不附带对象值。";$("evidence-empty").classList.remove("hidden");
+}
+$("read-button").addEventListener("click",read);$("reset-button").addEventListener("click",reset);$("binding").addEventListener("change",function(){$("identity-domain").textContent=this.value==="binding-20"?"supplier-key-v1":"supplier-key-v2";});$("object-key").addEventListener("keydown",function(e){if(e.key==="Enter")read();});
+})();
+</script>
+</body></html>
