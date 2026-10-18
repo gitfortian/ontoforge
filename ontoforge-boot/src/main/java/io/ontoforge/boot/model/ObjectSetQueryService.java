@@ -717,14 +717,14 @@ public class ObjectSetQueryService {
         } catch (QueryException ex) {
             throw ex;
         } catch (QueryTimeoutException ex) {
-            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过 3 秒预算；未返回部分结果", "source", executionId);
+            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过本次请求的 " + limits.timeoutSeconds() + " 秒预算；未返回部分结果", "source", executionId);
         } catch (DataAccessException ex) {
             SQLException sql = findSqlException(ex);
             if (sql != null && ("42P01".equals(sql.getSQLState()) || "42703".equals(sql.getSQLState()))) {
                 throw fail(409, "BINDING_SCHEMA_DRIFT", "来源表或绑定列在查询期间发生变化；未返回结果", "source", executionId);
             }
             if (sql != null && "57014".equals(sql.getSQLState())) {
-                throw fail(503, "SOURCE_TIMEOUT", "来源查询超过 3 秒预算；未返回部分结果", "source", executionId);
+                throw fail(503, "SOURCE_TIMEOUT", "来源查询超过本次请求的 " + limits.timeoutSeconds() + " 秒预算；未返回部分结果", "source", executionId);
             }
             throw fail(503, "SOURCE_UNAVAILABLE", "来源数据库不可用或拒绝只读查询；未返回部分结果", "source", executionId);
         }
@@ -742,8 +742,16 @@ public class ObjectSetQueryService {
             connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
             connection.setAutoCommit(false);
             try (Statement statement = connection.createStatement()) {
+                if (System.nanoTime() >= deadlineNanos) {
+                    throw fail(503, "SOURCE_TIMEOUT", "来源查询超过本次请求的端到端时间预算；未返回部分结果", "source", executionId);
+                }
                 statement.setQueryTimeout(limits.timeoutSeconds());
                 statement.execute("SET TRANSACTION READ ONLY");
+                if (System.nanoTime() >= deadlineNanos) {
+                    throw fail(503, "SOURCE_TIMEOUT", "来源查询超过本次请求的端到端时间预算；未返回部分结果", "source", executionId);
+                }
+                long remainingMillis = Math.max(1, TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime()));
+                statement.setQueryTimeout((int) Math.max(1, Math.min(limits.timeoutSeconds(), (remainingMillis + 999) / 1000)));
                 statement.execute("SET LOCAL statement_timeout = '" + limits.timeoutSeconds() + "s'");
             }
             verifySourceReadable(connection, binding, executionId, deadlineNanos);
@@ -780,7 +788,7 @@ public class ObjectSetQueryService {
                 try (ResultSet rs = statement.executeQuery()) {
                     while (rs.next()) {
                         if (System.nanoTime() >= deadlineNanos) {
-                            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过 3 秒端到端预算；未返回部分结果", "source", executionId);
+                            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过本次请求的端到端时间预算；未返回部分结果", "source", executionId);
                         }
                         Map<String,Object> row = new LinkedHashMap<>();
                         for (String column : columns) row.put(column, rs.getObject(column));
@@ -813,6 +821,9 @@ public class ObjectSetQueryService {
         if (source == null) {
             throw fail(503, "SOURCE_UNAVAILABLE", "没有配置独立来源只读连接；不能继续分页", "source", executionId);
         }
+        if (deadlineNanos > 0 && System.nanoTime() >= deadlineNanos) {
+            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过本次请求的端到端时间预算；未返回部分结果", "source", executionId);
+        }
         if (deadlineNanos <= 0) {
             try {
                 source.execute((ConnectionCallback<Void>) connection -> {
@@ -836,7 +847,11 @@ public class ObjectSetQueryService {
                     connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
                     connection.setAutoCommit(false);
                     try (Statement statement = connection.createStatement()) {
-                        statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+                        if (System.nanoTime() >= deadlineNanos) {
+                            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过本次请求的端到端时间预算；未返回部分结果", "source", executionId);
+                        }
+                        long remainingMillis = Math.max(1, TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime()));
+                        statement.setQueryTimeout((int) Math.max(1, Math.min(QUERY_TIMEOUT_SECONDS, (remainingMillis + 999) / 1000)));
                         statement.execute("SET TRANSACTION READ ONLY");
                     }
                     verifySourceReadable(connection, binding, executionId, deadlineNanos);
@@ -855,11 +870,11 @@ public class ObjectSetQueryService {
         } catch (QueryException ex) {
             throw ex;
         } catch (QueryTimeoutException ex) {
-            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过 3 秒端到端预算；未返回部分结果", "source", executionId);
+            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过本次请求的端到端时间预算；未返回部分结果", "source", executionId);
         } catch (DataAccessException ex) {
             SQLException sql = findSqlException(ex);
             if (System.nanoTime() >= deadlineNanos || (sql != null && "57014".equals(sql.getSQLState()))) {
-                throw fail(503, "SOURCE_TIMEOUT", "来源查询超过 3 秒端到端预算；未返回部分结果", "source", executionId);
+                throw fail(503, "SOURCE_TIMEOUT", "来源查询超过本次请求的端到端时间预算；未返回部分结果", "source", executionId);
             }
             throw fail(503, "SOURCE_UNAVAILABLE", "来源数据库不可用或拒绝只读查询；未返回结果", "source", executionId);
         }
@@ -903,7 +918,7 @@ public class ObjectSetQueryService {
             long deadlineNanos, String executionId) throws SQLException {
         long remainingNanos = deadlineNanos - System.nanoTime();
         if (remainingNanos <= 0) {
-            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过 3 秒端到端预算；未返回部分结果", "source", executionId);
+            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过本次请求的端到端时间预算；未返回部分结果", "source", executionId);
         }
         // Reserve a small margin for the SET LOCAL round-trip so the next SQL statement
         // cannot inherit a timeout that extends beyond the original end-to-end deadline.
@@ -916,7 +931,7 @@ public class ObjectSetQueryService {
         }
         long afterConfigNanos = deadlineNanos - System.nanoTime();
         if (afterConfigNanos <= 0) {
-            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过 3 秒端到端预算；未返回部分结果", "source", executionId);
+            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过本次请求的端到端时间预算；未返回部分结果", "source", executionId);
         }
         long jdbcRemainingMillis = Math.max(1, TimeUnit.NANOSECONDS.toMillis(afterConfigNanos));
         statement.setQueryTimeout((int) Math.max(1,
@@ -1178,6 +1193,10 @@ public class ObjectSetQueryService {
     private DataBindingService.SourceTable currentSourceTable(DataBindingService.BindingDetail binding,
             Authentication authentication, String executionId, long deadlineNanos) {
         try {
+            if (deadlineNanos > 0) {
+                return bindings.inspectTableWithDeadline(binding.packageId(), binding.sourceId(),
+                        binding.sourceSchema(), binding.sourceTable(), authentication, deadlineNanos);
+            }
             List<DataBindingService.SourceTable> tables = bindings.listTables(binding.packageId(), authentication);
             return tables.stream().filter(t -> t.sourceId().equals(binding.sourceId())
                     && t.schema().equals(binding.sourceSchema()) && t.table().equals(binding.sourceTable()))
