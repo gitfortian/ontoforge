@@ -46,7 +46,8 @@ public class LocalMvpSecurityConfig {
         http.csrf(csrf->csrf.disable())
             .authorizeHttpRequests(authorize->authorize
                 .requestMatchers("/api/system/status","/api/me","/api/model/**",
-                                 "/api/mvp/quality/**").permitAll()
+                                 "/api/mvp/quality/**", "/api/runtime/sources/**",
+                                 "/api/runtime/bindings", "/api/runtime/bindings/**").permitAll()
                 .anyRequest().denyAll());
         return http.build();
     }

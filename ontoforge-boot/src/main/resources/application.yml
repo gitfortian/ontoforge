@@ -19,6 +19,10 @@ spring:
     validate-on-migrate: true
 
 ontoforge:
+  binding:
+    source:
+      # URL and credentials are intentionally not defaulted: M5 fails closed until a dedicated reader is provisioned.
+      allowed-tables: ${ONTOFORGE_BINDING_SOURCE_ALLOWED_TABLES:m5_supplier_source}
   security:
     oidc:
       # Production must provide all three values. Missing values fail application startup.

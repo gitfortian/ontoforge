@@ -10,14 +10,14 @@
 > | --- | --- | --- | --- |
 > | PR #32 已合并 | F02、F08 子项、F09 子项、F11 子项 | 创建三类型与两关系、持久绑定内置 PostgreSQL 测试表、输入批次两跳查询订单和来源证据 | **已合并的隔离测试 MVP 闭环**；非通用连接器、ObjectSet、Agent |
 > | PR #33 已合并 | F08 可配置源映射子项、F11 受控查询子项 | 在原页面选本地测试表/各段字段，预览样本和一条关联后保存并真正查询，刷新重开 | **main 已合并的隔离测试场景**；无企业级源权限、跨数据库、查询优化与任意遍历 |
-> | PR #60/#61 M5 Data Binding UX-Low / UX-High（已合并） | M5 通用数据绑定交互 | 绑定目录、五步映射、来源/对象双预览、校验、revision 与历史版交互 | **UX-Low/UX-High 已签收；原型数据为 Mock；真实 API、只读 PG 角色、Flyway、并发与持久化均未实现；OFIP-0007 Decision Pending** |
+> | PR #60/#61/#62 与 PR #63 M5 Data Binding | M5 通用数据绑定闭环 | 自定义 ObjectType → 受控只读来源 → 类型映射 → 预览/校验 → 保存/历史重开；revision 1/2、CAS 与身份域变更已进入真实闭环 | **代码与自动化验收已通过；PR #63 待独立 review / 合并；Windows 本机 UAT 与产品发布仍未完成；Not Released** |
 > | PR #56 M4 Runtime Type Catalog（已合并） | F02/F03/F04 类型定义与历史引用子项 | 从已 VALID 草稿或经核验的本地快照读取 ObjectType 列表、Property 合同和来源；明确切换来源 | **已合并 main；PR #56 的 Required Quality、Architecture Docs 与 S0 检查全部 PASS**；不代表实例、Binding、ObjectSet 或正式发布已完成；Windows 本机人工验收未运行 |
 > | 后续按场景评估 | F06、F16 等 | 真实工业系统连接、受控 Agent 上下文 | **未实现**；不再为 MVP 提前铺陈全套治理 |
 
 
 > **产品进度总账（2026-10-16，含 P0-B UX-High 设计候选）**。本文件维护当前功能与环境状态；提案、历史交付和原型评审通过链接引用本账，不逐处复制当前状态。保留 F01–F29 编号；P0/P1 的未来范围仍须产品评审。
 >
-> **当前结论（2026-10-18）**：0.3/0.4 提供同包建模、完整性检查、本地历史和结构风险比较的基础闭环；M4 Runtime Type Catalog 的真实类型解析、只读 API 与前端目录已合并 [PR #56](https://github.com/gitfortian/ontoforge/pull/56)，该 PR 最新 head 的 Required Quality、Architecture Docs 与 S0 检查均通过。整体仍**未正式发布**，M4 不包含对象实例、Data Binding、ObjectSet、正式 Release 或 Agent 执行。功能覆盖与可靠性分开计算；Windows 隔离自动化和用户既有安装/人工验收分别见第 10 节。
+> **当前结论（2026-10-18）**：0.3/0.4 提供同包建模、完整性检查、本地历史和结构风险比较的基础闭环；M4 Runtime Type Catalog 已合并 [PR #56](https://github.com/gitfortian/ontoforge/pull/56)。OFIP-0007 已通过 [PR #58 正式投票](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6244833403)。M5 [PR #63](https://github.com/gitfortian/ontoforge/pull/63) 已完成真实前后端实现和自动化验收，最新 Required Quality、S0 PostgreSQL/Flyway、文档治理、Native Schema 合同与 Chromium 黄金故事均 PASS；当前待独立 review 与合并，**尚未发布**。功能覆盖与可靠性分开计算；Windows 用户既有安装的人工 UAT 仍待执行。
 
 > **最新可信的当前代码快照（2026-10-17）**：[已实现功能全景](./OntoForge-AS-IS-已实现功能全景-20261017.md)与[实际架构全景](./OntoForge-AS-IS-实际架构全景-20261017.md)。本文件后面 0.3/0.4、P0-B 的文本保留历史评审语境，不等于当前 main 最新状态。#34 脱敏 CSV 导入脚本已合并 main，但真实生产连接仍未实现。
 >
@@ -93,11 +93,11 @@ P0 是**建模产品可用门槛**，P1 才是**工业业务价值开始成立�
 
 ## 3.3 M5–M14 需求 Review 与设计提案状态（2026-10-18）
 
-> 本轮已完成 M5–M14 的逐项 Issue Review，并将评审意见整理为 OFIP-0007–OFIP-0016 候选设计。**这代表需求/设计已整理，不代表提案 Accepted、功能已实施或产品已发布。** 所有提案当前保持 Discussion / Decision Pending / Implementation Not Started / Not Released；必须由维护者在对应提案 PR 明确记录决策后，才能按标准流程进入实现。
+> 本轮已完成 M5–M14 的逐项 Issue Review。维护者已在 [PR #58](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6244833403) 接受 OFIP-0007；M5 已在 [PR #63](https://github.com/gitfortian/ontoforge/pull/63) 完成纵向实现与自动化验收，待独立 review / 合并；OFIP-0008–OFIP-0016 仍保持 Discussion / Decision Pending / Implementation Not Started / Not Released。提案 Accepted、代码实现、真实环境验收与产品发布分别记账。
 
 | M | Issue / 设计提案 | 设计收敛结果 | 当前边界与实施门槛 |
 | --- | --- | --- | --- |
-| M5 | [#44](https://github.com/gitfortian/ontoforge/issues/44) · [OFIP-0007](../proposals/OFIP-0007-M5-通用DataBinding.md) | 自定义 ObjectType → 单个登记的隔离 PG 来源 → 主键/属性映射 → 真实预览 → 有界校验 → 保存并重开；持久版固定 Local Snapshot | 不接受任意 JDBC URL/SQL；主键、identityDomain、CAS、源结构指纹、类型矩阵与只读来源角色必须一并验证 |
+| M5 | [#44](https://github.com/gitfortian/ontoforge/issues/44) · [OFIP-0007](../proposals/OFIP-0007-M5-通用DataBinding.md) | 自定义 ObjectType → 单个登记的隔离 PG 来源 → 主键/属性映射 → 真实预览 → 有界校验 → 保存、revision 2 身份域变化、历史重开与重启恢复 | **实现/自动化验收通过，待独立 review / 合并**；不接受任意 JDBC URL/SQL；Windows 用户既有安装 UAT、生产连接器与 Release 仍未完成 |
 | M6 | [#45](https://github.com/gitfortian/ontoforge/issues/45) · [OFIP-0008](../proposals/OFIP-0008-M6-通用ObjectRuntime.md) | 按需虚拟对象读取；ObjectRef 与版本证据分离，明确 PRESENT/NULL/MISSING | 不做全量 Object Store/跨源身份融合；重复一致行才折叠，身份/属性冲突和来源断线必须拒绝 |
 | M7 | [#46](https://github.com/gitfortian/ontoforge/issues/46) · [OFIP-0009](../proposals/OFIP-0009-M7-通用ObjectSet查询.md) | 版本化 local-query-v1 Typed AST；Filter/Sort/Project/Page/有限聚合；同执行有界结果快照 | 不开放任意 SQL/跨源 JOIN；预算失败不返回部分精确计数；游标绑定版本、查询、权限和 TTL |
 | M8 | [#47](https://github.com/gitfortian/ontoforge/issues/47) · [OFIP-0010](../proposals/OFIP-0010-M8-LinkFact与有界遍历.md) | 分切片交付：M8.1 外键映射与双向一跳；M8.2 桥表 M:N；M8.3 显式两跳 | M8.1 通过不能把桥表/二跳标记完成；分开统计对象、LinkFact、路径，严格验证双端基数/孤儿/扇出 |
@@ -111,6 +111,34 @@ P0 是**建模产品可用门槛**，P1 才是**工业业务价值开始成立�
 **关键依赖关系**：M4 → M5 → M6 → M7；M8 消费 M5/M7，M9 收敛 M5–M8 的证据与漂移；M10 复用 OFIP-0005 治理并向运行时提供版本锁；M11 串联 Core 用户旅程；M12 和 M13 为互相独立的 Extended 分支；M14 对 Core 与 Extended 分别验收，不把 M12/M13 变成 Core 查询闭环的隐式前置。
 
 **状态纪律**：设计评审完成 ≠ OFIP Accepted；OFIP Accepted ≠ 代码实现；代码合并 ≠ 真实环境验收；CI PASS ≠ Windows 用户 UAT 或产品 Release。每个 M 必须继续报告真实代码、未完成边界、风险、受测 SHA、测试链接及下一步。
+
+### M5 生产实现检查点（2026-10-18，PR #63）
+
+**本轮真实交付**
+
+- 后端与 V7 数据迁移：通用 Binding、不可变 revision、CAS 更新、JCS/SHA-256 摘要、来源 schema fingerprint、数值精度/长度指纹、稳定排序与来源结构漂移拒绝。
+- 来源安全：独立只读登录/角色、限定表 allowlist、loopback 同库同端口约束；真实 PostgreSQL 验证 SELECT 可用，INSERT/UPDATE/DELETE/DDL 被拒绝；只读账号仍能从 PostgreSQL 系统目录正确读取主键与单列唯一约束。
+- 映射合同：来源身份键必须是主键或单列唯一键；DECIMAL 不接受浮点列；INTEGER 以规范十进制字符串传输，避免 JavaScript 大整数精度损失；ENUM 只接受受控文本值；结构精度变化会触发 drift。
+- 用户闭环：创建自定义 ObjectType → Local Snapshot → 来源目录 → 映射 → 预览 → 有界校验 → 保存 → 重开历史。修改来源身份键会生成新 identityDomainId，页面明确提示旧 ObjectRef 不会自动重定位。
+- 持久化证据：真实后端重启后，revision 1/2 的摘要、快照引用与 identity domain 均与重启前一致；旧 revision 保持不可变。
+
+**自动化验收证据**
+
+- S0 PostgreSQL Flyway Integration：PASS（真实 PostgreSQL 17；含迁移升级、只读权限、精确类型、唯一键、CAS、drift 与历史保留）。
+- React TypeScript Production Build：PASS。
+- Documentation and Governance Checks：PASS。
+- Native V0.2 Schema Contract Tests：PASS。
+- Real Product User Stories / Real PG17 + API + React Chromium Golden Story：PASS；覆盖身份域变更、历史 revision 重开和后端重启后摘要核验。
+- Required Quality Gate：PASS。请以 [PR #63 的最新 Checks](https://github.com/gitfortian/ontoforge/pull/63/checks) 为准。
+
+**仍未完成 / 不得误报**
+
+- PR #63 尚未合并；独立 review 与合并验收待完成。
+- Windows 11 用户既有 PostgreSQL 安装的人工 UAT 尚未执行。
+- 当前来源是受控本地 PostgreSQL 合成夹具，不是任意企业连接器或真实 MES/ERP/QMS 生产接入。
+- M5 不代表 ObjectFact/ObjectSet、正式发行/激活、Agent、Action 或产品 Release 已完成。
+
+**下一步**：完成独立 review 与门禁确认后合并 PR #63；再按依赖顺序进入 M6 Object Runtime 的独立设计/实施，不把 M6/M7 预先算作已实现。
 
 ## 4. P0「完整建模产品 MVP」建议功能包
 

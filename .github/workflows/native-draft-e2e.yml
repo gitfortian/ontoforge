@@ -56,7 +56,12 @@ jobs:
       TEST_DB_USERNAME: ontology
       TEST_DB_PASSWORD: ontology_dev_only
       E2E_AUTH_FILE: /tmp/ontoforge-b0-private-fixture.json
+      E2E_M5_BINDING_EVIDENCE: /tmp/ontoforge-m5-binding-acceptance.json
       S0_HOST: 127.0.0.1
+      ONTOFORGE_BINDING_SOURCE_URL: jdbc:postgresql://127.0.0.1:5432/ontoforge_test_e2e
+      ONTOFORGE_BINDING_SOURCE_USERNAME: ontoforge_binding_login
+      ONTOFORGE_BINDING_SOURCE_PASSWORD: m5_test_reader_only
+      ONTOFORGE_BINDING_SOURCE_ALLOWED_TABLES: m5_supplier_source
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
@@ -129,6 +134,14 @@ jobs:
           docker exec "$pg_container" psql -X -qAt -U ontology -d ontoforge_test_e2e \
             -c "SELECT count(*) FROM b0_package_assignment WHERE package_id='manufacturing.operator-test'" | grep -qx 1
           echo 'B0 provisioning repeat and cross-workspace conflict protections PASS'
+      - name: Provision and prove the dedicated M5 read-only source role
+        run: |
+          pg_container=$(docker ps --format '{{.ID}} {{.Image}}' | awk '$2 ~ /^postgres:17/ {print $1; exit}')
+          test -n "$pg_container" || { echo 'PostgreSQL service container not found'; exit 1; }
+          docker exec -i -e PGPASSWORD=ontology_dev_only -e ONTOFORGE_BINDING_SOURCE_PASSWORD="$ONTOFORGE_BINDING_SOURCE_PASSWORD" "$pg_container" psql -X -v ON_ERROR_STOP=1 -U ontology -d ontoforge_test_e2e < scripts/provision-m5-source-reader.sql
+          docker exec "$pg_container" psql -X -qAt -U ontology -d ontoforge_test_e2e -c "SELECT rolsuper FROM pg_roles WHERE rolname='ontoforge_binding_login'" | grep -qx f
+          docker exec "$pg_container" psql -X -qAt -U ontology -d ontoforge_test_e2e -c "SELECT has_table_privilege('ontoforge_binding_login','public.m5_supplier_source','SELECT') AND NOT has_table_privilege('ontoforge_binding_login','public.m5_supplier_source','INSERT')" | grep -qx t
+          echo 'M5 source role is non-superuser, SELECT-only on the allowlisted fixture'
       - name: Launch real Vite React application
         env:
           VITE_OIDC_CLIENT_ID: ontoforge-e2e
@@ -186,6 +199,25 @@ jobs:
           done
           curl -fsS http://127.0.0.1:8080/api/system/status
           echo "New backend PID $(cat /tmp/ontoforge-api-restarted.pid); PostgreSQL service preserved"
+      - name: Recheck M5 binding revisions and digests after real backend restart
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          from pathlib import Path
+          evidence = json.loads(Path(os.environ["E2E_M5_BINDING_EVIDENCE"]).read_text(encoding="utf-8"))
+          fixture = json.loads(Path(os.environ["E2E_AUTH_FILE"]).read_text(encoding="utf-8"))
+          for revision_number in (1, 2):
+              url = f"http://127.0.0.1:8080/api/runtime/bindings/{evidence['bindingId']}?revision={revision_number}"
+              request = urllib.request.Request(url, headers={"Authorization": "Bearer " + fixture["editorToken"]})
+              with urllib.request.urlopen(request, timeout=15) as response:
+                  detail = json.load(response)
+              assert detail["bindingId"] == evidence["bindingId"]
+              assert detail["revision"] == evidence[f"revision{revision_number}"]
+              assert detail["snapshotId"] == evidence["snapshotId"]
+              assert detail["digest"] == evidence[f"digest{revision_number}"]
+              assert detail["identityDomainId"] == evidence[f"identityDomainId{revision_number}"]
+          print("M5 revisions 1 and 2 persisted across backend restart; digests and identity domains match")
+          PY
       - name: Recheck original ObjectType, Snapshot and LinkType bytes after real backend restart
         shell: pwsh
         run: |
@@ -204,6 +236,7 @@ jobs:
           cp '${{ runner.temp }}/ontoforge-snapshot-acceptance.json' /tmp/ontoforge-e2e-evidence/snapshot-exercise-recheck-on-linux.json 2>/dev/null || true
           cp '${{ runner.temp }}/ontoforge-linktype-acceptance.json' /tmp/ontoforge-e2e-evidence/linktype-exercise-recheck-on-linux.json 2>/dev/null || true
           cp /tmp/ontoforge-api-restarted.log /tmp/ontoforge-e2e-evidence/backend-after-restart.log 2>/dev/null || true
+          cp /tmp/ontoforge-m5-binding-acceptance.json /tmp/ontoforge-e2e-evidence/m5-binding-acceptance.json 2>/dev/null || true
           cp /tmp/ontoforge-idp.log /tmp/ontoforge-e2e-evidence/test-idp.log 2>/dev/null || true
           cp -r '${{ runner.temp }}/ontoforge-native-e2e-shots' /tmp/ontoforge-e2e-evidence/screenshots 2>/dev/null || true
       - uses: actions/upload-artifact@v7

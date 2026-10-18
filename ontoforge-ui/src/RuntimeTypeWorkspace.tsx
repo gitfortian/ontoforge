@@ -190,7 +190,10 @@ export default function RuntimeTypeWorkspace({route,navigate}:{route:string;navi
 
         <section className="model-panel runtime-type-detail">
           <header className="model-panel-head"><div><h2>类型详情</h2><p>只读 Native RuntimeTypeDescriptor</p></div>
-            {detail&&<span className="model-status valid">{detail.lifecycle}</span>}</header>
+            <div className="model-actions">
+              {detail&&snapshotId&&<button className="model-btn primary" onClick={()=>navigate('#/mvp/bindings?packageId='+encodeURIComponent(detail.packageId)+'&snapshotId='+encodeURIComponent(snapshotId)+'&objectTypeId='+encodeURIComponent(detail.objectTypeId))}><Database size={14}/> 创建绑定</button>}
+              {detail&&<span className="model-status valid">{detail.lifecycle}</span>}
+            </div></header>
           {detailLoading&&<div className="model-empty compact" role="status">正在读取类型详情…</div>}
           {detailError&&<div className="model-alert error" role="alert">{detailError}</div>}
           {!detailLoading&&!detailError&&!detail&&catalog.items.length>0&&<div className="model-empty compact">请选择左侧对象类型。</div>}

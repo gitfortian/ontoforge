@@ -1,0 +1,34 @@
+package io.ontoforge.boot.config;
+
+import com.zaxxer.hikari.HikariDataSource;
+import javax.sql.DataSource;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.jdbc.autoconfigure.DataSourceProperties;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+
+/**
+ * Keeps the application metadata database authoritative when optional source
+ * connections are enabled. Flyway and application repositories must never
+ * silently switch to a read-only external/source datasource.
+ */
+@Configuration(proxyBeanMethods = false)
+public class ApplicationDataSourceConfiguration {
+    @Bean
+    @Primary
+    @ConfigurationProperties("spring.datasource.hikari")
+    HikariDataSource dataSource(DataSourceProperties properties) {
+        return properties.initializeDataSourceBuilder()
+                .type(HikariDataSource.class)
+                .build();
+    }
+
+    @Bean(name = "jdbcTemplate")
+    @Primary
+    JdbcTemplate jdbcTemplate(@Qualifier("dataSource") DataSource dataSource) {
+        return new JdbcTemplate(dataSource);
+    }
+}
