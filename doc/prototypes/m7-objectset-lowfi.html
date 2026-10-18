@@ -36,7 +36,7 @@
     <div class="notice"><div>ⓘ</div><div><strong>当前是静态交互原型，不调用后端 API。</strong>右侧结果是合成样例，用于评审用户流程与错误恢复；不代表 M7 运行时已经实现。</div></div>
     <section class="context">
       <div class="context-card"><span>ObjectType / Snapshot</span><strong>Supplier · snapshot-local-021</strong></div>
-      <div class="context-card"><span>Data Binding</span><strong>binding-20 · revision 1</strong></div>
+      <div class="context-card"><span>Data Binding</span><strong id="binding-context">binding-20 · revision 1</strong></div>
       <div class="context-card"><span>访问方式 / 权限</span><strong>LOCAL_ISOLATED · 当前工作区</strong></div>
     </section>
     <div class="workspace">
@@ -93,7 +93,7 @@
           <div class="section">
             <div class="section-title"><h3><span class="step-no">5</span>返回方式</h3><div class="mode-switch"><button id="mode-page" type="button" aria-pressed="true">分页结果</button><button id="mode-aggregate" type="button" aria-pressed="false">聚合统计</button></div></div>
             <div id="page-options" class="grid2">
-              <div class="field"><label for="page-size">每页数量</label><select id="page-size"><option value="10">10 条</option><option value="20">20 条</option><option value="50">50 条</option></select></div>
+              <div class="field"><label for="page-size">每页数量</label><select id="page-size"><option value="3" selected>3 条（演示）</option><option value="10">10 条</option><option value="20">20 条</option><option value="50">50 条</option></select></div>
               <div class="field"><label>分页语义</label><div class="ast"><div class="ast-row"><strong>一次执行</strong><span>冻结完整有界结果</span></div><div class="ast-row"><strong>游标</strong><span>仅定位结果页，不授予访问权限</span></div></div></div>
             </div>
             <div id="aggregate-options" class="grid2 hidden">
@@ -164,7 +164,13 @@
     {supplierCode:"SUP-1005",name:"Metro Parts",rating:"4.10",active:"true",category:"HARDWARE",annualSpend:"56300.00"},
     {supplierCode:"SUP-1007",name:"Delta Logistics",rating:"3.80",active:"false",category:"LOGISTICS",annualSpend:"44200.00"},
     {supplierCode:"SUP-1008",name:"Atlas Components",rating:"4.60",active:"true",category:"ELECTRONICS",annualSpend:"96300.00"},
-    {supplierCode:"SUP-1009",name:"Riverbend Metals",rating:"4.20",active:"true",category:"METAL",annualSpend:"71100.00"}
+    {supplierCode:"SUP-1009",name:"Riverbend Metals",rating:"4.20",active:"true",category:"METAL",annualSpend:"71100.00"},
+    {supplierCode:"SUP-1010",name:"Pacific Fasteners",rating:"4.55",active:"true",category:"HARDWARE",annualSpend:"136500.00"},
+    {supplierCode:"SUP-1011",name:"Summit Supply",rating:"4.05",active:"true",category:"METAL",annualSpend:"58900.00"},
+    {supplierCode:"SUP-1012",name:"Evergreen Parts",rating:"4.65",active:"true",category:"ELECTRONICS",annualSpend:"109800.00"},
+    {supplierCode:"SUP-1013",name:"Harbor Logistics",rating:"3.95",active:"true",category:"LOGISTICS",annualSpend:"73500.00"},
+    {supplierCode:"SUP-1014",name:"Cobalt Components",rating:"4.25",active:"true",category:"HARDWARE",annualSpend:"62500.00"},
+    {supplierCode:"SUP-1015",name:"Pioneer Metals",rating:"4.50",active:"true",category:"METAL",annualSpend:"119400.00"}
   ];
   const propertyTypes={rating:"DECIMAL",active:"BOOLEAN",category:"ENUM",name:"STRING",annualSpend:"DECIMAL",supplierCode:"STRING"};
   function setMode(mode){
@@ -177,6 +183,7 @@
     $("objects-table").classList.toggle("hidden",mode!=="page");
     if(hasResult) renderSuccess();
   }
+  function pageCount(){return Math.max(1,Math.ceil(sampleRows.length/Math.max(1,Number($("page-size").value)||1)));}
   function currentFilters(){return [...document.querySelectorAll("[data-filter-row]")].map(row=>({
     property:row.querySelector("[data-property]").value,
     operator:row.querySelector("[data-operator]").value,
@@ -209,24 +216,27 @@
     const project=[...document.querySelectorAll("#project-fields input:checked")].map(x=>x.value);
     const columns=["supplierCode","name","rating","active","category","annualSpend"].filter(x=>project.includes(x));
     $("result-headers").innerHTML=columns.map(x=>"<th>"+escapeHtml(x)+"</th>").join("");
-    const start=(page-1)*3;
-    $("result-rows").innerHTML=sampleRows.slice(start,start+3).map(row=>"<tr>"+columns.map(col=>"<td class='"+(col==="supplierCode"?"mono":"")+"'>"+escapeHtml(row[col])+"</td>").join("")+"</tr>").join("");
+    const size=Math.max(1,Number($("page-size").value)||1);
+    const start=(page-1)*size;
+    $("result-rows").innerHTML=sampleRows.slice(start,start+size).map(row=>"<tr>"+columns.map(col=>"<td class='"+(col==="supplierCode"?"mono":"")+"'>"+escapeHtml(row[col])+"</td>").join("")+"</tr>").join("");
   }
   function renderSuccess(){
     hasResult=true;
     $("result-empty").classList.add("hidden");$("error-result").classList.add("hidden");$("result-success").classList.remove("hidden");
     $("result-status").textContent="SUCCESS";$("result-status").className="pill green";
-    $("snapshot-status").textContent="SUCCESS";$("metric-count").textContent="6";
-    $("metric-page").textContent=lastMode==="page"?page+" / 2":"聚合";
+    $("snapshot-status").textContent="SUCCESS";$("metric-count").textContent=String(sampleRows.length);
+    $("metric-page").textContent=lastMode==="page"?page+" / "+pageCount():"聚合";
     $("metric-ttl").textContent="05:00";
     $("aggregate-result").classList.toggle("hidden",lastMode!=="aggregate");
     $("objects-table").classList.toggle("hidden",lastMode!=="page");
     $("page-footer").classList.toggle("hidden",lastMode!=="page");
     $("aggregate-label").textContent=$("aggregate-op").value==="COUNT_DISTINCT"?"COUNT_DISTINCT(ObjectRef)":"SUM("+$("aggregate-property").value+")";
-    $("aggregate-value").textContent=$("aggregate-op").value==="COUNT_DISTINCT"?"6":"480500.00";
+    const totalCents=sampleRows.reduce((sum,row)=>sum+BigInt(row.annualSpend.replace(".","")),0n);
+    const totalSpend=(totalCents/100n).toString()+"."+(totalCents%100n).toString().padStart(2,"0");
+    $("aggregate-value").textContent=$("aggregate-op").value==="COUNT_DISTINCT"?String(sampleRows.length):totalSpend;
     $("result-caption").textContent=lastMode==="page"?"已冻结的结果快照":"完整范围聚合结果";
-    $("previous").disabled=page===1;$("next").disabled=page===2;
-    $("page-note").textContent="第 "+page+" 页 · 同一 resultSnapshotRef";
+    $("previous").disabled=page===1;$("next").disabled=page>=pageCount();
+    $("page-note").textContent="第 "+page+" 页 / 共 "+pageCount()+" 页 · 同一 resultSnapshotRef";
     renderRows();renderAst();
   }
   function execute(){
@@ -265,7 +275,7 @@
     if(!hasResult)return;
     if($("scenario").value==="page-revoked"){fail("503 SOURCE_UNAVAILABLE","翻页已拒绝","来源访问权限已撤销","当前权限或来源可用性复核失败；不返回下一页，不把旧游标当成授权。请恢复访问后重新执行。");return;}
     if($("scenario").value==="expired"){fail("410 RESULT_EXPIRED","已失效","结果快照已过期","请重新执行完整查询。");return;}
-    if(page<2){page++;renderSuccess();}
+    if(page<pageCount()){page++;renderSuccess();}
   });
   $("previous").addEventListener("click",()=>{if(hasResult&&page>1){page--;renderSuccess();}});
   $("reset").addEventListener("click",()=>{
@@ -277,14 +287,21 @@
     ops[0].value="GT";ops[1].value="EQ";
     const vals=$("filters").querySelectorAll("[data-value]");
     vals[0].value="4.0";vals[1].value="true";
-    $("sort-property").value="rating";$("sort-direction").value="DESC";$("binding-revision").value="1";
+    $("sort-property").value="rating";$("sort-direction").value="DESC";$("binding-revision").value="1";$("binding-context").textContent="binding-20 · revision 1";
     document.querySelectorAll("#project-fields input").forEach(x=>x.checked=["supplierCode","name","rating"].includes(x.value));
     $("scenario").value="success";$("aggregate-op").value="COUNT_DISTINCT";$("aggregate-property").value="annualSpend";$("page-size").value="10";
     setMode("page");clearResult();renderAst();
   });
-  ["binding-revision","sort-property","sort-direction","aggregate-op","aggregate-property"].forEach(id=>$(id).addEventListener("change",renderAst));
-  $("project-fields").addEventListener("change",renderAst);
-  $("filters").addEventListener("change",renderAst);
+  function invalidateResult(){
+    if(!hasResult)return;
+    clearResult();
+    $("result-status").textContent="需重新执行";
+    $("result-empty").innerHTML="<strong>查询条件已变更</strong>当前结果不再对应编辑中的查询，请重新执行后生成新的结果快照。";
+  }
+  ["binding-revision","sort-property","sort-direction","aggregate-op","aggregate-property","page-size"].forEach(id=>$(id).addEventListener("change",()=>{invalidateResult();if(id==="binding-revision")$("binding-context").textContent="binding-20 · revision "+$("binding-revision").value;page=1;renderAst();}));
+  $("project-fields").addEventListener("change",()=>{invalidateResult();renderAst();});
+  $("filters").addEventListener("change",()=>{invalidateResult();renderAst();});
+  $("filters").addEventListener("input",()=>{invalidateResult();renderAst();});
   renderAst();
 })();
 </script>
