@@ -148,6 +148,7 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
         method:bindingId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
       });
       setBindingId(saved.bindingId);setRevision(saved.revision);setDetail(saved);setEditing(false);setPreview(null);setValidation(null);
+      setRevisions(await request<RevisionSummary[]>(API+'/bindings/'+saved.bindingId+'/revisions'));
       onDirtyChange(false);setDirty(false);setNotice('绑定 revision '+saved.revision+' 已持久化。历史版本保持不可变。');
       await loadBindings(saved.packageId);
     }catch(e){setError(messageOf(e));}
@@ -195,17 +196,17 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
           {bindingId&&<div><span>当前 revision</span><b>{revision}</b></div>}
         </div>
         <div className="binding-form-grid">
-          <label>来源表<select value={tableName} onChange={e=>{setTableName(e.target.value);setFingerprint('');setPreview(null);setValidation(null);setDirty(true);onDirtyChange(true);}}>
+          <label>来源表<select value={tableName} onChange={e=>{const next=tables.find(t=>t.table===e.target.value);const key=next?.columns.find(c=>c.primaryKey)?.name||next?.columns.find(c=>c.uniqueKey)?.name||'';setTableName(e.target.value);setSourceKey(key);if(descriptor)setMappingState(old=>({...old,[descriptor.primaryKeyRef]:key}));setFingerprint('');setPreview(null);setValidation(null);setDirty(true);onDirtyChange(true);}}>
             {tables.map(t=><option key={t.table} value={t.table}>{t.schema}.{t.table} · {t.columns.length} 列</option>)}
           </select></label>
-          <label>来源身份键<select value={sourceKey} onChange={e=>{setSourceKey(e.target.value);setFingerprint('');setPreview(null);setValidation(null);setDirty(true);onDirtyChange(true);}}>
+          <label>来源身份键<select value={sourceKey} onChange={e=>{setSourceKey(e.target.value);if(descriptor)setMappingState(old=>({...old,[descriptor.primaryKeyRef]:e.target.value}));setFingerprint('');setPreview(null);setValidation(null);setDirty(true);onDirtyChange(true);}}>
             <option value="">选择主键 / 唯一列</option>{(selectedTable?.columns||[]).filter(c=>c.primaryKey||c.uniqueKey).map(c=><option key={c.name} value={c.name}>{c.name} · {c.dataType}</option>)}
           </select></label>
         </div>
         <div className="binding-map-head"><div><h3>属性映射</h3><p>主键必须映射到 primaryKeyRef；只支持 AUTHORITATIVE，不执行隐式类型转换。</p></div><span>{mappings.length} 项已配置</span></div>
         <div className="binding-map-table"><table className="model-table"><thead><tr><th>对象属性</th><th>类型</th><th>来源列</th><th>约束</th></tr></thead><tbody>
           {descriptor.properties.map(p=><tr key={p.id}><td><b>{p.label||p.apiName}</b><small>{p.apiName} · {p.id}</small></td><td>{p.valueType}</td>
-            <td><select aria-label={'来源列 '+p.apiName} value={mappingState[p.id]||''} onChange={e=>{setMappingState(old=>({...old,[p.id]:e.target.value}));setPreview(null);setValidation(null);setDirty(true);onDirtyChange(true);}}>
+            <td><select aria-label={'来源列 '+p.apiName} value={mappingState[p.id]||''} onChange={e=>{setMappingState(old=>({...old,[p.id]:e.target.value}));if(p.id===descriptor.primaryKeyRef)setSourceKey(e.target.value);setPreview(null);setValidation(null);setDirty(true);onDirtyChange(true);}}>
               <option value="">不映射</option>{(selectedTable?.columns||[]).map(c=><option key={c.name} value={c.name}>{c.name} · {c.dataType}</option>)}
             </select></td><td>{p.id===descriptor.primaryKeyRef?<span className="binding-chip required">主键</span>:p.required?<span className="binding-chip required">必填</span>:<span className="binding-chip">可选</span>}</td>
           </tr>)}
