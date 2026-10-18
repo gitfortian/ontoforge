@@ -1,12 +1,12 @@
 # OFIP-0008：M6 通用 Object Runtime、对象身份与属性读取
 
-**Status:** Discussion
+**Status:** Accepted
 
 **Discussion:** [PR #58 — [DISCUSS][OFIP-0007–0016] M5-M14 需求 Review 与方案设计](https://github.com/gitfortian/ontoforge/pull/58)
 
-**Decision:** Pending（等待维护者显式决策及 permalink）
+**Decision:** Accepted — 维护者于 2026-10-18 在 [PR #58 决策评论](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6246406521) 显式记录 `[VOTE] Accepted`
 
-**Implementation:** Not Started
+**Implementation:** Authorized — 按本提案范围进入 M6 纵向实施；生产验收尚未完成
 
 **Release:** Not Released
 
@@ -160,18 +160,18 @@ Object Runtime 消费模型和绑定，把 SourceFact 按版本投影为对象�
 - 签收记录：[M6 UX-Low 原型签收记录](../implementation/M6-ObjectRuntime-UX-Low评审说明.md)
 - 交付与回归：[PR #64](https://github.com/gitfortian/ontoforge/pull/64)；[专用 Chromium workflow（5/5 PASS）](https://github.com/gitfortian/ontoforge/actions/runs/39098922723)；[全量原型回归（132 tests PASS）](https://github.com/gitfortian/ontoforge/actions/runs/39098922643)。
 - 产品所有者已明确认可对象身份、属性值语义、错误与恢复、来源证据四项交互原则；无阻断性 UX-Low 修改项。
-- **UX-Low 已签收；下一阶段进入 UX-High 高保真设计，UX-High 必须独立评审并签收。**
+- **历史状态说明：** UX-Low 签收后，UX-High 已通过独立评审并由产品所有者签收，见 [PR #65](https://github.com/gitfortian/ontoforge/pull/65)。
 - 本签收只覆盖静态原型与交互合同，不证明 Runtime API、PostgreSQL、权限或生产代码已实现。
-- OFIP-0008 的 Decision 仍为 Pending。UX-Low 与 UX-High 均签收且维护者依治理流程显式记录 `[VOTE] Accepted` 之前，不得启动 M6 生产 Java/React/Flyway 实施。
+- **历史门禁现已满足：** UX-Low 与 UX-High 均已签收，维护者已于 2026-10-18 在 [PR #58](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6246406521) 显式记录 `[VOTE] Accepted`；M6 生产实施已获授权，但仍须完成下述真实生产代码与验收门槛。
 
 ## UX-High Prototype Candidate（2026-10-18）
 
 - 原型：[M6 Object Runtime UX-High](../prototypes/m6-object-runtime-highfi.html)
 - 评审说明：[M6 UX-High 原型评审说明](../implementation/M6-ObjectRuntime-UX-High评审说明.md)
-- UX-Low 已签收；UX-High 当前仅为高保真候选，等待产品所有者独立评审与签收。
+- 历史状态说明：UX-High 后续已由产品所有者独立签收并合并，见 [PR #65](https://github.com/gitfortian/ontoforge/pull/65)。
 - Chromium workflow 将回归 UX-Low 与 UX-High 两套原型；Mock 测试不证明生产 Runtime、PG17、权限或真实 API 已实现。
-- 产品评审需确认对象身份、属性表格、错误恢复、来源证据、视觉层级与窄屏布局。未签收前不得视为最终 UX。
-- OFIP-0008 仍为 `Decision: Pending`。UX-Low 与 UX-High 均签收且维护者依仓库治理流程显式 `[VOTE] Accepted` 前，不启动 M6 生产 Java/React/Flyway 实施。
+- 产品评审已确认对象身份、属性表格、错误恢复、来源证据、视觉层级与窄屏布局；签收仅覆盖设计，不证明 Runtime 生产代码已实现。
+- OFIP-0008 已于 2026-10-18 获维护者正式 Accepted，见 [PR #58 决策评论](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6246406521)；UX-Low 与 UX-High 均已签收。生产实现按本提案范围获准启动，验收/发布仍独立记账。
 
 ---
 
@@ -180,6 +180,6 @@ Object Runtime 消费模型和绑定，把 SourceFact 按版本投影为对象�
 - 产品所有者明确回复“页面签收，继续实施”，正式签收 UX-High 高保真原型。
 - 原型与交互回归交付：[PR #65](https://github.com/gitfortian/ontoforge/pull/65)；[M6 专项 Chromium 13/13 PASS](https://github.com/gitfortian/ontoforge/actions/runs/39101690717)；[全量 UX 回归 PASS](https://github.com/gitfortian/ontoforge/actions/runs/39101690740)；[Required Quality 9/9 PASS](https://github.com/gitfortian/ontoforge/actions/runs/39101690739)；[Architecture / Docs Gates PASS](https://github.com/gitfortian/ontoforge/actions/runs/39101690718)。
 - 本次签收覆盖原型布局、对象身份、属性值语义、错误恢复和来源证据的交互表达，不构成生产实现验收。
-- **UX-Low 与 UX-High 均已获得产品所有者签收；OFIP-0008 的 Decision 仍为 Pending。维护者依仓库治理流程显式记录 `[VOTE] Accepted` 前，不启动 M6 生产 Java/React/Flyway 实施。**
+- **UX-Low 与 UX-High 均已签收；OFIP-0008 已获维护者正式 Accepted**（[PR #58 决策评论](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6246406521)）。M6 生产 Java/React/Flyway 实施获准按本提案范围启动；本次签收/决策不构成实现验收或发布。
 
-**Decision Gate:** Discussion 不授权实施。维护者须在提案 PR 显式记录 `[VOTE] Accepted` / `Rejected` 与决定链接；代码合并、CI 或评论不替代设计和实际验收。
+**Decision Gate:** 已满足：维护者于 2026-10-18 显式记录 `[VOTE] Accepted`，决定链接见上文。该决策授权 M6 按本提案实施，不替代真实 PostgreSQL/API/浏览器验收、独立 Review、合并与 Release。
