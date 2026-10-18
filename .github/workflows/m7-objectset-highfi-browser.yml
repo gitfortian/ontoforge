@@ -1,0 +1,27 @@
+name: M7 ObjectSet UX-High Prototype Browser Review
+on:
+  pull_request:
+    paths:
+      - 'doc/prototypes/m7-objectset-highfi.html'
+      - 'doc/prototypes/tests/test_m7_objectset_highfi_browser.py'
+      - 'doc/implementation/M7-ObjectSet-UX-High评审说明.md'
+      - '.github/workflows/m7-objectset-highfi-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  m7-highfi-chromium:
+    name: M7 UX-High Real Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install Playwright
+        run: python -m pip install playwright==1.57.0
+      - name: Install actual Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Verify M7 UX-High prototype
+        run: python -m unittest doc.prototypes.tests.test_m7_objectset_highfi_browser -v
