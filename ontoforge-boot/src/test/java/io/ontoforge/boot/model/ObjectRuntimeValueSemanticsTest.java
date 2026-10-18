@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
-import java.sql.SQLException;
 import org.junit.jupiter.api.Test;
 
 class ObjectRuntimeValueSemanticsTest {
