@@ -1,6 +1,6 @@
 # M6 Object Runtime · UX-High 原型评审说明
 
-**状态：UX-High 候选，等待产品所有者独立签收。**
+**状态：UX-High 已于 2026-10-18 获产品所有者签收。**
 **前置：UX-Low 已签收（2026-10-18），见 [UX-Low 签收记录](M6-ObjectRuntime-UX-Low评审说明.md)。**
 **范围：高保真静态交互原型，不包含生产 Runtime 实现。**
 
@@ -27,7 +27,13 @@
 - 工作流会同时运行 UX-Low 与 UX-High 的 Chromium 回归，并上传截图 artifact。
 - 测试 PASS 只证明静态原型交互，不证明真实 API、PG17、权限或 Runtime 功能已实现。
 
-## 请产品所有者评审
+## 产品所有者签收记录（2026-10-18）
+
+产品所有者明确确认“页面签收，继续实施”。UX-High 原型正式签收，设计范围包括对象身份、属性值语义、错误与恢复、来源证据、视觉层级及窄屏布局。
+
+自动化证据：[M6 专项 Chromium 13/13 PASS](https://github.com/gitfortian/ontoforge/actions/runs/39101690717)；[全量原型回归 PASS](https://github.com/gitfortian/ontoforge/actions/runs/39101690740)；[Required Quality 9/9 PASS](https://github.com/gitfortian/ontoforge/actions/runs/39101690739)；[Architecture / Docs Gates PASS](https://github.com/gitfortian/ontoforge/actions/runs/39101690718)。
+
+## 产品签收范围
 
 - 对象身份与 Binding revision 是否足够清楚？
 - 属性表格是否让类型、值状态、来源列一目了然？
@@ -37,6 +43,6 @@
 
 ## 不可越过的决策门
 
-- UX-High 尚未签收，不合并为产品最终原型。
+- UX-High 已获产品所有者签收；原型可归档为已签收设计基线。
 - OFIP-0008 仍为 `Decision: Pending`。
 - **在 UX-Low 与 UX-High 均获产品所有者签收，且维护者依仓库治理流程显式 `[VOTE] Accepted` 前，不启动 M6 生产 Java/React/Flyway 实施。**
