@@ -304,7 +304,10 @@ class DataBindingRealBrowserTest(unittest.TestCase):
         page.route("**/api/runtime/object-sets/query", add_test_cursor)
         page.route("**/api/runtime/object-sets/pages", fail_next_page)
         page.get_by_role("button", name="执行查询", exact=True).click()
-        page.locator(".object-set-result-summary").wait_for(timeout=15000)
+        # The first real query had no next cursor; wait for the injected cursor to render
+        # rather than racing an already-existing result summary from the previous run.
+        page.get_by_role("button", name="下一页 →", exact=True).wait_for(timeout=15000)
+        self.assertIn("当前页 / 总页数", page.locator(".object-set-result-summary").inner_text())
         page.get_by_role("button", name="下一页 →", exact=True).click()
         page.locator(".object-set-failure-evidence").wait_for(timeout=15000)
         failure_text = page.locator(".object-set-failure-evidence").inner_text()
