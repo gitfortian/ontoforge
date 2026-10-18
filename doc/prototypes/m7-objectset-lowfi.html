@@ -270,7 +270,8 @@
     $("page-footer").classList.toggle("hidden",lastMode!=="page");
     $("aggregate-label").textContent=$("aggregate-op").value==="COUNT_DISTINCT"?"COUNT_DISTINCT(ObjectRef)":"SUM("+$("aggregate-property").value+")";
     const matched=getMatchingRows();
-    const totalCents=matched.reduce((sum,row)=>sum+BigInt(String(row.annualSpend).replace(".","")),0n);
+    const aggregateProperty=$("aggregate-property").value;
+    const totalCents=matched.reduce((sum,row)=>sum+BigInt(String(row[aggregateProperty]).replace(".","")),0n);
     const totalSpend=(totalCents/100n).toString()+"."+(totalCents%100n).toString().padStart(2,"0");
     $("aggregate-value").textContent=$("aggregate-op").value==="COUNT_DISTINCT"?String(matched.length):totalSpend;
     $("result-caption").textContent=lastMode==="page"?"已冻结的结果快照":"完整范围聚合结果";
