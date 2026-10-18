@@ -85,7 +85,7 @@ public class ObjectSetQueryService {
             B0AuthorizationService authorization, ObjectMapper mapper,
             @Qualifier("bindingSourceJdbcTemplate") ObjectProvider<JdbcTemplate> sourceProvider,
             @Value("$" + "{ontoforge.binding.source.allowed-tables:m5_supplier_source}") String allowedTables,
-            @Value("$" + "{ontoforge.objectset.cursor-signing-secret:ontoforge-local-query-v1-development-only-secret}") String cursorSigningSecret) {
+            @Value("$" + "{ontoforge.objectset.cursor-signing-secret:}") String cursorSigningSecret) {
         this.bindings = bindings;
         this.typeResolver = typeResolver;
         this.authorization = authorization;
