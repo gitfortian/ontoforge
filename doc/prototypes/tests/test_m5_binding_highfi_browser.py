@@ -64,6 +64,7 @@ class M5DataBindingHighFiBrowser(unittest.TestCase):
         self.page.locator("#to5").click()
         self.page.locator("#saveBinding").click()
         self.assertIn("绑定版本已保存", self.page.locator("#saveState").inner_text())
+        self.assertTrue(self.page.locator("#saveBinding").is_disabled())
 
     def test_empty_state_create_preview_save_reopen_detail(self):
         self.assertTrue(self.page.locator("#emptyState").is_visible())
@@ -167,6 +168,8 @@ class M5DataBindingHighFiBrowser(unittest.TestCase):
         self.page.locator("#to5").click()
         self.page.locator("#saveBinding").click()
         self.assertIn("BINDING_REVISION_CONFLICT", self.page.locator("#saveState").inner_text())
+        self.assertTrue(self.page.locator("#casDiff").is_visible())
+        self.assertEqual(self.page.locator("#casDiffRows tr").count(), 4)
         self.page.locator("#loadLatest").click()
         self.assertIn("已载入最新版本", self.page.locator("#saveState").inner_text())
         self.page.locator("#readPreview").click()
