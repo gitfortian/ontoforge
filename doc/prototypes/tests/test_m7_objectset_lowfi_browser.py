@@ -40,6 +40,12 @@ class M7ObjectSetLowFiBrowser(unittest.TestCase):
         self.assertEqual(self.console_errors, [], "prototype should not emit uncaught browser errors")
         self.page.close()
 
+    def test_unimplemented_object_type_cannot_be_selected_without_matching_binding(self):
+        option = self.page.locator("#object-type option[value='work-order']")
+        self.assertFalse(option.is_enabled())
+        self.assertIn("当前不可选", option.inner_text())
+        self.assertEqual(self.page.locator("#object-type").input_value(), "supplier")
+
     def test_query_contract_shows_typed_filter_stages_and_evidence(self):
         self.assertIn("静态交互原型", self.page.locator(".notice").inner_text())
         ast = self.page.locator("#query-ast").inner_text()
