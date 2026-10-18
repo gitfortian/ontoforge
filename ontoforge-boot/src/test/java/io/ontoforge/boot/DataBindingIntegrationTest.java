@@ -949,6 +949,59 @@ class DataBindingIntegrationTest {
         assertThat(rejected.getBody()).doesNotContain("\"objects\"", "\"aggregate\"");
     }
 
+    @Test
+    void m7RuntimeEnforcesAstContractAndProducesStableBudgetAwareDigest() throws Exception {
+        String bindingId = createSupplierBindingForM7();
+        ObjectNode base = objectSetQuery(bindingId, 2);
+        ResponseEntity<String> firstResponse = post("/api/runtime/object-sets/query", base);
+        assertThat(firstResponse.getStatusCode().value()).as(firstResponse.getBody()).isEqualTo(200);
+        JsonNode first = mapper.readTree(firstResponse.getBody());
+
+        ObjectNode repeat = objectSetQuery(bindingId, 2);
+        ResponseEntity<String> repeatResponse = post("/api/runtime/object-sets/query", repeat);
+        assertThat(repeatResponse.getStatusCode().value()).as(repeatResponse.getBody()).isEqualTo(200);
+        assertThat(mapper.readTree(repeatResponse.getBody()).path("queryDigest").asText())
+                .isEqualTo(first.path("queryDigest").asText());
+
+        ObjectNode lowered = objectSetQuery(bindingId, 2);
+        lowered.putObject("limits").put("maxSourceBytes", 8 * 1024 * 1024 - 1);
+        ResponseEntity<String> loweredResponse = post("/api/runtime/object-sets/query", lowered);
+        assertThat(loweredResponse.getStatusCode().value()).as(loweredResponse.getBody()).isEqualTo(200);
+        assertThat(mapper.readTree(loweredResponse.getBody()).path("queryDigest").asText())
+                .isNotEqualTo(first.path("queryDigest").asText());
+        assertThat(mapper.readTree(loweredResponse.getBody()).path("budget").path("maxSourceBytes").asLong())
+                .isEqualTo(8L * 1024 * 1024 - 1);
+
+        ObjectNode escalated = objectSetQuery(bindingId, 2);
+        escalated.putObject("limits").put("maxPhysicalRows", 10001);
+        ResponseEntity<String> rejectedEscalation = post("/api/runtime/object-sets/query", escalated);
+        assertThat(rejectedEscalation.getStatusCode().value()).isEqualTo(422);
+        assertThat(rejectedEscalation.getBody()).contains("INVALID_QUERY_AST", "maxPhysicalRows");
+
+        ObjectNode aliasLiteral = objectSetQuery(bindingId, 2);
+        ObjectNode aliasFilter = mapper.createObjectNode().put("kind", "FILTER");
+        ObjectNode aliasCondition = aliasFilter.putArray("conditions").addObject();
+        aliasCondition.put("propertyRef", "supplier-name").put("operator", "EQ");
+        aliasCondition.putObject("literal").put("valueType", "TEXT").put("value", "North");
+        aliasLiteral.withArray("steps").insert(0, aliasFilter);
+        ResponseEntity<String> rejectedAlias = post("/api/runtime/object-sets/query", aliasLiteral);
+        assertThat(rejectedAlias.getStatusCode().value()).isEqualTo(422);
+        assertThat(rejectedAlias.getBody()).contains("INVALID_QUERY_AST", "规范类型名");
+
+        ObjectNode tooManyConditions = objectSetQuery(bindingId, 2);
+        ObjectNode filter = mapper.createObjectNode().put("kind", "FILTER");
+        ArrayNode conditions = filter.putArray("conditions");
+        for (int i = 0; i < 9; i++) {
+            ObjectNode condition = conditions.addObject();
+            condition.put("propertyRef", "supplier-name").put("operator", "EQ");
+            condition.putObject("literal").put("valueType", "STRING").put("value", "North");
+        }
+        tooManyConditions.withArray("steps").insert(0, filter);
+        ResponseEntity<String> rejectedFilter = post("/api/runtime/object-sets/query", tooManyConditions);
+        assertThat(rejectedFilter.getStatusCode().value()).isEqualTo(422);
+        assertThat(rejectedFilter.getBody()).contains("INVALID_QUERY_AST", "1–8");
+    }
+
     private String createSupplierBindingForM7() throws Exception {
         String packageId = "m7.test.p" + UUID.randomUUID().toString().replace("-", "");
         NativeDraftService.DraftDetail draft = drafts.create(packageId);
