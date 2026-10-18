@@ -1,0 +1,170 @@
+"""M5 generic Data Binding golden story over real PG17, Spring Boot API, React and Chromium."""
+import json
+import os
+import re
+import unittest
+from pathlib import Path
+from urllib.parse import quote
+from urllib.request import Request, urlopen
+
+from playwright.sync_api import sync_playwright
+from b0_fixture import headers, assigned_package
+
+BASE = "http://127.0.0.1:5173"
+MODEL_API = "http://127.0.0.1:8080/api/model"
+RUNTIME_API = "http://127.0.0.1:8080/api/runtime"
+
+
+def api(base, path, method="GET", payload=None):
+    request = Request(
+        base + path,
+        data=json.dumps(payload).encode("utf-8") if payload is not None else None,
+        method=method,
+        headers={"Content-Type": "application/json", **headers()},
+    )
+    with urlopen(request, timeout=15) as response:
+        return json.load(response)
+
+
+class DataBindingRealBrowserTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.playwright = sync_playwright().start()
+        cls.browser = cls.playwright.chromium.launch(headless=True, args=["--no-sandbox"])
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.browser.close()
+        cls.playwright.stop()
+
+    def setUp(self):
+        self.page = self.browser.new_page(
+            viewport={"width": 1380, "height": 920},
+            locale="zh-CN",
+            extra_http_headers=headers(),
+        )
+        self.errors = []
+        self.page.on("pageerror", lambda error: self.errors.append(str(error)))
+        self.page.goto(BASE + "/#/model/packages")
+        self.page.get_by_role("heading", name="模型包", exact=True).wait_for()
+        self.package = assigned_package()
+
+    def tearDown(self):
+        if os.getenv("E2E_SHOTS"):
+            dest = Path(os.getenv("E2E_SHOTS"))
+            dest.mkdir(parents=True, exist_ok=True)
+            self.page.screenshot(path=str(dest / (self._testMethodName + ".png")), full_page=True)
+        self.assertEqual(self.errors, [])
+        self.page.close()
+
+    def create_supplier_snapshot(self):
+        page = self.page
+        page.get_by_role("button", name="创建模型包").click()
+        page.locator("#create-package-id").fill(self.package)
+        page.get_by_role("button", name="创建并继续").click()
+        page.locator("#obj-id").wait_for()
+        draft_id = page.url.split("/")[-1]
+
+        page.locator("#obj-id").fill("supplier-type")
+        page.locator("#obj-api").fill("Supplier")
+        page.locator("#obj-label").fill("供应商")
+        page.locator("#obj-desc").fill("由用户自主定义并绑定真实受控来源的供应商对象")
+        properties = [
+            ("supplier-code", "vendorCode", "供应商编号", "STRING", True),
+            ("supplier-name", "name", "供应商名称", "STRING", True),
+            ("supplier-rating", "rating", "供应商评级", "DECIMAL", False),
+            ("supplier-active", "active", "是否有效", "BOOLEAN", True),
+            ("supplier-onboarded", "onboardedAt", "入驻时间", "DATETIME", False),
+        ]
+        for index, (property_id, api_name, label, value_type, required) in enumerate(properties):
+            if index > 0:
+                page.locator("#add-property").click()
+            page.locator(f"#prop-{index}-id").fill(property_id)
+            page.locator(f"#prop-{index}-apiName").fill(api_name)
+            page.locator(f"#prop-{index}-label").fill(label)
+            page.locator(f"#prop-{index}-valueType").select_option(value_type)
+            required_control = page.locator(f"#prop-{index}-required")
+            if required and not required_control.is_checked():
+                required_control.check()
+            elif not required and required_control.is_checked():
+                required_control.uncheck()
+        page.locator("#obj-pk").select_option("supplier-code")
+        page.get_by_role("button", name="保存编辑进度").click()
+        page.get_by_text("已写入 PostgreSQL", exact=False).wait_for(timeout=15000)
+        page.get_by_role("button", name="检查模型完整性").click()
+        page.get_by_text("完整结构与本阶段语义校验通过", exact=False).wait_for(timeout=15000)
+
+        draft = api(MODEL_API, "/drafts/" + draft_id)
+        self.assertEqual(draft["validation"]["status"], "VALID")
+        self.assertEqual(draft["validation"]["validatedRevision"], draft["revision"])
+
+        page.locator("#snapshot-freeze").wait_for()
+        page.locator("#snapshot-freeze").click()
+        page.get_by_role("dialog", name="确认冻结当前草稿修订").wait_for()
+        page.locator("#snapshot-confirm").click()
+        page.locator("#snapshot-sha").wait_for(timeout=15000)
+        snapshot_id = page.url.split("/")[-1]
+        self.assertRegex(snapshot_id, r"^[a-f0-9-]{36}$")
+        snapshot_type = api(MODEL_API, f"/type-sources/snapshots/{snapshot_id}/types/supplier-type")
+        self.assertEqual(snapshot_type["sourceRef"], {"kind": "LOCAL_SNAPSHOT", "snapshotId": snapshot_id})
+        self.assertEqual(snapshot_type["packageId"], self.package)
+        return snapshot_id
+
+    def test_custom_object_type_maps_previews_validates_saves_and_reopens(self):
+        page = self.page
+        snapshot_id = self.create_supplier_snapshot()
+
+        # Validate the actual M4 -> M5 entry, not a direct-only route into the editor.
+        page.get_by_role("button", name="查看运行时类型").click()
+        page.get_by_role("heading", name="运行时类型目录").wait_for()
+        page.locator(".runtime-type-item").get_by_text("供应商", exact=True).click()
+        page.get_by_role("button", name="创建绑定").click()
+        page.get_by_role("heading", name="数据绑定", exact=True).wait_for()
+        page.get_by_role("heading", name="创建通用绑定", exact=True).wait_for(timeout=20000)
+
+        mappings = {
+            "vendorCode": "vendor_code",
+            "name": "name",
+            "rating": "rating",
+            "active": "active",
+            "onboardedAt": "onboarded_at",
+        }
+        for property_name, source_column in mappings.items():
+            page.locator(f'select[aria-label="来源列 {property_name}"]').select_option(source_column)
+
+        page.get_by_role("button", name="预览映射").click()
+        page.locator(".binding-preview").wait_for(timeout=15000)
+        self.assertIn("Northwind Components", page.locator(".binding-preview").inner_text())
+        self.assertIn("供应商评级", page.locator(".binding-editor").inner_text())
+
+        page.get_by_role("button", name="运行有界校验").click()
+        page.locator(".binding-validation.pass").wait_for(timeout=15000)
+        self.assertIn("校验通过", page.locator(".binding-validation.pass").inner_text())
+
+        page.get_by_role("button", name="保存 Binding revision").click()
+        page.get_by_role("heading", name="绑定详情", exact=True).wait_for(timeout=15000)
+        page.get_by_text("绑定 revision 1 已持久化", exact=False).wait_for(timeout=15000)
+
+        rows = api(RUNTIME_API, "/bindings?packageId=" + quote(self.package, safe=""))
+        self.assertEqual(len(rows), 1)
+        binding_id = rows[0]["bindingId"]
+        self.assertEqual(rows[0]["currentRevision"], 1)
+        self.assertEqual(rows[0]["sourceTable"], "m5_supplier_source")
+
+        saved = api(RUNTIME_API, f"/bindings/{binding_id}?revision=1")
+        self.assertEqual(saved["validationStatus"], "VALID")
+        self.assertEqual(saved["checkedRows"], 5)
+        self.assertEqual(saved["snapshotId"], snapshot_id)
+        self.assertEqual(saved["sourceKey"], "vendor_code")
+        self.assertEqual(
+            {item["sourceColumn"] for item in saved["fieldMappings"]},
+            set(mappings.values()),
+        )
+        self.assertRegex(saved["digest"], r"^[0-9a-f]{64}$")
+
+        # Reopen from the persisted directory after leaving the editor.
+        page.get_by_role("button", name="返回目录").click()
+        page.get_by_role("button", name="查看 / 历史").click()
+        page.get_by_role("heading", name="绑定详情", exact=True).wait_for()
+        self.assertIn("revision 1", page.locator(".model-panel").inner_text())
+        self.assertEqual(api(RUNTIME_API, f"/bindings/{binding_id}?revision=1")["digest"], saved["digest"])
