@@ -1,8 +1,15 @@
 \set ON_ERROR_STOP on
 \getenv reader_password ONTOFORGE_BINDING_SOURCE_PASSWORD
 
--- The Flyway V7 migration creates the NOLOGIN group and grants SELECT only on
--- public.m5_supplier_source. Reconcile the dedicated login to that group alone.
+-- The Flyway V7 migration creates the NOLOGIN group. Reconcile its role flags
+-- and table grants before provisioning the dedicated login.
+ALTER ROLE ontoforge_binding_reader WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+REVOKE ALL PRIVILEGES ON SCHEMA public FROM ontoforge_binding_reader;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM ontoforge_binding_reader;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM ontoforge_binding_reader;
+GRANT USAGE ON SCHEMA public TO ontoforge_binding_reader;
+GRANT SELECT ON TABLE public.m5_supplier_source TO ontoforge_binding_reader;
+
 SELECT format(
   'CREATE ROLE ontoforge_binding_login LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT',
   :'reader_password')

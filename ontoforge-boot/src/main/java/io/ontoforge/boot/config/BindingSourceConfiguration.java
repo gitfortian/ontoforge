@@ -78,10 +78,13 @@ public class BindingSourceConfiguration {
         String appHost = application.getHost();
         String appPath = application.getPath();
         String appDatabase = appPath != null && appPath.startsWith("/") ? appPath.substring(1) : "";
+        int sourcePort = source.getPort() < 0 ? 5432 : source.getPort();
+        int applicationPort = application.getPort() < 0 ? 5432 : application.getPort();
         if (host == null || !(host.equals("127.0.0.1") || host.equalsIgnoreCase("localhost"))
                 || !database.matches("(?:ontoforge|ontoforge_test_[a-z0-9_]+)")
                 || source.getUserInfo() != null || source.getFragment() != null
                 || !database.equals(appDatabase) || !host.equalsIgnoreCase(appHost)
+                || sourcePort != applicationPort
                 || (serverAddress != null && !serverAddress.equals("127.0.0.1")
                     && !serverAddress.equalsIgnoreCase("localhost"))) {
             throw new IllegalStateException("M5 local source requires the same loopback ontoforge sandbox database");
