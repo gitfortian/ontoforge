@@ -2,7 +2,7 @@
 
 **Status:** Discussion
 
-**Discussion:** 待创建的 `[DISCUSS][OFIP-0007–0016]` MVP 功能提案 PR（创建后回填链接）
+**Discussion:** [PR #58 — [DISCUSS][OFIP-0007–0016] M5-M14 需求 Review 与方案设计](https://github.com/gitfortian/ontoforge/pull/58)
 
 **Decision:** Pending（须维护者显式记录决定、理由、日期及 permalink）
 
@@ -12,7 +12,7 @@
 
 **Related:** [M8 #47](https://github.com/gitfortian/ontoforge/issues/47) · [M5 Binding](OFIP-0007-M5-通用DataBinding.md) · [M7 ObjectSet](OFIP-0009-M7-通用ObjectSet查询.md) · [M9 证据](OFIP-0011-M9-来源证据漂移与一致性.md) · [V1.3](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md)
 
-> 本文为功能正式设计提案，不是已批准合同或实现说明。遵守 [OFIP-0001](OFIP-0001-需求提案文档治理与CI证据门禁.md)；不复核正在实施的 M4，仅消费其候选 TypeRef。提案 PR 不改生产代码、数据库迁移或现有机器 Schema。
+> 本文为功能正式设计提案，不是已批准合同或实现说明。遵守 [OFIP-0001](OFIP-0001-需求提案文档治理与CI证据门禁.md)；不重复实现 M4；消费已合并的 TypeRef/Runtime 类型目录合同。提案 PR 不改生产代码、数据库迁移或现有机器 Schema。
 
 ## Motivation
 
