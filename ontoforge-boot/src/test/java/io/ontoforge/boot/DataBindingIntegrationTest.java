@@ -7,8 +7,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.ontoforge.boot.model.DataBindingService;
 import io.ontoforge.boot.model.NativeDraftService;
 import io.ontoforge.boot.model.NativeSnapshotService;
+import io.ontoforge.boot.model.ObjectSetQueryService;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,9 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -53,6 +58,7 @@ class DataBindingIntegrationTest {
     @Autowired ObjectMapper mapper;
     @Autowired NativeDraftService drafts;
     @Autowired NativeSnapshotService snapshots;
+    @Autowired ObjectSetQueryService objectSetQueries;
 
     private String url(String path) { return "http://127.0.0.1:" + port + path; }
 
@@ -625,6 +631,237 @@ class DataBindingIntegrationTest {
         } finally {
             jdbc.execute("ALTER TABLE public.m5_supplier_source DROP COLUMN IF EXISTS m7_test_drift");
         }
+    }
+
+    @Test
+    void m7FrozenMembershipSurvivesInsertAndDeleteBetweenPages() throws Exception {
+        String bindingId = createSupplierBindingForM7();
+        ObjectNode query = objectSetQuery(bindingId, 2);
+        JsonNode first = mapper.readTree(post("/api/runtime/object-sets/query", query).getBody());
+        assertThat(first.path("totalCount").asInt()).isEqualTo(5);
+        String cursor = first.path("nextCursor").asText();
+        Map<String, Object> deletedRow = jdbc.queryForMap(
+                "SELECT vendor_code, alternate_code, name, rating, active, onboarded_at, sequence_no, category "
+                + "FROM public.m5_supplier_source WHERE vendor_code='SUP-1003'");
+        jdbc.update("DELETE FROM public.m5_supplier_source WHERE vendor_code='SUP-1006'");
+        try {
+            jdbc.update("DELETE FROM public.m5_supplier_source WHERE vendor_code='SUP-1003'");
+            jdbc.update("""
+                    INSERT INTO public.m5_supplier_source
+                      (vendor_code, alternate_code, name, rating, active, onboarded_at, sequence_no, category)
+                    SELECT 'SUP-1006', 'ALT-SUP-1006', name, rating, active, onboarded_at, sequence_no + 100000, category
+                      FROM public.m5_supplier_source WHERE vendor_code='SUP-1004'
+                    """);
+
+            ResponseEntity<String> secondResponse = post("/api/runtime/object-sets/pages",
+                    mapper.createObjectNode().put("cursor", cursor));
+            assertThat(secondResponse.getStatusCode().value()).as(secondResponse.getBody()).isEqualTo(200);
+            JsonNode second = mapper.readTree(secondResponse.getBody());
+            assertThat(second.path("totalCount").asInt()).isEqualTo(5);
+            assertThat(second.path("objects").get(0).path("objectRef").path("key").path("value").asText()).isEqualTo("SUP-1003");
+            assertThat(second.path("objects").get(1).path("objectRef").path("key").path("value").asText()).isEqualTo("SUP-1004");
+
+            ResponseEntity<String> thirdResponse = post("/api/runtime/object-sets/pages",
+                    mapper.createObjectNode().put("cursor", second.path("nextCursor").asText()));
+            assertThat(thirdResponse.getStatusCode().value()).as(thirdResponse.getBody()).isEqualTo(200);
+            JsonNode third = mapper.readTree(thirdResponse.getBody());
+            assertThat(third.path("totalCount").asInt()).isEqualTo(5);
+            assertThat(third.path("objects").get(0).path("objectRef").path("key").path("value").asText()).isEqualTo("SUP-1005");
+            assertThat(third.path("objects").toString()).doesNotContain("SUP-1006");
+        } finally {
+            jdbc.update("DELETE FROM public.m5_supplier_source WHERE vendor_code='SUP-1006'");
+            jdbc.update("""
+                    INSERT INTO public.m5_supplier_source
+                      (vendor_code, alternate_code, name, rating, active, onboarded_at, sequence_no, category)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    deletedRow.get("vendor_code"), deletedRow.get("alternate_code"), deletedRow.get("name"),
+                    deletedRow.get("rating"), deletedRow.get("active"), deletedRow.get("onboarded_at"),
+                    deletedRow.get("sequence_no"), deletedRow.get("category"));
+        }
+    }
+
+    @Test
+    void m7SortTieBreakAndSumAreExactForHighPrecisionValues() throws Exception {
+        List<Map<String, Object>> originalRatings = jdbc.queryForList(
+                "SELECT vendor_code, rating FROM public.m5_supplier_source");
+        jdbc.execute("ALTER TABLE public.m5_supplier_source ALTER COLUMN rating TYPE NUMERIC(24,18) USING rating::numeric");
+        try {
+            String bindingId = createSupplierBindingForM7();
+            jdbc.update("UPDATE public.m5_supplier_source SET rating=4.123456789012345678");
+            ObjectNode sortedQuery = objectSetQuery(bindingId, 5);
+            ObjectNode sort = (ObjectNode) sortedQuery.withArray("steps").get(0);
+            ((ObjectNode) sort.withArray("fields").get(0))
+                    .put("propertyRef", "supplier-rating").put("direction", "DESC");
+            ResponseEntity<String> sortedResponse = post("/api/runtime/object-sets/query", sortedQuery);
+            assertThat(sortedResponse.getStatusCode().value()).as(sortedResponse.getBody()).isEqualTo(200);
+            JsonNode sorted = mapper.readTree(sortedResponse.getBody());
+            assertThat(sorted.path("objects").size()).isEqualTo(5);
+            for (int index = 0; index < 5; index++) {
+                assertThat(sorted.path("objects").get(index).path("objectRef").path("key").path("value").asText())
+                        .isEqualTo("SUP-100" + (index + 1));
+            }
+
+            jdbc.update("""
+                    UPDATE public.m5_supplier_source
+                       SET rating = CASE vendor_code
+                         WHEN 'SUP-1001' THEN 0.100000000000000001
+                         WHEN 'SUP-1002' THEN 0.100000000000000001
+                         WHEN 'SUP-1003' THEN 0.200000000000000002
+                         WHEN 'SUP-1004' THEN 0.300000000000000003
+                         WHEN 'SUP-1005' THEN 0.400000000000000004
+                         ELSE rating END
+                    """);
+            ObjectNode sumQuery = objectSetRequest(bindingId);
+            sumQuery.withArray("steps").addObject()
+                    .put("kind", "AGGREGATE").put("operation", "SUM").put("propertyRef", "supplier-rating");
+            ResponseEntity<String> sumResponse = post("/api/runtime/object-sets/query", sumQuery);
+            assertThat(sumResponse.getStatusCode().value()).as(sumResponse.getBody()).isEqualTo(200);
+            JsonNode aggregate = mapper.readTree(sumResponse.getBody()).path("aggregate");
+            assertThat(aggregate.path("value").asText()).isEqualTo("1.100000000000000011");
+            assertThat(aggregate.path("matchedObjects").asInt()).isEqualTo(5);
+        } finally {
+            for (Map<String, Object> row : originalRatings) {
+                jdbc.update("UPDATE public.m5_supplier_source SET rating=? WHERE vendor_code=?",
+                        row.get("rating"), row.get("vendor_code"));
+            }
+            jdbc.execute("ALTER TABLE public.m5_supplier_source ALTER COLUMN rating TYPE NUMERIC(4,2) USING round(rating::numeric, 2)");
+        }
+    }
+
+    @Test
+    void m7PhysicalRowBudgetFailsClosedWithoutPartialResult() throws Exception {
+        String bindingId = createSupplierBindingForM7();
+        jdbc.update("DELETE FROM public.m5_supplier_source WHERE vendor_code LIKE 'M7-BUDGET-%'");
+        try {
+            jdbc.update("""
+                    INSERT INTO public.m5_supplier_source
+                      (vendor_code, alternate_code, name, rating, active, onboarded_at, sequence_no, category)
+                    SELECT 'M7-BUDGET-' || g, 'ALT-M7-BUDGET-' || g, 'budget-row', 1.00, TRUE,
+                           TIMESTAMP '2026-01-01 00:00:00', 100000 + g, 'HARDWARE'
+                      FROM generate_series(1, 10001) AS g
+                    """);
+            ResponseEntity<String> response = post("/api/runtime/object-sets/query", objectSetQuery(bindingId, 2));
+            assertThat(response.getStatusCode().value()).isEqualTo(429);
+            assertThat(response.getBody()).contains("QUERY_BUDGET_EXCEEDED", "10000 行");
+            assertThat(response.getBody()).doesNotContain("\"objects\"", "\"aggregate\"");
+        } finally {
+            jdbc.update("DELETE FROM public.m5_supplier_source WHERE vendor_code LIKE 'M7-BUDGET-%'");
+        }
+    }
+
+    @Test
+    void m7SourceByteBudgetFailsClosedWithoutPartialResult() throws Exception {
+        String bindingId = createSupplierBindingForM7();
+        String originalName = jdbc.queryForObject(
+                "SELECT name FROM public.m5_supplier_source WHERE vendor_code='SUP-1001'", String.class);
+        try {
+            jdbc.update("UPDATE public.m5_supplier_source SET name=repeat('x', 9 * 1024 * 1024) WHERE vendor_code='SUP-1001'");
+            ResponseEntity<String> response = post("/api/runtime/object-sets/query", objectSetQuery(bindingId, 2));
+            assertThat(response.getStatusCode().value()).isEqualTo(429);
+            assertThat(response.getBody()).contains("QUERY_BUDGET_EXCEEDED", "8 MiB");
+            assertThat(response.getBody()).doesNotContain("\"objects\"", "\"aggregate\"");
+        } finally {
+            jdbc.update("UPDATE public.m5_supplier_source SET name=? WHERE vendor_code='SUP-1001'", originalName);
+        }
+    }
+
+    @Test
+    void m7SerializedResultBudgetFailsClosedWhenSourceScanFitsBudget() throws Exception {
+        String bindingId = createSupplierBindingForM7();
+        jdbc.update("DELETE FROM public.m5_supplier_source WHERE vendor_code LIKE 'M7-RESULT-%'");
+        try {
+            jdbc.update("""
+                    INSERT INTO public.m5_supplier_source
+                      (vendor_code, alternate_code, name, rating, active, onboarded_at, sequence_no, category)
+                    SELECT 'M7-RESULT-' || g, 'ALT-M7-RESULT-' || g, repeat('x', 700), 1.00, TRUE,
+                           TIMESTAMP '2026-01-01 00:00:00', 200000 + g, 'HARDWARE'
+                      FROM generate_series(1, 9995) AS g
+                    """);
+            ResponseEntity<String> response = post("/api/runtime/object-sets/query", objectSetQuery(bindingId, 2));
+            assertThat(response.getStatusCode().value()).isEqualTo(429);
+            assertThat(response.getBody()).contains("QUERY_BUDGET_EXCEEDED", "8 MiB 序列化预算");
+            assertThat(response.getBody()).doesNotContain("\"objects\"", "\"aggregate\"");
+        } finally {
+            jdbc.update("DELETE FROM public.m5_supplier_source WHERE vendor_code LIKE 'M7-RESULT-%'");
+        }
+    }
+
+    @Test
+    void m7SourcePermissionRevocationBlocksSubsequentPage() throws Exception {
+        String bindingId = createSupplierBindingForM7();
+        JsonNode first = mapper.readTree(post("/api/runtime/object-sets/query", objectSetQuery(bindingId, 2)).getBody());
+        String cursor = first.path("nextCursor").asText();
+        jdbc.execute("REVOKE SELECT ON TABLE public.m5_supplier_source FROM ontoforge_binding_reader");
+        try {
+            ResponseEntity<String> response = post("/api/runtime/object-sets/pages", mapper.createObjectNode().put("cursor", cursor));
+            assertThat(response.getStatusCode().value()).isEqualTo(503);
+            assertThat(response.getBody()).contains("SOURCE_UNAVAILABLE");
+            assertThat(response.getBody()).doesNotContain("\"objects\"", "\"aggregate\"");
+        } finally {
+            jdbc.execute("GRANT SELECT ON TABLE public.m5_supplier_source TO ontoforge_binding_reader");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void m7SignedCursorsRejectTamperingCrossQueryCrossSubjectAndReturn410AfterExpiryOrRestart() throws Exception {
+        String bindingId = createSupplierBindingForM7();
+        JsonNode first = mapper.readTree(post("/api/runtime/object-sets/query", objectSetQuery(bindingId, 2)).getBody());
+        String cursor = first.path("nextCursor").asText();
+        assertThat(cursor).startsWith("cursor:v1:");
+
+        String last = cursor.substring(cursor.length() - 1);
+        String tampered = cursor.substring(0, cursor.length() - 1) + ("A".equals(last) ? "B" : "A");
+        ResponseEntity<String> forged = post("/api/runtime/object-sets/pages", mapper.createObjectNode().put("cursor", tampered));
+        assertThat(forged.getStatusCode().value()).isEqualTo(400);
+        assertThat(forged.getBody()).contains("INVALID_CURSOR");
+
+        ResponseEntity<String> tooLong = post("/api/runtime/object-sets/pages",
+                mapper.createObjectNode().put("cursor", "x".repeat(513)));
+        assertThat(tooLong.getStatusCode().value()).isEqualTo(400);
+        assertThat(tooLong.getBody()).contains("INVALID_CURSOR");
+
+        ObjectNode crossQuery = objectSetQuery(bindingId, 2);
+        crossQuery.put("cursor", cursor);
+        ResponseEntity<String> reusedAsQuery = post("/api/runtime/object-sets/query", crossQuery);
+        assertThat(reusedAsQuery.getStatusCode().value()).isEqualTo(400);
+        assertThat(reusedAsQuery.getBody()).contains("INVALID_QUERY_AST");
+
+        Jwt otherJwt = Jwt.withTokenValue("m7-cursor-other-subject").header("alg", "none")
+                .issuer("https://cursor-test.invalid").subject("other-subject").build();
+        assertThatThrownBy(() -> objectSetQueries.nextPage(mapper.createObjectNode().put("cursor", cursor),
+                new JwtAuthenticationToken(otherJwt)))
+                .isInstanceOfSatisfying(ObjectSetQueryService.QueryException.class,
+                        exception -> assertThat(exception.http()).isEqualTo(403));
+
+        long originalTtl = ((Number) ReflectionTestUtils.getField(objectSetQueries, "ttlSeconds")).longValue();
+        String expiringCursor;
+        try {
+            ReflectionTestUtils.setField(objectSetQueries, "ttlSeconds", 1L);
+            JsonNode expiringFirst = mapper.readTree(post("/api/runtime/object-sets/query", objectSetQuery(bindingId, 2)).getBody());
+            expiringCursor = expiringFirst.path("nextCursor").asText();
+        } finally {
+            ReflectionTestUtils.setField(objectSetQueries, "ttlSeconds", originalTtl);
+        }
+        Thread.sleep(1250L);
+        ResponseEntity<String> expired = post("/api/runtime/object-sets/pages",
+                mapper.createObjectNode().put("cursor", expiringCursor));
+        assertThat(expired.getStatusCode().value()).isEqualTo(410);
+        assertThat(expired.getBody()).contains("RESULT_EXPIRED");
+        assertThat(expired.getBody()).doesNotContain("\"objects\"", "\"aggregate\"");
+
+        JsonNode restartFirst = mapper.readTree(post("/api/runtime/object-sets/query", objectSetQuery(bindingId, 2)).getBody());
+        String restartCursor = restartFirst.path("nextCursor").asText();
+        Map<String, Object> snapshotStore = (Map<String, Object>) ReflectionTestUtils.getField(objectSetQueries, "snapshots");
+        Map<String, Object> cursorStore = (Map<String, Object>) ReflectionTestUtils.getField(objectSetQueries, "cursors");
+        snapshotStore.clear();
+        cursorStore.clear();
+        ResponseEntity<String> afterVolatileStoreLoss = post("/api/runtime/object-sets/pages",
+                mapper.createObjectNode().put("cursor", restartCursor));
+        assertThat(afterVolatileStoreLoss.getStatusCode().value()).isEqualTo(410);
+        assertThat(afterVolatileStoreLoss.getBody()).contains("RESULT_EXPIRED", "服务重启后失效");
+        assertThat(afterVolatileStoreLoss.getBody()).doesNotContain("\"objects\"", "\"aggregate\"");
     }
 
     @Test
