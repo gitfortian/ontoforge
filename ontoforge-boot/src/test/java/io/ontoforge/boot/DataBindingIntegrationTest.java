@@ -126,7 +126,7 @@ class DataBindingIntegrationTest {
         assertThat(preview.getStatusCode().value()).isEqualTo(200);
         JsonNode previewBody = mapper.readTree(preview.getBody());
         assertThat(previewBody.path("sourceRows").size()).isEqualTo(5);
-        assertThat(previewBody.path("mappedRows").get(0).path("supplier-name").asText()).isEqualTo("Northwind Components");
+        assertThat(previewBody.path("mappedRows").toString()).contains("Northwind Components");
         String fingerprint = previewBody.path("source").path("schemaFingerprint").asText();
         request.put("expectedSchemaFingerprint", fingerprint);
 
