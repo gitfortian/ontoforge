@@ -95,18 +95,17 @@ class M5DataBindingLowFiBrowser(unittest.TestCase):
         self.assertTrue(self.page.locator("#runValidation").is_disabled())
 
     def test_duplicate_identity_and_budget_exhaustion_cannot_be_saved(self):
+        self.to_preview()
         for scenario, expected in (
             ("duplicate", "IDENTITY_CONFLICT"),
             ("budget", "QUERY_BUDGET_EXCEEDED"),
         ):
             with self.subTest(scenario=scenario):
-                self.to_preview()
                 self.page.locator("#scenario").select_option(scenario)
                 self.preview_and_validate()
                 self.assertIn(expected, self.page.locator("#validationResult").inner_text())
                 self.assertTrue(self.page.locator("#to5").is_disabled())
                 self.assertTrue(self.page.locator("#saveBinding").is_disabled())
-                self.page.get_by_role("button", name="返回：映射").click()
 
     def test_compare_and_swap_conflict_keeps_binding_unsaved(self):
         self.to_preview()
