@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 
 /** Explicit S0 local-only API; B0 package authorization; no formal publishing or Action execution. */
 @RestController
@@ -95,14 +96,14 @@ public class NativeDraftController {
 }
 
 /** Uniform safe errors; never expose SQL, passwords, stack traces or an artificial success. */
-@RestControllerAdvice(assignableTypes={NativeDraftController.class,NativeSnapshotController.class,QualityMvpController.class})
+@RestControllerAdvice(assignableTypes={NativeDraftController.class,NativeSnapshotController.class,QualityMvpController.class,RuntimeTypeController.class})
 class DraftErrorAdvice {
     record ApiError(String code,String message,List<io.ontoforge.boot.model.DraftValidation.Issue> issues) {}
     @ExceptionHandler(DraftFailure.class)
     ResponseEntity<ApiError> failure(DraftFailure e) {
         return ResponseEntity.status(e.http).body(new ApiError(e.code,e.getMessage(),e.issues));
     }
-    @ExceptionHandler({HttpMessageNotReadableException.class,MethodArgumentTypeMismatchException.class,IllegalArgumentException.class})
+    @ExceptionHandler({HttpMessageNotReadableException.class,MethodArgumentTypeMismatchException.class,MissingServletRequestParameterException.class,IllegalArgumentException.class})
     ResponseEntity<ApiError> malformed(Exception e) {
         return ResponseEntity.badRequest().body(new ApiError("MALFORMED_REQUEST","请求格式不合法",List.of()));
     }
