@@ -57,6 +57,8 @@ jobs:
       TEST_DB_PASSWORD: ontology_dev_only
       E2E_AUTH_FILE: /tmp/ontoforge-b0-private-fixture.json
       E2E_M5_BINDING_EVIDENCE: /tmp/ontoforge-m5-binding-acceptance.json
+      E2E_M7_CURSOR_EVIDENCE: /tmp/ontoforge-m7-cursor-acceptance.json
+      ONTOFORGE_OBJECTSET_CURSOR_SIGNING_SECRET: ontoforge-e2e-stable-cursor-signing-secret-2026
       S0_HOST: 127.0.0.1
       ONTOFORGE_BINDING_SOURCE_URL: jdbc:postgresql://127.0.0.1:5432/ontoforge_test_e2e
       ONTOFORGE_BINDING_SOURCE_USERNAME: ontoforge_binding_login
@@ -171,6 +173,66 @@ jobs:
         env:
           E2E_SHOTS: '${{ runner.temp }}/ontoforge-native-e2e-shots'
         run: python -m unittest discover -s ontoforge-ui/e2e -p 'test_*.py' -v
+      - name: Verify M7 cursor rejects revoked B0 package authorization
+        run: |
+          python - <<'PY'
+          import json, os, subprocess, time
+          from datetime import datetime
+          from pathlib import Path
+          from urllib.error import HTTPError
+          from urllib.request import Request, urlopen
+
+          evidence = json.loads(Path(os.environ["E2E_M7_CURSOR_EVIDENCE"]).read_text(encoding="utf-8"))
+          fixture = json.loads(Path(os.environ["E2E_AUTH_FILE"]).read_text(encoding="utf-8"))
+          expires = datetime.fromisoformat(evidence["expiresAt"].replace("Z", "+00:00")).timestamp()
+          assert expires > time.time() + 20, "M7 cursor expired before B0 revocation test; restart evidence would be ambiguous"
+          containers = subprocess.check_output(["docker", "ps", "--format", "{{.ID}} {{.Image}}"], text=True).splitlines()
+          pg_container = next((line.split()[0] for line in containers if len(line.split()) > 1 and line.split()[1].startswith("postgres:17")), None)
+          assert pg_container, "PostgreSQL 17 test container not found"
+
+          def psql(*args):
+              return subprocess.run(
+                  ["docker", "exec", pg_container, "psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
+                   "-U", "ontology", "-d", "ontoforge_test_e2e", *args],
+                  text=True, check=True, capture_output=True,
+              ).stdout.strip()
+
+          package_id = evidence["packageId"]
+          workspace_id = psql("-v", "package_id=" + package_id,
+                              "-c", "SELECT workspace_id::text FROM b0_package_assignment WHERE package_id=:'package_id'")
+          assert workspace_id, "Expected explicit B0 package grant was not found"
+          psql("-v", "package_id=" + package_id,
+               "-c", "DELETE FROM b0_package_assignment WHERE package_id=:'package_id'")
+          code = None
+          status = None
+          message = None
+          try:
+              request = Request(
+                  "http://127.0.0.1:8080/api/runtime/object-sets/pages",
+                  data=json.dumps({"cursor": evidence["cursor"]}).encode("utf-8"),
+                  method="POST",
+                  headers={"Authorization": "Bearer " + fixture["editorToken"], "Content-Type": "application/json"},
+              )
+              try:
+                  with urlopen(request, timeout=15) as response:
+                      raise AssertionError("M7 page unexpectedly succeeded after B0 package grant revocation")
+              except HTTPError as error:
+                  status = error.code
+                  payload = json.loads(error.read())
+                  code = payload.get("code")
+                  message = payload.get("message", "")
+                  assert status == 403, f"Expected 403 after B0 grant revocation, got {status}: {payload}"
+                  assert code == "FORBIDDEN", f"Expected FORBIDDEN after B0 grant revocation: {payload}"
+                  assert "objects" not in payload and "aggregate" not in payload, "Denied page leaked partial results"
+          finally:
+              psql("-v", "package_id=" + package_id, "-v", "workspace_id=" + workspace_id,
+                   "-c", "INSERT INTO b0_package_assignment(workspace_id,package_id) VALUES (:'workspace_id'::uuid, :'package_id') ON CONFLICT (package_id) DO NOTHING")
+          Path("/tmp/ontoforge-m7-b0-revocation.json").write_text(json.dumps({
+              "packageId": package_id, "bindingId": evidence["bindingId"], "status": status,
+              "code": code, "message": message, "result": "B0_GRANT_REVOKED_PAGE_DENIED",
+          }, indent=2), encoding="utf-8")
+          print("M7 cursor rechecked B0 package authorization; revoked grant returns 403 FORBIDDEN without partial results")
+          PY
       - name: Exercise isolated ObjectType, Snapshot and LinkType HTTP acceptance in real PostgreSQL
         shell: pwsh
         run: |
@@ -199,6 +261,41 @@ jobs:
           done
           curl -fsS http://127.0.0.1:8080/api/system/status
           echo "New backend PID $(cat /tmp/ontoforge-api-restarted.pid); PostgreSQL service preserved"
+      - name: Verify M7 cursor expires after actual backend restart
+        run: |
+          python - <<'PY'
+          import json, os, time
+          from datetime import datetime
+          from pathlib import Path
+          from urllib.error import HTTPError
+          from urllib.request import Request, urlopen
+
+          evidence = json.loads(Path(os.environ["E2E_M7_CURSOR_EVIDENCE"]).read_text(encoding="utf-8"))
+          fixture = json.loads(Path(os.environ["E2E_AUTH_FILE"]).read_text(encoding="utf-8"))
+          expires = datetime.fromisoformat(evidence["expiresAt"].replace("Z", "+00:00")).timestamp()
+          assert expires > time.time(), "M7 cursor TTL elapsed; cannot attribute 410 specifically to restart"
+          request = Request(
+              "http://127.0.0.1:8080/api/runtime/object-sets/pages",
+              data=json.dumps({"cursor": evidence["cursor"]}).encode("utf-8"),
+              method="POST",
+              headers={"Authorization": "Bearer " + fixture["editorToken"], "Content-Type": "application/json"},
+          )
+          try:
+              with urlopen(request, timeout=15) as response:
+                  raise AssertionError("M7 cursor unexpectedly survived actual Spring Boot process restart")
+          except HTTPError as error:
+              payload = json.loads(error.read())
+              assert error.code == 410, f"Expected 410 after backend restart, got {error.code}: {payload}"
+              assert payload.get("code") == "RESULT_EXPIRED", f"Unexpected restart cursor response: {payload}"
+              assert "服务重启后失效" in payload.get("message", ""), f"Response did not identify volatile snapshot loss: {payload}"
+              assert "objects" not in payload and "aggregate" not in payload, "Restarted service leaked partial results"
+          Path("/tmp/ontoforge-m7-cursor-restart-result.json").write_text(json.dumps({
+              "packageId": evidence["packageId"], "bindingId": evidence["bindingId"],
+              "resultSnapshotRef": evidence["resultSnapshotRef"], "queryDigest": evidence["queryDigest"],
+              "status": 410, "code": "RESULT_EXPIRED", "result": "VOLATILE_SNAPSHOT_LOST_AFTER_REAL_RESTART",
+          }, indent=2), encoding="utf-8")
+          print("M7 signed cursor returned 410 RESULT_EXPIRED after real Spring Boot restart; PostgreSQL stayed online")
+          PY
       - name: Recheck M5 binding revisions and digests after real backend restart
         run: |
           python - <<'PY'
@@ -237,6 +334,8 @@ jobs:
           cp '${{ runner.temp }}/ontoforge-linktype-acceptance.json' /tmp/ontoforge-e2e-evidence/linktype-exercise-recheck-on-linux.json 2>/dev/null || true
           cp /tmp/ontoforge-api-restarted.log /tmp/ontoforge-e2e-evidence/backend-after-restart.log 2>/dev/null || true
           cp /tmp/ontoforge-m5-binding-acceptance.json /tmp/ontoforge-e2e-evidence/m5-binding-acceptance.json 2>/dev/null || true
+          cp /tmp/ontoforge-m7-b0-revocation.json /tmp/ontoforge-e2e-evidence/m7-b0-revocation.json 2>/dev/null || true
+          cp /tmp/ontoforge-m7-cursor-restart-result.json /tmp/ontoforge-e2e-evidence/m7-cursor-restart-result.json 2>/dev/null || true
           cp /tmp/ontoforge-idp.log /tmp/ontoforge-e2e-evidence/test-idp.log 2>/dev/null || true
           cp -r '${{ runner.temp }}/ontoforge-native-e2e-shots' /tmp/ontoforge-e2e-evidence/screenshots 2>/dev/null || true
       - uses: actions/upload-artifact@v7
