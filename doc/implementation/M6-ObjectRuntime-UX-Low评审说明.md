@@ -1,45 +1,52 @@
-# M6 Object Runtime · UX-Low 原型评审说明
+# M6 Object Runtime · UX-Low 原型签收记录
 
-**状态：** UX-Low 候选，等待产品评审；不是生产实现，不代表 OFIP-0008 已获 Accepted。
+**状态：UX-Low 已由产品所有者签收（2026-10-18）。**
+**结论：四项交互原则全部认可，无阻断性 UX-Low 修改项；允许进入 UX-High 高保真设计。**
+**边界：本记录只签收交互原型，不代表 OFIP-0008 获得维护者批准，也不授权生产代码实施。**
 
-## 本轮交付
+## 签收依据
 
-- 独立静态原型：\`doc/prototypes/m6-object-runtime-lowfi.html\`
-- Chromium 交互测试：\`doc/prototypes/tests/test_m6_object_runtime_lowfi_browser.py\`
-- 依据：Issue #45 的 2026-10-18 需求收敛与 OFIP-0008。
+- 原型：[M6 Object Runtime UX-Low](../prototypes/m6-object-runtime-lowfi.html)
+- PR：[PR #64 — M6 Object Runtime 按键读取 UX-Low](https://github.com/gitfortian/ontoforge/pull/64)
+- 需求与领域合同：[Issue #45](https://github.com/gitfortian/ontoforge/issues/45)
+- 设计决策：[OFIP-0008 — M6 通用 Object Runtime](../proposals/OFIP-0008-M6-通用ObjectRuntime.md)
+- 自动化证据：
+  - [M6 UX-Low Chromium：5/5 通过](https://github.com/gitfortian/ontoforge/actions/runs/39098922723)
+  - [全量原型回归：132 tests 通过](https://github.com/gitfortian/ontoforge/actions/runs/39098922643)
+  - [Required Quality：9/9 jobs 通过](https://github.com/gitfortian/ontoforge/actions/runs/39098922606)
+  - [Architecture / Docs Gates：通过](https://github.com/gitfortian/ontoforge/actions/runs/39098922545)
+
+## 产品所有者签收意见
+
+1. **对象身份：认可。** `ObjectRef` 由 package、ObjectType、identity domain 和规范类型化键共同确定；Binding revision 属于读取证据，不是业务身份的一部分。
+2. **属性值语义：认可。** `PRESENT`、来源真实 SQL `NULL` 与未映射 `MISSING` 分开；`0`、`false` 和空字符串可作为有效值。
+3. **错误与恢复：认可。** 对象不存在、来源不可用、无权、身份/属性冲突、结构漂移和预算耗尽采用不同结果与恢复路径；失败不返回伪造的部分成功对象。
+4. **来源证据：认可。** 展示 Snapshot/Binding 版本、执行时间和来源引用；缺少可靠业务水位时明确使用 `freshness=UNKNOWN`。
 
 ## 用户主线
 
 1. 从已保存的 Local Snapshot / Binding revision 进入对象读取。
-2. 输入规范业务键并可选指定属性子集。
-3. 读取成功时显示一个带完整 ObjectRef 的对象、类型化属性和来源证据。
-4. \`PRESENT\`、来源真实 \`NULL\`、未映射 \`MISSING\` 分开展示；\`0\` 和 \`false\` 保留为有效值。
-5. 来源不存在、身份冲突、属性冲突、结构漂移、预算耗尽、无权与来源不可用分别返回独立错误，不输出部分对象。
-6. 来源证据明确模型/Binding revision、执行时间、来源读取引用和 \`freshness=UNKNOWN\`；不把 SQL 执行时间误当业务数据新鲜度。
+2. 输入规范业务键，可选指定属性子集。
+3. 成功时显示完整 `ObjectRef`、类型化属性值和来源证据。
+4. 一致重复物理行可以折叠；不一致重复行、必填 NULL 和类型冲突拒绝成功返回。
+5. 失败状态给出安全错误码和恢复建议，不泄露对象值或原始 SQL。
 
-## 原型边界
+## UX-Low 验收范围
 
-- 页面内置合成 supplier 数据与可切换演示场景。
-- 不连接 Spring Boot、PostgreSQL、JWT/OIDC 或真实来源。
-- 原型 PASS 只能证明交互状态可操作、文案和结果互斥；不能替代 M6 的真实 PG17/HTTP/React/Chromium 生产验收。
-- 不创建对象表、不做全量 Object Store、不做 ObjectSet/LinkFact/Action/Agent。
-- OFIP-0008 继续 \`Decision: Pending\`；在维护者按仓库流程显式记录 \`[VOTE] Accepted\` 前，不得开始 M6 生产 Java/React/Flyway 实施。
+- [x] 交互主线、对象身份和 Binding revision 表达通过产品评审。
+- [x] `PRESENT` / `NULL` / `MISSING` 及 falsey 值表达通过产品评审。
+- [x] 404 / 403 / 409 / 422 / 429 / 503 等失败语义与恢复路径通过产品评审。
+- [x] 来源证据和 `freshness=UNKNOWN` 表达通过产品评审。
+- [x] 专用 Chromium 测试 5/5 通过；全量原型与 Required Quality 门禁通过。
+- [x] 产品所有者明确认可以上四项。
 
-## 自测
+## 下一步：UX-High
 
-从仓库根目录执行（需已安装 Playwright 和 Chromium）：
+UX-Low 不需要因本次意见额外改动交互原则；下一阶段将把相同的已签收合同深化为 UX-High，包括更完整的对象摘要、属性表格与类型标识、来源证据分组、错误恢复操作、加载/空状态和响应式布局。UX-High 将独立评审、独立签收，并补充 Chromium 回归。
 
-~~~bash
-python -m unittest doc.prototypes.tests.test_m6_object_runtime_lowfi_browser -v
-~~~
+## 严格实施门禁
 
-当前 PR 的 CI 证据以工作流真实结果为准。截图可通过 \`UX_CAPTURE_SCREENSHOTS=1\` 启用，输出目录由 \`UX_SCREENSHOT_DIR\` 指定。
-
-## 产品评审关注点
-
-- 用户是否能理解“对象身份”与 Binding revision 的区别？
-- 是否清楚区分不存在、无权、来源不可用和冲突？
-- 属性子集请求是否仍显示完整 ObjectRef，并始终核验身份键？
-- \`NULL\` / \`MISSING\` 是否容易区分？
-- \`freshness=UNKNOWN\` 是否诚实且可理解？
-- 失败后返回 M5 修复绑定是否为清晰恢复路径？
+- 当前页面使用合成 supplier 数据与 Mock 状态，不连接真实 API、Spring Boot 或 PostgreSQL。
+- 本原型 PASS 不能替代生产功能的 PG17 / HTTP / React / Chromium 验收。
+- 不创建全量 Object Store，不实施 M7 ObjectSet、M8 LinkFact、Action 或 Agent。
+- **在 UX-Low 与 UX-High 均获产品所有者签收，且 OFIP-0008 依仓库治理流程取得维护者显式 `[VOTE] Accepted` 前，不启动 M6 生产 Java/React/Flyway 实施。**
