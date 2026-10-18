@@ -1065,7 +1065,7 @@ class DataBindingIntegrationTest {
             ResponseEntity<String> conflictResponse = post("/api/runtime/object-sets/query", conflictQuery);
             assertThat(conflictResponse.getStatusCode().value()).isEqualTo(409);
             assertThat(conflictResponse.getBody()).contains("OBJECT_IDENTITY_CONFLICT");
-            assertThat(conflictResponse.getBody()).doesNotContain("\\"objects\\"", "\\"aggregate\\"");
+            assertThat(conflictResponse.getBody()).doesNotContain("\"objects\", "\"aggregate\");
         } finally {
             for (int i = 0; i < originalKeys.size(); i++) {
                 jdbc.update("UPDATE public.m5_supplier_source SET vendor_code=? WHERE vendor_code=?",
