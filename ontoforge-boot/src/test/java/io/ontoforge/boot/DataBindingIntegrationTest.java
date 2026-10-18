@@ -816,6 +816,11 @@ class DataBindingIntegrationTest {
         } finally {
             jdbc.execute("GRANT SELECT ON TABLE public.m5_supplier_source TO ontoforge_binding_reader");
         }
+        ResponseEntity<String> replayAfterRestore = post("/api/runtime/object-sets/pages",
+                mapper.createObjectNode().put("cursor", cursor));
+        assertThat(replayAfterRestore.getStatusCode().value()).isEqualTo(410);
+        assertThat(replayAfterRestore.getBody()).contains("RESULT_EXPIRED");
+        assertThat(replayAfterRestore.getBody()).doesNotContain("\\"objects\\"", "\\"aggregate\\"");
     }
 
     @SuppressWarnings("unchecked")
