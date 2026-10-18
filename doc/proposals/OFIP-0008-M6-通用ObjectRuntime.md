@@ -6,7 +6,7 @@
 
 **Decision:** Accepted — 维护者于 2026-10-18 在 [PR #58 决策评论](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6246406521) 显式记录 `[VOTE] Accepted`
 
-**Implementation:** Authorized — 按本提案范围进入 M6 纵向实施；生产验收尚未完成
+**Implementation:** In Progress — [PR #68](https://github.com/gitfortian/ontoforge/pull/68) 已提交首个纵向实现；当前 head `5fba4eb39fc74e037bcb32a4b28d90be093373cc` 的 Required Quality、PostgreSQL/Flyway、React build 与真实 PG17 + API + React/Chromium 黄金故事均 PASS；独立 Review/合并/发布仍待完成
 
 **Release:** Not Released
 
