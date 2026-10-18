@@ -175,4 +175,11 @@ Object Runtime 消费模型和绑定，把 SourceFact 按版本投影为对象�
 
 ---
 
+## UX-High Prototype Sign-off（2026-10-18）
+
+- 产品所有者明确回复“页面签收，继续实施”，正式签收 UX-High 高保真原型。
+- 原型与交互回归交付：[PR #65](https://github.com/gitfortian/ontoforge/pull/65)；[M6 专项 Chromium 13/13 PASS](https://github.com/gitfortian/ontoforge/actions/runs/39101690717)；[全量 UX 回归 PASS](https://github.com/gitfortian/ontoforge/actions/runs/39101690740)；[Required Quality 9/9 PASS](https://github.com/gitfortian/ontoforge/actions/runs/39101690739)；[Architecture / Docs Gates PASS](https://github.com/gitfortian/ontoforge/actions/runs/39101690718)。
+- 本次签收覆盖原型布局、对象身份、属性值语义、错误恢复和来源证据的交互表达，不构成生产实现验收。
+- **UX-Low 与 UX-High 均已获得产品所有者签收；OFIP-0008 的 Decision 仍为 Pending。维护者依仓库治理流程显式记录 `[VOTE] Accepted` 前，不启动 M6 生产 Java/React/Flyway 实施。**
+
 **Decision Gate:** Discussion 不授权实施。维护者须在提案 PR 显式记录 `[VOTE] Accepted` / `Rejected` 与决定链接；代码合并、CI 或评论不替代设计和实际验收。
