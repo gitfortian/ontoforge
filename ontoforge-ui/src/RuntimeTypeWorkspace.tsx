@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {ArrowLeft, BadgeCheck, Database, RefreshCw, ShieldAlert} from 'lucide-react';
 import './model.css';
 import {authorizedFetch} from './auth';
@@ -47,8 +47,6 @@ export default function RuntimeTypeWorkspace({route,navigate}:{route:string;navi
   const [refreshKey,setRefreshKey]=useState(0);
 
   const currentSourceValue=draftId?'draft':snapshotId?'snapshot:'+snapshotId:'invalid';
-  const sourceLabel=useMemo(()=>catalog?.lifecycle==='LOCAL_SNAPSHOT_ONLY'
-    ?'本地不可变快照':'当前已验证草稿', [catalog?.lifecycle]);
 
   useEffect(()=>{
     const controller=new AbortController();
@@ -130,8 +128,8 @@ export default function RuntimeTypeWorkspace({route,navigate}:{route:string;navi
   const returnHash=draftId?'#/model/drafts/'+draftId:snapshotId?'#/model/snapshots/'+snapshotId:'#/model/packages';
   const sourceOptions=(
     <>
-      {currentDraft&&<option value="draft">当前已验证草稿 · revision {currentDraft.revision}</option>}
-      {snapshots.map(item=><option key={item.snapshotId} value={'snapshot:'+item.snapshotId}>
+      {currentSourceValue!=='draft'&&currentDraft&&<option value="draft">当前已验证草稿 · revision {currentDraft.revision}</option>}
+      {snapshots.filter(item=>'snapshot:'+item.snapshotId!==currentSourceValue).map(item=><option key={item.snapshotId} value={'snapshot:'+item.snapshotId}>
         本地快照 · revision {item.sourceRevision} · {item.snapshotId.slice(0,8)}
       </option>)}
       {!snapshots.length&&snapshotId&&<option value={'snapshot:'+snapshotId}>当前本地快照 · {snapshotId.slice(0,8)}</option>}
