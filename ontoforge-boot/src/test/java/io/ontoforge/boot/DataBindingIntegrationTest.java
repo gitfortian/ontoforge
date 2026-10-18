@@ -1002,7 +1002,87 @@ class DataBindingIntegrationTest {
         assertThat(rejectedFilter.getBody()).contains("INVALID_QUERY_AST", "1–8");
     }
 
+    @Test
+    void m7DeduplicatesEquivalentObjectRefsBeforeSumAndRejectsConflictsBeforeFiltering() throws Exception {
+        List<Map<String, Object>> originalRows = jdbc.queryForList(
+                "SELECT vendor_code, rating FROM public.m5_supplier_source ORDER BY vendor_code");
+        List<String> originalKeys = originalRows.stream().map(row -> String.valueOf(row.get("vendor_code"))).toList();
+        assertThat(originalKeys).hasSize(5);
+        List<String> currentKeys = new java.util.ArrayList<>(originalKeys);
+        try {
+            for (int i = 0; i < originalKeys.size(); i++) {
+                String uuidKey = UUID.randomUUID().toString();
+                jdbc.update("UPDATE public.m5_supplier_source SET vendor_code=? WHERE vendor_code=?",
+                        uuidKey, originalKeys.get(i));
+                currentKeys.set(i, uuidKey);
+            }
+
+            // M5 validates canonical lowercase UUID values. After saving the binding, change
+            // two unique text keys to case variants of one UUID. M7 normalizes both to the same
+            // ObjectRef while the physical source rows remain distinct and schema-stable.
+            String bindingId = createSupplierBindingForM7("UUID");
+            String duplicateKey = UUID.randomUUID().toString();
+            String duplicateUpper = duplicateKey.toUpperCase(java.util.Locale.ROOT);
+            jdbc.update("UPDATE public.m5_supplier_source SET vendor_code=? WHERE vendor_code=?",
+                    duplicateKey, currentKeys.get(0));
+            currentKeys.set(0, duplicateKey);
+            jdbc.update("UPDATE public.m5_supplier_source SET vendor_code=? WHERE vendor_code=?",
+                    duplicateUpper, currentKeys.get(1));
+            currentKeys.set(1, duplicateUpper);
+
+            jdbc.update("UPDATE public.m5_supplier_source SET rating=1.25 WHERE vendor_code IN (?,?)",
+                    duplicateKey, duplicateUpper);
+            jdbc.update("UPDATE public.m5_supplier_source SET rating=2.00 WHERE vendor_code=?", currentKeys.get(2));
+            jdbc.update("UPDATE public.m5_supplier_source SET rating=3.00 WHERE vendor_code=?", currentKeys.get(3));
+            jdbc.update("UPDATE public.m5_supplier_source SET rating=4.00 WHERE vendor_code=?", currentKeys.get(4));
+
+            ObjectNode countQuery = objectSetRequest(bindingId);
+            countQuery.withArray("steps").addObject().put("kind", "AGGREGATE").put("operation", "COUNT_DISTINCT");
+            ResponseEntity<String> countResponse = post("/api/runtime/object-sets/query", countQuery);
+            assertThat(countResponse.getStatusCode().value()).as(countResponse.getBody()).isEqualTo(200);
+            JsonNode count = mapper.readTree(countResponse.getBody()).path("aggregate");
+            assertThat(count.path("value").asText()).isEqualTo("4");
+            assertThat(count.path("matchedObjects").asInt()).isEqualTo(4);
+
+            ObjectNode sumQuery = objectSetRequest(bindingId);
+            sumQuery.withArray("steps").addObject().put("kind", "AGGREGATE")
+                    .put("operation", "SUM").put("propertyRef", "supplier-rating");
+            ResponseEntity<String> sumResponse = post("/api/runtime/object-sets/query", sumQuery);
+            assertThat(sumResponse.getStatusCode().value()).as(sumResponse.getBody()).isEqualTo(200);
+            JsonNode sum = mapper.readTree(sumResponse.getBody()).path("aggregate");
+            assertThat(sum.path("value").asText()).isEqualTo("10.25");
+            assertThat(sum.path("matchedObjects").asInt()).isEqualTo(4);
+
+            // Conflict detection must precede filtering: the 1.25 predicate must not hide
+            // the second physical row for the same canonical ObjectRef whose rating is 9.99.
+            jdbc.update("UPDATE public.m5_supplier_source SET rating=9.99 WHERE vendor_code=?", duplicateUpper);
+            ObjectNode conflictQuery = objectSetRequest(bindingId);
+            ObjectNode filter = conflictQuery.withArray("steps").addObject().put("kind", "FILTER").putArray("conditions").addObject();
+            filter.put("propertyRef", "supplier-rating").put("operator", "EQ");
+            filter.putObject("literal").put("valueType", "DECIMAL").put("value", "1.25");
+            conflictQuery.withArray("steps").addObject().put("kind", "AGGREGATE")
+                    .put("operation", "SUM").put("propertyRef", "supplier-rating");
+            ResponseEntity<String> conflictResponse = post("/api/runtime/object-sets/query", conflictQuery);
+            assertThat(conflictResponse.getStatusCode().value()).isEqualTo(409);
+            assertThat(conflictResponse.getBody()).contains("OBJECT_IDENTITY_CONFLICT");
+            assertThat(conflictResponse.getBody()).doesNotContain("\\"objects\\"", "\\"aggregate\\"");
+        } finally {
+            for (int i = 0; i < originalKeys.size(); i++) {
+                jdbc.update("UPDATE public.m5_supplier_source SET vendor_code=? WHERE vendor_code=?",
+                        originalKeys.get(i), currentKeys.get(i));
+            }
+            for (int i = 0; i < originalRows.size(); i++) {
+                jdbc.update("UPDATE public.m5_supplier_source SET rating=? WHERE vendor_code=?",
+                        originalRows.get(i).get("rating"), originalKeys.get(i));
+            }
+        }
+    }
+
     private String createSupplierBindingForM7() throws Exception {
+        return createSupplierBindingForM7("STRING");
+    }
+
+    private String createSupplierBindingForM7(String primaryKeyType) throws Exception {
         String packageId = "m7.test.p" + UUID.randomUUID().toString().replace("-", "");
         NativeDraftService.DraftDetail draft = drafts.create(packageId);
         ObjectNode editor = mapper.createObjectNode();
@@ -1015,7 +1095,7 @@ class DataBindingIntegrationTest {
         supplier.put("label", "供应商");
         supplier.put("primaryKeyRef", "supplier-code");
         ArrayNode properties = supplier.putArray("properties");
-        addProperty(properties, "supplier-code", "vendorCode", "STRING", true);
+        addProperty(properties, "supplier-code", "vendorCode", primaryKeyType, true);
         addProperty(properties, "supplier-name", "name", "STRING", true);
         addProperty(properties, "supplier-rating", "rating", "DECIMAL", false);
         addProperty(properties, "supplier-active", "active", "BOOLEAN", true);
