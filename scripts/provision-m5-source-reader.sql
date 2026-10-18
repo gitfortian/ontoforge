@@ -3,7 +3,7 @@
 
 -- The Flyway V7 migration creates the NOLOGIN group. Reconcile its role flags
 -- and table grants before provisioning the dedicated login.
-ALTER ROLE ontoforge_binding_reader WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+ALTER ROLE ontoforge_binding_reader WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
 REVOKE ALL PRIVILEGES ON SCHEMA public FROM ontoforge_binding_reader;
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM ontoforge_binding_reader;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM ontoforge_binding_reader;

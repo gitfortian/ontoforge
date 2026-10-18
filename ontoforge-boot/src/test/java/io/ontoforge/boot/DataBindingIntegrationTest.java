@@ -75,7 +75,7 @@ class DataBindingIntegrationTest {
     @Test
     void sourceAccountHasRealSelectOnlyPrivilegesAndCatalogIsAllowlisted() throws Exception {
         assertThat(jdbc.queryForObject("SELECT rolsuper FROM pg_roles WHERE rolname='ontoforge_binding_login'", Boolean.class)).isFalse();
-        assertThat(jdbc.queryForObject("SELECT rolsuper OR rolcanlogin OR rolcreatedb OR rolcreaterole FROM pg_roles WHERE rolname='ontoforge_binding_reader'", Boolean.class)).isFalse();
+        assertThat(jdbc.queryForObject("SELECT rolsuper OR rolcanlogin OR rolcreatedb OR rolcreaterole OR rolbypassrls FROM pg_roles WHERE rolname='ontoforge_binding_reader'", Boolean.class)).isFalse();
         assertThat(jdbc.queryForObject("SELECT has_table_privilege('ontoforge_binding_reader','public.m5_supplier_source','SELECT')", Boolean.class)).isTrue();
         assertThat(jdbc.queryForObject("SELECT has_table_privilege('ontoforge_binding_reader','public.m5_supplier_source','INSERT')", Boolean.class)).isFalse();
         assertThat(jdbc.queryForObject("SELECT has_table_privilege('ontoforge_binding_login','public.m5_supplier_source','SELECT')", Boolean.class)).isTrue();

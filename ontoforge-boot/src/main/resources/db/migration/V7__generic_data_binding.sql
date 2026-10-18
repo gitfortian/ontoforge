@@ -76,12 +76,12 @@ INSERT INTO m5_supplier_source(vendor_code, alternate_code, sequence_no, name, r
 
 -- Group role contains only read privileges for the explicit M5 fixture.
 -- A separate LOGIN role is provisioned by scripts/provision-m5-source-reader.ps1.
-DO $
+DO $m5_role$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ontoforge_binding_reader') THEN
-        CREATE ROLE ontoforge_binding_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+        CREATE ROLE ontoforge_binding_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
     END IF;
-    ALTER ROLE ontoforge_binding_reader WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+    ALTER ROLE ontoforge_binding_reader WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
     IF EXISTS (
         SELECT 1
           FROM pg_auth_members membership
@@ -90,7 +90,7 @@ BEGIN
     ) THEN
         RAISE EXCEPTION 'ontoforge_binding_reader must not be a member of any other role';
     END IF;
-END $;
+END $m5_role$;
 -- Reconcile the dedicated group to schema USAGE and fixture SELECT only.
 REVOKE ALL PRIVILEGES ON SCHEMA ${flyway:defaultSchema} FROM ontoforge_binding_reader;
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${flyway:defaultSchema} FROM ontoforge_binding_reader;
