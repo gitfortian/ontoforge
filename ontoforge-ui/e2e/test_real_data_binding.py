@@ -274,6 +274,44 @@ class DataBindingRealBrowserTest(unittest.TestCase):
         self.assertIn("UNKNOWN", page.locator(".object-set-evidence").inner_text())
         self.assertIn("local-result:", page.locator(".object-set-evidence").inner_text())
         self.assertNotIn("Changed after first page", query_text)
+        query_summary = page.locator(".object-set-query-summary").inner_text()
+        self.assertIn("筛选", query_summary)
+        self.assertIn("Binding revision", query_summary)
+        self.assertIn("UNKNOWN", query_summary)
+
+        # Simulate a page revalidation failure after a successful first page. The UI
+        # must hide all result rows while retaining independent snapshot/execution evidence.
+        failure_evidence = {}
+        def add_test_cursor(route):
+            response = route.fetch()
+            payload = response.json()
+            if response.ok and payload.get("status") == "SUCCESS" and payload.get("objects") is not None:
+                payload["nextCursor"] = "m7-ui-test-cursor-not-a-real-server-token"
+                payload["totalCount"] = max(payload.get("totalCount", 0), 2)
+                failure_evidence["snapshot"] = payload["resultSnapshotRef"]
+            route.fulfill(response=response, json=payload)
+
+        def fail_next_page(route):
+            route.fulfill(status=503, content_type="application/json", body=json.dumps({
+                "status": "FAILED", "executionId": "m7-ui-failure-simulation",
+                "code": "SOURCE_UNAVAILABLE", "message": "Simulated page revalidation failure.",
+                "fieldPath": "source",
+                "quality": {"accuracy": "UNKNOWN", "completeness": "UNKNOWN",
+                            "freshness": "UNKNOWN", "answerScope": "REQUESTED_SCOPE"},
+            }))
+
+        page.route("**/api/runtime/object-sets/query", add_test_cursor)
+        page.route("**/api/runtime/object-sets/pages", fail_next_page)
+        page.get_by_role("button", name="执行查询", exact=True).click()
+        page.locator(".object-set-result-summary").wait_for(timeout=15000)
+        page.get_by_role("button", name="下一页 →", exact=True).click()
+        page.locator(".object-set-failure-evidence").wait_for(timeout=15000)
+        failure_text = page.locator(".object-set-failure-evidence").inner_text()
+        self.assertIn(failure_evidence["snapshot"], failure_text)
+        self.assertIn("SOURCE_UNAVAILABLE", failure_text)
+        self.assertNotIn("Northwind Components", page.locator(".object-set-result-panel").inner_text())
+        page.unroute("**/api/runtime/object-sets/query", add_test_cursor)
+        page.unroute("**/api/runtime/object-sets/pages", fail_next_page)
 
         # The aggregate mode is mutually exclusive with sorting, projection and paging.
         page.get_by_role("button", name="聚合统计", exact=True).click()
