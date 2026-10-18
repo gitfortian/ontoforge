@@ -210,6 +210,9 @@ class DataBindingRealBrowserTest(unittest.TestCase):
         page.get_by_role("heading", name="绑定详情", exact=True).wait_for()
         self.assertIn("revision 2", page.locator(".model-panel").inner_text())
         page.get_by_role("button", name="重开历史版").click()
-        page.get_by_role("heading", name="绑定详情", exact=True).wait_for()
-        self.assertIn("revision 1", page.locator(".model-panel").inner_text())
-        self.assertIn(revision1_identity, page.locator(".model-panel").inner_text())
+        # The static "绑定详情" heading already exists before the async fetch;
+        # wait for the selected historical revision itself to become current.
+        page.get_by_text("supplier-type · revision 1", exact=True).wait_for(timeout=15000)
+        historical_panel = page.locator(".model-panel").inner_text()
+        self.assertIn("revision 1", historical_panel)
+        self.assertIn(revision1_identity, historical_panel)
