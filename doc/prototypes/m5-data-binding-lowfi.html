@@ -47,7 +47,7 @@
       <div class="panel-head"><div><h2>1. 选择本体模型</h2><p>绑定引用必须指向明确的 Local Snapshot；不自动切换到 latest。</p></div><span class="pill">只读引用</span></div>
       <div class="grid-two">
         <div>
-          <div class="field"><label for="snapshot">模型快照</label><select id="snapshot"><option value="snap-supplier-20261018">本地快照 · snapshot-supplier-01 · rev 3</option></select><small>原型占位数据：真实页面应从 M4 Runtime 类型目录读取。</small></div>
+          <div class="field"><label for="snapshot">模型快照</label><select id="snapshot"><option value="snapshot-supplier-01">本地快照 · snapshot-supplier-01 · rev 3</option></select><small>原型占位数据：真实页面应从 M4 Runtime 类型目录读取。</small></div>
           <div class="field"><label for="objectType">对象类型</label><select id="objectType"><option value="supplier">Supplier · 供应商（本轮自定义类型验收对象）</option></select><small>用户自定义对象类型；不是后端固定制造对象枚举。</small></div>
           <div class="callout"><strong>版本锁定</strong><span class="mono" id="snapshotRef">LOCAL_SNAPSHOT(snapshot-supplier-01) / payloadSha256: 9f2a…c81d</span><br>模型引用、对象类型和属性合同在保存前由服务端重新核验。</div>
         </div>
@@ -115,6 +115,7 @@
 
     <section class="panel step-panel hidden" id="step5">
       <div class="panel-head"><div><h2>5. 保存并重新打开</h2><p>持久化的是绑定定义和校验记录，不复制来源业务数据。每次保存创建不可变 revision。</p></div><span class="pill">版本化绑定</span></div>
+      <div class="callout"><strong>保存前最后复核</strong>真实服务端必须重新核对快照摘要、expectedRevision、来源表结构指纹与当前校验有效性；步骤 4 的预览/校验结果不能代替保存时复核。</div>
       <div id="saveState" class="callout"><strong>尚未保存</strong>只有当前映射校验通过后才允许保存。</div>
       <div id="casRecovery" class="callout hidden"><strong>保存冲突恢复</strong><p id="casRecoveryText" style="margin:5px 0 12px">当前编辑已保留。</p><button id="loadLatest">载入最新版本并比较差异</button></div>
       <div class="grid-two">
@@ -132,7 +133,7 @@
 (function(){
   const $=id=>document.getElementById(id);
   let activeStep=1,previewDone=false,validationDone=false,validationPass=false,saved=false,reopened=false;
-  const state={snapshot:'snap-supplier-20261018',type:'supplier',table:'public.demo_supplier',revision:0};
+  const state={snapshot:'snapshot-supplier-01',type:'supplier',table:'public.demo_supplier',revision:0};
   const steps=[1,2,3,4,5];
   function setStep(n){
     activeStep=n;
