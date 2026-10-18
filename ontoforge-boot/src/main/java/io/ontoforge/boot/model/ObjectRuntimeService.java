@@ -416,13 +416,17 @@ public class ObjectRuntimeService {
                     throw fail(503, "SOURCE_UNAVAILABLE",
                             "来源数据库暂不可用；不能判断对象是否存在", "source", executionId);
                 }
-                if (!rs.getBoolean("schema_usable") || !rs.getBoolean("can_select")) {
+                if (!rs.getBoolean("schema_usable")) {
                     throw fail(503, "SOURCE_UNAVAILABLE",
-                            "来源数据库不可用或拒绝了只读查询；不能判断对象是否存在", "source", executionId);
+                            "来源 schema 不可访问；不能判断对象是否存在", "source", executionId);
                 }
                 if (!rs.getBoolean("relation_exists")) {
                     throw fail(409, "BINDING_SCHEMA_DRIFT",
                             "绑定来源表不存在；请返回 M5 重新核验映射", "sourceTable", executionId);
+                }
+                if (!rs.getBoolean("can_select")) {
+                    throw fail(503, "SOURCE_UNAVAILABLE",
+                            "来源数据库拒绝了只读查询；不能判断对象是否存在", "source", executionId);
                 }
             }
         }
