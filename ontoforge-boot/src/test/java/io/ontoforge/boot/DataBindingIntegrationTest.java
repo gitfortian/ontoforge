@@ -138,7 +138,7 @@ class DataBindingIntegrationTest {
         draftPreviewRequest.put("draftId", draft.draftId());
         draftPreviewRequest.put("draftRevision", saved.revision());
         ResponseEntity<String> draftPreview = post("/api/runtime/bindings/preview", draftPreviewRequest);
-        assertThat(draftPreview.getStatusCode().value()).isEqualTo(200);
+        assertThat(draftPreview.getStatusCode().value()).as("Draft preview error: " + draftPreview.getBody()).isEqualTo(200);
         String draftFingerprint = mapper.readTree(draftPreview.getBody()).path("source").path("schemaFingerprint").asText();
         draftPreviewRequest.put("expectedSchemaFingerprint", draftFingerprint);
         ResponseEntity<String> draftValidation = post("/api/runtime/bindings/validate", draftPreviewRequest);
