@@ -47,7 +47,7 @@ public class LocalMvpSecurityConfig {
             .authorizeHttpRequests(authorize->authorize
                 .requestMatchers("/api/system/status","/api/me","/api/model/**",
                                  "/api/mvp/quality/**", "/api/runtime/sources/**",
-                                 "/api/runtime/bindings", "/api/runtime/bindings/**").permitAll()
+                                 "/api/runtime/bindings", "/api/runtime/bindings/**", "/api/runtime/objects/**").permitAll()
                 .anyRequest().denyAll());
         return http.build();
     }
