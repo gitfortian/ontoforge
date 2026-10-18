@@ -983,6 +983,15 @@ class DataBindingIntegrationTest {
         assertThat(mapper.readTree(loweredResponse.getBody()).path("budget").path("maxSourceBytes").asLong())
                 .isEqualTo(8L * 1024 * 1024 - 1);
 
+        ObjectNode shortTimeout = objectSetQuery(bindingId, 2);
+        shortTimeout.putObject("limits").put("timeoutSeconds", 2);
+        ResponseEntity<String> shortTimeoutResponse = post("/api/runtime/object-sets/query", shortTimeout);
+        assertThat(shortTimeoutResponse.getStatusCode().value()).as(shortTimeoutResponse.getBody()).isEqualTo(200);
+        assertThat(mapper.readTree(shortTimeoutResponse.getBody()).path("budget").path("queryTimeoutSeconds").asInt())
+                .isEqualTo(2);
+        assertThat(mapper.readTree(shortTimeoutResponse.getBody()).path("queryDigest").asText())
+                .isNotEqualTo(first.path("queryDigest").asText());
+
         ObjectNode lowerRows = objectSetQuery(bindingId, 2);
         lowerRows.putObject("limits").put("maxPhysicalRows", 2);
         ResponseEntity<String> rowBudgetFailure = post("/api/runtime/object-sets/query", lowerRows);
