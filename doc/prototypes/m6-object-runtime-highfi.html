@@ -41,7 +41,7 @@
     <div class="column">
       <section class="card" aria-labelledby="request-title"><div class="card-head"><div><h2 id="request-title">读取请求</h2><p>选择固定版本与请求属性，再按业务键读取。</p></div><span class="badge">只读</span></div><div class="card-body">
         <div class="step-label">01 / OBJECT CONTEXT</div>
-        <div class="field"><label for="object-type">对象类型</label><select id="object-type"><option value="supplier-type">供应商 · supplier-type</option><option value="material-type">物料 · material-type（预览占位）</option></select><small>本次演示以用户自定义 supplier-type 为主。</small></div>
+        <div class="field"><label for="object-type">对象类型</label><select id="object-type"><option value="supplier-type">供应商 · supplier-type</option><option value="material-type" disabled>物料 · material-type（预览占位）</option></select><small>本次演示以用户自定义 supplier-type 为主。</small></div>
         <div class="field"><label for="binding">数据绑定版本</label><select id="binding"><option value="binding-21">Binding revision 2 · 当前已核验</option><option value="binding-20">Binding revision 1 · 旧身份域</option></select></div>
         <div class="context-mini"><div class="context-mini-row"><span>身份域</span><strong id="mini-domain">supplier-key-v2</strong></div><div class="context-mini-row"><span>来源快照</span><strong>snap-7f2a…c901</strong></div><div class="context-mini-row"><span>读取策略</span><strong>按需虚拟读取</strong></div></div>
         <div class="step-label">02 / OBJECT KEY</div>
