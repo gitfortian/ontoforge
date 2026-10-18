@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -644,6 +645,23 @@ public class ObjectSetQueryService {
             try { connection.setAutoCommit(auto); } catch (SQLException ignored) {}
             try { connection.setTransactionIsolation(isolation); } catch (SQLException ignored) {}
             try { connection.setReadOnly(readOnly); } catch (SQLException ignored) {}
+        }
+    }
+
+    private void verifySourceReadable(DataBindingService.BindingDetail binding, String executionId) {
+        JdbcTemplate source = sourceProvider.getIfAvailable();
+        if (source == null) {
+            throw fail(503, "SOURCE_UNAVAILABLE", "没有配置独立来源只读连接；不能继续分页", "source", executionId);
+        }
+        try {
+            source.execute((ConnectionCallback<Void>) connection -> {
+                verifySourceReadable(connection, binding, executionId);
+                return null;
+            });
+        } catch (QueryException ex) {
+            throw ex;
+        } catch (DataAccessException ex) {
+            throw fail(503, "SOURCE_UNAVAILABLE", "分页时来源不可用或拒绝只读查询；旧结果不可继续读取", "source", executionId);
         }
     }
 
