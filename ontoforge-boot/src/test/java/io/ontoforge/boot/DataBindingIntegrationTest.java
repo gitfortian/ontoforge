@@ -610,7 +610,7 @@ class DataBindingIntegrationTest {
             ResponseEntity<String> drift = post("/api/runtime/object-sets/pages", next);
             assertThat(drift.getStatusCode().value()).isEqualTo(409);
             assertThat(drift.getBody()).contains("BINDING_SCHEMA_DRIFT");
-            assertThat(drift.getBody()).doesNotContain("\"items\"", "\"aggregate\"");
+            assertThat(drift.getBody()).doesNotContain("\"objects\"", "\"aggregate\"");
         } finally {
             jdbc.execute("ALTER TABLE public.m5_supplier_source DROP COLUMN IF EXISTS m7_test_drift");
         }
@@ -634,7 +634,7 @@ class DataBindingIntegrationTest {
             ResponseEntity<String> unavailable = post("/api/runtime/object-sets/query", sum);
             assertThat(unavailable.getStatusCode().value()).isEqualTo(422);
             assertThat(unavailable.getBody()).contains("AGGREGATE_VALUE_UNAVAILABLE");
-            assertThat(unavailable.getBody()).doesNotContain("\"items\"", "\"aggregate\"");
+            assertThat(unavailable.getBody()).doesNotContain("\"objects\"", "\"aggregate\"");
         } finally {
             jdbc.update("UPDATE public.m5_supplier_source SET rating=4.10 WHERE vendor_code='SUP-1005'");
         }
@@ -645,7 +645,7 @@ class DataBindingIntegrationTest {
         ResponseEntity<String> rejected = post("/api/runtime/object-sets/query", invalid);
         assertThat(rejected.getStatusCode().value()).isEqualTo(422);
         assertThat(rejected.getBody()).contains("INVALID_QUERY_AST");
-        assertThat(rejected.getBody()).doesNotContain("\"items\"", "\"aggregate\"");
+        assertThat(rejected.getBody()).doesNotContain("\"objects\"", "\"aggregate\"");
     }
 
     private String createSupplierBindingForM7() throws Exception {
