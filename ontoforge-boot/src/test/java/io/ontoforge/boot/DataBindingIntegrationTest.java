@@ -820,7 +820,7 @@ class DataBindingIntegrationTest {
                 mapper.createObjectNode().put("cursor", cursor));
         assertThat(replayAfterRestore.getStatusCode().value()).isEqualTo(410);
         assertThat(replayAfterRestore.getBody()).contains("RESULT_EXPIRED");
-        assertThat(replayAfterRestore.getBody()).doesNotContain("\\"objects\\"", "\\"aggregate\\"");
+        assertThat(replayAfterRestore.getBody()).doesNotContain("\"objects\"", "\"aggregate\"");
     }
 
     @SuppressWarnings("unchecked")
@@ -971,6 +971,20 @@ class DataBindingIntegrationTest {
                 .isNotEqualTo(first.path("queryDigest").asText());
         assertThat(mapper.readTree(loweredResponse.getBody()).path("budget").path("maxSourceBytes").asLong())
                 .isEqualTo(8L * 1024 * 1024 - 1);
+
+        ObjectNode lowerRows = objectSetQuery(bindingId, 2);
+        lowerRows.putObject("limits").put("maxPhysicalRows", 2);
+        ResponseEntity<String> rowBudgetFailure = post("/api/runtime/object-sets/query", lowerRows);
+        assertThat(rowBudgetFailure.getStatusCode().value()).isEqualTo(429);
+        assertThat(rowBudgetFailure.getBody()).contains("QUERY_BUDGET_EXCEEDED");
+        assertThat(rowBudgetFailure.getBody()).doesNotContain("\\"objects\\"", "\\"aggregate\\"");
+
+        ObjectNode lowerResultBytes = objectSetQuery(bindingId, 2);
+        lowerResultBytes.putObject("limits").put("maxSerializedResultBytes", 1);
+        ResponseEntity<String> resultBudgetFailure = post("/api/runtime/object-sets/query", lowerResultBytes);
+        assertThat(resultBudgetFailure.getStatusCode().value()).isEqualTo(429);
+        assertThat(resultBudgetFailure.getBody()).contains("QUERY_BUDGET_EXCEEDED");
+        assertThat(resultBudgetFailure.getBody()).doesNotContain("\\"objects\\"", "\\"aggregate\\"");
 
         ObjectNode escalated = objectSetQuery(bindingId, 2);
         escalated.putObject("limits").put("maxPhysicalRows", 10001);
