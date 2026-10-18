@@ -38,9 +38,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import jakarta.annotation.PostConstruct;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -234,6 +234,9 @@ public class ObjectSetQueryService {
                     "rootTypeRef 必须精确引用该 Binding revision 的 LOCAL_SNAPSHOT、package 与 ObjectType", "rootTypeRef", executionId);
         }
         RuntimeTypeResolver.TypeDescriptor type = resolveType(binding, authentication, executionId);
+        // Check source permission/existence before information_schema enumeration: PostgreSQL
+        // may hide a table from that catalog after SELECT is revoked, which is not schema drift.
+        verifySourceReadable(binding, executionId);
         DataBindingService.SourceTable sourceTable = currentSourceTable(binding, authentication, executionId);
         if (!Objects.equals(binding.sourceSchemaFingerprint(), sourceTable.schemaFingerprint())) {
             throw fail(409, "BINDING_SCHEMA_DRIFT",
@@ -264,6 +267,7 @@ public class ObjectSetQueryService {
             throw fail(409, "BINDING_REVISION_CONFLICT",
                     "执行期间 Binding 版本证据发生变化；拒绝发布查询结果，请重新执行", "bindingRevision", executionId);
         }
+        verifySourceReadable(binding, executionId);
         DataBindingService.SourceTable sourceAfter = currentSourceTable(binding, authentication, executionId);
         if (!Objects.equals(sourceTable.schemaFingerprint(), sourceAfter.schemaFingerprint())) {
             throw fail(409, "BINDING_SCHEMA_DRIFT",
@@ -361,12 +365,14 @@ public class ObjectSetQueryService {
             invalidateSnapshot(snapshot.id);
             throw fail(409, "BINDING_UNAVAILABLE", "分页期间 ObjectType 版本不再可用；旧结果已失效", "typeSourceRef", executionId);
         }
+        // Permission revocation must win over catalog visibility changes; never misreport
+        // a missing SELECT grant as schema drift when PostgreSQL hides the relation metadata.
+        verifySourceReadable(current, executionId);
         DataBindingService.SourceTable table = currentSourceTable(current, authentication, executionId);
         if (!Objects.equals(table.schemaFingerprint(), snapshot.schemaFingerprint)) {
             invalidateSnapshot(snapshot.id);
             throw fail(409, "BINDING_SCHEMA_DRIFT", "分页期间来源结构发生变化；旧结果已失效，请重新核验绑定", "sourceSchemaFingerprint", executionId);
         }
-        verifySourceReadable(current, executionId);
     }
 
     private QueryResult pageResult(StoredSnapshot snapshot, int offset, String errorExecutionId) {
@@ -779,9 +785,14 @@ public class ObjectSetQueryService {
             statement.setString(4, binding.sourceSchema()); statement.setString(5, binding.sourceTable());
             statement.setString(6, binding.sourceSchema()); statement.setString(7, binding.sourceTable());
             try (ResultSet rs = statement.executeQuery()) {
-                if (!rs.next() || !rs.getBoolean("schema_usable") || !rs.getBoolean("relation_exists")
-                        || !rs.getBoolean("can_select")) {
-                    throw fail(503, "SOURCE_UNAVAILABLE", "来源不可用或当前只读账号没有 SELECT 权限；拒绝返回结果", "source", executionId);
+                if (!rs.next() || !rs.getBoolean("schema_usable")) {
+                    throw fail(503, "SOURCE_UNAVAILABLE", "来源不可用或当前只读账号没有 schema USAGE 权限；拒绝返回结果", "source", executionId);
+                }
+                if (!rs.getBoolean("relation_exists")) {
+                    throw fail(409, "BINDING_SCHEMA_DRIFT", "绑定来源表已不存在；拒绝返回冻结结果", "sourceTable", executionId);
+                }
+                if (!rs.getBoolean("can_select")) {
+                    throw fail(503, "SOURCE_UNAVAILABLE", "来源当前没有 SELECT 权限；拒绝返回结果", "source", executionId);
                 }
             }
         }
