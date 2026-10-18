@@ -65,7 +65,7 @@
       <div class="grid-two">
         <div>
           <div class="field"><label for="sourceId">已登记来源</label><select id="sourceId"><option value="local-pg-sandbox">本机 PostgreSQL · local-pg-sandbox</option></select><small>来源凭据由服务端配置；原型不展示密码、主机连接串或凭据。</small></div>
-          <div class="field"><label for="sourceTable">测试表</label><select id="sourceTable"><option value="public.demo_supplier">public.demo_supplier · M5 采购验收夹具</option><option value="public.mvp_source_supplier">public.mvp_source_supplier · 采购验收夹具备选</option></select><small>以上采购表是待在隔离测试库初始化的 M5 验收夹具候选，不代表当前 main 已有此表。</small></div>
+          <div class="field"><label for="sourceTable">测试表</label><select id="sourceTable"><option value="public.demo_supplier">public.demo_supplier · M5 采购验收夹具</option></select><small>以上采购表是待在隔离测试库初始化的 M5 验收夹具候选，不代表当前 main 已有此表。</small></div>
           <div class="callout"><strong>安全边界</strong>表和列由服务端目录重新解析；仅允许 public 下登记的 demo_* / mvp_source_* 测试表。来源账号必须真实只读。</div>
         </div>
         <div class="source-card">
@@ -100,8 +100,14 @@
       <div id="previewState" class="callout"><strong>尚未请求预览</strong>点击“读取真实样本”查看受控来源的有限样本。</div>
       <div class="actions"><button id="readPreview">读取样本预览</button><div class="right"><button id="runValidation" disabled>运行全量有界校验</button></div></div>
       <div id="previewTableWrap" class="table-wrap hidden" style="margin-top:15px">
+        <h3>来源样本（原始列）</h3>
         <table class="data-table"><thead><tr><th>vendor_code</th><th>name</th><th>rating</th><th>is_active</th></tr></thead><tbody id="previewRows"></tbody></table>
-        <p class="muted" style="font-size:12px">示例行是原型模拟数据；正式实现必须显示服务器返回的样本范围与时间。</p>
+        <p class="muted" style="font-size:12px">原始样本仅用于检查来源值，不代表全量校验结果。</p>
+      </div>
+      <div id="mappedPreviewTableWrap" class="table-wrap hidden" style="margin-top:15px">
+        <h3>映射结果（本体对象预览）</h3>
+        <table class="data-table"><thead id="mappedPreviewHead"></thead><tbody id="mappedPreviewRows"></tbody></table>
+        <p class="muted" style="font-size:12px">此处展示按当前属性映射得到的对象字段；真实实现应由服务端返回类型化值和转换诊断。</p>
       </div>
       <div id="validationResult" class="hidden"></div>
       <div class="actions"><button id="back3">返回：映射</button><div class="right"><button class="primary" id="to5" disabled>继续：保存绑定</button></div></div>
@@ -137,19 +143,44 @@
   document.querySelectorAll('[data-step]').forEach(b=>b.addEventListener('click',()=>{const n=Number(b.dataset.step);if(n<=activeStep||n===activeStep+1&&canAdvance(activeStep))setStep(n);}));
   function canAdvance(n){if(n===1)return true;if(n===2)return true;if(n===3)return true;if(n===4)return validationPass;return false;}
   function setCallout(el,kind,title,text){el.className='callout'+(kind?' '+kind:'');el.innerHTML='<strong>'+title+'</strong>'+text;}
-  function resetChecks(){previewDone=false;validationDone=false;validationPass=false;saved=false;reopened=false;$('runValidation').disabled=true;$('to5').disabled=true;$('saveBinding').disabled=true;$('reopenBinding').disabled=true;$('previewTableWrap').classList.add('hidden');$('validationResult').classList.add('hidden');$('reopenState').classList.add('hidden');$('casRecovery').classList.add('hidden');setCallout($('previewState'),'','尚未请求预览','点击“读取真实样本”查看受控来源的有限样本。');setCallout($('saveState'),'','尚未保存','只有当前映射校验通过后才允许保存。');$('savedId').textContent='尚未创建';$('savedRevision').textContent='—';$('savedCoverage').textContent='—';$('savedDrift').textContent='—';}
+  function resetChecks(){previewDone=false;validationDone=false;validationPass=false;saved=false;reopened=false;$('runValidation').disabled=true;$('to5').disabled=true;$('saveBinding').disabled=true;$('reopenBinding').disabled=true;$('previewTableWrap').classList.add('hidden');$('mappedPreviewTableWrap').classList.add('hidden');$('validationResult').classList.add('hidden');$('reopenState').classList.add('hidden');$('casRecovery').classList.add('hidden');setCallout($('previewState'),'','尚未请求预览','点击“读取真实样本”查看受控来源的有限样本。');setCallout($('saveState'),'','尚未保存','只有当前映射校验通过后才允许保存。');$('savedId').textContent='尚未创建';$('savedRevision').textContent='—';$('savedCoverage').textContent='—';$('savedDrift').textContent='—';}
   $('snapshot').addEventListener('change',()=>{state.snapshot=$('snapshot').value;$('snapshotRef').textContent='LOCAL_SNAPSHOT('+state.snapshot+') / payloadSha256: 9f2a…c81d';resetChecks();});
   $('sourceTable').addEventListener('change',()=>{state.table=$('sourceTable').value;$('fingerprint').textContent='schema: '+state.table.split('.').pop()+'@f1c3…a62e';resetChecks();});
-  $('to2').addEventListener('click',()=>setStep(2));$('back1').addEventListener('click',()=>setStep(1));$('to3').addEventListener('click',()=>setStep(3));$('back2').addEventListener('click',()=>setStep(2));$('to4').addEventListener('click',()=>{const msg=$('mappingMessage');if(!$('mapPk').value){setCallout(msg,'error','主键未映射','请选择来源键并映射到对象类型的主键属性。');msg.classList.remove('hidden');return;}if($('mapPk').value==='rating'){setCallout(msg,'error','主键类型不兼容 · UNSUPPORTED_MAPPING_TYPE','rating 是 numeric 列，不能无损映射到 supplierCode STRING 主键；请选择 text 列或先修正模型合同。');msg.classList.remove('hidden');return;}msg.classList.add('hidden');resetChecks();setStep(4);});
+  $('to2').addEventListener('click',()=>setStep(2));$('back1').addEventListener('click',()=>setStep(1));$('to3').addEventListener('click',()=>setStep(3));$('back2').addEventListener('click',()=>setStep(2));$('to4').addEventListener('click',()=>{
+    const msg=$('mappingMessage');
+    const sourceTypes={vendor_code:'text',name:'text',rating:'numeric',is_active:'boolean'};
+    if(!$('mapPk').value){setCallout(msg,'error','主键未映射 · INVALID_TYPE_REFERENCE','请选择来源键并映射到对象类型声明的主键属性。');msg.classList.remove('hidden');return;}
+    if(sourceTypes[$('mapPk').value]!=='text'){setCallout(msg,'error','主键类型不兼容 · UNSUPPORTED_MAPPING_TYPE','supplierCode 是 STRING 主键；来源键必须是兼容的 text 列，不能使用 numeric 或 boolean 列。');msg.classList.remove('hidden');return;}
+    const fields=[{id:'mapName',label:'supplierName',expected:'text'},{id:'mapRating',label:'rating',expected:'numeric'},{id:'mapActive',label:'active',expected:'boolean'}];
+    const mapped=fields.filter(field=>$(field.id).value);
+    if(mapped.length<2){setCallout(msg,'error','映射属性不足 · INVALID_TYPE_REFERENCE','除主键外，至少映射两个属性后才能继续预览和校验。');msg.classList.remove('hidden');return;}
+    const incompatible=mapped.find(field=>sourceTypes[$(field.id).value]!==field.expected);
+    if(incompatible){setCallout(msg,'error','属性类型不兼容 · UNSUPPORTED_MAPPING_TYPE',incompatible.label+' 需要 '+incompatible.expected+' 来源列，但当前选择 '+$(incompatible.id).value+'（'+sourceTypes[$(incompatible.id).value]+'）。请调整映射；不会自动强制转换。');msg.classList.remove('hidden');return;}
+    msg.classList.add('hidden');resetChecks();setStep(4);
+  });
   $('resetMapping').addEventListener('click',()=>{$('mapPk').value='vendor_code';$('mapName').value='name';$('mapRating').value='rating';$('mapActive').value='is_active';$('mappingMessage').classList.add('hidden');resetChecks();});
   $('back3').addEventListener('click',()=>setStep(3));$('back4').addEventListener('click',()=>setStep(4));
-  $('scenario').addEventListener('change',()=>{resetChecks();});
+  $('scenario').addEventListener('change',()=>{resetChecks();$('fingerprint').textContent='schema: '+state.table.split('.').pop()+'@f1c3…a62e';});
   $('readPreview').addEventListener('click',()=>{
     const scenario=$('scenario').value;
     if(scenario==='unavailable'){setCallout($('previewState'),'error','来源不可用 · SOURCE_UNAVAILABLE','服务端无法验证来源连接。不得把断线转换为空样本；保留映射并重试或返回修复。');return;}
     if(scenario==='drift'){$('fingerprint').textContent='结构变化 · sourceSchemaFingerprint 不匹配';setCallout($('previewState'),'error','来源结构已漂移 · BINDING_SCHEMA_DRIFT','当前列结构与目录快照不同，必须重新发现并确认映射，不能自动按同名列重绑。');return;}
     previewDone=true;$('previewTableWrap').classList.remove('hidden');$('runValidation').disabled=false;
-    $('previewRows').innerHTML='<tr><td>V-1001</td><td>北辰精密</td><td>4.70</td><td>true</td></tr><tr><td>V-1002</td><td>远山材料</td><td>4.25</td><td>true</td></tr><tr><td>V-1003</td><td>澄海组件</td><td>3.90</td><td>false</td></tr>';
+    const sourceRows=[
+      {vendor_code:'V-1001',name:'北辰精密',rating:'4.70',is_active:'true'},
+      {vendor_code:'V-1002',name:'远山材料',rating:'4.25',is_active:'true'},
+      {vendor_code:'V-1003',name:'澄海组件',rating:'3.90',is_active:'false'}
+    ];
+    $('previewRows').innerHTML=sourceRows.map(row=>'<tr><td>'+row.vendor_code+'</td><td>'+row.name+'</td><td>'+row.rating+'</td><td>'+row.is_active+'</td></tr>').join('');
+    const mappedFields=[
+      {label:'supplierCode',source:$('mapPk').value},
+      {label:'supplierName',source:$('mapName').value},
+      {label:'rating',source:$('mapRating').value},
+      {label:'active',source:$('mapActive').value}
+    ].filter(field=>field.source);
+    $('mappedPreviewHead').innerHTML='<tr>'+mappedFields.map(field=>'<th>'+field.label+' ← '+field.source+'</th>').join('')+'</tr>';
+    $('mappedPreviewRows').innerHTML=sourceRows.map(row=>'<tr>'+mappedFields.map(field=>'<td>'+row[field.source]+'</td>').join('')+'</tr>').join('');
+    $('mappedPreviewTableWrap').classList.remove('hidden');
     setCallout($('previewState'),'success','样本预览成功 · 原型模拟数据','已返回 3 行样本。样本只用于检查字段映射，不证明全量主键唯一、类型无损或来源持续可用。');
     $('validationResult').classList.add('hidden');$('to5').disabled=true;validationDone=false;validationPass=false;
   });
