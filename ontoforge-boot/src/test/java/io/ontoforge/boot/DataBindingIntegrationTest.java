@@ -168,6 +168,14 @@ class DataBindingIntegrationTest {
         assertThat(mapper.readTree(reopened.getBody()).path("snapshotId").asText()).isEqualTo(snapshotId);
 
         request.put("expectedRevision", 1);
+        jdbc.execute("ALTER TABLE public.m5_supplier_source ADD COLUMN m5_test_drift TEXT");
+        try {
+            ResponseEntity<String> drift = post("/api/runtime/bindings/validate", request);
+            assertThat(drift.getStatusCode().value()).isEqualTo(409);
+            assertThat(drift.getBody()).contains("BINDING_SCHEMA_DRIFT");
+        } finally {
+            jdbc.execute("ALTER TABLE public.m5_supplier_source DROP COLUMN IF EXISTS m5_test_drift");
+        }
         ResponseEntity<String> updated = put("/api/runtime/bindings/" + bindingId, request);
         assertThat(updated.getStatusCode().value()).isEqualTo(200);
         assertThat(mapper.readTree(updated.getBody()).path("revision").asLong()).isEqualTo(2);
