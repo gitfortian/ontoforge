@@ -364,6 +364,12 @@ class DataBindingIntegrationTest {
         assertThat(missing.path("properties").isMissingNode()).isTrue();
         assertThat(missing.path("executionId").asText()).isNotBlank();
 
+        ObjectNode preservedWhitespace = read.deepCopy();
+        preservedWhitespace.with("key").put("value", " SUP-1001 ");
+        ResponseEntity<String> whitespaceResponse = post("/api/runtime/objects/read", preservedWhitespace);
+        assertThat(whitespaceResponse.getStatusCode().value()).isEqualTo(404);
+        assertThat(whitespaceResponse.getBody()).contains("OBJECT_NOT_FOUND");
+
         ObjectNode wrongKeyType = read.deepCopy();
         wrongKeyType.with("key").put("valueType", "INTEGER");
         ResponseEntity<String> invalidKey = post("/api/runtime/objects/read", wrongKeyType);

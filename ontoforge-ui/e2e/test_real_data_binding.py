@@ -222,7 +222,7 @@ class DataBindingRealBrowserTest(unittest.TestCase):
         page.get_by_role("button", name="返回目录").click()
         page.get_by_role("button", name="查看 / 历史").click()
         page.get_by_role("heading", name="绑定详情", exact=True).wait_for()
-        page.get_by_text("revision 2", exact=False).wait_for(timeout=15000)
+        page.get_by_text("supplier-type · revision 2", exact=True).wait_for(timeout=15000)
         page.get_by_role("button", name="读取对象").click()
         page.get_by_role("heading", name="对象读取", exact=True).wait_for(timeout=15000)
         page.locator("#object-runtime-key").fill("ALT-SUP-1001")

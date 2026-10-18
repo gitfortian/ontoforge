@@ -195,6 +195,11 @@ public class ObjectRuntimeService {
                     continue;
                 }
                 ValueCandidate candidate = candidate(property, mapping, row.get(mapping.sourceColumn()), executionId);
+                if (property.id().equals(type.primaryKeyRef())
+                        && (!"PRESENT".equals(candidate.status()) || !Objects.equals(candidate.value(), key.value()))) {
+                    throw fail(409, "OBJECT_IDENTITY_CONFLICT",
+                            "主键 PropertyValue 与 ObjectRef.key 的规范值不一致，拒绝返回对象", property.id(), executionId);
+                }
                 PropertyProvenance provenance = new PropertyProvenance(binding.sourceId(), binding.sourceSchema(),
                         binding.sourceTable(), mapping.sourceColumn(), binding.bindingId(), binding.revision(), sourceReadId);
                 values.add(new PropertyValue(property.id(), property.valueType(), candidate.status(),
@@ -473,13 +478,19 @@ public class ObjectRuntimeService {
 
     private List<RuntimeTypeResolver.PropertyDescriptor> selectProperties(
             List<String> requested, List<RuntimeTypeResolver.PropertyDescriptor> properties, String executionId) {
-        if (requested == null) return List.copyOf(properties);
+        if (requested == null) {
+            if (properties.size() > MAX_PROPERTIES) {
+                throw fail(422, "INVALID_OBJECT_REQUEST",
+                        "对象类型超过 100 属性的默认读取上限；请显式指定不超过 100 个 propertyRefs", "propertyRefs", executionId);
+            }
+            return List.copyOf(properties);
+        }
         if (requested.size() > MAX_PROPERTIES) {
             throw fail(422, "INVALID_OBJECT_REQUEST", "单次最多请求 100 个属性", "propertyRefs", executionId);
         }
         Set<String> refs = new LinkedHashSet<>();
         for (String ref : requested) {
-            if (ref == null || ref.isBlank() || !refs.add(ref)) {
+            if (ref == null || ref.isBlank() || ref.length() > 128 || !refs.add(ref)) {
                 throw fail(422, "INVALID_OBJECT_REQUEST", "propertyRefs 不能为空且不能重复", "propertyRefs", executionId);
             }
         }
