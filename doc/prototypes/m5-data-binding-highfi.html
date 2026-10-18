@@ -154,6 +154,7 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
         <div class="page-head"><div><div class="eyebrow">Runtime Engineering / Binding Detail</div><h1>绑定详情</h1><p>查看当前绑定的精确模型引用、来源、映射和校验摘要。历史版本不可覆盖，编辑将创建新 revision。</p></div><div class="head-actions"><button id="detailBack">返回绑定目录</button><button class="primary" id="newRevision">创建新版本</button></div></div>
         <div class="metrics"><div class="metric"><div class="metric-label">当前 revision</div><div class="metric-value" id="detailRevision">—</div><div class="metric-note">单调递增，不覆盖历史</div></div><div class="metric"><div class="metric-label">已检查来源行</div><div class="metric-value" id="detailRows">—</div><div class="metric-note">有界全量校验范围</div></div><div class="metric"><div class="metric-label">绑定状态</div><div class="metric-value" id="detailStatus">—</div><div class="metric-note" id="detailStatusNote">保存时校验摘要</div></div></div>
         <section class="panel"><div class="panel-head"><div><h2>版本与来源</h2><p>此处显示持久化绑定版本的快照摘要和来源结构指纹。</p></div><span class="tag blue" id="detailBindingId">binding-supplier-01</span></div><dl class="info-grid"><dt>模型快照</dt><dd class="mono" id="detailSnapshot">—</dd><dt>ObjectType</dt><dd id="detailType">—</dd><dt>来源</dt><dd class="mono" id="detailSource">—</dd><dt>结构指纹</dt><dd class="mono">schema: demo_supplier@f1c3…a62e</dd><dt>身份域</dt><dd class="mono" id="detailIdentity">—</dd></dl></section>
+        <section class="panel"><div class="panel-head"><div><h2>历史 revision</h2><p>每次保存生成不可变版本。选择历史版可查看当时的来源、映射与校验摘要。</p></div><span class="tag" id="historyCount">0 个版本</span></div><div class="table-wrap"><table><thead><tr><th>Revision</th><th>模型快照</th><th>来源表</th><th>状态</th><th>检查行数</th><th>操作</th></tr></thead><tbody id="detailHistoryRows"></tbody></table></div></section>
         <section class="panel"><div class="panel-head"><div><h2>字段映射</h2><p>映射按属性 ID 记录；本页为只读详情。</p></div><span class="tag">AUTHORITATIVE</span></div><div class="table-wrap"><table><thead><tr><th>本体属性</th><th>类型</th><th>来源列</th><th>权威性</th></tr></thead><tbody id="detailMappings"></tbody></table></div></section>
         <div class="notice"><span class="notice-mark">i</span><div><strong>历史版本语义</strong>新 revision 不修改旧版本内容。来源结构变化后，旧绑定定义仍可追溯，但不代表来源事实仍可读取。</div></div>
       </section>
@@ -176,7 +177,7 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
   {id:'active',label:'active',type:'BOOLEAN',map:'mapActive',status:'activeTypeStatus',expected:'boolean'}
  ];
  const columnTypes={vendor_code:'text',name:'text',rating:'numeric',is_active:'boolean'};
- const state={view:'list',step:1,scenario:'normal',bindings:[],current:null,editing:false,baseRevision:0,validated:false,previewed:false,dirty:false};
+ const state={view:'list',step:1,scenario:'normal',bindings:[],current:null,viewedRevision:null,editing:false,baseRevision:0,validated:false,previewed:false,dirty:false};
  function showView(name){state.view=name;$('listView').classList.toggle('hidden',name!=='list');$('wizardView').classList.toggle('hidden',name!=='wizard');$('detailView').classList.toggle('hidden',name!=='detail');}
  function setNotice(el,kind,title,body){el.className='notice'+(kind?' '+kind:'');el.innerHTML='<span class="notice-mark">'+(kind==='error'?'!':kind==='success'?'✓':'i')+'</span><div><strong>'+title+'</strong><span>'+body+'</span></div>';}
  function setStep(n){
@@ -216,10 +217,23 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
   $('fingerprint').textContent='schema: demo_supplier@f1c3…a62e';$('sourceDiscoveryState').classList.add('hidden');$('mappingMessage').classList.add('hidden');refreshMappingStatus();resetValidation();$('saveState').className='notice';$('saveState').innerHTML='<span class="notice-mark">i</span><div><strong>尚未保存</strong><span>完成校验后才能创建或更新绑定版本。</span></div>';$('returnList').classList.remove('hidden');
   setStep(1);showView('wizard');
  }
- function openDetail(id){
+ function cloneVersion(b){
+  return {id:b.id,revision:b.revision,snapshot:b.snapshot,sourceId:b.sourceId,table:b.table,identityDomain:b.identityDomain,mappings:{...(b.mappings||{})},mappingsList:(b.mappingsList||[]).map(m=>({...m})),checkedRows:b.checkedRows||0,status:b.status||'VALID',checkedAt:b.checkedAt||'刚刚'};
+ }
+ function recordVersion(b){
+  if(!b.history)b.history=[];
+  const version=cloneVersion(b);const index=b.history.findIndex(v=>v.revision===version.revision);
+  if(index>=0)b.history[index]=version;else b.history.push(version);
+  b.history.sort((a,c)=>a.revision-c.revision);
+ }
+ function openDetail(id,revision){
   const b=state.bindings.find(x=>x.id===id);if(!b)return;state.current=b;
-  $('detailRevision').textContent='revision '+b.revision;$('detailRows').textContent=String(b.checkedRows);$('detailStatus').textContent=b.status;$('detailStatusNote').textContent='最近校验 · 当前版本';$('detailBindingId').textContent=b.id;$('detailSnapshot').textContent=b.snapshot;$('detailType').textContent='Supplier · supplier';$('detailSource').textContent=b.sourceId+' / '+b.table;$('detailIdentity').textContent=b.identityDomain;
-  $('detailMappings').innerHTML=b.mappingsList.map(m=>'<tr><td>'+m.label+'</td><td>'+m.type+'</td><td class="mono">'+m.sourceColumn+'</td><td>AUTHORITATIVE</td></tr>').join('');
+  const version=revision?(b.history||[]).find(v=>v.revision===revision)||b:b;state.viewedRevision=version.revision;
+  $('detailRevision').textContent='revision '+version.revision;$('detailRows').textContent=String(version.checkedRows);$('detailStatus').textContent=version.status;$('detailStatusNote').textContent=version.revision===b.revision?'最近校验 · 当前版本':'历史版本 · 只读';$('detailBindingId').textContent=b.id+' · revision '+version.revision;$('detailSnapshot').textContent=version.snapshot;$('detailType').textContent='Supplier · supplier';$('detailSource').textContent=version.sourceId+' / '+version.table;$('detailIdentity').textContent=version.identityDomain;
+  const history=[...(b.history||[])].sort((a,c)=>c.revision-a.revision);$('historyCount').textContent=history.length+' 个版本';
+  $('detailHistoryRows').innerHTML=history.map(v=>'<tr><td><span class="tag '+(v.revision===b.revision?'blue':'')+'">revision '+v.revision+'</span></td><td class="mono">'+v.snapshot+'</td><td class="mono">'+v.table+'</td><td>'+v.status+'</td><td>'+v.checkedRows+'</td><td><button class="link-button" data-history-revision="'+v.revision+'">'+(v.revision===version.revision?'当前查看':'查看版本')+'</button></td></tr>').join('');
+  document.querySelectorAll('[data-history-revision]').forEach(btn=>btn.addEventListener('click',()=>openDetail(id,Number(btn.dataset.historyRevision))));
+  $('detailMappings').innerHTML=version.mappingsList.map(m=>'<tr><td>'+m.label+'</td><td>'+m.type+'</td><td class="mono">'+m.sourceColumn+'</td><td>AUTHORITATIVE</td></tr>').join('');
   showView('detail');
  }
  function renderCasDiff(){
@@ -236,7 +250,8 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
   $('mappedPreviewRows').innerHTML=sourceRows.map(row=>{const obj=toMappingObject(row);return '<tr>'+mappings.map(m=>'<td>'+obj[m.propertyId]+'</td>').join('')+'</tr>';}).join('');
   $('previewTables').classList.remove('hidden');
  }
- function goList(){showView('list');updateList();}\n function cancelWizard(){if(state.dirty&&!window.confirm('当前编辑尚未保存。确定放弃本次编辑并返回绑定目录吗？'))return;goList();}
+ function goList(){showView('list');updateList();}
+ function cancelWizard(){if(state.dirty&&!window.confirm('当前编辑尚未保存。确定放弃本次编辑并返回绑定目录吗？'))return;goList();}
  document.querySelectorAll('[data-step]').forEach(btn=>btn.addEventListener('click',()=>{const n=Number(btn.dataset.step);if(n<=state.step)setStep(n);}));
  $('createBinding').addEventListener('click',()=>startNewBinding());$('emptyCreate').addEventListener('click',()=>startNewBinding());$('refreshList').addEventListener('click',updateList);$('navBindings').addEventListener('click',goList);
  $('cancelWizard').addEventListener('click',cancelWizard);$('returnList').addEventListener('click',cancelWizard);$('detailBack').addEventListener('click',goList);$('newRevision').addEventListener('click',()=>startNewBinding(state.current&&state.current.id));
@@ -277,14 +292,14 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
    $('casRecoveryText').textContent='服务器版本与本地编辑可能不同。请先比较下表；当前编辑不会覆盖服务器版本。';renderCasDiff();$('casRecovery').classList.remove('hidden');return;
   }
   let b=state.current;
-  if(!b){b={id:'binding-supplier-01',typeId:'supplier',snapshot:$('snapshot').value,sourceId:$('sourceId').value,table:$('sourceTable').value,revision:0,status:'VALID'};state.bindings.push(b);}
+  if(!b){b={id:'binding-supplier-01',typeId:'supplier',snapshot:$('snapshot').value,sourceId:$('sourceId').value,table:$('sourceTable').value,revision:0,status:'VALID',history:[]};state.bindings.push(b);}else if(b.revision>0)recordVersion(b);
   b.revision+=1;b.snapshot=$('snapshot').value;b.sourceId=$('sourceId').value;b.table=$('sourceTable').value;b.identityDomain=identityDomain();b.mappings=Object.fromEntries(selectedMappings().map(m=>[m.propertyId,m.sourceColumn]));b.mappingsList=selectedMappings();b.checkedRows=248;b.status='VALID';b.checkedAt='刚刚';state.current=b;state.editing=true;state.baseRevision=b.revision;state.validated=true;state.dirty=false;
-  setNotice($('saveState'),'success','绑定版本已保存 · 原型模拟','已保存 '+b.id+' revision '+b.revision+'。真实实现必须以服务端保存回执为准。');$('openSaved').disabled=false;$('saveBinding').disabled=true;$('saveBinding').textContent='已保存当前版本';$('casRecovery').classList.add('hidden');$('casDiff').classList.add('hidden');updateList();
+  recordVersion(b);setNotice($('saveState'),'success','绑定版本已保存 · 原型模拟','已保存 '+b.id+' revision '+b.revision+'。真实实现必须以服务端保存回执为准。');$('openSaved').disabled=false;$('saveBinding').disabled=true;$('saveBinding').textContent='已保存当前版本';$('casRecovery').classList.add('hidden');$('casDiff').classList.add('hidden');updateList();
  });
  $('loadLatest').addEventListener('click',()=>{
   let b=state.current||state.bindings.find(x=>x.typeId==='supplier');
-  if(!b){b={id:'binding-supplier-01',typeId:'supplier',snapshot:$('snapshot').value,sourceId:$('sourceId').value,table:$('sourceTable').value,revision:1,status:'VALID',identityDomain:identityDomain(),mappings:{supplierCode:'vendor_code',supplierName:'name',rating:'rating',active:'is_active'},mappingsList:props.map(p=>({propertyId:p.id,label:p.label,type:p.type,sourceColumn:({supplierCode:'vendor_code',supplierName:'name',rating:'rating',active:'is_active'})[p.id]})),checkedRows:248};state.bindings.push(b);}
-  else b.revision+=1;
+  if(!b){b={id:'binding-supplier-01',typeId:'supplier',snapshot:$('snapshot').value,sourceId:$('sourceId').value,table:$('sourceTable').value,revision:1,status:'VALID',identityDomain:identityDomain(),mappings:{supplierCode:'vendor_code',supplierName:'name',rating:'rating',active:'is_active'},mappingsList:props.map(p=>({propertyId:p.id,label:p.label,type:p.type,sourceColumn:({supplierCode:'vendor_code',supplierName:'name',rating:'rating',active:'is_active'})[p.id]})),checkedRows:248,history:[]};state.bindings.push(b);recordVersion(b);}
+  else{recordVersion(b);b.revision+=1;recordVersion(b);}
   state.current=b;state.editing=true;state.baseRevision=b.revision;state.validated=false;$('demoScenario').value='normal';state.scenario='normal';resetValidation();setNotice($('saveState'),'','已载入最新版本','当前服务器 revision '+b.revision+' 已载入。请重新读取样本、校验后再保存下一版。');$('casRecovery').classList.add('hidden');$('casDiff').classList.add('hidden');updateList();setStep(4);
  });
  $('openSaved').addEventListener('click',()=>{if(state.current)openDetail(state.current.id);});
