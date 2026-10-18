@@ -71,11 +71,12 @@ class M5DataBindingLowFiBrowser(unittest.TestCase):
         self.page.get_by_role("button", name="重新打开已保存版本").click()
         self.assertIn("重新打开成功", self.page.locator("#reopenState").inner_text())
 
-    def test_duplicate_source_column_is_rejected_before_preview(self):
+    def test_incompatible_primary_key_type_is_rejected_before_preview(self):
         self.to_mapping()
-        self.page.locator("#mapName").select_option("vendor_code")
+        self.page.locator("#mapPk").select_option("rating")
         self.page.get_by_role("button", name="预览映射").click()
-        self.assertIn("来源列重复使用", self.page.locator("#mappingMessage").inner_text())
+        self.assertIn("UNSUPPORTED_MAPPING_TYPE", self.page.locator("#mappingMessage").inner_text())
+        self.assertIn("主键类型不兼容", self.page.locator("#mappingMessage").inner_text())
         self.assertTrue(self.page.locator("#step3").is_visible())
 
     def test_source_unavailable_does_not_look_like_empty_success(self):
