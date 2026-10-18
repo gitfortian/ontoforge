@@ -630,6 +630,27 @@ class DataBindingIntegrationTest {
     @Test
     void m7AggregateUsesExactValuesAndFailsClosedOnNullOrInvalidAst() throws Exception {
         String bindingId = createSupplierBindingForM7();
+
+        // A searchable but unmapped field must not silently produce a successful empty result.
+        ObjectNode unmappedFilter = objectSetQuery(bindingId, 2);
+        ObjectNode filter = mapper.createObjectNode();
+        filter.put("kind", "FILTER");
+        ObjectNode condition = filter.putArray("conditions").addObject();
+        condition.put("propertyRef", "supplier-legacy");
+        condition.put("operator", "PREFIX");
+        condition.putObject("literal").put("valueType", "STRING").put("value", "LEG");
+        unmappedFilter.withArray("steps").insert(0, filter);
+        ResponseEntity<String> rejectedUnmappedFilter = post("/api/runtime/object-sets/query", unmappedFilter);
+        assertThat(rejectedUnmappedFilter.getStatusCode().value()).isEqualTo(422);
+        assertThat(rejectedUnmappedFilter.getBody()).contains("INVALID_QUERY_AST", "已绑定");
+
+        ObjectNode unmappedSum = objectSetRequest(bindingId);
+        unmappedSum.withArray("steps").addObject()
+                .put("kind", "AGGREGATE").put("operation", "SUM").put("propertyRef", "supplier-unmapped-rating");
+        ResponseEntity<String> rejectedUnmappedSum = post("/api/runtime/object-sets/query", unmappedSum);
+        assertThat(rejectedUnmappedSum.getStatusCode().value()).isEqualTo(422);
+        assertThat(rejectedUnmappedSum.getBody()).contains("INVALID_QUERY_AST", "已绑定");
+
         ObjectNode sum = objectSetRequest(bindingId);
         sum.putArray("steps").addObject().put("kind", "AGGREGATE")
                 .put("operation", "SUM").put("propertyRef", "supplier-rating");
@@ -682,6 +703,7 @@ class DataBindingIntegrationTest {
         ArrayNode enumValues = category.putArray("enumValues");
         enumValues.add("ELECTRONICS"); enumValues.add("METAL"); enumValues.add("LOGISTICS"); enumValues.add("HARDWARE");
         addProperty(properties, "supplier-legacy", "legacyCode", "STRING", false);
+        addProperty(properties, "supplier-unmapped-rating", "unmappedRating", "DECIMAL", false);
         NativeDraftService.DraftDetail saved = drafts.save(UUID.fromString(draft.draftId()), draft.revision(), editor);
         assertThat(drafts.validate(UUID.fromString(draft.draftId()), saved.revision()).status()).isEqualTo("VALID");
         NativeSnapshotService.FreezeResult frozen = snapshots.freeze(
