@@ -49,7 +49,7 @@ public class DataBindingService {
     private final ObjectMapper mapper;
     private final List<String> allowedTables;
 
-    public DataBindingService(JdbcTemplate appJdbc,
+    public DataBindingService(@Qualifier("jdbcTemplate") JdbcTemplate appJdbc,
             @Qualifier("bindingSourceJdbcTemplate") ObjectProvider<JdbcTemplate> sourceProvider,
             RuntimeTypeResolver typeResolver, B0AuthorizationService authorization,
             ObjectMapper mapper,
