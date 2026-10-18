@@ -80,15 +80,8 @@ BEGIN
         CREATE ROLE ontoforge_binding_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
     END IF;
 END $$;
--- Use Flyway's active schema so isolated upgrade tests exercise the same migration safely.
-DO $
-DECLARE
-    target_schema TEXT := current_schema();
-BEGIN
-    EXECUTE format('GRANT USAGE ON SCHEMA %I TO ontoforge_binding_reader', target_schema);
-    EXECUTE format('GRANT SELECT ON TABLE %I.m5_supplier_source TO ontoforge_binding_reader', target_schema);
-    EXECUTE format(
-        'REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE %I.m5_supplier_source FROM ontoforge_binding_reader',
-        target_schema
-    );
-END $;
+-- Flyway's default-schema placeholder keeps isolated upgrade schemas independent.
+GRANT USAGE ON SCHEMA ${flyway:defaultSchema} TO ontoforge_binding_reader;
+GRANT SELECT ON TABLE ${flyway:defaultSchema}.m5_supplier_source TO ontoforge_binding_reader;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+    ON TABLE ${flyway:defaultSchema}.m5_supplier_source FROM ontoforge_binding_reader;
