@@ -10,6 +10,7 @@
 > | --- | --- | --- | --- |
 > | PR #32 已合并 | F02、F08 子项、F09 子项、F11 子项 | 创建三类型与两关系、持久绑定内置 PostgreSQL 测试表、输入批次两跳查询订单和来源证据 | **已合并的隔离测试 MVP 闭环**；非通用连接器、ObjectSet、Agent |
 > | PR #33 已合并 | F08 可配置源映射子项、F11 受控查询子项 | 在原页面选本地测试表/各段字段，预览样本和一条关联后保存并真正查询，刷新重开 | **main 已合并的隔离测试场景**；无企业级源权限、跨数据库、查询优化与任意遍历 |
+> | PR #60/#61 M5 Data Binding UX-Low / UX-High（已合并） | M5 通用数据绑定交互 | 绑定目录、五步映射、来源/对象双预览、校验、revision 与历史版交互 | **UX-Low/UX-High 已签收；原型数据为 Mock；真实 API、只读 PG 角色、Flyway、并发与持久化均未实现；OFIP-0007 Decision Pending** |
 > | PR #56 M4 Runtime Type Catalog（已合并） | F02/F03/F04 类型定义与历史引用子项 | 从已 VALID 草稿或经核验的本地快照读取 ObjectType 列表、Property 合同和来源；明确切换来源 | **已合并 main；PR #56 的 Required Quality、Architecture Docs 与 S0 检查全部 PASS**；不代表实例、Binding、ObjectSet 或正式发布已完成；Windows 本机人工验收未运行 |
 > | 后续按场景评估 | F06、F16 等 | 真实工业系统连接、受控 Agent 上下文 | **未实现**；不再为 MVP 提前铺陈全套治理 |
 
