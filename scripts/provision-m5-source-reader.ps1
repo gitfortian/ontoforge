@@ -18,8 +18,10 @@ if ([string]::IsNullOrWhiteSpace($env:ONTOFORGE_BINDING_SOURCE_PASSWORD)) {
 }
 $psqlUrl = $jdbcUrl.Substring('jdbc:'.Length)
 $env:PGPASSWORD = $env:DB_PASSWORD
+$adminUser = $env:DB_USERNAME
+if ([string]::IsNullOrWhiteSpace($adminUser)) { $adminUser = 'postgres' }
 try {
-  & psql $psqlUrl --username ($env:DB_USERNAME ?? 'postgres') --set ON_ERROR_STOP=1 --file scripts/provision-m5-source-reader.sql
+  & psql $psqlUrl --username $adminUser --set ON_ERROR_STOP=1 --file scripts/provision-m5-source-reader.sql
   if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL source-reader provisioning failed.' }
 } finally {
   Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
