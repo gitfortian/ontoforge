@@ -641,7 +641,6 @@ class DataBindingIntegrationTest {
 
         ObjectNode invalid = objectSetQuery(bindingId, 2);
         ObjectNode sort = (ObjectNode) invalid.withArray("steps").get(0);
-        sort.withArray("fields").get(0).with("direction").asText();
         ((ObjectNode) sort.withArray("fields").get(0)).put("direction", "SIDEWAYS");
         ResponseEntity<String> rejected = post("/api/runtime/object-sets/query", invalid);
         assertThat(rejected.getStatusCode().value()).isEqualTo(422);
