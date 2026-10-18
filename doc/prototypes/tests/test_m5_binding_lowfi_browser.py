@@ -95,6 +95,14 @@ class M5DataBindingLowFiBrowser(unittest.TestCase):
         self.assertIn("至少映射两个属性", self.page.locator("#mappingMessage").inner_text())
         self.assertTrue(self.page.locator("#step3").is_visible())
 
+    def test_identity_domain_tracks_source_key_semantics(self):
+        self.to_mapping()
+        self.assertEqual(self.page.locator("#identityDomainPreview").inner_text(), "supplier-vendor-code-domain")
+        self.page.locator("#mapPk").select_option("name")
+        self.assertEqual(self.page.locator("#identityDomainPreview").inner_text(), "supplier-name-domain")
+        self.page.get_by_role("button", name="重置映射").click()
+        self.assertEqual(self.page.locator("#identityDomainPreview").inner_text(), "supplier-vendor-code-domain")
+
     def test_source_unavailable_does_not_look_like_empty_success(self):
         self.to_preview()
         self.page.locator("#scenario").select_option("unavailable")
@@ -102,6 +110,10 @@ class M5DataBindingLowFiBrowser(unittest.TestCase):
         self.assertIn("SOURCE_UNAVAILABLE", self.page.locator("#previewState").inner_text())
         self.assertFalse(self.page.locator("#previewTableWrap").is_visible())
         self.assertTrue(self.page.locator("#runValidation").is_disabled())
+        self.assertTrue(self.page.locator("#backToSource").is_visible())
+        self.page.get_by_role("button", name="返回来源并重新发现").click()
+        self.page.get_by_role("button", name="重新发现来源结构").click()
+        self.assertIn("来源结构已重新发现", self.page.locator("#sourceDiscoveryState").inner_text())
 
     def test_source_drift_requires_recheck_and_blocks_progress(self):
         self.to_preview()
@@ -110,6 +122,10 @@ class M5DataBindingLowFiBrowser(unittest.TestCase):
         self.assertIn("BINDING_SCHEMA_DRIFT", self.page.locator("#previewState").inner_text())
         self.assertFalse(self.page.locator("#previewTableWrap").is_visible())
         self.assertTrue(self.page.locator("#runValidation").is_disabled())
+        self.assertTrue(self.page.locator("#backToSource").is_visible())
+        self.page.get_by_role("button", name="返回来源并重新发现").click()
+        self.page.get_by_role("button", name="重新发现来源结构").click()
+        self.assertIn("来源结构已重新发现", self.page.locator("#sourceDiscoveryState").inner_text())
 
     def test_duplicate_identity_and_budget_exhaustion_cannot_be_saved(self):
         self.to_preview()
@@ -123,6 +139,8 @@ class M5DataBindingLowFiBrowser(unittest.TestCase):
                 self.assertIn(expected, self.page.locator("#validationResult").inner_text())
                 self.assertTrue(self.page.locator("#to5").is_disabled())
                 self.assertTrue(self.page.locator("#saveBinding").is_disabled())
+                if scenario == "budget":
+                    self.assertTrue(self.page.locator("#backToSource").is_visible())
 
     def test_compare_and_swap_conflict_keeps_edits_and_supports_recovery(self):
         self.to_preview()
