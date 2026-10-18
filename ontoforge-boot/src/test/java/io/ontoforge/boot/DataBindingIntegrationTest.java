@@ -77,6 +77,21 @@ class DataBindingIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT rolsuper FROM pg_roles WHERE rolname='ontoforge_binding_login'", Boolean.class)).isFalse();
         assertThat(jdbc.queryForObject("SELECT has_table_privilege('ontoforge_binding_login','public.m5_supplier_source','SELECT')", Boolean.class)).isTrue();
         assertThat(jdbc.queryForObject("SELECT has_table_privilege('ontoforge_binding_login','public.m5_supplier_source','INSERT')", Boolean.class)).isFalse();
+        assertThat(jdbc.queryForObject("SELECT has_table_privilege('ontoforge_binding_login','public.m5_supplier_source','UPDATE')", Boolean.class)).isFalse();
+        assertThat(jdbc.queryForObject("SELECT has_table_privilege('ontoforge_binding_login','public.m5_supplier_source','DELETE')", Boolean.class)).isFalse();
+        assertThatThrownBy(() -> sourceJdbc.update(
+                "UPDATE public.m5_supplier_source SET name=name WHERE vendor_code='__M5_NO_MATCH__'"))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThatThrownBy(() -> sourceJdbc.update(
+                "DELETE FROM public.m5_supplier_source WHERE vendor_code='__M5_NO_MATCH__'"))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        try {
+            assertThatThrownBy(() -> sourceJdbc.execute(
+                    "ALTER TABLE public.m5_supplier_source ADD COLUMN m5_denied_ddl TEXT"))
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        } finally {
+            jdbc.execute("ALTER TABLE public.m5_supplier_source DROP COLUMN IF EXISTS m5_denied_ddl");
+        }
         assertThat(sourceJdbc.queryForObject("SELECT count(*) FROM public.m5_supplier_source", Integer.class)).isEqualTo(5);
         assertThatThrownBy(() -> sourceJdbc.update(
                 "INSERT INTO public.m5_supplier_source(vendor_code,name) VALUES ('M5-DENIED','should-not-write')"))
@@ -145,6 +160,27 @@ class DataBindingIntegrationTest {
         assertThat(previewBody.path("mappedRows").toString()).contains("Northwind Components");
         String fingerprint = previewBody.path("source").path("schemaFingerprint").asText();
         request.put("expectedSchemaFingerprint", fingerprint);
+        assertThat(previewBody.path("sourceRows").get(0).path("vendor_code").asText()).isEqualTo("SUP-1001");
+
+        ObjectNode nonUniqueKey = request.deepCopy();
+        nonUniqueKey.put("sourceKey", "name");
+        for (JsonNode item : nonUniqueKey.withArray("fieldMappings")) {
+            if ("supplier-code".equals(item.path("propertyRef").asText())) {
+                ((ObjectNode) item).put("sourceColumn", "name");
+            }
+        }
+        ResponseEntity<String> rejectedKey = post("/api/runtime/bindings/validate", nonUniqueKey);
+        assertThat(rejectedKey.getStatusCode().value()).isEqualTo(422);
+        assertThat(rejectedKey.getBody()).contains("SOURCE_KEY_NOT_UNIQUE");
+
+        jdbc.execute("ALTER TABLE public.m5_supplier_source ALTER COLUMN rating TYPE DOUBLE PRECISION USING rating::double precision");
+        try {
+            ResponseEntity<String> rejectedFloat = post("/api/runtime/bindings/preview", request);
+            assertThat(rejectedFloat.getStatusCode().value()).isEqualTo(422);
+            assertThat(rejectedFloat.getBody()).contains("UNSUPPORTED_MAPPING_TYPE");
+        } finally {
+            jdbc.execute("ALTER TABLE public.m5_supplier_source ALTER COLUMN rating TYPE NUMERIC(4,2) USING round(rating::numeric, 2)");
+        }
 
         ResponseEntity<String> validation = post("/api/runtime/bindings/validate", request);
         assertThat(validation.getStatusCode().value()).isEqualTo(200);

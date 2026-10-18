@@ -1,7 +1,6 @@
 """M5 generic Data Binding golden story over real PG17, Spring Boot API, React and Chromium."""
 import json
 import os
-import re
 import unittest
 from pathlib import Path
 from urllib.parse import quote
@@ -69,6 +68,7 @@ class DataBindingRealBrowserTest(unittest.TestCase):
         page.locator("#obj-api").fill("Supplier")
         page.locator("#obj-label").fill("供应商")
         page.locator("#obj-desc").fill("由用户自主定义并绑定真实受控来源的供应商对象")
+        page.locator("#add-property").click()
         properties = [
             ("supplier-code", "vendorCode", "供应商编号", "STRING", True),
             ("supplier-name", "name", "供应商名称", "STRING", True),

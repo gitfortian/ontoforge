@@ -142,7 +142,7 @@ public class DataBindingService {
 
     public PreviewResult preview(BindingRequest request, Authentication auth) {
         MappingContext context = context(request, auth, false, true);
-        List<Map<String, Object>> rows = readRows(context, PREVIEW_ROWS);
+        List<Map<String, Object>> rows = readRowsStable(context, PREVIEW_ROWS);
         List<Map<String, Object>> mapped = mapRows(context, rows);
         return new PreviewResult(context.type().packageId(), request.snapshotId(), request.draftId(), request.draftRevision(),
                 request.objectTypeId(), context.type().label(), context.type().payloadSha256(), context.source(), rows, mapped);
@@ -150,7 +150,7 @@ public class DataBindingService {
 
     public ValidationResult validate(BindingRequest request, Authentication auth) {
         MappingContext context = context(request, auth, true, true);
-        List<Map<String, Object>> rows = readRows(context, MAX_VALIDATION_ROWS + 1);
+        List<Map<String, Object>> rows = readRowsStable(context, MAX_VALIDATION_ROWS + 1);
         if (rows.size() > MAX_VALIDATION_ROWS) {
             throw fail(429, "QUERY_BUDGET_EXCEEDED", "校验超过 10000 行预算；没有生成通过结论", "validation");
         }
@@ -212,10 +212,13 @@ public class DataBindingService {
         }
         ValidationResult validation = validateContext(context);
         requireValid(validation);
-        String oldSourceKey = appJdbc.queryForObject("""
-                SELECT source_key FROM runtime_binding_revision WHERE binding_id=? AND revision=?
+        String oldIdentity = appJdbc.queryForObject("""
+                SELECT source_id || ':' || source_schema || '.' || source_table || ':' || source_key
+                  FROM runtime_binding_revision WHERE binding_id=? AND revision=?
                 """, String.class, bindingId, locked.currentRevision());
-        UUID identityDomainId = Objects.equals(oldSourceKey, request.sourceKey())
+        String newIdentity = SOURCE_ID + ":" + context.source().schema() + "."
+                + context.source().table() + ":" + request.sourceKey();
+        UUID identityDomainId = Objects.equals(oldIdentity, newIdentity)
                 ? locked.identityDomainId() : UUID.randomUUID();
         long revision = locked.currentRevision() + 1;
         insertRevision(bindingId, revision, identityDomainId, request, context, validation);
@@ -296,6 +299,10 @@ public class DataBindingService {
                 throw fail(409, "BINDING_SCHEMA_DRIFT", "来源表结构已变化；请重新发现来源并重新预览映射", "expectedSchemaFingerprint");
             }
         }
+        SourceColumn sourceKeyColumn = column(table, request.sourceKey());
+        if (!sourceKeyColumn.primaryKey() && !sourceKeyColumn.uniqueKey()) {
+            throw fail(422, "SOURCE_KEY_NOT_UNIQUE", "来源身份键必须是主键或单列唯一列", "sourceKey");
+        }
         Map<String, RuntimeTypeResolver.PropertyDescriptor> properties = new LinkedHashMap<>();
         for (RuntimeTypeResolver.PropertyDescriptor property : type.properties()) properties.put(property.id(), property);
         List<FieldMapping> mappings = request.fieldMappings() == null ? List.of() : request.fieldMappings();
@@ -333,7 +340,7 @@ public class DataBindingService {
     }
 
     private ValidationResult validateContext(MappingContext context) {
-        List<Map<String, Object>> rows = readRows(context, MAX_VALIDATION_ROWS + 1);
+        List<Map<String, Object>> rows = readRowsStable(context, MAX_VALIDATION_ROWS + 1);
         if (rows.size() > MAX_VALIDATION_ROWS) {
             throw fail(429, "QUERY_BUDGET_EXCEEDED", "校验超过 10000 行预算；没有生成通过结论", "validation");
         }
@@ -362,9 +369,15 @@ public class DataBindingService {
             for (FieldMapping mapping : context.mappings()) {
                 RuntimeTypeResolver.PropertyDescriptor property = context.properties().get(mapping.propertyRef());
                 Object value = row.get(mapping.sourceColumn());
-                if (value != null && "DECIMAL".equals(normalizeType(property.valueType()))
+                if (value != null && Set.of("DECIMAL", "NUMBER", "NUMERIC").contains(normalizeType(property.valueType()))
                         && Set.of("NaN", "Infinity", "-Infinity", "inf", "-inf").contains(String.valueOf(value))) {
                     issues.add(new ValidationIssue("DECIMAL_VALUE_INVALID", "DECIMAL 来源值必须是有限精确数值", mapping.propertyRef()));
+                    break;
+                }
+                if (value != null && "UUID".equals(normalizeType(property.valueType()))
+                        && !String.valueOf(value).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) {
+                    issues.add(new ValidationIssue("UUID_VALUE_INVALID",
+                            "UUID 来源值必须是标准小写 UUID 文本", mapping.propertyRef()));
                     break;
                 }
                 if (property.required() && value == null) {
@@ -388,13 +401,40 @@ public class DataBindingService {
                 .map(FieldMapping::sourceColumn).findFirst().orElse("");
     }
 
+    private List<Map<String, Object>> readRowsStable(MappingContext context, int limit) {
+        requireStableSourceSchema(context);
+        List<Map<String, Object>> rows = readRows(context, limit);
+        requireStableSourceSchema(context);
+        return rows;
+    }
+
+    private void requireStableSourceSchema(MappingContext context) {
+        try {
+            SourceTable current = sourceTable(context.source().sourceId(), context.source().schema(),
+                    context.source().table(), sourceJdbc());
+            if (!context.source().schemaFingerprint().equals(current.schemaFingerprint())) {
+                throw fail(409, "BINDING_SCHEMA_DRIFT",
+                        "来源表结构在读取期间发生变化；请重新发现来源并重新预览映射",
+                        "expectedSchemaFingerprint");
+            }
+        } catch (BindingFailure failure) {
+            if ("SOURCE_TABLE_NOT_FOUND".equals(failure.code)) {
+                throw fail(409, "BINDING_SCHEMA_DRIFT",
+                        "来源表在读取期间消失；请重新发现来源并重新预览映射",
+                        "expectedSchemaFingerprint");
+            }
+            throw failure;
+        }
+    }
+
     private List<Map<String, Object>> readRows(MappingContext context, int limit) {
         JdbcTemplate source = sourceJdbc();
         LinkedHashSet<String> columns = new LinkedHashSet<>();
         columns.add(contextSourceKey(context));
         context.mappings().forEach(m -> columns.add(m.sourceColumn()));
         String selected = String.join(", ", columns.stream().map(DataBindingService::qi).toList());
-        String sql = "SELECT " + selected + " FROM " + qt(context.source().table()) + " LIMIT " + limit;
+        String sql = "SELECT " + selected + " FROM " + qt(context.source().table())
+                + " ORDER BY " + qi(contextSourceKey(context)) + " LIMIT " + limit;
         try {
             return source.query(sql, (rs, rowNum) -> {
                 Map<String, Object> row = new LinkedHashMap<>();
@@ -676,14 +716,15 @@ public class DataBindingService {
         String data = column.dataType().toLowerCase(Locale.ROOT);
         String udt = column.udtName().toLowerCase(Locale.ROOT);
         return switch (type) {
-            case "STRING", "TEXT", "UUID" -> Set.of("text", "character varying", "character", "name").contains(data) || "uuid".equals(udt);
-            case "INTEGER", "INT", "LONG" -> Set.of("smallint", "integer", "bigint").contains(data);
-            case "DECIMAL", "NUMBER", "NUMERIC" -> Set.of("numeric", "decimal", "real", "double precision").contains(data);
+            case "STRING", "TEXT" -> Set.of("text", "character varying").contains(data);
+            case "UUID" -> Set.of("text", "character varying").contains(data) || "uuid".equals(udt);
+            case "INTEGER", "INT" -> Set.of("smallint", "integer").contains(data);
+            case "LONG" -> Set.of("smallint", "integer", "bigint").contains(data);
+            case "DECIMAL", "NUMBER", "NUMERIC" -> Set.of("numeric", "decimal").contains(data);
             case "BOOLEAN", "BOOL" -> "boolean".equals(data);
             case "DATETIME", "TIMESTAMP" -> "timestamp with time zone".equals(data);
-            case "ENUM" -> Set.of("text", "character varying", "character", "USER-DEFINED".toLowerCase(Locale.ROOT)).contains(data)
-                    && property.enumValues() != null && !property.enumValues().isEmpty()
-                    && !udt.equals("json") && !udt.equals("jsonb");
+            case "ENUM" -> Set.of("text", "character varying").contains(data)
+                    && property.enumValues() != null && !property.enumValues().isEmpty();
             default -> false;
         };
     }
