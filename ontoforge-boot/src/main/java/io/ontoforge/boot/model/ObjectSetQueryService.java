@@ -133,7 +133,7 @@ public class ObjectSetQueryService {
             TypeSourceRef typeSourceRef, String payloadSha256, String accessMode, List<BindingVersion> bindingVersions,
             VersionLock versionLock, SourceReadRef sourceReadRef, String queryDigest, String resultSnapshotRef,
             Instant expiresAt, Integer totalCount, Integer pageSize, Integer pageNumber, String nextCursor,
-            List<ObjectSetItem> items, AggregateResult aggregate, QualityEnvelope quality, BudgetEvidence budget) {}
+            List<ObjectSetItem> objects, AggregateResult aggregate, QualityEnvelope quality, BudgetEvidence budget) {}
     public record QueryFailureResult(String status, String executionId, String code, String message,
             String fieldPath, QualityEnvelope quality) {}
 
@@ -337,7 +337,7 @@ public class ObjectSetQueryService {
             return new QueryResult("SUCCESS", snapshot.executionId, snapshot.executedAt, "local-query-v1",
                     snapshot.typeSourceRef, snapshot.binding.payloadSha256(), snapshot.accessMode, snapshot.bindingVersions,
                     snapshot.versionLock, snapshot.sourceReadRef, snapshot.queryDigest, snapshot.resultSnapshotRef,
-                    snapshot.expiresAt, null, null, null, null, List.of(), snapshot.aggregate, snapshot.quality, snapshot.budget);
+                    snapshot.expiresAt, null, null, null, null, null, snapshot.aggregate, snapshot.quality, snapshot.budget);
         }
         if (offset < 0 || offset > snapshot.items.size() || offset % snapshot.pageSize != 0) {
             throw fail(400, "INVALID_CURSOR", "cursor 对应的页位置不合法", "cursor", errorExecutionId);
