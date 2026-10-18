@@ -93,7 +93,7 @@ P0 是**建模产品可用门槛**，P1 才是**工业业务价值开始成立�
 
 ## 3.3 M5–M14 需求 Review 与设计提案状态（2026-10-18）
 
- > 本轮已完成 M5–M14 的逐项 Issue Review。维护者已在 [PR #58](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6244833403) 接受 OFIP-0007，M5 正在 [PR #63](https://github.com/gitfortian/ontoforge/pull/63) 实施；OFIP-0008–OFIP-0016 仍保持 Discussion / Decision Pending / Implementation Not Started / Not Released。提案 Accepted、代码实现、真实环境验收与产品发布分别记账。
+> 本轮已完成 M5–M14 的逐项 Issue Review。维护者已在 [PR #58](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6244833403) 接受 OFIP-0007，M5 正在 [PR #63](https://github.com/gitfortian/ontoforge/pull/63) 实施；OFIP-0008–OFIP-0016 仍保持 Discussion / Decision Pending / Implementation Not Started / Not Released。提案 Accepted、代码实现、真实环境验收与产品发布分别记账。
 
 | M | Issue / 设计提案 | 设计收敛结果 | 当前边界与实施门槛 |
 | --- | --- | --- | --- |
