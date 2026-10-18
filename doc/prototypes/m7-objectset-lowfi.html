@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OntoForge M7 · ObjectSet 查询低保真原型</title>
+<style>
+:root{font-family:Inter,"Microsoft YaHei",Arial,sans-serif;color:#273543;background:#f3f5f7;--line:#d9e0e6;--muted:#697989;--navy:#263d52;--blue:#2e648e;--pale:#eaf1f6;--red:#a23d42;--green:#2c7152;--amber:#8c661b}
+*{box-sizing:border-box}body{margin:0;font-size:13px}button,input,select{font:inherit}button{cursor:pointer;border:1px solid #c9d3dc;border-radius:5px;background:#fff;color:#31495c;padding:8px 11px;min-height:34px}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #397cae;outline-offset:2px}button.primary{background:var(--navy);border-color:var(--navy);color:#fff}button:disabled{opacity:.45;cursor:not-allowed}input,select{width:100%;border:1px solid #cdd7df;border-radius:5px;background:white;padding:8px 9px;min-height:34px;color:#273543}label{display:block;font-size:11px;color:#526576;font-weight:650;margin-bottom:5px}small,.muted{color:var(--muted)}.top{height:56px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 22px;gap:14px}.brand{display:flex;align-items:center;gap:10px;font-weight:750}.mark{width:29px;height:29px;display:grid;place-items:center;border:1px solid #6b7d8c;border-radius:5px;color:var(--navy)}.top-right{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:11px}.layout{display:grid;grid-template-columns:205px minmax(0,1fr);min-height:calc(100vh - 56px)}aside{background:#fafbfc;border-right:1px solid var(--line);padding:22px 12px}.nav-label{padding:8px 10px;font-size:10px;letter-spacing:.1em;color:#7f8d99}.nav{padding:10px;border-radius:5px;margin:3px 0;color:#506171}.nav.active{background:#e7edf2;color:#233c52;font-weight:750}.nav.disabled{color:#a3adb5}.main{padding:24px clamp(16px,2.6vw,36px) 42px;max-width:1600px;width:100%;margin:0 auto}.crumb{font-size:11px;color:#738291;margin-bottom:12px}.heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}.heading h1{font-size:23px;margin:0 0 7px;font-weight:720;color:#263c50}.heading p{margin:0;line-height:1.65;color:var(--muted);max-width:730px}.heading-actions{display:flex;gap:8px;flex-wrap:wrap}.notice{display:flex;gap:10px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-left:4px solid #8b9caa;border-radius:5px;padding:10px 13px;margin-bottom:14px;font-size:11px;line-height:1.6}.notice strong{display:block;margin-bottom:2px}.pill{display:inline-block;border:1px solid #cdd7df;border-radius:4px;padding:3px 7px;background:#fafcfd;color:#53687a;font-size:10px;white-space:nowrap}.pill.blue{background:#edf4f8;border-color:#c5d8e5;color:#315e7b}.pill.green{background:#edf7f1;border-color:#c9e2d3;color:#2c7152}.pill.red{background:#fff0f0;border-color:#e7c4c4;color:#a23d42}.context{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}.context-card{background:#fff;border:1px solid var(--line);border-radius:6px;padding:11px 13px;min-width:0}.context-card span{display:block;color:#758594;font-size:10px;margin-bottom:5px}.context-card strong{display:block;font-size:12px;overflow-wrap:anywhere}.workspace{display:grid;grid-template-columns:minmax(380px,0.95fr) minmax(420px,1.05fr);gap:14px;align-items:start}.panel{background:#fff;border:1px solid var(--line);border-radius:6px;min-width:0;overflow:hidden}.panel-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:14px 15px;border-bottom:1px solid #e7edf1}.panel-head h2{font-size:14px;margin:0 0 4px;color:#2b4257}.panel-head p{margin:0;color:#778695;font-size:10px;line-height:1.5}.panel-body{padding:14px 15px}.section{margin-bottom:18px}.section:last-child{margin-bottom:0}.section-title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}.section-title h3{font-size:12px;margin:0;color:#354e62}.step-no{display:inline-grid;place-items:center;width:20px;height:20px;border:1px solid #b9c7d2;border-radius:4px;margin-right:7px;font-size:10px;color:#516a7d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{min-width:0}.field small{display:block;font-size:10px;line-height:1.5;margin-top:5px}.filters{display:grid;gap:8px}.filter-row{display:grid;grid-template-columns:1.1fr .9fr 1fr 32px;gap:7px;align-items:end;padding:9px;background:#f8fafb;border:1px solid #e2e8ed;border-radius:5px}.filter-row button{padding:6px;min-height:34px;color:#8b5555}.sort-row{display:grid;grid-template-columns:1.2fr 1fr;gap:10px;margin-bottom:8px}.checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.check{display:flex;align-items:flex-start;gap:7px;border:1px solid #e0e6eb;border-radius:5px;padding:8px;background:#fbfcfd;min-width:0}.check input{width:auto;min-height:auto;margin-top:2px}.check span{min-width:0}.check strong{display:block;font-size:11px;overflow-wrap:anywhere}.check small{display:block;font-size:10px;margin-top:3px}.mode-switch{display:flex;gap:0}.mode-switch button{border-radius:0}.mode-switch button:first-child{border-radius:5px 0 0 5px}.mode-switch button:last-child{border-radius:0 5px 5px 0}.mode-switch button[aria-pressed=true]{background:var(--pale);border-color:#a9c0d1;color:#254f6b;font-weight:750}.divider{height:1px;background:#e8edf1;margin:15px 0}.actions{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.actions-left,.actions-right{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.ast{background:#f7f9fa;border:1px solid #e0e6eb;border-radius:5px;padding:10px 11px}.ast-row{display:flex;gap:8px;align-items:flex-start;padding:5px 0;font-size:11px}.ast-row+.ast-row{border-top:1px dashed #e0e6eb}.ast-row strong{width:76px;flex:none;color:#526b7f}.ast-row span{line-height:1.55;overflow-wrap:anywhere}.result-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.result-toolbar p{margin:0;color:var(--muted);font-size:11px}.metric-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:13px}.metric{border:1px solid #e0e6eb;background:#fbfcfd;border-radius:5px;padding:10px}.metric span{display:block;font-size:10px;color:#7b8a97;margin-bottom:5px}.metric strong{font-size:17px;color:#2c4255}.metric small{display:block;font-size:10px;margin-top:4px}.table-wrap{overflow-x:auto;border:1px solid #e1e7ec;border-radius:5px}table{border-collapse:collapse;width:100%;min-width:470px;font-size:11px}th{background:#f4f7f9;color:#5b7082;text-align:left;font-weight:750}th,td{padding:10px 9px;border-bottom:1px solid #e8edf1;white-space:nowrap}tr:last-child td{border-bottom:0}td.mono{font-family:ui-monospace,Consolas,monospace;color:#405b70}.table-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}.page-actions{display:flex;gap:7px;align-items:center}.empty{border:1px dashed #cbd5dd;border-radius:5px;padding:34px 18px;text-align:center;color:#7b8b99;line-height:1.7}.empty strong{display:block;color:#53697b;font-size:13px;margin-bottom:5px}.error{border:1px solid #e5c5c5;border-radius:5px;background:#fff5f5;padding:13px;margin-bottom:12px;color:#8f393d}.error strong{display:block;font-size:12px;margin-bottom:5px}.error p{margin:0 0 8px;font-size:11px;line-height:1.6}.error small{color:#9b6262}.hidden{display:none!important}.quality{border-top:1px solid #e5ebef;margin-top:14px;padding-top:12px}.quality h3{font-size:11px;margin:0 0 8px;color:#506679}.quality-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.quality-item{background:#f8fafb;border:1px solid #e3e9ed;border-radius:4px;padding:8px}.quality-item span{display:block;color:#7b8b98;font-size:10px;margin-bottom:4px}.quality-item strong{font-size:11px}.footer-note{font-size:10px;color:#7c8a96;line-height:1.6;margin-top:15px}.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#9aabb8;margin-right:5px}
+@media(max-width:1080px){.workspace{grid-template-columns:1fr}.context{grid-template-columns:1fr 1fr}.layout{grid-template-columns:170px minmax(0,1fr)}aside{padding:18px 8px}.main{padding:20px 16px 34px}}
+@media(max-width:720px){.layout{display:block}aside{display:none}.top{padding:0 12px}.top-right .hide-small{display:none}.heading{display:block}.heading-actions{margin-top:12px}.context{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.filter-row{grid-template-columns:1fr 1fr}.filter-row .filter-value{grid-column:1/2}.filter-row button{grid-column:2/3;justify-self:end}.metric-grid{grid-template-columns:1fr}.quality-grid{grid-template-columns:1fr}.main{padding:16px 11px 28px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="mark">OF</span><span>OntoForge <small style="font-weight:400">砺元 · 本体工作台</small></span></div>
+  <div class="top-right"><span class="hide-small">当前项目</span><strong>制造运营模型</strong><span class="pill">UX-Low · 交互评审</span></div>
+</header>
+<div class="layout">
+  <aside>
+    <div class="nav-label">建模与运行</div>
+    <div class="nav">模型包与类型</div>
+    <div class="nav">数据绑定</div>
+    <div class="nav active">对象集合查询</div>
+    <div class="nav disabled">关系遍历 · M8</div>
+    <div class="nav disabled">规则与 Action</div>
+    <div class="nav-label" style="margin-top:22px">本页目标</div>
+    <div class="muted" style="padding:0 10px;font-size:11px;line-height:1.7">把类型化查询条件转为受控 AST，并在一个执行中冻结有界结果。</div>
+  </aside>
+  <main class="main">
+    <div class="crumb">建模与运行 / 对象集合查询 / 设计原型</div>
+    <div class="heading">
+      <div><h1>对象集合查询</h1><p>基于已定义的 ObjectType 和精确 Binding revision，完成筛选、排序、选择列、分页或聚合。查询仅访问登记来源；不开放自由 SQL。</p></div>
+      <div class="heading-actions"><span class="pill blue">local-query-v1 · 候选合同</span><span class="pill">只读执行</span></div>
+    </div>
+    <div class="notice"><div>ⓘ</div><div><strong>当前是静态交互原型，不调用后端 API。</strong>右侧结果是合成样例，用于评审用户流程与错误恢复；不代表 M7 运行时已经实现。</div></div>
+    <section class="context">
+      <div class="context-card"><span>ObjectType / Snapshot</span><strong>Supplier · snapshot-local-021</strong></div>
+      <div class="context-card"><span>Data Binding</span><strong id="binding-context">binding-20 · revision 1</strong></div>
+      <div class="context-card"><span>访问方式 / 权限</span><strong>LOCAL_ISOLATED · 当前工作区</strong></div>
+    </section>
+    <div class="workspace">
+      <section class="panel">
+        <div class="panel-head"><div><h2>查询设计</h2><p>按顺序配置语义步骤；系统会验证字段类型、操作符与查询预算。</p></div><span class="pill">设计区</span></div>
+        <div class="panel-body">
+          <div class="section">
+            <div class="section-title"><h3><span class="step-no">1</span>查询对象与版本</h3><span class="pill">必填</span></div>
+            <div class="grid2">
+              <div class="field"><label for="object-type">对象类型</label><select id="object-type"><option value="supplier">Supplier · 供应商（当前原型示例）</option><option value="work-order" disabled>WorkOrder · 后续范围（当前不可选）</option></select></div>
+              <div class="field"><label for="binding-revision">绑定版本</label><select id="binding-revision"><option value="1">binding-20 / revision 1</option><option value="2">binding-20 / revision 2</option></select></div>
+            </div>
+            <small>类型与绑定来源必须一致；版本由服务端复核，不能用“最新”替代明确修订。</small>
+          </div>
+          <div class="divider"></div>
+          <div class="section">
+            <div class="section-title"><h3><span class="step-no">2</span>筛选条件</h3><button id="add-filter" type="button">＋ 添加条件</button></div>
+            <div class="filters" id="filters">
+              <div class="filter-row" data-filter-row>
+                <div><label for="filter-property-0">属性</label><select id="filter-property-0" data-property><option value="rating" data-type="DECIMAL">rating · 评级</option><option value="active" data-type="BOOLEAN">active · 启用</option><option value="category" data-type="ENUM">category · 类别</option><option value="name" data-type="STRING">name · 名称</option><option value="annualSpend" data-type="DECIMAL">annualSpend · 年采购额</option></select></div>
+                <div><label for="filter-op-0">操作符</label><select id="filter-op-0" data-operator><option value="GT">大于</option><option value="EQ">等于</option><option value="IN">属于集合</option><option value="PREFIX">前缀匹配</option><option value="IS_NULL">为空</option></select></div>
+                <div class="filter-value"><label for="filter-value-0">值</label><input id="filter-value-0" data-value value="4.0" autocomplete="off"></div>
+                <button type="button" data-remove aria-label="删除条件" title="删除条件">×</button>
+              </div>
+              <div class="filter-row" data-filter-row>
+                <div><label for="filter-property-1">属性</label><select id="filter-property-1" data-property><option value="active" data-type="BOOLEAN">active · 启用</option><option value="rating" data-type="DECIMAL">rating · 评级</option><option value="category" data-type="ENUM">category · 类别</option><option value="name" data-type="STRING">name · 名称</option><option value="annualSpend" data-type="DECIMAL">annualSpend · 年采购额</option></select></div>
+                <div><label for="filter-op-1">操作符</label><select id="filter-op-1" data-operator><option value="EQ">等于</option><option value="GT">大于</option><option value="IN">属于集合</option><option value="PREFIX">前缀匹配</option><option value="IS_NULL">为空</option></select></div>
+                <div class="filter-value"><label for="filter-value-1">值</label><input id="filter-value-1" data-value value="true" autocomplete="off"></div>
+                <button type="button" data-remove aria-label="删除条件" title="删除条件">×</button>
+              </div>
+            </div>
+            <small>首版最多 8 个 AND 条件；操作符按字段类型限制。NULL/MISSING 不作为空字符串或 0 参与比较。</small>
+          </div>
+          <div class="divider"></div>
+          <div class="section">
+            <div class="section-title"><h3><span class="step-no">3</span>排序与稳定顺序</h3><span class="pill">最多 3 项</span></div>
+            <div class="sort-row"><div class="field"><label for="sort-property">排序字段</label><select id="sort-property"><option value="rating">rating · 评级</option><option value="annualSpend">annualSpend · 年采购额</option><option value="name">name · 名称</option><option value="supplierCode">supplierCode · 对象键</option></select></div><div class="field"><label for="sort-direction">顺序</label><select id="sort-direction"><option value="DESC">降序</option><option value="ASC">升序</option></select></div></div>
+            <small>系统自动补充 ObjectRef 稳定平局排序；NULLS LAST。不是依赖数据库默认顺序。</small>
+          </div>
+          <div class="divider"></div>
+          <div class="section">
+            <div class="section-title"><h3><span class="step-no">4</span>结果列</h3><span class="pill">最多 100 项</span></div>
+            <div class="checks" id="project-fields">
+              <label class="check"><input type="checkbox" value="supplierCode" checked><span><strong>supplierCode</strong><small>STRING · 对象键</small></span></label>
+              <label class="check"><input type="checkbox" value="name" checked><span><strong>name</strong><small>STRING · 供应商名称</small></span></label>
+              <label class="check"><input type="checkbox" value="rating" checked><span><strong>rating</strong><small>DECIMAL · 评级</small></span></label>
+              <label class="check"><input type="checkbox" value="active"><span><strong>active</strong><small>BOOLEAN · 启用状态</small></span></label>
+              <label class="check"><input type="checkbox" value="category"><span><strong>category</strong><small>ENUM · 类别</small></span></label>
+              <label class="check"><input type="checkbox" value="annualSpend"><span><strong>annualSpend</strong><small>DECIMAL · 年采购额</small></span></label>
+            </div>
+            <small>过滤/排序使用的属性可参与执行校验，但不必出现在结果列中；ObjectRef 与来源证据始终保留。</small>
+          </div>
+          <div class="divider"></div>
+          <div class="section">
+            <div class="section-title"><h3><span class="step-no">5</span>返回方式</h3><div class="mode-switch"><button id="mode-page" type="button" aria-pressed="true">分页结果</button><button id="mode-aggregate" type="button" aria-pressed="false">聚合统计</button></div></div>
+            <div id="page-options" class="grid2">
+              <div class="field"><label for="page-size">每页数量</label><select id="page-size"><option value="3" selected>3 条（演示）</option><option value="5">5 条（演示）</option><option value="10">10 条</option><option value="20">20 条</option><option value="50">50 条</option></select></div>
+              <div class="field"><label>分页语义</label><div class="ast"><div class="ast-row"><strong>一次执行</strong><span>冻结完整有界结果</span></div><div class="ast-row"><strong>游标</strong><span>仅定位结果页，不授予访问权限</span></div></div></div>
+            </div>
+            <div id="aggregate-options" class="grid2 hidden">
+              <div class="field"><label for="aggregate-op">统计方式</label><select id="aggregate-op"><option value="COUNT_DISTINCT">COUNT_DISTINCT · 不同对象数</option><option value="SUM">SUM · 求和</option></select></div>
+              <div class="field"><label for="aggregate-property">统计字段</label><select id="aggregate-property"><option value="annualSpend">annualSpend · DECIMAL</option><option value="rating">rating · DECIMAL</option></select><small>COUNT_DISTINCT 以 ObjectRef 去重；SUM 只接受 INTEGER/DECIMAL。</small></div>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="section">
+            <div class="section-title"><h3>原型故障场景</h3><span class="pill">模拟状态</span></div>
+            <div class="field"><label for="scenario">执行/翻页时遇到</label><select id="scenario">
+              <option value="success">正常执行</option>
+              <option value="invalid">不支持的操作符 / AST 顺序错误</option>
+              <option value="budget">超过查询预算</option>
+              <option value="unavailable">来源断线或权限撤销</option>
+              <option value="drift">来源结构漂移</option>
+              <option value="expired">游标/结果快照过期</option>
+              <option value="page-revoked">执行后、翻页前来源权限被撤销</option>
+            </select></div>
+            <small>故障必须失败关闭：没有 objects、aggregate 或 totalCount 的伪成功载荷。</small>
+          </div>
+          <div class="actions"><div class="actions-left"><button id="reset" type="button">重置</button><span class="muted" style="font-size:10px">最多 10,000 对象 · 3 秒 · 8 MiB</span></div><div class="actions-right"><button id="execute" class="primary" type="button">执行查询</button></div></div>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><div><h2>执行结果与证据</h2><p>结果快照与执行证据分开展示；不把来源结构指纹称为数据新鲜度。</p></div><span id="result-status" class="pill">未执行</span></div>
+        <div class="panel-body">
+          <div id="result-empty" class="empty"><strong>等待执行</strong>配置查询条件后执行。系统将先校验类型与预算，成功后才生成有界结果快照。</div>
+          <div id="error-result" class="error hidden" role="alert"><strong id="error-title">查询未完成</strong><p id="error-message"></p><small id="error-code"></small></div>
+          <div id="result-success" class="hidden">
+            <div class="result-toolbar"><p id="result-caption">已冻结的结果快照</p><span id="snapshot-status" class="pill green">SUCCESS</span></div>
+            <div class="metric-grid">
+              <div class="metric"><span>不同对象数</span><strong id="metric-count">3</strong><small>精确计数 · 请求范围内</small></div>
+              <div class="metric"><span>当前页</span><strong id="metric-page">1 / 2</strong><small>同一执行结果</small></div>
+              <div class="metric"><span>结果快照 TTL</span><strong id="metric-ttl">05:00</strong><small>进程重启后需重新执行</small></div>
+            </div>
+            <div id="objects-table" class="table-wrap">
+              <table><thead><tr id="result-headers"><th>supplierCode</th><th>name</th><th>rating</th></tr></thead><tbody id="result-rows"></tbody></table>
+            </div>
+            <div id="aggregate-result" class="hidden">
+              <div class="metric"><span id="aggregate-label">COUNT_DISTINCT(ObjectRef)</span><strong id="aggregate-value">3</strong><small>聚合来自完整预算内执行，不是截断样本</small></div>
+            </div>
+            <div class="table-foot" id="page-footer"><span id="page-note" class="muted">第 1 页 · 冻结结果</span><div class="page-actions"><button id="previous" type="button" disabled>上一页</button><button id="next" type="button">下一页</button></div></div>
+            <div class="quality"><h3>查询合同与证据</h3><div class="ast" id="query-ast">
+              <div class="ast-row"><strong>步骤</strong><span>Filter → Sort → Project → Page</span></div>
+              <div class="ast-row"><strong>versionLock</strong><span>snapshot-local-021 · binding-20 / revision 1</span></div>
+              <div class="ast-row"><strong>resultSnapshot</strong><span>result-local-001 · expires in 5 minutes</span></div>
+            </div><div class="quality-grid" style="margin-top:8px">
+              <div class="quality-item"><span>accuracy / completeness</span><strong>EXACT / COMPLETE</strong></div>
+              <div class="quality-item"><span>freshness / checkpoint</span><strong>UNKNOWN / UNKNOWN</strong></div>
+              <div class="quality-item"><span>sourceReadRef</span><strong>source-read-local-001</strong></div>
+              <div class="quality-item"><span>访问模式</span><strong>LOCAL_ISOLATED</strong></div>
+            </div></div>
+          </div>
+          <div class="footer-note">预算边界是服务端上限，不允许客户端要求无限查询。成功的“空集合”与来源故障、权限撤销、结构漂移、超时、预算失败必须是不同状态。</div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  let page=1, hasResult=false, lastMode="page";
+  const sampleRows=[
+    {supplierCode:"SUP-1001",name:"Northwind Components",rating:"4.75",active:"true",category:"ELECTRONICS",annualSpend:"128400.00"},
+    {supplierCode:"SUP-1003",name:"Forge Works",rating:"4.30",active:"true",category:"METAL",annualSpend:"84200.00"},
+    {supplierCode:"SUP-1005",name:"Metro Parts",rating:"4.10",active:"true",category:"HARDWARE",annualSpend:"56300.00"},
+    {supplierCode:"SUP-1007",name:"Delta Logistics",rating:"3.80",active:"false",category:"LOGISTICS",annualSpend:"44200.00"},
+    {supplierCode:"SUP-1008",name:"Atlas Components",rating:"4.60",active:"true",category:"ELECTRONICS",annualSpend:"96300.00"},
+    {supplierCode:"SUP-1009",name:"Riverbend Metals",rating:"4.20",active:"true",category:"METAL",annualSpend:"71100.00"},
+    {supplierCode:"SUP-1010",name:"Pacific Fasteners",rating:"4.55",active:"true",category:"HARDWARE",annualSpend:"136500.00"},
+    {supplierCode:"SUP-1011",name:"Summit Supply",rating:"4.05",active:"true",category:"METAL",annualSpend:"58900.00"},
+    {supplierCode:"SUP-1012",name:"Evergreen Parts",rating:"4.65",active:"true",category:"ELECTRONICS",annualSpend:"109800.00"},
+    {supplierCode:"SUP-1013",name:"Harbor Logistics",rating:"3.95",active:"true",category:"LOGISTICS",annualSpend:"73500.00"},
+    {supplierCode:"SUP-1014",name:"Cobalt Components",rating:"4.25",active:"true",category:"HARDWARE",annualSpend:"62500.00"},
+    {supplierCode:"SUP-1015",name:"Pioneer Metals",rating:"4.50",active:"true",category:"METAL",annualSpend:"119400.00"},
+    {supplierCode:"SUP-1016",name:"Rating Not Provided",rating:null,active:"true",category:"HARDWARE",annualSpend:"1200.00"}
+  ];
+  const propertyTypes={rating:"DECIMAL",active:"BOOLEAN",category:"ENUM",name:"STRING",annualSpend:"DECIMAL",supplierCode:"STRING"};
+  function setMode(mode){
+    const changed=lastMode!==mode;
+    lastMode=mode;
+    $("mode-page").setAttribute("aria-pressed",String(mode==="page"));
+    $("mode-aggregate").setAttribute("aria-pressed",String(mode==="aggregate"));
+    $("page-options").classList.toggle("hidden",mode!=="page");
+    $("aggregate-options").classList.toggle("hidden",mode!=="aggregate");
+    $("page-footer").classList.toggle("hidden",mode!=="page");
+    $("objects-table").classList.toggle("hidden",mode!=="page");
+    if(changed) invalidateResult();
+  }
+  function getMatchingRows(){
+    const rows=sampleRows.filter(row=>currentFilters().every(filter=>{
+      const value=row[filter.property], wanted=filter.value, type=propertyTypes[filter.property];
+      if(filter.operator==="IS_NULL")return value===null||value===undefined;
+      if(value===null||value===undefined)return false;
+      if(filter.operator==="EQ")return type==="INTEGER"||type==="DECIMAL"?Number(value)===Number(wanted):String(value)===wanted;
+      if(filter.operator==="IN")return wanted.split(",").map(part=>part.trim()).includes(String(value));
+      if(filter.operator==="PREFIX")return type==="STRING"&&String(value).startsWith(wanted);
+      if(["GT","GTE","LT","LTE"].includes(filter.operator)){
+        if(!["INTEGER","DECIMAL","DATETIME"].includes(type))return false;
+        const left=type==="DATETIME"?Date.parse(value):Number(value);
+        const right=type==="DATETIME"?Date.parse(wanted):Number(wanted);
+        if(!Number.isFinite(left)||!Number.isFinite(right))return false;
+        if(filter.operator==="GT")return left>right;
+        if(filter.operator==="GTE")return left>=right;
+        if(filter.operator==="LT")return left<right;
+        return left<=right;
+      }
+      return false;
+    }));
+    const key=$("sort-property").value, direction=$("sort-direction").value;
+    rows.sort((a,b)=>{
+      const left=a[key],right=b[key],type=propertyTypes[key];
+      let comparison=0;
+      const nullComparison = left==null || right==null;
+      if(left==null&&right!=null)comparison=1;
+      else if(left!=null&&right==null)comparison=-1;
+      else if(left!=null&&right!=null){
+        if(type==="INTEGER"||type==="DECIMAL")comparison=Number(left)-Number(right);
+        else comparison=String(left)<String(right)?-1:String(left)>String(right)?1:0;
+      }
+      // NULLS LAST is invariant under ASC/DESC; only non-null value order reverses.
+      if(comparison!==0)return nullComparison?comparison:(direction==="ASC"?comparison:-comparison);
+      return String(a.supplierCode)<String(b.supplierCode)?-1:String(a.supplierCode)>String(b.supplierCode)?1:0;
+    });
+    return rows;
+  }
+  function pageCount(){return Math.max(1,Math.ceil(getMatchingRows().length/Math.max(1,Number($("page-size").value)||1)));}
+  function currentFilters(){return [...document.querySelectorAll("[data-filter-row]")].map(row=>({
+    property:row.querySelector("[data-property]").value,
+    operator:row.querySelector("[data-operator]").value,
+    value:row.querySelector("[data-value]").value.trim()
+  }));}
+  function renderAst(){
+    const filters=currentFilters().map(f=>f.property+" "+f.operator+" "+(f.operator==="IS_NULL"?"":f.value)).join(" AND ")||"无筛选";
+    const project=[...document.querySelectorAll("#project-fields input:checked")].map(x=>x.value);
+    const mode=lastMode==="page"?"Filter → Sort → Project → Page":"Filter → Aggregate";
+    $("query-ast").innerHTML='<div class="ast-row"><strong>步骤</strong><span>'+mode+'</span></div>'
+      +'<div class="ast-row"><strong>Filter</strong><span>'+escapeHtml(filters)+'</span></div>'
+      +'<div class="ast-row"><strong>Sort</strong><span>'+escapeHtml($("sort-property").value)+' '+escapeHtml($("sort-direction").value)+' + ObjectRef</span></div>'
+      +'<div class="ast-row"><strong>Project</strong><span>'+escapeHtml(project.join(", ")||"仅 ObjectRef 与证据")+'</span></div>'
+      +'<div class="ast-row"><strong>versionLock</strong><span>snapshot-local-021 · binding-20 / revision '+escapeHtml($("binding-revision").value)+'</span></div>'
+      +'<div class="ast-row"><strong>resultSnapshot</strong><span>result-local-001 · TTL 5 min</span></div>';
+  }
+  function escapeHtml(value){return String(value).replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));}
+  function clearResult(){
+    hasResult=false;page=1;
+    $("result-empty").classList.remove("hidden");$("error-result").classList.add("hidden");$("result-success").classList.add("hidden");
+    $("result-status").textContent="未执行";$("result-status").className="pill";
+  }
+  function fail(code,status,title,message){
+    hasResult=false;
+    $("result-empty").classList.add("hidden");$("result-success").classList.add("hidden");$("error-result").classList.remove("hidden");
+    $("result-status").textContent=status;$("result-status").className="pill red";
+    $("error-title").textContent=title;$("error-message").textContent=message;$("error-code").textContent=code;
+  }
+  function renderRows(){
+    const project=[...document.querySelectorAll("#project-fields input:checked")].map(x=>x.value);
+    const columns=["supplierCode","name","rating","active","category","annualSpend"].filter(x=>project.includes(x));
+    $("result-headers").innerHTML=columns.map(x=>"<th>"+escapeHtml(x)+"</th>").join("");
+    const size=Math.max(1,Number($("page-size").value)||1);
+    const matched=getMatchingRows();
+    const start=(page-1)*size;
+    const pageRows=matched.slice(start,start+size);
+    $("result-rows").innerHTML=pageRows.length?pageRows.map(row=>"<tr>"+columns.map(col=>"<td class='"+(col==="supplierCode"?"mono":"")+"'>"+escapeHtml(row[col])+"</td>").join("")+"</tr>").join(""):"<tr><td colspan='"+Math.max(1,columns.length)+"'>没有符合条件的对象</td></tr>";
+  }
+  function renderSuccess(){
+    hasResult=true;
+    $("result-empty").classList.add("hidden");$("error-result").classList.add("hidden");$("result-success").classList.remove("hidden");
+    $("result-status").textContent="SUCCESS";$("result-status").className="pill green";
+    $("snapshot-status").textContent="SUCCESS";$("metric-count").textContent=String(getMatchingRows().length);
+    $("metric-page").textContent=lastMode==="page"?page+" / "+pageCount():"聚合";
+    $("metric-ttl").textContent="05:00";
+    $("aggregate-result").classList.toggle("hidden",lastMode!=="aggregate");
+    $("objects-table").classList.toggle("hidden",lastMode!=="page");
+    $("page-footer").classList.toggle("hidden",lastMode!=="page");
+    $("aggregate-label").textContent=$("aggregate-op").value==="COUNT_DISTINCT"?"COUNT_DISTINCT(ObjectRef)":"SUM("+$("aggregate-property").value+")";
+    const matched=getMatchingRows();
+    const aggregateProperty=$("aggregate-property").value;
+    const totalCents=matched.reduce((sum,row)=>sum+BigInt(String(row[aggregateProperty]).replace(".","")),0n);
+    const totalSpend=(totalCents/100n).toString()+"."+(totalCents%100n).toString().padStart(2,"0");
+    $("aggregate-value").textContent=$("aggregate-op").value==="COUNT_DISTINCT"?String(matched.length):totalSpend;
+    $("result-caption").textContent=lastMode==="page"?"已冻结的结果快照":"完整范围聚合结果";
+    $("previous").disabled=page===1;$("next").disabled=page>=pageCount();
+    $("page-note").textContent="第 "+page+" 页 / 共 "+pageCount()+" 页 · 同一 resultSnapshotRef";
+    renderRows();renderAst();
+  }
+  function execute(){
+    const scenario=$("scenario").value;
+    const filters=currentFilters();
+    const invalid=filters.some(f=>{
+      const type=propertyTypes[f.property];
+      if(f.operator==="PREFIX")return type!=="STRING";
+      if(["GT","GTE","LT","LTE"].includes(f.operator))return !["INTEGER","DECIMAL","DATETIME"].includes(type);
+      if(f.operator==="IS_NULL")return false;
+      if(f.operator==="IN")return !f.value;
+      if(f.operator==="EQ")return !f.value;
+      return true;
+    });
+    if(scenario==="invalid"||invalid){fail("422 INVALID_QUERY_AST / UNSUPPORTED_QUERY_OPERATOR","未执行","查询合同不合法","字段类型与操作符不匹配；修正条件后重新执行。没有生成结果快照。");return;}
+    if(scenario==="budget"){fail("429 QUERY_BUDGET_EXCEEDED","未执行","查询超过服务端预算","本次查询超出行数、执行时限或结果大小上限；未返回部分数据或精确计数。请缩小筛选范围后重试。");return;}
+    if(scenario==="unavailable"){fail("503 SOURCE_UNAVAILABLE","未执行","来源不可用或权限被撤销","当前不能确认查询结果；这不是空集合。检查来源连接和只读权限后重新执行。");return;}
+    if(scenario==="drift"){fail("409 BINDING_SCHEMA_DRIFT","未执行","来源结构已变化","来源结构与绑定版本不一致；返回数据绑定重新核验。未发布部分结果。");return;}
+    if(scenario==="expired"){fail("410 RESULT_EXPIRED","已失效","结果快照已过期","该游标不能重建旧结果。请重新执行完整查询以生成新的结果快照。");return;}
+    page=1;renderSuccess();
+  }
+  function addFilter(){
+    const rows=[...document.querySelectorAll("[data-filter-row]")];
+    if(rows.length>=8){return;}
+    const n=rows.length;
+    const row=document.createElement("div");row.className="filter-row";row.setAttribute("data-filter-row","");
+    row.innerHTML='<div><label for="filter-property-'+n+'">属性</label><select id="filter-property-'+n+'" data-property><option value="rating">rating · 评级</option><option value="active">active · 启用</option><option value="category">category · 类别</option><option value="name">name · 名称</option><option value="annualSpend">annualSpend · 年采购额</option></select></div><div><label for="filter-op-'+n+'">操作符</label><select id="filter-op-'+n+'" data-operator><option value="EQ">等于</option><option value="GT">大于</option><option value="IN">属于集合</option><option value="PREFIX">前缀匹配</option><option value="IS_NULL">为空</option></select></div><div class="filter-value"><label for="filter-value-'+n+'">值</label><input id="filter-value-'+n+'" data-value value="" autocomplete="off"></div><button type="button" data-remove aria-label="删除条件" title="删除条件">×</button>';
+    $("filters").appendChild(row);renderAst();
+  }
+  $("add-filter").addEventListener("click",addFilter);
+  $("filters").addEventListener("click",e=>{const button=e.target.closest("[data-remove]");if(button){button.closest("[data-filter-row]").remove();renderAst();}});
+  $("mode-page").addEventListener("click",()=>setMode("page"));
+  $("mode-aggregate").addEventListener("click",()=>setMode("aggregate"));
+  $("execute").addEventListener("click",execute);
+  $("next").addEventListener("click",()=>{
+    if(!hasResult)return;
+    if($("scenario").value==="page-revoked"){fail("503 SOURCE_UNAVAILABLE","翻页已拒绝","来源访问权限已撤销","当前权限或来源可用性复核失败；不返回下一页，不把旧游标当成授权。请恢复访问后重新执行。");return;}
+    if($("scenario").value==="expired"){fail("410 RESULT_EXPIRED","已失效","结果快照已过期","请重新执行完整查询。");return;}
+    if(page<pageCount()){page++;renderSuccess();}
+  });
+  $("previous").addEventListener("click",()=>{if(hasResult&&page>1){page--;renderSuccess();}});
+  $("reset").addEventListener("click",()=>{
+    $("filters").innerHTML='';
+    addFilter();addFilter();
+    const selects=$("filters").querySelectorAll("[data-property]");
+    selects[0].value="rating";selects[1].value="active";
+    const ops=$("filters").querySelectorAll("[data-operator]");
+    ops[0].value="GT";ops[1].value="EQ";
+    const vals=$("filters").querySelectorAll("[data-value]");
+    vals[0].value="4.0";vals[1].value="true";
+    $("sort-property").value="rating";$("sort-direction").value="DESC";$("binding-revision").value="1";$("binding-context").textContent="binding-20 · revision 1";
+    document.querySelectorAll("#project-fields input").forEach(x=>x.checked=["supplierCode","name","rating"].includes(x.value));
+    $("scenario").value="success";$("aggregate-op").value="COUNT_DISTINCT";$("aggregate-property").value="annualSpend";$("page-size").value="10";
+    setMode("page");clearResult();renderAst();
+  });
+  function invalidateResult(){
+    if(!hasResult)return;
+    clearResult();
+    $("result-status").textContent="需重新执行";
+    $("result-empty").innerHTML="<strong>查询条件已变更</strong>当前结果不再对应编辑中的查询，请重新执行后生成新的结果快照。";
+  }
+  ["binding-revision","sort-property","sort-direction","aggregate-op","aggregate-property","page-size"].forEach(id=>$(id).addEventListener("change",()=>{invalidateResult();if(id==="binding-revision")$("binding-context").textContent="binding-20 · revision "+$("binding-revision").value;page=1;renderAst();}));
+  $("project-fields").addEventListener("change",()=>{invalidateResult();renderAst();});
+  $("filters").addEventListener("change",()=>{invalidateResult();renderAst();});
+  $("filters").addEventListener("input",()=>{invalidateResult();renderAst();});
+  renderAst();
+})();
+</script>
+</body>
+</html>

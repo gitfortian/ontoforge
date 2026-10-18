@@ -12,7 +12,22 @@
 
 **Related:** [M7 #46](https://github.com/gitfortian/ontoforge/issues/46) · [M3 #39](https://github.com/gitfortian/ontoforge/issues/39) · [OFIP-0007](./OFIP-0007-M5-通用DataBinding.md) · [OFIP-0008](./OFIP-0008-M6-通用ObjectRuntime.md) · [OFIP-0001](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2 候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md)
 
-> 2026-10-18 基于 main `6968ea0804f57b2b82f237e37f812bcadb32f343` 的设计候选。通用查询仍未实施；现有 M2/M3 的真实受限查询继续有效，不能把本提案当成重做全部查询的授权。
+> 2026-10-18 基于 main `29cb194a706ee1785c0f40ef6ddf982493205383` 重新核对的设计候选。M6 PR #68/#71 已合并并通过合并后 S0/Required Quality；这更新了 M7 前置状态，不改变本提案 Decision Pending、Implementation Not Started 的状态。通用查询仍未实施；现有 M2/M3 的真实受限查询继续有效，不能把本提案当成重做全部查询的授权。
+
+## Re-review after M6 implementation (2026-10-18)
+
+M6 的有界 Object Runtime 已通过 [PR #68](https://github.com/gitfortian/ontoforge/pull/68) 合并；来源撤权与结构漂移的失败语义通过 [PR #71](https://github.com/gitfortian/ontoforge/pull/71) 合并。合并后 main 的 [S0 CI](https://github.com/gitfortian/ontoforge/actions/runs/39107566534) 与 [Required Quality Gate](https://github.com/gitfortian/ontoforge/actions/runs/39107566591) 均 PASS。以下是基于真实 M6 API/实现边界的 M7 设计约束；这不是 OFIP 接受投票，也不授权生产实现。
+
+1. **M6 是点读，不是集合读取。** `POST /api/runtime/objects/read` 接受一个规范键；M7 必须设计有界 bulk source execution，不得对每个对象循环调用 M6 点读端点，也不能继续把 M3 固定制造类型 switch 扩成通用查询。
+2. **完整查询属性范围与输出投影分离。** M7 必须对 `primaryKey ∪ filter ∪ sort ∪ aggregate ∪ project` 中所有被使用的属性执行类型转换与冲突核验；只向调用方输出 Project 选中的属性。不能先过滤重复物理行再检查冲突，否则筛选条件可能把冲突隐藏。
+3. **预算必须是整次查询的独立上限。** 候选固定上限为物理行/去重对象各 10,000、来源扫描字节总量 8 MiB、执行 3 秒、冻结结果序列化大小 8 MiB、单页 1–50、AST 最多 16 节点。数据库端需在向 JVM 物化字段前核验整次来源扫描预算；M6 的单对象 8 MiB 预算不能乘以对象数。
+4. **结果快照不是源数据历史快照。** 首版只承诺同一执行的有界结果成员稳定；不承诺跨请求持有 PG MVCC snapshot，也不把 source schema fingerprint 当成数据 freshness。无可信业务水位时 `freshness/checkpoint=UNKNOWN`。
+5. **每页仍须复核权限与来源。** 游标/结果快照不授予访问权限；每页检查当前包权限、Binding/类型版本可用性、来源 schema 与只读访问。来源撤权/断线返回 503、结构漂移返回 409、结果过期返回 410，失败不输出对象/聚合载荷。
+6. **执行合同复用 M6 语义。** ObjectRef、精确 INTEGER/DECIMAL 字符串、`PRESENT/NULL/MISSING`、冲突失败关闭与不捏造 freshness 继续保持一致；M7 的 QueryResult 是新合同，不冒充 Native V0.2 的正式 Release/Index/Authorization refs。
+
+### UX-Low prototype candidate
+
+[M7 UX-Low review note](../implementation/M7-ObjectSet-UX-Low评审说明.md) 和 [static prototype](../prototypes/m7-objectset-lowfi.html) 用于验证用户流程与失败恢复。它们只作为原型，不证明查询运行时已实现。UX-Low 尚待产品所有者签收；随后需 UX-High 独立评审。OFIP-0009 仍需维护者显式 `[VOTE] Accepted` 后才允许生产实现。
 
 ## Motivation
 
@@ -92,7 +107,7 @@ SUM 按 ObjectRef 计算一次；空集合返回准确0，含 NULL/MISSING 的�
 
 ### 2. 稳定分页与预算
 
-候选固定上限：一次执行源物理行总数和去重对象总数分别最多10,000、3秒、输出8MiB、单页50，AST至多16节点；客户端只能下调。超任何预算都失败，不签发cursor、不返回“精确部分计数”。先完成预算内完整执行，再物化有界结果；不长期保持数据库事务或 MVCC snapshot 跨请求。
+候选固定上限：一次执行来源物理行数与去重对象数分别最多10,000、来源扫描总量8 MiB、3秒、冻结结果序列化大小8 MiB、单页50，AST至多16节点；客户端只能下调。超任何预算都失败，不签发cursor、不返回“精确部分计数”。先完成预算内完整执行，再物化有界结果；不长期保持数据库事务或 MVCC snapshot 跨请求。
 
 结果快照候选 TTL 5分钟，每进程至多10份且总大小不超过80MiB，超配额拒绝新执行，过期清理；实施压测后可经评审调整。快照可为内存资源，重启后410明确失效，不承诺持久历史/离线浏览。
 
