@@ -92,7 +92,7 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
       setFilters(first?[{id:1,propertyRef:first.id,operator:operatorsFor(first.valueType)[0],value:''}]:[]);
       setSorts(primary?[{id:1,propertyRef:primary.id,direction:'ASC'}]:[]);
       setProject(type.properties.filter(p=>loaded.fieldMappings.some(m=>m.propertyRef===p.id)).map(p=>p.id));
-      setAggregateProperty(type.properties.find(p=>['INTEGER','DECIMAL'].includes(canonicalType(p.valueType)))?.id||'');
+      setAggregateProperty(type.properties.find(p=>mappedPropertyRefs.has(p.id)&&['INTEGER','DECIMAL'].includes(canonicalType(p.valueType)))?.id||'');
       setMode('PAGE');
     }catch(e){setError(e as ApiError);}
     finally{setBusy(false);}
