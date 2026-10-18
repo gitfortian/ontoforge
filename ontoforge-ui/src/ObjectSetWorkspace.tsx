@@ -83,7 +83,9 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
       const type=await request<TypeDescriptor>('/api/model/type-sources/snapshots/'+encodeURIComponent(loaded.snapshotId)+'/types/'+encodeURIComponent(loaded.objectTypeId));
       if(type.packageId!==loaded.packageId||type.objectTypeId!==loaded.objectTypeId||type.payloadSha256!==loaded.payloadSha256)throw {code:'BINDING_SNAPSHOT_MISMATCH',message:'Binding 与不可变 Snapshot 的类型摘要不一致。'} as ApiError;
       setBinding(loaded);setDescriptor(type);setPackageInput(loaded.packageId);
-      const first=type.properties.find(p=>p.searchable)||type.properties[0];
+      // Filters must target explicitly searchable properties. Do not silently
+      // initialize an unsearchable property that cannot appear in the selector.
+      const first=type.properties.find(p=>p.searchable);
       const primary=type.properties.find(p=>p.id===type.primaryKeyRef);
       setFilters(first?[{id:1,propertyRef:first.id,operator:operatorsFor(first.valueType)[0],value:''}]:[]);
       setSorts(primary?[{id:1,propertyRef:primary.id,direction:'ASC'}]:[]);
@@ -194,6 +196,7 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
           <header className="model-panel-head"><div><h2>查询设计</h2><p>配置执行条件与结果范围</p></div><Filter size={17}/></header>
           <div className="object-set-mode"><button className={mode==='PAGE'?'active':''} onClick={()=>{setMode('PAGE');setResult(null);setError(null);}}>对象列表</button><button className={mode==='AGGREGATE'?'active':''} onClick={()=>{setMode('AGGREGATE');setResult(null);setError(null);}}><Sigma size={14}/> 聚合统计</button></div>
           <div className="object-set-step"><div className="object-set-step-head"><strong>01 · 筛选</strong><span>AND · 最多 8 条</span></div>
+            {filterableProperties.length===0&&<p className="object-set-hint">当前 ObjectType 没有标记“可搜索”的属性。请返回本体建模，为需要筛选的属性启用“可搜索”，然后重新冻结 Snapshot 并核验 Binding。</p>}
             {filters.map((filter,index)=>{const property=propertyById.get(filter.propertyRef);const options=property?operatorsFor(property.valueType):['EQ'];return <div className="object-set-filter-row" key={filter.id}>
               <label><span>属性</span><select value={filter.propertyRef} onChange={e=>{const p=propertyById.get(e.target.value);updateFilter(filter.id,{propertyRef:e.target.value,operator:p?operatorsFor(p.valueType)[0]:'EQ',value:''});}}>{filterableProperties.map(p=><option key={p.id} value={p.id}>{propertyLabel(p.id)}</option>)}</select></label>
               <label><span>操作</span><select value={filter.operator} onChange={e=>updateFilter(filter.id,{operator:e.target.value,value:''})}>{options.map(op=><option key={op} value={op}>{labelOperator(op)}</option>)}</select></label>
