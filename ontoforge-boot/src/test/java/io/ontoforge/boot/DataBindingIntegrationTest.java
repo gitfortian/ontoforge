@@ -644,6 +644,13 @@ class DataBindingIntegrationTest {
         assertThat(rejectedUnmappedFilter.getStatusCode().value()).isEqualTo(422);
         assertThat(rejectedUnmappedFilter.getBody()).contains("INVALID_QUERY_AST", "已绑定");
 
+        ObjectNode unmappedSort = objectSetQuery(bindingId, 2);
+        ((ObjectNode) unmappedSort.withArray("steps").get(0).withArray("fields").get(0))
+                .put("propertyRef", "supplier-legacy");
+        ResponseEntity<String> rejectedUnmappedSort = post("/api/runtime/object-sets/query", unmappedSort);
+        assertThat(rejectedUnmappedSort.getStatusCode().value()).isEqualTo(422);
+        assertThat(rejectedUnmappedSort.getBody()).contains("INVALID_QUERY_AST", "已绑定");
+
         ObjectNode unmappedSum = objectSetRequest(bindingId);
         unmappedSum.withArray("steps").addObject()
                 .put("kind", "AGGREGATE").put("operation", "SUM").put("propertyRef", "supplier-unmapped-rating");
