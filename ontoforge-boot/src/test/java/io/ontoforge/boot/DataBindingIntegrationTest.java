@@ -395,6 +395,17 @@ class DataBindingIntegrationTest {
             assertThat(oversizedOutput.getBody()).doesNotContain("objectRef", "properties");
 
             jdbc.update("UPDATE public.m5_supplier_source SET name=repeat('x', 9 * 1024 * 1024) WHERE vendor_code='SUP-1001'");
+
+            // An unrequested large field is not projected or budgeted; explicitly requesting it is.
+            ObjectNode narrowRead = read.deepCopy();
+            ArrayNode narrowRefs = narrowRead.putArray("propertyRefs");
+            narrowRefs.add("supplier-code");
+            ResponseEntity<String> narrowResponse = post("/api/runtime/objects/read", narrowRead);
+            assertThat(narrowResponse.getStatusCode().value()).as(narrowResponse.getBody()).isEqualTo(200);
+            JsonNode narrowResult = mapper.readTree(narrowResponse.getBody());
+            assertThat(narrowResult.path("selectedPropertyRefs").size()).isEqualTo(1);
+            assertThat(narrowResult.path("properties").size()).isEqualTo(1);
+
             ResponseEntity<String> oversizedSource = post("/api/runtime/objects/read", read);
             assertThat(oversizedSource.getStatusCode().value()).isEqualTo(429);
             assertThat(oversizedSource.getBody()).contains("对象来源扫描超过 8 MiB");
