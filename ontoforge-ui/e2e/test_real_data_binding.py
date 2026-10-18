@@ -277,6 +277,7 @@ class DataBindingRealBrowserTest(unittest.TestCase):
         self.assertNotIn("Changed after first page", query_text)
         query_summary = page.locator(".object-set-query-summary").inner_text()
         self.assertIn("筛选", query_summary)
+        self.assertIn("North", query_summary)
         self.assertIn("Binding revision", query_summary)
         self.assertIn("UNKNOWN", query_summary)
 
