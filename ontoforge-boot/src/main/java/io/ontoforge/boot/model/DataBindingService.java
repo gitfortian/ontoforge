@@ -90,15 +90,15 @@ public class DataBindingService {
     public record SourceTable(String sourceId, String schema, String table,
                               List<SourceColumn> columns, String schemaFingerprint) {}
     public record FieldMapping(String propertyRef, String sourceColumn, String authority) {}
-    public record BindingRequest(String snapshotId, String objectTypeId, String sourceId,
-                                 String schema, String table, String sourceKey,
+    public record BindingRequest(String snapshotId, String draftId, Long draftRevision,
+                                 String objectTypeId, String sourceId, String schema, String table, String sourceKey,
                                  List<FieldMapping> fieldMappings, String expectedSchemaFingerprint,
                                  long expectedRevision) {}
     public record ValidationIssue(String code, String message, String fieldPath) {}
     public record ValidationResult(String status, Instant checkedAt, int checkedRows,
                                    String schemaFingerprint, List<ValidationIssue> issues) {}
-    public record PreviewResult(String packageId, String snapshotId, String objectTypeId,
-                                String objectTypeLabel, String payloadSha256,
+    public record PreviewResult(String packageId, String snapshotId, String draftId, Long draftRevision,
+                                String objectTypeId, String objectTypeLabel, String payloadSha256,
                                 SourceTable source, List<Map<String, Object>> sourceRows,
                                 List<Map<String, Object>> mappedRows) {}
     public record BindingSummary(String bindingId, String packageId, String objectTypeId,
@@ -148,15 +148,15 @@ public class DataBindingService {
     }
 
     public PreviewResult preview(BindingRequest request, Authentication auth) {
-        MappingContext context = context(request, auth, false);
+        MappingContext context = context(request, auth, false, true);
         List<Map<String, Object>> rows = readRows(context, PREVIEW_ROWS);
         List<Map<String, Object>> mapped = mapRows(context, rows);
-        return new PreviewResult(context.type().packageId(), request.snapshotId(), request.objectTypeId(),
-                context.type().label(), context.type().payloadSha256(), context.source(), rows, mapped);
+        return new PreviewResult(context.type().packageId(), request.snapshotId(), request.draftId(), request.draftRevision(),
+                request.objectTypeId(), context.type().label(), context.type().payloadSha256(), context.source(), rows, mapped);
     }
 
     public ValidationResult validate(BindingRequest request, Authentication auth) {
-        MappingContext context = context(request, auth, true);
+        MappingContext context = context(request, auth, true, true);
         List<Map<String, Object>> rows = readRows(context, MAX_VALIDATION_ROWS + 1);
         if (rows.size() > MAX_VALIDATION_ROWS) {
             throw fail(429, "QUERY_BUDGET_EXCEEDED", "校验超过 10000 行预算；没有生成通过结论", "validation");
@@ -274,15 +274,26 @@ public class DataBindingService {
         return detail(bindingId, revision, revision != head.currentRevision());
     }
 
-    private MappingContext context(BindingRequest request, Authentication auth, boolean requireFingerprint) {
+    private MappingContext context(BindingRequest request, Authentication auth,
+                                   boolean requireFingerprint, boolean allowDraftPreview) {
         validateRequest(request);
-        UUID snapshotId = UUID.fromString(request.snapshotId());
-        authorization.requireSnapshot(auth, snapshotId, B0AuthorizationService.Operation.READ_SNAPSHOT);
-        RuntimeTypeResolver.TypeDescriptor type = typeResolver.getSnapshotType(snapshotId, request.objectTypeId());
-        authorization.requirePackage(auth, type.packageId(), B0AuthorizationService.Operation.READ_DRAFT);
-        if (type.payloadSha256() == null || !type.payloadSha256().matches("[0-9a-f]{64}")) {
-            throw fail(422, "INVALID_TYPE_REFERENCE", "服务端无法核验所选快照摘要", "snapshotId");
+        RuntimeTypeResolver.TypeDescriptor type;
+        if (request.snapshotId() != null && !request.snapshotId().isBlank()) {
+            UUID snapshotId = UUID.fromString(request.snapshotId());
+            authorization.requireSnapshot(auth, snapshotId, B0AuthorizationService.Operation.READ_SNAPSHOT);
+            type = typeResolver.getSnapshotType(snapshotId, request.objectTypeId());
+            if (type.payloadSha256() == null || !type.payloadSha256().matches("[0-9a-f]{64}")) {
+                throw fail(422, "INVALID_TYPE_REFERENCE", "服务端无法核验所选快照摘要", "snapshotId");
+            }
+        } else {
+            if (!allowDraftPreview) {
+                throw fail(422, "INVALID_TYPE_REFERENCE", "持久绑定只接受 Local Snapshot；请先冻结已校验草稿", "draftId");
+            }
+            UUID draftId = UUID.fromString(request.draftId());
+            authorization.requireDraft(auth, draftId, B0AuthorizationService.Operation.READ_DRAFT);
+            type = typeResolver.getDraftType(draftId, request.draftRevision(), request.objectTypeId());
         }
+        authorization.requirePackage(auth, type.packageId(), B0AuthorizationService.Operation.READ_DRAFT);
         SourceTable table = sourceTable(request.sourceId(), request.schema(), request.table(), sourceJdbc());
         if (requireFingerprint) {
             if (request.expectedSchemaFingerprint() == null || request.expectedSchemaFingerprint().isBlank()) {
@@ -621,15 +632,26 @@ public class DataBindingService {
     }
 
     private void validateRequest(BindingRequest request) {
-        if (request == null || request.snapshotId() == null || request.objectTypeId() == null
-                || request.sourceId() == null || request.schema() == null || request.table() == null
+        if (request == null || request.objectTypeId() == null || request.sourceId() == null
+                || request.schema() == null || request.table() == null
                 || request.sourceKey() == null || request.fieldMappings() == null) {
             throw fail(400, "MALFORMED_REQUEST", "绑定请求缺少必需字段", "request");
         }
+        boolean hasSnapshot = request.snapshotId() != null && !request.snapshotId().isBlank();
+        boolean hasDraft = request.draftId() != null && !request.draftId().isBlank();
+        if (hasSnapshot == hasDraft) {
+            throw fail(400, "INVALID_TYPE_REFERENCE", "必须且只能选择一个明确的 Local Snapshot 或 Validated Draft 引用", "typeRef");
+        }
         try {
-            UUID.fromString(request.snapshotId());
+            if (hasSnapshot) UUID.fromString(request.snapshotId());
+            if (hasDraft) {
+                UUID.fromString(request.draftId());
+                if (request.draftRevision() == null || request.draftRevision() < 1) {
+                    throw fail(400, "MALFORMED_REQUEST", "Validated Draft 必须指定正整数 revision", "draftRevision");
+                }
+            }
         } catch (IllegalArgumentException ex) {
-            throw fail(400, "MALFORMED_REQUEST", "snapshotId 格式不合法", "snapshotId");
+            throw fail(400, "MALFORMED_REQUEST", "类型来源 ID 格式不合法", "typeRef");
         }
         if (!IDENT.matcher(request.sourceKey()).matches()) {
             throw fail(400, "MALFORMED_REQUEST", "sourceKey 必须是来源列标识符", "sourceKey");
