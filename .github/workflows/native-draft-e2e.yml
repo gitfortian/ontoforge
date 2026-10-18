@@ -190,19 +190,21 @@ jobs:
           pg_container = next((line.split()[0] for line in containers if len(line.split()) > 1 and line.split()[1].startswith("postgres:17")), None)
           assert pg_container, "PostgreSQL 17 test container not found"
 
-          def psql(*args):
+          def psql(*args, input_sql=None):
+              # psql does not interpolate variables in a -c command string.
+              # Feed SQL through stdin (-f -) so :'name' literals are safely quoted.
               return subprocess.run(
-                  ["docker", "exec", pg_container, "psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
+                  ["docker", "exec", "-i", pg_container, "psql", "-X", "-qAt", "-v", "ON_ERROR_STOP=1",
                    "-U", "ontology", "-d", "ontoforge_test_e2e", *args],
-                  text=True, check=True, capture_output=True,
+                  input=input_sql, text=True, check=True, capture_output=True,
               ).stdout.strip()
 
           package_id = evidence["packageId"]
-          workspace_id = psql("-v", "package_id=" + package_id,
-                              "-c", "SELECT workspace_id::text FROM b0_package_assignment WHERE package_id=:'package_id'")
+          workspace_id = psql("-v", "package_id=" + package_id, "-f", "-",
+                              input_sql="SELECT workspace_id::text FROM b0_package_assignment WHERE package_id=:'package_id';")
           assert workspace_id, "Expected explicit B0 package grant was not found"
-          psql("-v", "package_id=" + package_id,
-               "-c", "DELETE FROM b0_package_assignment WHERE package_id=:'package_id'")
+          psql("-v", "package_id=" + package_id, "-f", "-",
+               input_sql="DELETE FROM b0_package_assignment WHERE package_id=:'package_id';")
           code = None
           status = None
           message = None
@@ -225,8 +227,8 @@ jobs:
                   assert code == "FORBIDDEN", f"Expected FORBIDDEN after B0 grant revocation: {payload}"
                   assert "objects" not in payload and "aggregate" not in payload, "Denied page leaked partial results"
           finally:
-              psql("-v", "package_id=" + package_id, "-v", "workspace_id=" + workspace_id,
-                   "-c", "INSERT INTO b0_package_assignment(workspace_id,package_id) VALUES (:'workspace_id'::uuid, :'package_id') ON CONFLICT (package_id) DO NOTHING")
+              psql("-v", "package_id=" + package_id, "-v", "workspace_id=" + workspace_id, "-f", "-",
+                   input_sql="INSERT INTO b0_package_assignment(workspace_id,package_id) VALUES (:'workspace_id'::uuid, :'package_id') ON CONFLICT (package_id) DO NOTHING;")
           Path("/tmp/ontoforge-m7-b0-revocation.json").write_text(json.dumps({
               "packageId": package_id, "bindingId": evidence["bindingId"], "status": status,
               "code": code, "message": message, "result": "B0_GRANT_REVOKED_PAGE_DENIED",
