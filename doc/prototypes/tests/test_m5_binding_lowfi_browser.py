@@ -66,7 +66,7 @@ class M5DataBindingLowFiBrowser(unittest.TestCase):
         self.assertTrue(self.page.locator("#mappedPreviewTableWrap").is_visible())
         self.assertIn("supplierCode ← vendor_code", self.page.locator("#mappedPreviewHead").inner_text())
         self.assertEqual(self.page.locator("#mappedPreviewRows tr").count(), 3)
-        self.assertEqual(self.page.locator("#mappedPreviewRows tr").first.inner_text(), "V-1001北辰精密4.70true")
+        self.assertEqual(self.page.locator("#mappedPreviewRows tr").first.locator("td").all_inner_texts(), ["V-1001", "北辰精密", "4.70", "true"])
         self.page.get_by_role("button", name="继续：保存绑定").click()
         self.page.get_by_role("heading", name="5. 保存并重新打开").wait_for()
         self.page.get_by_role("button", name="保存绑定").click()
