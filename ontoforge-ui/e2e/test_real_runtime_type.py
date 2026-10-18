@@ -118,8 +118,10 @@ class RuntimeTypeRealBrowserTest(unittest.TestCase):
         self.assertEqual(detail["lifecycle"], "LOCAL_SNAPSHOT_ONLY")
 
         # The source selector can switch only to explicit, server-provided sources.
+        page.locator("#runtime-source option[value='draft']").wait_for(timeout=10000)
         page.locator("#runtime-source").select_option("draft")
         page.get_by_text("VALIDATED_DRAFT_ONLY", exact=True).wait_for()
+        page.wait_for_function("(sid) => Array.from(document.querySelectorAll('#runtime-source option')).some(o => o.value === 'snapshot:' + sid)", arg=snapshot_id)
         page.locator("#runtime-source").select_option("snapshot:" + snapshot_id)
         page.get_by_text("LOCAL_SNAPSHOT_ONLY", exact=True).wait_for()
         self.assertEqual(api(f"/type-sources/drafts/{draft_id}/types?revision={revision}")["modelSourceRevision"],
