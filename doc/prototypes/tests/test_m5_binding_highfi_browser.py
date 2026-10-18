@@ -74,6 +74,7 @@ class M5DataBindingHighFiBrowser(unittest.TestCase):
         self.assertTrue(self.page.locator("#detailView").is_visible())
         self.assertIn("revision 1", self.page.locator("#detailRevision").inner_text())
         self.assertEqual(self.page.locator("#detailMappings tr").count(), 4)
+        self.assertEqual(self.page.locator("#detailHistoryRows tr").count(), 1)
         self.page.locator("#detailBack").click()
         self.assertTrue(self.page.locator("#bindingTableWrap").is_visible())
         self.assertEqual(self.page.locator("#bindingRows tr").count(), 1)
@@ -97,6 +98,11 @@ class M5DataBindingHighFiBrowser(unittest.TestCase):
         self.assertEqual(self.page.locator("#bindingRows tr").count(), 1)
         self.assertIn("revision 2", self.page.locator("#bindingRows").inner_text())
         self.assertEqual(self.page.locator("#metricBindings").inner_text(), "1")
+        self.page.locator('[data-open="binding-supplier-01"]').click()
+        self.assertEqual(self.page.locator("#detailHistoryRows tr").count(), 2)
+        self.page.locator('#detailHistoryRows [data-history-revision="1"]').click()
+        self.assertEqual(self.page.locator("#detailRevision").inner_text(), "revision 1")
+        self.assertIn("历史版本", self.page.locator("#detailStatusNote").inner_text())
 
     def test_primary_key_and_property_type_mismatches_are_rejected(self):
         self.start_to_mapping()
