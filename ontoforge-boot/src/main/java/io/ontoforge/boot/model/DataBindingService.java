@@ -105,6 +105,8 @@ public class DataBindingService {
                                  long currentRevision, String sourceId, String sourceSchema,
                                  String sourceTable, String validationStatus, Instant checkedAt,
                                  int checkedRows, String digest) {}
+    public record RevisionSummary(long revision, String digest, String validationStatus,
+                                  Instant checkedAt, int checkedRows, Instant createdAt) {}
     public record BindingDetail(String bindingId, long revision, String packageId,
                                 String objectTypeId, String snapshotId, String payloadSha256,
                                 String sourceId, String sourceSchema, String sourceTable,
@@ -252,6 +254,16 @@ public class DataBindingService {
                     rs.getString("source_schema"), rs.getString("source_table"), rs.getString("validation_status"),
                     instant(rs.getTimestamp("checked_at")), rs.getInt("checked_rows"), rs.getString("digest")),
                 packageId);
+    }
+
+    public List<RevisionSummary> listRevisions(UUID bindingId, Authentication auth) {
+        Head head = head(bindingId);
+        authorization.requirePackage(auth, head.packageId(), B0AuthorizationService.Operation.READ_DRAFT);
+        return appJdbc.query("SELECT revision, digest, validation_status, checked_at, checked_rows, created_at "
+                + "FROM runtime_binding_revision WHERE binding_id=? ORDER BY revision DESC",
+                (rs, rowNum) -> new RevisionSummary(rs.getLong("revision"), rs.getString("digest"),
+                    rs.getString("validation_status"), instant(rs.getTimestamp("checked_at")),
+                    rs.getInt("checked_rows"), instant(rs.getTimestamp("created_at"))), bindingId);
     }
 
     public BindingDetail getBinding(UUID bindingId, Long requestedRevision, Authentication auth) {
