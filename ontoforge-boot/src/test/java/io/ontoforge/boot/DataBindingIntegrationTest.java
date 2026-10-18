@@ -339,16 +339,66 @@ class DataBindingIntegrationTest {
         assertThat(objectProperty(result, "supplier-legacy").path("status").asText()).isEqualTo("MISSING");
         assertThat(objectProperty(result, "supplier-legacy").path("value").isMissingNode()).isTrue();
 
-        // The byte budget must reject an oversized row in PostgreSQL before JDBC materializes
-        // its source values in the application process.
+        // A later Binding revision may change the identity mapping. Reads pinned to revision 1
+        // must keep using its immutable source key and identity domain.
+        ObjectNode revisionTwoRequest = request.deepCopy();
+        revisionTwoRequest.put("expectedRevision", 1);
+        revisionTwoRequest.put("sourceKey", "alternate_code");
+        for (JsonNode item : revisionTwoRequest.withArray("fieldMappings")) {
+            if ("supplier-code".equals(item.path("propertyRef").asText())) {
+                ((ObjectNode) item).put("sourceColumn", "alternate_code");
+            }
+        }
+        ResponseEntity<String> revisionTwoResponse = put("/api/runtime/bindings/" + bindingId, revisionTwoRequest);
+        assertThat(revisionTwoResponse.getStatusCode().value()).as(revisionTwoResponse.getBody()).isEqualTo(200);
+        JsonNode revisionTwo = mapper.readTree(revisionTwoResponse.getBody());
+        assertThat(revisionTwo.path("revision").asLong()).isEqualTo(2);
+        assertThat(revisionTwo.path("identityDomainId").asText())
+                .isNotEqualTo(result.path("objectRef").path("identityDomainId").asText());
+
+        ResponseEntity<String> historicalRead = post("/api/runtime/objects/read", read);
+        assertThat(historicalRead.getStatusCode().value()).as(historicalRead.getBody()).isEqualTo(200);
+        JsonNode historicalResult = mapper.readTree(historicalRead.getBody());
+        assertThat(historicalResult.path("bindingVersions").get(0).path("revision").asLong()).isEqualTo(1);
+        assertThat(historicalResult.path("objectRef").path("key").path("value").asText()).isEqualTo("SUP-1001");
+        assertThat(objectProperty(historicalResult, "supplier-name").path("value").asText()).isEqualTo("Northwind Components");
+
+        ObjectNode currentRead = read.deepCopy();
+        currentRead.put("bindingRevision", 2);
+        currentRead.with("key").put("value", "ALT-SUP-1001");
+        ResponseEntity<String> currentResponse = post("/api/runtime/objects/read", currentRead);
+        assertThat(currentResponse.getStatusCode().value()).as(currentResponse.getBody()).isEqualTo(200);
+        JsonNode currentResult = mapper.readTree(currentResponse.getBody());
+        assertThat(currentResult.path("bindingVersions").get(0).path("revision").asLong()).isEqualTo(2);
+        assertThat(currentResult.path("objectRef").path("identityDomainId").asText())
+                .isEqualTo(revisionTwo.path("identityDomainId").asText());
+        assertThat(currentResult.path("objectRef").path("key").path("value").asText()).isEqualTo("ALT-SUP-1001");
+
+        ObjectNode duplicateRefs = read.deepCopy();
+        ArrayNode duplicatePropertyRefs = duplicateRefs.putArray("propertyRefs");
+        duplicatePropertyRefs.add("supplier-name");
+        duplicatePropertyRefs.add("supplier-name");
+        ResponseEntity<String> duplicateProperties = post("/api/runtime/objects/read", duplicateRefs);
+        assertThat(duplicateProperties.getStatusCode().value()).isEqualTo(422);
+        assertThat(duplicateProperties.getBody()).contains("INVALID_OBJECT_REQUEST");
+
+        // The output cap and source scan cap are separate: a 2 MiB value passes source
+        // preflight but must not escape the 1 MiB serialized response limit; a 9 MiB value
+        // must be rejected in PostgreSQL before JDBC materializes it in the application.
         String originalName = jdbc.queryForObject(
                 "SELECT name FROM public.m5_supplier_source WHERE vendor_code='SUP-1001'", String.class);
         try {
+            jdbc.update("UPDATE public.m5_supplier_source SET name=repeat('x', 2 * 1024 * 1024) WHERE vendor_code='SUP-1001'");
+            ResponseEntity<String> oversizedOutput = post("/api/runtime/objects/read", read);
+            assertThat(oversizedOutput.getStatusCode().value()).isEqualTo(429);
+            assertThat(oversizedOutput.getBody()).contains("对象结果超过 1 MiB");
+            assertThat(oversizedOutput.getBody()).doesNotContain("objectRef", "properties");
+
             jdbc.update("UPDATE public.m5_supplier_source SET name=repeat('x', 9 * 1024 * 1024) WHERE vendor_code='SUP-1001'");
-            ResponseEntity<String> oversized = post("/api/runtime/objects/read", read);
-            assertThat(oversized.getStatusCode().value()).isEqualTo(429);
-            assertThat(oversized.getBody()).contains("QUERY_BUDGET_EXCEEDED");
-            assertThat(oversized.getBody()).doesNotContain("objectRef", "properties");
+            ResponseEntity<String> oversizedSource = post("/api/runtime/objects/read", read);
+            assertThat(oversizedSource.getStatusCode().value()).isEqualTo(429);
+            assertThat(oversizedSource.getBody()).contains("对象来源扫描超过 8 MiB");
+            assertThat(oversizedSource.getBody()).doesNotContain("objectRef", "properties");
         } finally {
             jdbc.update("UPDATE public.m5_supplier_source SET name=? WHERE vendor_code='SUP-1001'", originalName);
         }
