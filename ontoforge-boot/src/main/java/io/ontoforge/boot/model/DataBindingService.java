@@ -328,10 +328,6 @@ public class DataBindingService {
         if (pk == null || keyMapping == null || !request.sourceKey().equals(keyMapping.sourceColumn())) {
             throw fail(422, "UNSUPPORTED_MAPPING_TYPE", "来源键必须映射到 ObjectType 的 primaryKeyRef", "sourceKey");
         }
-        SourceColumn keyColumn = column(table, request.sourceKey());
-        if (!keyColumn.primaryKey() && !keyColumn.uniqueKey()) {
-            throw fail(422, "UNSUPPORTED_MAPPING_TYPE", "来源身份键必须由数据库主键或唯一约束保证唯一", "sourceKey");
-        }
         long nonKeyCount = mappings.stream().filter(m -> !type.primaryKeyRef().equals(m.propertyRef())).count();
         if (nonKeyCount < 2) throw fail(422, "UNSUPPORTED_MAPPING_TYPE", "至少需要两个非主键属性映射", "fieldMappings");
         for (RuntimeTypeResolver.PropertyDescriptor property : type.properties()) {
@@ -373,6 +369,11 @@ public class DataBindingService {
             for (FieldMapping mapping : context.mappings()) {
                 RuntimeTypeResolver.PropertyDescriptor property = context.properties().get(mapping.propertyRef());
                 Object value = row.get(mapping.sourceColumn());
+                if (value != null && "DECIMAL".equals(normalizeType(property.valueType()))
+                        && Set.of("NaN", "Infinity", "-Infinity", "inf", "-inf").contains(String.valueOf(value))) {
+                    issues.add(new ValidationIssue("DECIMAL_VALUE_INVALID", "DECIMAL 来源值必须是有限精确数值", mapping.propertyRef()));
+                    break;
+                }
                 if (property.required() && value == null) {
                     issues.add(new ValidationIssue("REQUIRED_PROPERTY_MISSING", "必填属性存在空值", mapping.propertyRef()));
                     break;
@@ -676,7 +677,7 @@ public class DataBindingService {
             case "INTEGER", "INT", "LONG" -> Set.of("smallint", "integer", "bigint").contains(data);
             case "DECIMAL", "NUMBER", "NUMERIC" -> Set.of("numeric", "decimal", "real", "double precision").contains(data);
             case "BOOLEAN", "BOOL" -> "boolean".equals(data);
-            case "DATETIME", "TIMESTAMP" -> Set.of("timestamp without time zone", "timestamp with time zone", "date").contains(data);
+            case "DATETIME", "TIMESTAMP" -> "timestamp with time zone".equals(data);
             case "ENUM" -> Set.of("text", "character varying", "character", "USER-DEFINED".toLowerCase(Locale.ROOT)).contains(data)
                     && property.enumValues() != null && !property.enumValues().isEmpty()
                     && !udt.equals("json") && !udt.equals("jsonb");
@@ -703,6 +704,7 @@ public class DataBindingService {
     private static String qt(String table) { return "public." + qi(table); }
 
     private static Object safeValue(Object value) {
+        if (value instanceof java.math.BigDecimal decimal) return decimal.toPlainString();
         if (value == null || value instanceof String || value instanceof Number || value instanceof Boolean) return value;
         return String.valueOf(value);
     }
