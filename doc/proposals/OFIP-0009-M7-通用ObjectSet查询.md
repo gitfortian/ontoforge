@@ -54,6 +54,7 @@ QueryRequest = {
   queryVersion: "local-query-v1", rootTypeRef: TypeRef,
   bindingRef: { bindingId, revision }, steps, limits?
 }
+limits 可选，仅允许下调服务端固定上限，字段为 `maxPhysicalRows`（1–10000）、`maxSourceBytes`（1–8388608）、`maxSerializedResultBytes`（1–8388608）、`timeoutSeconds`（1–3）；未指定字段采用服务端默认值。空对象、未知字段、非整数、0、负值或任何高于服务端上限的值均以 422 拒绝。预算配置纳入 queryDigest 与 BudgetEvidence。
 versionLock = {
   typeSourceRef, payloadSha256,
   bindingVersions: [{ bindingId, revision, digest, sourceId, kind }],
