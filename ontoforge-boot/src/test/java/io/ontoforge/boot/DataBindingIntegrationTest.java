@@ -339,6 +339,20 @@ class DataBindingIntegrationTest {
         assertThat(objectProperty(result, "supplier-legacy").path("status").asText()).isEqualTo("MISSING");
         assertThat(objectProperty(result, "supplier-legacy").path("value").isMissingNode()).isTrue();
 
+        // The byte budget must reject an oversized row in PostgreSQL before JDBC materializes
+        // its source values in the application process.
+        String originalName = jdbc.queryForObject(
+                "SELECT name FROM public.m5_supplier_source WHERE vendor_code='SUP-1001'", String.class);
+        try {
+            jdbc.update("UPDATE public.m5_supplier_source SET name=repeat('x', 9 * 1024 * 1024) WHERE vendor_code='SUP-1001'");
+            ResponseEntity<String> oversized = post("/api/runtime/objects/read", read);
+            assertThat(oversized.getStatusCode().value()).isEqualTo(429);
+            assertThat(oversized.getBody()).contains("QUERY_BUDGET_EXCEEDED");
+            assertThat(oversized.getBody()).doesNotContain("objectRef", "properties");
+        } finally {
+            jdbc.update("UPDATE public.m5_supplier_source SET name=? WHERE vendor_code='SUP-1001'", originalName);
+        }
+
         jdbc.update("UPDATE public.m5_supplier_source SET rating=NULL WHERE vendor_code='SUP-1005'");
         try {
             ObjectNode nullableRead = read.deepCopy();
