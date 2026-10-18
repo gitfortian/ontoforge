@@ -72,6 +72,10 @@ public class DataBindingController {
         return service.update(bindingId, request, auth);
     }
 
+    @GetMapping("/bindings/{bindingId}/revisions")
+    public List<DataBindingService.RevisionSummary> revisions(@PathVariable UUID bindingId, Authentication auth) {
+        return service.listRevisions(bindingId, auth);
+    }
     @GetMapping("/bindings/{bindingId}")
     public DataBindingService.BindingDetail get(@PathVariable UUID bindingId,
             @RequestParam(required = false) Long revision, Authentication auth) {
