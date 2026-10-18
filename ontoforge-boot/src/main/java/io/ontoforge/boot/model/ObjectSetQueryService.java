@@ -190,6 +190,10 @@ public class ObjectSetQueryService {
         DataBindingService.BindingDetail binding = getBinding(bindingId, query.bindingRevision(), authentication, executionId);
         RuntimeTypeResolver.TypeDescriptor type = resolveType(binding, authentication, executionId);
         DataBindingService.SourceTable sourceTable = currentSourceTable(binding, authentication, executionId);
+        if (!Objects.equals(binding.sourceSchemaFingerprint(), sourceTable.schemaFingerprint())) {
+            throw fail(409, "BINDING_SCHEMA_DRIFT",
+                    "来源结构指纹与固定 Binding revision 不一致；请回到 M5 重新核验绑定", "sourceSchemaFingerprint", executionId);
+        }
         Map<String, RuntimeTypeResolver.PropertyDescriptor> properties = propertyMap(type, executionId);
         Map<String, DataBindingService.FieldMapping> mappings = mappingMap(binding, properties, sourceTable, type, executionId);
         validateTypedQuery(query, type, properties, mappings, executionId);
