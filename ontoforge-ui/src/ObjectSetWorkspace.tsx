@@ -59,8 +59,9 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
   const properties=descriptor?.properties||[];
   const propertyById=useMemo(()=>new Map<string,Property>(properties.map(p=>[p.id,p] as const)),[properties]);
   const mappedRefs=new Set(binding?.fieldMappings.map(m=>m.propertyRef)||[]);
-  const numericProperties=properties.filter(p=>['INTEGER','DECIMAL'].includes(canonicalType(p.valueType)));
-  const filterableProperties=properties.filter(p=>p.searchable);
+  const numericProperties=properties.filter(p=>mappedRefs.has(p.id)&&['INTEGER','DECIMAL'].includes(canonicalType(p.valueType)));
+  const filterableProperties=properties.filter(p=>p.searchable&&mappedRefs.has(p.id));
+  const sortableProperties=properties.filter(p=>mappedRefs.has(p.id)&&['STRING','INTEGER','DECIMAL','BOOLEAN','ENUM','DATETIME','DATE','UUID'].includes(canonicalType(p.valueType)));
   const propertyLabel=(ref:string)=>{const p=propertyById.get(ref);return p?(p.label||p.apiName)+' · '+p.id:ref;};
 
   async function loadBindings(pkg=packageInput){
@@ -85,7 +86,8 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
       setBinding(loaded);setDescriptor(type);setPackageInput(loaded.packageId);
       // Filters must target explicitly searchable properties. Do not silently
       // initialize an unsearchable property that cannot appear in the selector.
-      const first=type.properties.find(p=>p.searchable);
+      const mappedPropertyRefs=new Set(loaded.fieldMappings.map(m=>m.propertyRef));
+      const first=type.properties.find(p=>p.searchable&&mappedPropertyRefs.has(p.id));
       const primary=type.properties.find(p=>p.id===type.primaryKeyRef);
       setFilters(first?[{id:1,propertyRef:first.id,operator:operatorsFor(first.valueType)[0],value:''}]:[]);
       setSorts(primary?[{id:1,propertyRef:primary.id,direction:'ASC'}]:[]);
@@ -118,7 +120,7 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
   }
   function addSort(){
     if(sorts.length>=3)return;
-    const available=properties.find(p=>!sorts.some(s=>s.propertyRef===p.id))||properties[0];
+    const available=sortableProperties.find(p=>!sorts.some(s=>s.propertyRef===p.id))||sortableProperties[0];
     if(!available)return;
     setSorts(old=>[...old,{id:Math.max(0,...old.map(s=>s.id))+1,propertyRef:available.id,direction:'ASC'}]);
     setResult(null);
@@ -196,7 +198,7 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
           <header className="model-panel-head"><div><h2>查询设计</h2><p>配置执行条件与结果范围</p></div><Filter size={17}/></header>
           <div className="object-set-mode"><button className={mode==='PAGE'?'active':''} onClick={()=>{setMode('PAGE');setResult(null);setError(null);}}>对象列表</button><button className={mode==='AGGREGATE'?'active':''} onClick={()=>{setMode('AGGREGATE');setResult(null);setError(null);}}><Sigma size={14}/> 聚合统计</button></div>
           <div className="object-set-step"><div className="object-set-step-head"><strong>01 · 筛选</strong><span>AND · 最多 8 条</span></div>
-            {filterableProperties.length===0&&<p className="object-set-hint">当前 ObjectType 没有标记“可搜索”的属性。请返回本体建模，为需要筛选的属性启用“可搜索”，然后重新冻结 Snapshot 并核验 Binding。</p>}
+            {filterableProperties.length===0&&<p className="object-set-hint">当前 Binding 没有同时满足“可搜索”且“已映射”的属性。请返回本体建模启用可搜索，并在 M5 完成字段映射、校验和保存后重新进入。</p>}
             {filters.map((filter,index)=>{const property=propertyById.get(filter.propertyRef);const options=property?operatorsFor(property.valueType):['EQ'];return <div className="object-set-filter-row" key={filter.id}>
               <label><span>属性</span><select value={filter.propertyRef} onChange={e=>{const p=propertyById.get(e.target.value);updateFilter(filter.id,{propertyRef:e.target.value,operator:p?operatorsFor(p.valueType)[0]:'EQ',value:''});}}>{filterableProperties.map(p=><option key={p.id} value={p.id}>{propertyLabel(p.id)}</option>)}</select></label>
               <label><span>操作</span><select value={filter.operator} onChange={e=>updateFilter(filter.id,{operator:e.target.value,value:''})}>{options.map(op=><option key={op} value={op}>{labelOperator(op)}</option>)}</select></label>
@@ -207,8 +209,8 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
           </div>
           {mode==='PAGE'?<>
             <div className="object-set-step" id="object-set-sort-step"><div className="object-set-step-head"><strong>02 · 排序</strong><span>最多 3 个字段 · NULLS LAST</span></div>
-              {sorts.map((sort,index)=><div className="object-set-sort-row" key={sort.id}><label><span>优先级 {index+1}</span><select value={sort.propertyRef} onChange={e=>{setSorts(old=>old.map(s=>s.id===sort.id?{...s,propertyRef:e.target.value}:s));setResult(null);}}>{properties.map(p=><option key={p.id} value={p.id} disabled={sorts.some(s=>s.id!==sort.id&&s.propertyRef===p.id)}>{propertyLabel(p.id)}</option>)}</select></label><label><span>方向</span><select value={sort.direction} onChange={e=>{setSorts(old=>old.map(s=>s.id===sort.id?{...s,direction:e.target.value as 'ASC'|'DESC'}:s));setResult(null);}}><option value="ASC">升序 ASC</option><option value="DESC">降序 DESC</option></select></label><button className="object-set-icon-button" aria-label={'删除排序 '+(index+1)} onClick={()=>{setSorts(old=>old.filter(s=>s.id!==sort.id));setResult(null);}}>×</button></div>)}
-              <button className="model-btn object-set-add" onClick={addSort} disabled={sorts.length>=3||properties.length===0}>＋ 添加排序</button>
+              {sorts.map((sort,index)=><div className="object-set-sort-row" key={sort.id}><label><span>优先级 {index+1}</span><select value={sort.propertyRef} onChange={e=>{setSorts(old=>old.map(s=>s.id===sort.id?{...s,propertyRef:e.target.value}:s));setResult(null);}}>{sortableProperties.map(p=><option key={p.id} value={p.id} disabled={sorts.some(s=>s.id!==sort.id&&s.propertyRef===p.id)}>{propertyLabel(p.id)}</option>)}</select></label><label><span>方向</span><select value={sort.direction} onChange={e=>{setSorts(old=>old.map(s=>s.id===sort.id?{...s,direction:e.target.value as 'ASC'|'DESC'}:s));setResult(null);}}><option value="ASC">升序 ASC</option><option value="DESC">降序 DESC</option></select></label><button className="object-set-icon-button" aria-label={'删除排序 '+(index+1)} onClick={()=>{setSorts(old=>old.filter(s=>s.id!==sort.id));setResult(null);}}>×</button></div>)}
+              <button className="model-btn object-set-add" onClick={addSort} disabled={sorts.length>=3||sortableProperties.length===0}>＋ 添加排序</button>
             </div>
             <div className="object-set-step"><div className="object-set-step-head"><strong>03 · 选择结果列</strong><span>{project.length} / {properties.length}</span></div><div className="object-set-project-grid">{properties.map(p=><label key={p.id}><input type="checkbox" checked={project.includes(p.id)} onChange={e=>{setProject(old=>e.target.checked?[...old,p.id]:old.filter(id=>id!==p.id));setResult(null);}}/><span>{p.label||p.apiName}<small>{p.id} · {p.valueType}{mappedRefs.has(p.id)?'':' · MISSING'}</small></span></label>)}</div></div>
             <div className="object-set-step"><div className="object-set-step-head"><strong>04 · 分页</strong><span>稳定结果快照</span></div><label className="object-set-page-size"><span>每页条数</span><select value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setResult(null);}}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label></div>
