@@ -171,7 +171,7 @@ public class ObjectSetQueryService {
     private record TypedValue(String valueType, String status, Object value) {}
     private record Materialized(ObjectRef ref, Map<String, TypedValue> values) {}
     private record RawScan(List<Map<String, Object>> rows, List<String> columns,
-            Instant startedAt, Instant completedAt, long sourceBytes) {}
+            Instant startedAt, Instant completedAt, long sourceBytes, long deadlineNanos) {}
     private record CursorRef(String snapshotId, int offset, String actorKey) {}
     private record CursorPayload(String snapshotId, int offset, long expiresAtMillis, String actorHash, String nonce) {}
     private record DigestMaterial(String queryVersion, RootTypeRef rootTypeRef, String bindingId, long bindingRevision,
@@ -264,12 +264,12 @@ public class ObjectSetQueryService {
             throw fail(409, "BINDING_REVISION_CONFLICT",
                     "执行期间 Binding 版本证据发生变化；拒绝发布查询结果，请重新执行", "bindingRevision", executionId);
         }
-        DataBindingService.SourceTable sourceAfter = currentSourceTable(binding, authentication, executionId);
+        DataBindingService.SourceTable sourceAfter = currentSourceTable(binding, authentication, executionId, scan.deadlineNanos());
         if (!Objects.equals(sourceTable.schemaFingerprint(), sourceAfter.schemaFingerprint())) {
             throw fail(409, "BINDING_SCHEMA_DRIFT",
                     "查询执行期间来源结构发生变化；拒绝发布结果，请返回绑定工作台重新核验", "sourceSchemaFingerprint", executionId);
         }
-        verifySourceReadable(binding, executionId);
+        verifySourceReadable(binding, executionId, scan.deadlineNanos());
 
         String sourceReadId = UUID.randomUUID().toString();
         SourceReadRef sourceRead = new SourceReadRef(sourceReadId, binding.sourceId(), binding.sourceSchema(),
@@ -343,7 +343,14 @@ public class ObjectSetQueryService {
         if (!snapshot.actorKey.equals(actorKey(authentication))) {
             throw fail(403, "FORBIDDEN", "cursor 不属于当前主体；cursor 本身不授予访问权限", "cursor", executionId);
         }
-        revalidateForPage(snapshot, authentication, executionId);
+        try {
+            revalidateForPage(snapshot, authentication, executionId);
+        } catch (RuntimeException ex) {
+            // Any failed revalidation is terminal for this volatile result. In particular,
+            // restoring a revoked grant must not make an old cursor usable again.
+            invalidateSnapshot(snapshot.id);
+            throw ex;
+        }
         return pageResult(snapshot, payload.offset(), snapshot.executionId);
     }
 
@@ -728,7 +735,7 @@ public class ObjectSetQueryService {
                     "来源物理行数超过 10000 行预算；没有返回部分结果", "source", executionId);
             Instant completed = Instant.now();
             connection.commit();
-            return new RawScan(List.copyOf(rows), List.copyOf(columns), started, completed, sourceBytes);
+            return new RawScan(List.copyOf(rows), List.copyOf(columns), started, completed, sourceBytes, deadlineNanos);
         } catch (RuntimeException | SQLException ex) {
             try { connection.rollback(); } catch (SQLException ignored) {}
             if (ex instanceof RuntimeException runtime) throw runtime;
@@ -741,19 +748,63 @@ public class ObjectSetQueryService {
     }
 
     private void verifySourceReadable(DataBindingService.BindingDetail binding, String executionId) {
+        verifySourceReadable(binding, executionId, 0L);
+    }
+
+    private void verifySourceReadable(DataBindingService.BindingDetail binding, String executionId, long deadlineNanos) {
         JdbcTemplate source = sourceProvider.getIfAvailable();
         if (source == null) {
             throw fail(503, "SOURCE_UNAVAILABLE", "没有配置独立来源只读连接；不能继续分页", "source", executionId);
         }
+        if (deadlineNanos <= 0) {
+            try {
+                source.execute((ConnectionCallback<Void>) connection -> {
+                    verifySourceReadable(connection, binding, executionId);
+                    return null;
+                });
+            } catch (QueryException ex) {
+                throw ex;
+            } catch (DataAccessException ex) {
+                throw fail(503, "SOURCE_UNAVAILABLE", "分页时来源不可用或拒绝只读查询；旧结果不可继续读取", "source", executionId);
+            }
+            return;
+        }
         try {
             source.execute((ConnectionCallback<Void>) connection -> {
-                verifySourceReadable(connection, binding, executionId);
-                return null;
+                boolean autoCommit = connection.getAutoCommit();
+                int isolation = connection.getTransactionIsolation();
+                boolean readOnly = connection.isReadOnly();
+                try {
+                    connection.setReadOnly(true);
+                    connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+                    connection.setAutoCommit(false);
+                    try (Statement statement = connection.createStatement()) {
+                        statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+                        statement.execute("SET TRANSACTION READ ONLY");
+                    }
+                    verifySourceReadable(connection, binding, executionId, deadlineNanos);
+                    connection.commit();
+                    return null;
+                } catch (RuntimeException | SQLException ex) {
+                    try { connection.rollback(); } catch (SQLException ignored) {}
+                    if (ex instanceof RuntimeException runtime) throw runtime;
+                    throw (SQLException) ex;
+                } finally {
+                    try { connection.setAutoCommit(autoCommit); } catch (SQLException ignored) {}
+                    try { connection.setTransactionIsolation(isolation); } catch (SQLException ignored) {}
+                    try { connection.setReadOnly(readOnly); } catch (SQLException ignored) {}
+                }
             });
         } catch (QueryException ex) {
             throw ex;
+        } catch (QueryTimeoutException ex) {
+            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过 3 秒端到端预算；未返回部分结果", "source", executionId);
         } catch (DataAccessException ex) {
-            throw fail(503, "SOURCE_UNAVAILABLE", "分页时来源不可用或拒绝只读查询；旧结果不可继续读取", "source", executionId);
+            SQLException sql = findSqlException(ex);
+            if (System.nanoTime() >= deadlineNanos || (sql != null && "57014".equals(sql.getSQLState()))) {
+                throw fail(503, "SOURCE_TIMEOUT", "来源查询超过 3 秒端到端预算；未返回部分结果", "source", executionId);
+            }
+            throw fail(503, "SOURCE_UNAVAILABLE", "来源数据库不可用或拒绝只读查询；未返回结果", "source", executionId);
         }
     }
 
@@ -1064,6 +1115,11 @@ public class ObjectSetQueryService {
 
     private DataBindingService.SourceTable currentSourceTable(DataBindingService.BindingDetail binding,
             Authentication authentication, String executionId) {
+        return currentSourceTable(binding, authentication, executionId, 0L);
+    }
+
+    private DataBindingService.SourceTable currentSourceTable(DataBindingService.BindingDetail binding,
+            Authentication authentication, String executionId, long deadlineNanos) {
         try {
             List<DataBindingService.SourceTable> tables = bindings.listTables(binding.packageId(), authentication);
             return tables.stream().filter(t -> t.sourceId().equals(binding.sourceId())
@@ -1074,7 +1130,8 @@ public class ObjectSetQueryService {
             if ("BINDING_SCHEMA_DRIFT".equals(ex.code())) {
                 // information_schema may hide a relation after SELECT is revoked. Probe the
                 // independent source permission contract before deciding this is real drift.
-                verifySourceReadable(binding, executionId);
+                if (deadlineNanos > 0) verifySourceReadable(binding, executionId, deadlineNanos);
+                else verifySourceReadable(binding, executionId);
             }
             throw ex;
         } catch (DataBindingService.BindingFailure ex) {
