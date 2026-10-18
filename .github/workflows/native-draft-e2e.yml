@@ -313,12 +313,27 @@ jobs:
               assert payload.get("code") == "RESULT_EXPIRED", f"Unexpected restart cursor response: {payload}"
               assert "服务重启后失效" in payload.get("message", ""), f"Response did not identify volatile snapshot loss: {payload}"
               assert "objects" not in payload and "aggregate" not in payload, "Restarted service leaked partial results"
+
+          repeat_request = Request(
+              "http://127.0.0.1:8080/api/runtime/object-sets/query",
+              data=json.dumps(evidence["query"]).encode("utf-8"),
+              method="POST",
+              headers={"Authorization": "Bearer " + fixture["editorToken"], "Content-Type": "application/json"},
+          )
+          with urlopen(repeat_request, timeout=15) as response:
+              repeated_query = json.loads(response.read())
+          assert repeated_query.get("status") == "SUCCESS", f"Same query failed after process restart: {repeated_query}"
+          assert repeated_query.get("queryDigest") == evidence["queryDigest"], (
+              f"Canonical query digest changed across JVM restart: before={evidence['queryDigest']}, "
+              f"after={repeated_query.get('queryDigest')}"
+          )
           Path("/tmp/ontoforge-m7-cursor-restart-result.json").write_text(json.dumps({
               "packageId": evidence["packageId"], "bindingId": evidence["bindingId"],
               "resultSnapshotRef": evidence["resultSnapshotRef"], "queryDigest": evidence["queryDigest"],
-              "status": 410, "code": "RESULT_EXPIRED", "result": "VOLATILE_SNAPSHOT_LOST_AFTER_REAL_RESTART",
+              "queryDigestAfterRestart": repeated_query["queryDigest"],
+              "status": 410, "code": "RESULT_EXPIRED", "result": "VOLATILE_SNAPSHOT_LOST_AND_QUERY_DIGEST_STABLE_AFTER_REAL_RESTART",
           }, indent=2), encoding="utf-8")
-          print("M7 signed cursor returned 410 RESULT_EXPIRED after real Spring Boot restart; PostgreSQL stayed online")
+          print("M7 old cursor expired after real Spring Boot restart; identical local-query-v1 digest remained stable across JVM processes")
           PY
       - name: Recheck M5 binding revisions and digests after real backend restart
         run: |
