@@ -115,10 +115,26 @@ class LocalQueryV1ContractTest(unittest.TestCase):
         query["steps"][0]["conditions"][0]["literal"] = {"valueType": "BOOLEAN", "value": "true"}
         self.assertFalse(valid(self.query_validator, query))
         query = query_base()
+        query["steps"][0]["conditions"][0]["literal"] = {"valueType": "TEXT", "value": "North"}
+        self.assertFalse(valid(self.query_validator, query))
+        query = query_base()
         query["rootTypeRef"]["sourceRef"]["kind"] = "SCHEMA_RELEASE"
         self.assertFalse(valid(self.query_validator, query))
         query = query_base()
         del query["bindingRef"]["revision"]
+        self.assertFalse(valid(self.query_validator, query))
+
+    def test_query_schema_accepts_lowered_limits_and_rejects_escalation_or_overlong_filter(self):
+        query = query_base()
+        query["limits"] = {"maxPhysicalRows": 500, "timeoutSeconds": 1}
+        self.assertTrue(valid(self.query_validator, query))
+        query["limits"] = {"maxPhysicalRows": 10001}
+        self.assertFalse(valid(self.query_validator, query))
+        query = query_base()
+        query["limits"] = {}
+        self.assertFalse(valid(self.query_validator, query))
+        query = query_base()
+        query["steps"][0]["conditions"] = query["steps"][0]["conditions"] * 9
         self.assertFalse(valid(self.query_validator, query))
 
     def test_result_schema_accepts_page_aggregate_and_unknown_freshness(self):
