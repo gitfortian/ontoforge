@@ -94,6 +94,20 @@
         "queryDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "resultSnapshotRef": { "type": "string", "pattern": "^local-result:[0-9a-f-]{36}$" },
         "expiresAt": { "type": "string", "format": "date-time" },
+        "objects": { "type": "array", "items": { "$ref": "#/$defs/objectSetItem" } },
+        "aggregate": {
+          "type": "object", "additionalProperties": false,
+          "required": ["operation", "valueType", "value", "matchedObjects"],
+          "properties": {
+            "operation": { "enum": ["COUNT_DISTINCT", "SUM"] }, "propertyRef": { "type": "string" },
+            "valueType": { "enum": ["INTEGER", "DECIMAL"] }, "value": { "type": "string" },
+            "matchedObjects": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "totalCount": { "type": "integer", "minimum": 0 },
+        "pageSize": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "pageNumber": { "type": "integer", "minimum": 1 },
+        "nextCursor": { "type": "string", "minLength": 1, "maxLength": 128 },
         "quality": { "$ref": "#/$defs/quality" }, "budget": { "$ref": "#/$defs/budget" }
       }
     },
