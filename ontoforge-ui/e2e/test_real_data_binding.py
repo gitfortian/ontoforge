@@ -288,4 +288,37 @@ class DataBindingRealBrowserTest(unittest.TestCase):
         self.assertIn("SUM", aggregate_text)
         self.assertIn("匹配对象", aggregate_text)
         self.assertIn("UNKNOWN", page.locator(".object-set-evidence").inner_text())
+        # Persist one short-lived signed cursor so the workflow can verify both B0
+        # authorization revocation and real backend-restart invalidation.
+        evidence_path = os.getenv("E2E_M7_CURSOR_EVIDENCE")
+        if evidence_path:
+            binding = api(RUNTIME_API, f"/bindings/{binding_id}?revision=2")
+            cursor_query = {
+                "queryVersion": "local-query-v1",
+                "rootTypeRef": {
+                    "sourceRef": {"kind": "LOCAL_SNAPSHOT", "snapshotId": binding["snapshotId"]},
+                    "packageId": binding["packageId"],
+                    "objectTypeId": binding["objectTypeId"],
+                },
+                "bindingRef": {"bindingId": binding_id, "revision": 2},
+                "steps": [
+                    {"kind": "SORT", "fields": [{"propertyRef": "supplier-code", "direction": "ASC"}]},
+                    {"kind": "PROJECT", "propertyRefs": ["supplier-name", "supplier-rating"]},
+                    {"kind": "PAGE", "pageSize": 2},
+                ],
+            }
+            cursor_first = api(RUNTIME_API, "/object-sets/query", "POST", cursor_query)
+            self.assertEqual(cursor_first["status"], "SUCCESS")
+            self.assertTrue(cursor_first.get("nextCursor"))
+            Path(evidence_path).write_text(json.dumps({
+                "packageId": self.package,
+                "bindingId": binding_id,
+                "snapshotId": binding["snapshotId"],
+                "bindingRevision": 2,
+                "resultSnapshotRef": cursor_first["resultSnapshotRef"],
+                "queryDigest": cursor_first["queryDigest"],
+                "expiresAt": cursor_first["expiresAt"],
+                "cursor": cursor_first["nextCursor"],
+            }, indent=2), encoding="utf-8")
+
 
