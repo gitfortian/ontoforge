@@ -132,7 +132,6 @@ export default function RuntimeTypeWorkspace({route,navigate}:{route:string;navi
       {snapshots.filter(item=>'snapshot:'+item.snapshotId!==currentSourceValue).map(item=><option key={item.snapshotId} value={'snapshot:'+item.snapshotId}>
         本地快照 · revision {item.sourceRevision} · {item.snapshotId.slice(0,8)}
       </option>)}
-      {!snapshots.length&&snapshotId&&<option value={'snapshot:'+snapshotId}>当前本地快照 · {snapshotId.slice(0,8)}</option>}
     </>
   );
 
