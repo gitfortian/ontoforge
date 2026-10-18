@@ -49,6 +49,13 @@ class M7ObjectSetLowFiBrowser(unittest.TestCase):
         self.assertIn("snapshot-local-021", ast)
         self.assertIn("result-local-001", ast)
 
+    def test_operator_incompatible_with_property_type_fails_closed(self):
+        self.page.locator("#filter-property-0").select_option("name")
+        self.page.locator("#filter-op-0").select_option("GT")
+        self.page.get_by_role("button", name="执行查询").click()
+        self.assertIn("422 INVALID_QUERY_AST", self.page.locator("#error-result").inner_text())
+        self.assertTrue(self.page.locator("#result-success").evaluate("(e) => e.classList.contains('hidden')"))
+
     def test_filter_count_is_bounded_to_eight(self):
         add = self.page.get_by_role("button", name="＋ 添加条件")
         add.click()
@@ -65,7 +72,7 @@ class M7ObjectSetLowFiBrowser(unittest.TestCase):
         self.page.locator("#page-size").select_option("3")
         self.page.get_by_role("button", name="执行查询").click()
         self.assertTrue(self.page.locator("#result-success").is_visible())
-        self.assertEqual(self.page.locator("#metric-count").inner_text(), "12")
+        self.assertEqual(self.page.locator("#metric-count").inner_text(), "10")
         self.assertEqual(self.page.locator("#metric-page").inner_text(), "1 / 4")
         self.assertEqual(self.page.locator("#result-rows tr").count(), 3)
         self.assertIn("同一 resultSnapshotRef", self.page.locator("#page-note").inner_text())
@@ -76,12 +83,12 @@ class M7ObjectSetLowFiBrowser(unittest.TestCase):
         self.page.get_by_role("button", name="上一页").click()
         self.assertEqual(self.page.locator("#metric-page").inner_text(), "1 / 4")
 
-        self.page.locator("#page-size").select_option("10")
+        self.page.locator("#page-size").select_option("5")
         self.assertTrue(self.page.locator("#result-success").evaluate("(e) => e.classList.contains('hidden')"))
         self.assertIn("查询条件已变更", self.page.locator("#result-empty").inner_text())
         self.page.get_by_role("button", name="执行查询").click()
         self.assertEqual(self.page.locator("#metric-page").inner_text(), "1 / 2")
-        self.assertEqual(self.page.locator("#result-rows tr").count(), 10)
+        self.assertEqual(self.page.locator("#result-rows tr").count(), 5)
 
     def test_aggregate_mode_returns_exact_mock_metric_without_page_controls(self):
         self.page.get_by_role("button", name="聚合统计").click()
@@ -90,11 +97,11 @@ class M7ObjectSetLowFiBrowser(unittest.TestCase):
         self.page.locator("#aggregate-op").select_option("COUNT_DISTINCT")
         self.page.get_by_role("button", name="执行查询").click()
         self.assertTrue(self.page.locator("#aggregate-result").is_visible())
-        self.assertEqual(self.page.locator("#aggregate-value").inner_text(), "12")
+        self.assertEqual(self.page.locator("#aggregate-value").inner_text(), "10")
         self.assertFalse(self.page.locator("#objects-table").is_visible())
         self.page.locator("#aggregate-op").select_option("SUM")
         self.page.get_by_role("button", name="执行查询").click()
-        self.assertEqual(self.page.locator("#aggregate-value").inner_text(), "1041100.00")
+        self.assertEqual(self.page.locator("#aggregate-value").inner_text(), "923400.00")
         self.assertIn("SUM(annualSpend)", self.page.locator("#aggregate-label").inner_text())
 
     def test_failure_scenarios_never_show_partial_result(self):
