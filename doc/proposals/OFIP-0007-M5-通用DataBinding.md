@@ -64,7 +64,15 @@ Native V0.2 候选包含 SemVer、sourceSchemaVersion 等不同字段。本合�
 - `GET /api/runtime/sources/{sourceId}/tables?packageId=...`：先核验指定包的来源发现权限，再返回允许且可访问的表、列、PG 类型与截断标记；目录超过预算不能静默给出“全部”。
 - `POST /api/runtime/bindings/preview`：提交候选映射，返回至多 20 行样本、类型诊断、样本覆盖与来源检查说明；不写绑定。
 - `POST /api/runtime/bindings`：创建时 `expectedRevision=0`；`PUT /api/runtime/bindings/{id}` 带 expectedRevision 保存新不可变版。
-- `GET /api/runtime/bindings/{id}?revision=n`：重开指定版；缺省返回当前版并明确 revision。
+- `GET /api/runtime/bindings?packageId=...`：返回指定包下每个 ObjectType 的当前绑定摘要（bindingId、objectTypeId、currentRevision、sourceId/schema/table、validationStatus、checkedAt、checkedRows），按 ObjectType ID 稳定排序；只返回当前 head，不把历史 revision 重复列为当前绑定。
+- `GET /api/runtime/bindings/{id}?revision=n`：重开指定版；缺省返回当前版并明确 revision。历史 revision 从详情的版本目录跳转到此接口。
+
+### 4. 摘要 profile 与来源连接隔离
+
+- Binding revision digest 固定使用 `JCS RFC 8785 + SHA-256`，profile 为 `jcs-rfc8785-v1`，输出裸小写 64 位 hex。摘要输入为该 revision 的版本化合同字段和校验摘要，排除 digest 自身与纯响应展示字段；validation 不包含 digest，避免循环依赖。
+- `sourceSchemaFingerprint` 固定使用 `pg-source-schema-v1`：对 sourceId/schema/table、按 ordinal 排序的列名、精确 PostgreSQL type/udt_name、nullability、primary/unique key 约束生成规范化 JSON，再按 JCS/SHA-256 计算。不得将源行值或抽样内容纳入 fingerprint。
+- 应用元数据与来源读取使用独立的 DataSource/JdbcTemplate。来源别名由服务端配置（首版仅 `local-pg-sandbox`），来源账号在 PostgreSQL 层只有白名单表的 SELECT 权限；`readOnly=true` 只是额外防护，不是权限证明。
+- `mvp-local` 必须同时验证应用 DB 与来源 DB 都指向 loopback 和允许的 `ontoforge` / `ontoforge_test_*` 数据库；来源 URL 不接受客户端输入、内嵌凭据或 JDBC options。测试必须以真实 PostgreSQL 角色证明 INSERT/UPDATE/DDL 被拒绝。
 
 错误统一包含 `code / safeMessage / fieldPath / executionId`；400 格式错误，JWT 无凭据/不合法为401、无权为403，有权后不存在为404；409 `BINDING_REVISION_CONFLICT`/`BINDING_SCHEMA_DRIFT`，422 `UNSUPPORTED_MAPPING_TYPE`/`INVALID_TYPE_REFERENCE`/`IDENTITY_CONFLICT`，429 `QUERY_BUDGET_EXCEEDED`，503 `SOURCE_UNAVAILABLE`/`SOURCE_TIMEOUT`。不向响应泄露连接串、SQL、凭据或源行值。
 
@@ -74,7 +82,7 @@ Native V0.2 候选包含 SemVer、sourceSchemaVersion 等不同字段。本合�
 
 [M5 Data Binding low-fidelity interactive prototype](../prototypes/m5-data-binding-lowfi.html) is a review artifact, not production UI. It demonstrates the end-to-end path from a fixed Local Snapshot and custom ObjectType through allowlisted PostgreSQL table selection, typed field mapping, bounded preview/validation, immutable binding revision, and reopening. It includes simulated source drift, duplicate-key conflict, source unavailability, budget exhaustion, and save-time CAS conflict states. The sample supplier table and data are explicitly marked as future isolated-test fixtures; they are not claimed to exist on `main`.
 
-**Prototype status:** Candidate for UX-Low review only. No UX sign-off, high-fidelity sign-off, runtime API, Flyway migration, or M5 implementation is implied. The standard workflow still requires review of this prototype, then a high-fidelity prototype and explicit sign-off before the production UI is developed.
+**Prototype status:** UX-Low Accepted by [PR #60](https://github.com/gitfortian/ontoforge/pull/60). Acceptance covers the user flow and low-fidelity interaction only; no runtime API, Flyway migration, or production implementation is implied.
 
 ## UX-High Prototype Candidate
 
@@ -82,7 +90,13 @@ Native V0.2 候选包含 SemVer、sourceSchemaVersion 等不同字段。本合�
 
 The high-fidelity candidate also demonstrates source drift/unavailability recovery, identity-domain changes, duplicate-key and budget failures, save-time CAS conflict recovery, and unsaved-edit discard confirmation. Its dedicated Chromium tests are in [test_m5_binding_highfi_browser.py](../prototypes/tests/test_m5_binding_highfi_browser.py).
 
-**Status:** UX-Low accepted by [PR #60](https://github.com/gitfortian/ontoforge/pull/60); UX-High is a separate review candidate. The HTML and browser checks remain mocked; no runtime API, Flyway migration, real PostgreSQL validation, or production UI is implied. UX-High sign-off is required before M5 implementation begins.
+**Status:** UX-Low accepted by [PR #60](https://github.com/gitfortian/ontoforge/pull/60) and UX-High accepted by [PR #61](https://github.com/gitfortian/ontoforge/pull/61). The HTML and browser checks remain mocked; no runtime API, Flyway migration, real PostgreSQL validation, or production UI is implied.
+
+## Implementation Readiness Audit
+
+[实施前高保证审查与实施切片](../implementation/M5-实施前高保证审查与实施切片.md) records the current code baseline, security/source-connection gaps, migration plan, required API list endpoint, digest profiles, and the single vertical implementation PR acceptance matrix. The audit is documentation-only and does not change the decision state.
+
+**Current main baseline:** Flyway V1–V6 are occupied; V7 is the next migration number. Existing `mvp_demo_binding` remains a legacy fixed-quality binding and must not be repurposed as generic Binding storage. Production implementation remains blocked until a maintainer explicitly records `[VOTE] Accepted` on the proposal discussion.
 
 ## Proposed Changes
 
