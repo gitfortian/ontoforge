@@ -137,7 +137,7 @@
       },
       "allOf": [
         { "if": { "properties": { "operation": { "const": "SUM" } } }, "then": { "required": ["propertyRef"] } },
-        { "if": { "properties": { "operation": { "const": "COUNT_DISTINCT" } } }, "then": { "not": { "required": ["propertyRef"] } }
+        { "if": { "properties": { "operation": { "const": "COUNT_DISTINCT" } } }, "then": { "not": { "required": ["propertyRef"] } } }
       ]
     },
     "pageRequest": {
