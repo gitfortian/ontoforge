@@ -443,6 +443,11 @@ public class DataBindingService {
                               AND t.table_schema=k.table_schema AND t.table_name=k.table_name
                             WHERE k.table_schema=c.table_schema AND k.table_name=c.table_name
                               AND k.column_name=c.column_name AND t.constraint_type='PRIMARY KEY'
+                              AND (SELECT count(*) FROM information_schema.key_column_usage k2
+                                    WHERE k2.constraint_catalog=k.constraint_catalog
+                                      AND k2.constraint_schema=k.constraint_schema
+                                      AND k2.constraint_name=k.constraint_name
+                                      AND k2.table_schema=k.table_schema AND k2.table_name=k.table_name)=1
                            ) AS is_primary,
                            EXISTS (
                              SELECT 1 FROM information_schema.key_column_usage k
@@ -453,6 +458,11 @@ public class DataBindingService {
                               AND t.table_schema=k.table_schema AND t.table_name=k.table_name
                             WHERE k.table_schema=c.table_schema AND k.table_name=c.table_name
                               AND k.column_name=c.column_name AND t.constraint_type='UNIQUE'
+                              AND (SELECT count(*) FROM information_schema.key_column_usage k2
+                                    WHERE k2.constraint_catalog=k.constraint_catalog
+                                      AND k2.constraint_schema=k.constraint_schema
+                                      AND k2.constraint_name=k.constraint_name
+                                      AND k2.table_schema=k.table_schema AND k2.table_name=k.table_name)=1
                            ) AS is_unique
                       FROM information_schema.columns c
                      WHERE c.table_schema=? AND c.table_name=?
