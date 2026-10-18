@@ -165,9 +165,10 @@ public class ObjectSetQueryService {
     private record SortField(String propertyRef, String direction) {}
     private record AggregateSpec(String operation, String propertyRef) {}
     private record RootTypeRef(String kind, String snapshotId, String packageId, String objectTypeId) {}
+    private record QueryLimits(int maxPhysicalRows, long maxSourceBytes, long maxSerializedResultBytes, int timeoutSeconds) {}
     private record ParsedQuery(RootTypeRef rootTypeRef, String bindingId, long bindingRevision, List<Condition> filters,
             List<SortField> sorts, List<String> project, Integer pageSize, AggregateSpec aggregate,
-            List<Object> canonicalSteps) {}
+            QueryLimits limits, List<Object> canonicalSteps) {}
     private record TypedValue(String valueType, String status, Object value) {}
     private record Materialized(ObjectRef ref, Map<String, TypedValue> values) {}
     private record RawScan(List<Map<String, Object>> rows, List<String> columns,
@@ -175,7 +176,7 @@ public class ObjectSetQueryService {
     private record CursorRef(String snapshotId, int offset, String actorKey) {}
     private record CursorPayload(String snapshotId, int offset, long expiresAtMillis, String actorHash, String nonce) {}
     private record DigestMaterial(String queryVersion, RootTypeRef rootTypeRef, String bindingId, long bindingRevision,
-            String bindingDigest, String payloadSha256, String sourceSchemaFingerprint, List<Object> steps) {}
+            String bindingDigest, String payloadSha256, String sourceSchemaFingerprint, QueryLimits limits, List<Object> steps) {}
 
     private static final class StoredSnapshot {
         private final String id;
@@ -255,7 +256,7 @@ public class ObjectSetQueryService {
             DataBindingService.FieldMapping mapping = mappings.get(ref);
             if (mapping != null) columns.add(mapping.sourceColumn());
         }
-        RawScan scan = scanSource(binding, sourceTable, List.copyOf(columns), executionId);
+        RawScan scan = scanSource(binding, sourceTable, List.copyOf(columns), query.limits(), executionId);
         DataBindingService.BindingDetail afterRead = getBinding(bindingId, query.bindingRevision(), authentication, executionId);
         if (!Objects.equals(binding.digest(), afterRead.digest())
                 || !Objects.equals(binding.identityDomainId(), afterRead.identityDomainId())
@@ -296,12 +297,13 @@ public class ObjectSetQueryService {
                 List.of(new SchemaFingerprintRef(binding.sourceId(), binding.sourceSchema(), binding.sourceTable(),
                         sourceTable.schemaFingerprint())));
         long serializedBytes = serializedBytes(items, aggregate, executionId);
-        if (serializedBytes > MAX_RESULT_BYTES) {
+        if (serializedBytes > query.limits().maxSerializedResultBytes()) {
             throw fail(429, "QUERY_BUDGET_EXCEEDED",
-                    "冻结查询结果超过 8 MiB 序列化预算；未发布部分结果", "result", executionId);
+                    "冻结查询结果超过本次请求的序列化预算；未发布部分结果", "result", executionId);
         }
         BudgetEvidence budget = new BudgetEvidence(scan.rows().size(), objects.size(), scan.sourceBytes(),
-                serializedBytes, MAX_ROWS, MAX_SOURCE_BYTES, MAX_RESULT_BYTES, QUERY_TIMEOUT_SECONDS);
+                serializedBytes, query.limits().maxPhysicalRows(), query.limits().maxSourceBytes(),
+                query.limits().maxSerializedResultBytes(), query.limits().timeoutSeconds());
         Instant now = Instant.now();
         String id = UUID.randomUUID().toString();
         String accessMode = authentication instanceof JwtAuthenticationToken ? "JWT_AUTHENTICATED" : "LOCAL_ISOLATED";
@@ -406,9 +408,12 @@ public class ObjectSetQueryService {
     }
 
     private ParsedQuery parse(JsonNode body, String executionId) {
-        if (body == null || !body.isObject() || !hasOnlyFields(body, Set.of("queryVersion", "rootTypeRef", "bindingRef", "steps"))) {
-            throw fail(400, "INVALID_QUERY_AST", "请求必须只包含 queryVersion、rootTypeRef、bindingRef、steps", "request", executionId);
+        if (body == null || !body.isObject()
+                || !hasOnlyFields(body, Set.of("queryVersion", "rootTypeRef", "bindingRef", "steps", "limits"))) {
+            throw fail(400, "INVALID_QUERY_AST", "请求只允许 queryVersion、rootTypeRef、bindingRef、steps 和可选 limits", "request", executionId);
         }
+        QueryLimits limits = body.has("limits") ? parseLimits(body.get("limits"), executionId)
+                : new QueryLimits(MAX_ROWS, MAX_SOURCE_BYTES, MAX_RESULT_BYTES, QUERY_TIMEOUT_SECONDS);
         JsonNode root = body.path("rootTypeRef");
         JsonNode sourceRef = root.path("sourceRef");
         JsonNode bindingRef = body.path("bindingRef");
@@ -446,8 +451,9 @@ public class ObjectSetQueryService {
             switch (kind) {
                 case "FILTER" -> {
                     if (terminal || phase > 1 || !hasOnlyFields(step, Set.of("kind", "conditions"))
-                            || !step.path("conditions").isArray() || step.path("conditions").isEmpty()) {
-                        throw fail(422, "INVALID_QUERY_AST", "FILTER 必须位于排序、投影和终止节点之前，并包含 conditions", path, executionId);
+                            || !step.path("conditions").isArray() || step.path("conditions").isEmpty()
+                            || step.path("conditions").size() > 8) {
+                        throw fail(422, "INVALID_QUERY_AST", "FILTER 必须位于排序、投影和终止节点之前，并包含 1–8 条 conditions", path, executionId);
                     }
                     phase = 1;
                     List<Condition> group = new ArrayList<>();
@@ -456,7 +462,7 @@ public class ObjectSetQueryService {
                         Condition condition = parseCondition(step.path("conditions").get(j), path + ".conditions[" + j + "]", executionId);
                         group.add(condition); filters.add(condition);
                     }
-                    canonicalSteps.add(Map.of("kind", "FILTER", "conditions", group));
+                    canonicalSteps.add(orderedNode("FILTER", "conditions", group));
                 }
                 case "SORT" -> {
                     if (terminal || phase > 2 || !sorts.isEmpty() || !hasOnlyFields(step, Set.of("kind", "fields"))
@@ -477,7 +483,7 @@ public class ObjectSetQueryService {
                         nodeCount++;
                     }
                     if (nodeCount > 16) throw fail(422, "INVALID_QUERY_AST", "AST 节点总数超过 16", path, executionId);
-                    canonicalSteps.add(Map.of("kind", "SORT", "fields", List.copyOf(sorts)));
+                    canonicalSteps.add(orderedNode("SORT", "fields", List.copyOf(sorts)));
                 }
                 case "PROJECT" -> {
                     if (terminal || phase > 3 || !project.isEmpty() || !hasOnlyFields(step, Set.of("kind", "propertyRefs"))
@@ -493,7 +499,7 @@ public class ObjectSetQueryService {
                         refs.add(ref.asText());
                     }
                     project = List.copyOf(refs);
-                    canonicalSteps.add(Map.of("kind", "PROJECT", "propertyRefs", project));
+                    canonicalSteps.add(orderedNode("PROJECT", "propertyRefs", project));
                 }
                 case "PAGE" -> {
                     if (terminal || phase > 3 || !hasOnlyFields(step, Set.of("kind", "pageSize"))
@@ -502,7 +508,7 @@ public class ObjectSetQueryService {
                         throw fail(422, "INVALID_QUERY_AST", "PAGE 必须是最后一步，pageSize 范围为 1–50", path, executionId);
                     }
                     terminal = true; phase = 4; pageSize = step.path("pageSize").asInt();
-                    canonicalSteps.add(Map.of("kind", "PAGE", "pageSize", pageSize));
+                    canonicalSteps.add(orderedNode("PAGE", "pageSize", pageSize));
                 }
                 case "AGGREGATE" -> {
                     if (terminal || phase > 1 || !hasOnlyFields(step, Set.of("kind", "operation", "propertyRef"))
@@ -536,7 +542,54 @@ public class ObjectSetQueryService {
         RootTypeRef rootTypeRef = new RootTypeRef(sourceRef.path("kind").asText(), sourceRef.path("snapshotId").asText(),
                 root.path("packageId").asText(), root.path("objectTypeId").asText());
         return new ParsedQuery(rootTypeRef, bindingRef.path("bindingId").asText(), bindingRef.path("revision").asLong(),
-                List.copyOf(filters), List.copyOf(sorts), project, pageSize, aggregate, List.copyOf(canonicalSteps));
+                List.copyOf(filters), List.copyOf(sorts), project, pageSize, aggregate, limits, List.copyOf(canonicalSteps));
+    }
+
+    private QueryLimits parseLimits(JsonNode node, String executionId) {
+        if (node == null || !node.isObject() || node.size() == 0
+                || !hasOnlyFields(node, Set.of("maxPhysicalRows", "maxSourceBytes", "maxSerializedResultBytes", "timeoutSeconds"))) {
+            throw fail(422, "INVALID_QUERY_AST", "limits 必须是非空对象，且只能下调服务端查询预算", "limits", executionId);
+        }
+        int rows = MAX_ROWS;
+        long sourceBytes = MAX_SOURCE_BYTES;
+        long resultBytes = MAX_RESULT_BYTES;
+        int timeoutSeconds = QUERY_TIMEOUT_SECONDS;
+        if (node.has("maxPhysicalRows")) {
+            JsonNode value = node.get("maxPhysicalRows");
+            if (!value.isIntegralNumber() || !value.canConvertToInt() || value.asInt() < 1 || value.asInt() > MAX_ROWS) {
+                throw fail(422, "INVALID_QUERY_AST", "limits.maxPhysicalRows 必须在 1–10000 范围内", "limits.maxPhysicalRows", executionId);
+            }
+            rows = value.asInt();
+        }
+        if (node.has("maxSourceBytes")) {
+            JsonNode value = node.get("maxSourceBytes");
+            if (!value.isIntegralNumber() || !value.canConvertToLong() || value.asLong() < 1 || value.asLong() > MAX_SOURCE_BYTES) {
+                throw fail(422, "INVALID_QUERY_AST", "limits.maxSourceBytes 必须在 1–8388608 范围内", "limits.maxSourceBytes", executionId);
+            }
+            sourceBytes = value.asLong();
+        }
+        if (node.has("maxSerializedResultBytes")) {
+            JsonNode value = node.get("maxSerializedResultBytes");
+            if (!value.isIntegralNumber() || !value.canConvertToLong() || value.asLong() < 1 || value.asLong() > MAX_RESULT_BYTES) {
+                throw fail(422, "INVALID_QUERY_AST", "limits.maxSerializedResultBytes 必须在 1–8388608 范围内", "limits.maxSerializedResultBytes", executionId);
+            }
+            resultBytes = value.asLong();
+        }
+        if (node.has("timeoutSeconds")) {
+            JsonNode value = node.get("timeoutSeconds");
+            if (!value.isIntegralNumber() || !value.canConvertToInt() || value.asInt() < 1 || value.asInt() > QUERY_TIMEOUT_SECONDS) {
+                throw fail(422, "INVALID_QUERY_AST", "limits.timeoutSeconds 必须在 1–3 秒范围内", "limits.timeoutSeconds", executionId);
+            }
+            timeoutSeconds = value.asInt();
+        }
+        return new QueryLimits(rows, sourceBytes, resultBytes, timeoutSeconds);
+    }
+
+    private static Map<String, Object> orderedNode(String kind, String field, Object value) {
+        Map<String, Object> node = new LinkedHashMap<>();
+        node.put("kind", kind);
+        node.put(field, value);
+        return node;
     }
 
     private Condition parseCondition(JsonNode node, String path, String executionId) {
@@ -572,7 +625,11 @@ public class ObjectSetQueryService {
                 || !node.path("valueType").isTextual() || !node.has("value")) {
             throw fail(422, "INVALID_QUERY_AST", "literal 必须包含 valueType 和 value", path, executionId);
         }
-        String type = canonicalType(node.path("valueType").asText());
+        String declaredType = node.path("valueType").asText();
+        if (!Set.of("STRING", "INTEGER", "DECIMAL", "BOOLEAN", "ENUM", "DATETIME", "DATE", "UUID").contains(declaredType)) {
+            throw fail(422, "INVALID_QUERY_AST", "literal.valueType 必须使用 local-query-v1 规范类型名", path + ".valueType", executionId);
+        }
+        String type = canonicalType(declaredType);
         JsonNode value = node.path("value");
         if ("BOOLEAN".equals(type)) {
             if (!value.isBoolean()) throw fail(422, "INVALID_QUERY_AST", "BOOLEAN literal 必须是 JSON boolean", path, executionId);
@@ -641,7 +698,7 @@ public class ObjectSetQueryService {
     }
 
     private RawScan scanSource(DataBindingService.BindingDetail binding, DataBindingService.SourceTable table,
-            List<String> columns, String executionId) {
+            List<String> columns, QueryLimits limits, String executionId) {
         if (!DataBindingService.SOURCE_ID.equals(binding.sourceId()) || !"public".equals(binding.sourceSchema())
                 || !allowedTables.contains(binding.sourceTable()) || !IDENT.matcher(binding.sourceTable()).matches()
                 || !IDENT.matcher(binding.sourceKey()).matches()) {
@@ -656,7 +713,7 @@ public class ObjectSetQueryService {
         if (source == null) throw fail(503, "SOURCE_UNAVAILABLE", "没有配置独立来源只读连接；不能判断查询结果", "source", executionId);
         try {
             return source.execute((ConnectionCallback<RawScan>) connection ->
-                    executeScan(connection, binding, table, columns, executionId));
+                    executeScan(connection, binding, table, columns, limits, executionId));
         } catch (QueryException ex) {
             throw ex;
         } catch (QueryTimeoutException ex) {
@@ -674,20 +731,20 @@ public class ObjectSetQueryService {
     }
 
     private RawScan executeScan(Connection connection, DataBindingService.BindingDetail binding,
-            DataBindingService.SourceTable table, List<String> columns, String executionId) throws SQLException {
+            DataBindingService.SourceTable table, List<String> columns, QueryLimits limits, String executionId) throws SQLException {
         boolean auto = connection.getAutoCommit();
         int isolation = connection.getTransactionIsolation();
         boolean readOnly = connection.isReadOnly();
         Instant started = Instant.now();
-        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(QUERY_TIMEOUT_SECONDS);
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(limits.timeoutSeconds());
         try {
             connection.setReadOnly(true);
             connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
             connection.setAutoCommit(false);
             try (Statement statement = connection.createStatement()) {
-                statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+                statement.setQueryTimeout(limits.timeoutSeconds());
                 statement.execute("SET TRANSACTION READ ONLY");
-                statement.execute("SET LOCAL statement_timeout = '" + QUERY_TIMEOUT_SECONDS + "s'");
+                statement.execute("SET LOCAL statement_timeout = '" + limits.timeoutSeconds() + "s'");
             }
             verifySourceReadable(connection, binding, executionId, deadlineNanos);
             String projection = String.join(", ", columns.stream().map(ObjectSetQueryService::qi).toList());
@@ -696,7 +753,7 @@ public class ObjectSetQueryService {
                     .map(c -> "COALESCE(octet_length(" + qi(c) + "::text),0)::bigint")
                     .reduce((a,b) -> a + " + " + b).orElse("0");
             String budgetSql = "WITH candidates AS (SELECT " + projection + from
-                    + " ORDER BY " + qi(binding.sourceKey()) + " LIMIT " + (MAX_ROWS + 1) + ") "
+                    + " ORDER BY " + qi(binding.sourceKey()) + " LIMIT " + (limits.maxPhysicalRows() + 1) + ") "
                     + "SELECT COUNT(*)::bigint AS row_count, COALESCE(SUM(" + sizeExpr
                     + "),0)::bigint AS source_bytes FROM candidates";
             long rowCount;
@@ -709,17 +766,17 @@ public class ObjectSetQueryService {
                     sourceBytes = rs.getLong("source_bytes");
                 }
             }
-            if (rowCount > MAX_ROWS) throw fail(429, "QUERY_BUDGET_EXCEEDED",
-                    "来源物理行数超过 10000 行预算；没有返回部分结果", "source", executionId);
-            if (sourceBytes > MAX_SOURCE_BYTES) throw fail(429, "QUERY_BUDGET_EXCEEDED",
-                    "本次查询来源扫描超过 8 MiB 预算；没有返回部分结果", "source", executionId);
+            if (rowCount > limits.maxPhysicalRows()) throw fail(429, "QUERY_BUDGET_EXCEEDED",
+                    "来源物理行数超过本次请求的 " + limits.maxPhysicalRows() + " 行预算；没有返回部分结果", "source", executionId);
+            if (sourceBytes > limits.maxSourceBytes()) throw fail(429, "QUERY_BUDGET_EXCEEDED",
+                    "本次查询来源扫描超过 " + limits.maxSourceBytes() + " 字节预算；没有返回部分结果", "source", executionId);
             String sql = "SELECT " + projection + from + " ORDER BY " + qi(binding.sourceKey())
-                    + " LIMIT " + (MAX_ROWS + 1);
+                    + " LIMIT " + (limits.maxPhysicalRows() + 1);
             List<Map<String,Object>> rows = new ArrayList<>();
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
                 applyRemainingTimeout(connection, statement, deadlineNanos, executionId);
                 statement.setFetchSize(50);
-                statement.setMaxRows(MAX_ROWS + 1);
+                statement.setMaxRows(limits.maxPhysicalRows() + 1);
                 try (ResultSet rs = statement.executeQuery()) {
                     while (rs.next()) {
                         if (System.nanoTime() >= deadlineNanos) {
@@ -731,8 +788,8 @@ public class ObjectSetQueryService {
                     }
                 }
             }
-            if (rows.size() > MAX_ROWS) throw fail(429, "QUERY_BUDGET_EXCEEDED",
-                    "来源物理行数超过 10000 行预算；没有返回部分结果", "source", executionId);
+            if (rows.size() > limits.maxPhysicalRows()) throw fail(429, "QUERY_BUDGET_EXCEEDED",
+                    "来源物理行数超过本次请求的 " + limits.maxPhysicalRows() + " 行预算；没有返回部分结果", "source", executionId);
             Instant completed = Instant.now();
             connection.commit();
             return new RawScan(List.copyOf(rows), List.copyOf(columns), started, completed, sourceBytes, deadlineNanos);
@@ -1284,7 +1341,8 @@ public class ObjectSetQueryService {
             RuntimeTypeResolver.TypeDescriptor type, String fingerprint, String executionId) {
         try {
             byte[] bytes = mapper.writeValueAsBytes(new DigestMaterial("local-query-v1", query.rootTypeRef(),
-                    binding.bindingId(), binding.revision(), binding.digest(), type.payloadSha256(), fingerprint, query.canonicalSteps()));
+                    binding.bindingId(), binding.revision(), binding.digest(), type.payloadSha256(), fingerprint,
+                    query.limits(), query.canonicalSteps()));
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         } catch (JsonProcessingException | NoSuchAlgorithmException ex) {
             throw fail(500, "QUERY_DIGEST_FAILED", "无法生成查询版本摘要", null, executionId);
