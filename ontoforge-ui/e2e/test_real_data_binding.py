@@ -75,6 +75,7 @@ class DataBindingRealBrowserTest(unittest.TestCase):
             ("supplier-rating", "rating", "供应商评级", "DECIMAL", False),
             ("supplier-active", "active", "是否有效", "BOOLEAN", True),
             ("supplier-onboarded", "onboardedAt", "入驻时间", "DATETIME", False),
+            ("supplier-legacy", "legacyCode", "旧系统编码", "STRING", False),
         ]
         for index, (property_id, api_name, label, value_type, required) in enumerate(properties):
             if index > 0:
@@ -216,3 +217,27 @@ class DataBindingRealBrowserTest(unittest.TestCase):
         historical_panel = page.locator(".model-panel").inner_text()
         self.assertIn("revision 1", historical_panel)
         self.assertIn(revision1_identity, historical_panel)
+
+        # M6 vertical story: use the persisted current Binding revision to read a real supplier.
+        page.get_by_role("button", name="返回目录").click()
+        page.get_by_role("button", name="查看 / 历史").click()
+        page.get_by_role("heading", name="绑定详情", exact=True).wait_for()
+        page.get_by_text("revision 2", exact=False).wait_for(timeout=15000)
+        page.get_by_role("button", name="读取对象").click()
+        page.get_by_role("heading", name="对象读取", exact=True).wait_for(timeout=15000)
+        page.locator("#object-runtime-key").fill("ALT-SUP-1001")
+        page.locator("#read-object").click()
+        page.locator(".object-runtime-result .object-runtime-property-table").wait_for(timeout=15000)
+        result_text = page.locator(".object-runtime-result").inner_text()
+        self.assertIn("Northwind Components", result_text)
+        self.assertIn("PRESENT", result_text)
+        self.assertIn("MISSING", result_text)
+        self.assertIn("REPEATABLE_READ", page.locator(".object-runtime-evidence").inner_text())
+        self.assertIn("UNKNOWN", page.locator(".object-runtime-evidence").inner_text())
+
+        # A source miss is a typed 404, not a successful empty object or stale prior result.
+        page.locator("#object-runtime-key").fill("ALT-SUP-9999")
+        page.locator("#read-object").click()
+        page.locator(".object-runtime-error").wait_for(timeout=15000)
+        self.assertIn("OBJECT_NOT_FOUND", page.locator(".object-runtime-error").inner_text())
+        self.assertNotIn("Northwind Components", page.locator(".object-runtime-result").inner_text())
