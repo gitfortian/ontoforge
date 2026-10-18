@@ -8,6 +8,7 @@ import io.ontoforge.boot.model.DataBindingService;
 import io.ontoforge.boot.model.NativeDraftService;
 import io.ontoforge.boot.model.NativeSnapshotService;
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -261,6 +262,223 @@ class DataBindingIntegrationTest {
         assertThatThrownBy(() -> jdbc.update(
                 "UPDATE runtime_binding_revision SET checked_rows=0 WHERE binding_id=?::uuid AND revision=1", bindingId))
                 .isInstanceOf(org.springframework.dao.DataAccessException.class);
+    }
+
+    @Test
+    void customObjectRuntimeReadsTypedValuesAndEvidenceAndRejectsUnknownOrDriftedObjects() throws Exception {
+        String packageId = "m6.test.p" + UUID.randomUUID().toString().replace("-", "");
+        NativeDraftService.DraftDetail draft = drafts.create(packageId);
+        ObjectNode editor = mapper.createObjectNode();
+        editor.put("editorSchemaVersion", "0.1.0");
+        ArrayNode types = editor.putArray("objectTypes");
+        editor.putArray("linkTypes");
+        ObjectNode supplier = types.addObject();
+        supplier.put("id", "supplier");
+        supplier.put("apiName", "Supplier");
+        supplier.put("label", "供应商");
+        supplier.put("primaryKeyRef", "supplier-code");
+        ArrayNode properties = supplier.putArray("properties");
+        addProperty(properties, "supplier-code", "vendorCode", "STRING", true);
+        addProperty(properties, "supplier-name", "name", "STRING", true);
+        addProperty(properties, "supplier-rating", "rating", "DECIMAL", false);
+        addProperty(properties, "supplier-active", "active", "BOOLEAN", true);
+        addProperty(properties, "supplier-onboarded", "onboardedAt", "DATETIME", false);
+        addProperty(properties, "supplier-sequence", "sequence", "INTEGER", true);
+        ObjectNode category = addProperty(properties, "supplier-category", "category", "ENUM", false);
+        ArrayNode enumValues = category.putArray("enumValues");
+        enumValues.add("ELECTRONICS"); enumValues.add("METAL"); enumValues.add("LOGISTICS"); enumValues.add("HARDWARE");
+        addProperty(properties, "supplier-legacy", "legacyCode", "STRING", false);
+
+        NativeDraftService.DraftDetail saved = drafts.save(UUID.fromString(draft.draftId()), draft.revision(), editor);
+        assertThat(drafts.validate(UUID.fromString(draft.draftId()), saved.revision()).status()).isEqualTo("VALID");
+        NativeSnapshotService.FreezeResult frozen = snapshots.freeze(
+                UUID.fromString(draft.draftId()), saved.revision(), UUID.randomUUID());
+        String snapshotId = frozen.snapshot().snapshotId();
+
+        ObjectNode request = bindingRequest(snapshotId);
+        ResponseEntity<String> preview = post("/api/runtime/bindings/preview", request);
+        assertThat(preview.getStatusCode().value()).as(preview.getBody()).isEqualTo(200);
+        request.put("expectedSchemaFingerprint", mapper.readTree(preview.getBody())
+                .path("source").path("schemaFingerprint").asText());
+        ResponseEntity<String> validation = post("/api/runtime/bindings/validate", request);
+        assertThat(validation.getStatusCode().value()).as(validation.getBody()).isEqualTo(200);
+        assertThat(mapper.readTree(validation.getBody()).path("status").asText()).isEqualTo("VALID");
+        ResponseEntity<String> created = post("/api/runtime/bindings", request);
+        assertThat(created.getStatusCode().value()).as(created.getBody()).isEqualTo(201);
+        String bindingId = mapper.readTree(created.getBody()).path("bindingId").asText();
+
+        ObjectNode read = mapper.createObjectNode();
+        read.put("bindingId", bindingId);
+        read.put("bindingRevision", 1);
+        ObjectNode key = read.putObject("key");
+        key.put("valueType", "STRING");
+        key.put("value", "SUP-1001");
+        ArrayNode refs = read.putArray("propertyRefs");
+        for (String ref : List.of("supplier-code", "supplier-name", "supplier-rating", "supplier-active",
+                "supplier-onboarded", "supplier-sequence", "supplier-category", "supplier-legacy")) refs.add(ref);
+
+        ResponseEntity<String> response = post("/api/runtime/objects/read", read);
+        assertThat(response.getStatusCode().value()).as(response.getBody()).isEqualTo(200);
+        JsonNode result = mapper.readTree(response.getBody());
+        assertThat(result.path("status").asText()).isEqualTo("SUCCESS");
+        assertThat(result.path("executionId").asText()).matches("[a-f0-9-]{36}");
+        assertThat(result.path("objectRef").path("objectTypeId").asText()).isEqualTo("supplier");
+        assertThat(result.path("objectRef").path("key").path("value").asText()).isEqualTo("SUP-1001");
+        assertThat(result.path("sourceReadRef").path("transactionIsolation").asText()).isEqualTo("REPEATABLE_READ");
+        assertThat(result.path("sourceReadRef").path("schemaFingerprint").asText()).matches("[0-9a-f]{64}");
+        assertThat(result.path("payloadSha256").asText()).matches("[0-9a-f]{64}");
+        assertThat(result.path("bindingVersions").get(0).path("revision").asLong()).isEqualTo(1);
+        assertThat(result.path("quality").path("accuracy").asText()).isEqualTo("EXACT");
+        assertThat(result.path("quality").path("freshness").asText()).isEqualTo("UNKNOWN");
+        assertThat(objectProperty(result, "supplier-name").path("value").asText()).isEqualTo("Northwind Components");
+        assertThat(objectProperty(result, "supplier-rating").path("value").asText()).isEqualTo("4.75");
+        assertThat(objectProperty(result, "supplier-active").path("value").asBoolean()).isTrue();
+        assertThat(objectProperty(result, "supplier-sequence").path("value").asText()).isEqualTo("9007199254740993");
+        assertThat(objectProperty(result, "supplier-onboarded").path("value").asText()).isEqualTo("2026-01-15T09:00:00Z");
+        assertThat(objectProperty(result, "supplier-category").path("value").asText()).isEqualTo("ELECTRONICS");
+        assertThat(objectProperty(result, "supplier-legacy").path("status").asText()).isEqualTo("MISSING");
+        assertThat(objectProperty(result, "supplier-legacy").path("value").isMissingNode()).isTrue();
+
+        // A later Binding revision may change the identity mapping. Reads pinned to revision 1
+        // must keep using its immutable source key and identity domain.
+        ObjectNode revisionTwoRequest = request.deepCopy();
+        revisionTwoRequest.put("expectedRevision", 1);
+        revisionTwoRequest.put("sourceKey", "alternate_code");
+        for (JsonNode item : revisionTwoRequest.withArray("fieldMappings")) {
+            if ("supplier-code".equals(item.path("propertyRef").asText())) {
+                ((ObjectNode) item).put("sourceColumn", "alternate_code");
+            }
+        }
+        ResponseEntity<String> revisionTwoResponse = put("/api/runtime/bindings/" + bindingId, revisionTwoRequest);
+        assertThat(revisionTwoResponse.getStatusCode().value()).as(revisionTwoResponse.getBody()).isEqualTo(200);
+        JsonNode revisionTwo = mapper.readTree(revisionTwoResponse.getBody());
+        assertThat(revisionTwo.path("revision").asLong()).isEqualTo(2);
+        assertThat(revisionTwo.path("identityDomainId").asText())
+                .isNotEqualTo(result.path("objectRef").path("identityDomainId").asText());
+
+        ResponseEntity<String> historicalRead = post("/api/runtime/objects/read", read);
+        assertThat(historicalRead.getStatusCode().value()).as(historicalRead.getBody()).isEqualTo(200);
+        JsonNode historicalResult = mapper.readTree(historicalRead.getBody());
+        assertThat(historicalResult.path("bindingVersions").get(0).path("revision").asLong()).isEqualTo(1);
+        assertThat(historicalResult.path("objectRef").path("key").path("value").asText()).isEqualTo("SUP-1001");
+        assertThat(objectProperty(historicalResult, "supplier-name").path("value").asText()).isEqualTo("Northwind Components");
+
+        ObjectNode currentRead = read.deepCopy();
+        currentRead.put("bindingRevision", 2);
+        currentRead.with("key").put("value", "ALT-SUP-1001");
+        ResponseEntity<String> currentResponse = post("/api/runtime/objects/read", currentRead);
+        assertThat(currentResponse.getStatusCode().value()).as(currentResponse.getBody()).isEqualTo(200);
+        JsonNode currentResult = mapper.readTree(currentResponse.getBody());
+        assertThat(currentResult.path("bindingVersions").get(0).path("revision").asLong()).isEqualTo(2);
+        assertThat(currentResult.path("objectRef").path("identityDomainId").asText())
+                .isEqualTo(revisionTwo.path("identityDomainId").asText());
+        assertThat(currentResult.path("objectRef").path("key").path("value").asText()).isEqualTo("ALT-SUP-1001");
+
+        ObjectNode duplicateRefs = read.deepCopy();
+        ArrayNode duplicatePropertyRefs = duplicateRefs.putArray("propertyRefs");
+        duplicatePropertyRefs.add("supplier-name");
+        duplicatePropertyRefs.add("supplier-name");
+        ResponseEntity<String> duplicateProperties = post("/api/runtime/objects/read", duplicateRefs);
+        assertThat(duplicateProperties.getStatusCode().value()).isEqualTo(422);
+        assertThat(duplicateProperties.getBody()).contains("INVALID_OBJECT_REQUEST");
+
+        // The output cap and source scan cap are separate: a 2 MiB value passes source
+        // preflight but must not escape the 1 MiB serialized response limit; a 9 MiB value
+        // must be rejected in PostgreSQL before JDBC materializes it in the application.
+        String originalName = jdbc.queryForObject(
+                "SELECT name FROM public.m5_supplier_source WHERE vendor_code='SUP-1001'", String.class);
+        try {
+            jdbc.update("UPDATE public.m5_supplier_source SET name=repeat('x', 2 * 1024 * 1024) WHERE vendor_code='SUP-1001'");
+            ResponseEntity<String> oversizedOutput = post("/api/runtime/objects/read", read);
+            assertThat(oversizedOutput.getStatusCode().value()).isEqualTo(429);
+            assertThat(oversizedOutput.getBody()).contains("对象结果超过 1 MiB");
+            assertThat(oversizedOutput.getBody()).doesNotContain("objectRef", "properties");
+
+            jdbc.update("UPDATE public.m5_supplier_source SET name=repeat('x', 9 * 1024 * 1024) WHERE vendor_code='SUP-1001'");
+
+            // An unrequested large field is not projected or budgeted; explicitly requesting it is.
+            ObjectNode narrowRead = read.deepCopy();
+            ArrayNode narrowRefs = narrowRead.putArray("propertyRefs");
+            narrowRefs.add("supplier-code");
+            ResponseEntity<String> narrowResponse = post("/api/runtime/objects/read", narrowRead);
+            assertThat(narrowResponse.getStatusCode().value()).as(narrowResponse.getBody()).isEqualTo(200);
+            JsonNode narrowResult = mapper.readTree(narrowResponse.getBody());
+            assertThat(narrowResult.path("selectedPropertyRefs").size()).isEqualTo(1);
+            assertThat(narrowResult.path("properties").size()).isEqualTo(1);
+
+            ResponseEntity<String> oversizedSource = post("/api/runtime/objects/read", read);
+            assertThat(oversizedSource.getStatusCode().value()).isEqualTo(429);
+            assertThat(oversizedSource.getBody()).contains("对象来源扫描超过 8 MiB");
+            assertThat(oversizedSource.getBody()).doesNotContain("objectRef", "properties");
+        } finally {
+            jdbc.update("UPDATE public.m5_supplier_source SET name=? WHERE vendor_code='SUP-1001'", originalName);
+        }
+
+        jdbc.update("UPDATE public.m5_supplier_source SET rating=NULL WHERE vendor_code='SUP-1005'");
+        try {
+            ObjectNode nullableRead = read.deepCopy();
+            nullableRead.with("key").put("value", "SUP-1005");
+            ResponseEntity<String> nullableResponse = post("/api/runtime/objects/read", nullableRead);
+            assertThat(nullableResponse.getStatusCode().value()).as(nullableResponse.getBody()).isEqualTo(200);
+            JsonNode nullableResult = mapper.readTree(nullableResponse.getBody());
+            assertThat(objectProperty(nullableResult, "supplier-rating").path("status").asText()).isEqualTo("NULL");
+            assertThat(objectProperty(nullableResult, "supplier-rating").path("value").isMissingNode()).isTrue();
+            assertThat(objectProperty(nullableResult, "supplier-active").path("value").asBoolean()).isFalse();
+            assertThat(objectProperty(nullableResult, "supplier-legacy").path("status").asText()).isEqualTo("MISSING");
+        } finally {
+            jdbc.update("UPDATE public.m5_supplier_source SET rating=4.10 WHERE vendor_code='SUP-1005'");
+        }
+
+        ObjectNode notFound = read.deepCopy();
+        notFound.with("key").put("value", "SUP-9999");
+        ResponseEntity<String> missingResponse = post("/api/runtime/objects/read", notFound);
+        assertThat(missingResponse.getStatusCode().value()).isEqualTo(404);
+        JsonNode missing = mapper.readTree(missingResponse.getBody());
+        assertThat(missing.path("code").asText()).isEqualTo("OBJECT_NOT_FOUND");
+        assertThat(missing.path("objectRef").isMissingNode()).isTrue();
+        assertThat(missing.path("properties").isMissingNode()).isTrue();
+        assertThat(missing.path("executionId").asText()).isNotBlank();
+
+        ObjectNode preservedWhitespace = read.deepCopy();
+        preservedWhitespace.with("key").put("value", " SUP-1001 ");
+        ResponseEntity<String> whitespaceResponse = post("/api/runtime/objects/read", preservedWhitespace);
+        assertThat(whitespaceResponse.getStatusCode().value()).isEqualTo(404);
+        assertThat(whitespaceResponse.getBody()).contains("OBJECT_NOT_FOUND");
+
+        ObjectNode wrongKeyType = read.deepCopy();
+        wrongKeyType.with("key").put("valueType", "INTEGER");
+        ResponseEntity<String> invalidKey = post("/api/runtime/objects/read", wrongKeyType);
+        assertThat(invalidKey.getStatusCode().value()).isEqualTo(422);
+        assertThat(invalidKey.getBody()).contains("INVALID_OBJECT_KEY");
+
+        ObjectNode oversizedPropertyRefs = read.deepCopy();
+        ArrayNode tooManyRefs = oversizedPropertyRefs.putArray("propertyRefs");
+        for (int i = 0; i < 101; i++) tooManyRefs.add("property-" + i);
+        ResponseEntity<String> tooManyProperties = post("/api/runtime/objects/read", oversizedPropertyRefs);
+        assertThat(tooManyProperties.getStatusCode().value()).isEqualTo(422);
+        assertThat(tooManyProperties.getBody()).contains("INVALID_OBJECT_REQUEST");
+
+        ObjectNode forgedContext = read.deepCopy();
+        forgedContext.putObject("authorizationContext").put("role", "OWNER");
+        ResponseEntity<String> rejectedContext = post("/api/runtime/objects/read", forgedContext);
+        assertThat(rejectedContext.getStatusCode().value()).isEqualTo(400);
+        assertThat(rejectedContext.getBody()).contains("INVALID_OBJECT_REQUEST");
+
+        jdbc.execute("ALTER TABLE public.m5_supplier_source ADD COLUMN m6_test_drift TEXT");
+        try {
+            ResponseEntity<String> drift = post("/api/runtime/objects/read", read);
+            assertThat(drift.getStatusCode().value()).isEqualTo(409);
+            assertThat(drift.getBody()).contains("BINDING_SCHEMA_DRIFT");
+        } finally {
+            jdbc.execute("ALTER TABLE public.m5_supplier_source DROP COLUMN IF EXISTS m6_test_drift");
+        }
+    }
+
+    private JsonNode objectProperty(JsonNode object, String propertyRef) {
+        for (JsonNode property : object.path("properties")) {
+            if (propertyRef.equals(property.path("propertyRef").asText())) return property;
+        }
+        return mapper.createObjectNode();
     }
 
     private ObjectNode addProperty(ArrayNode properties, String id, String apiName, String type, boolean required) {

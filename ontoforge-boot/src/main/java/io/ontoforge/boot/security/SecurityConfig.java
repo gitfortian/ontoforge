@@ -35,7 +35,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/me").authenticated()
                         .requestMatchers("/api/model/**").authenticated()
                         .requestMatchers("/api/mvp/quality/**").authenticated()
-                        .requestMatchers("/api/runtime/sources/**", "/api/runtime/bindings", "/api/runtime/bindings/**").authenticated()
+                        .requestMatchers("/api/runtime/sources/**", "/api/runtime/bindings", "/api/runtime/bindings/**", "/api/runtime/objects/**").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(errors -> errors
                         .authenticationEntryPoint(json401())

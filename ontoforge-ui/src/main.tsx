@@ -5,6 +5,7 @@ import NativeModelWorkspace from './NativeModelWorkspace';
 import RuntimeTypeWorkspace from './RuntimeTypeWorkspace';
 import QualityMvpWorkspace from './QualityMvpWorkspace';
 import DataBindingWorkspace from './DataBindingWorkspace';
+import ObjectRuntimeWorkspace from './ObjectRuntimeWorkspace';
 import {beginSignIn,initializeIdentity,oidcConfigured,signOut,WorkspaceIdentity} from './auth';
 import './style.css';
 
@@ -48,7 +49,8 @@ function App() {
   const model=location.startsWith('#/model');
   const binding=location.startsWith('#/mvp/bindings');
   const quality=location.startsWith('#/mvp/quality');
-  const mvp=binding||quality;
+  const objectRuntime=location.startsWith('#/mvp/objects');
+  const mvp=binding||quality||objectRuntime;
   async function reload() {
     setStatus({kind:'loading'});
     try {
@@ -89,14 +91,15 @@ function App() {
       <button className={model?'nav-active nav-link':'nav-inactive nav-link'} onClick={()=>navigate('#/model/packages')}><Blocks size={17}/> Native 本体建模</button>
       <button className={quality?'nav-active nav-link':'nav-inactive nav-link'} onClick={()=>navigate('#/mvp/quality')}><GitBranch size={17}/> 工业质量追溯 · MVP</button>
       <button className={binding?'nav-active nav-link':'nav-inactive nav-link'} onClick={()=>navigate('#/mvp/bindings')}><Database size={17}/> 通用数据绑定 · M5</button>
+      <button className={objectRuntime?'nav-active nav-link':'nav-inactive nav-link'} onClick={()=>navigate('#/mvp/objects')}><Database size={17}/> 对象读取 · M6</button>
       <p className="nav-heading secondary-label">规划模块</p>
       {planned.map(item=><div key={item.title} className="nav-disabled" title="当前版本暂不开放"><item.icon size={16}/>{item.title}<span>规划中</span></div>)}
       <div className="sidebar-bottom">S0 · 本体与质量追溯 MVP<br/><small>本机 MVP 无认证；生产安全需另行集成</small></div>
     </aside>
     <main className="main">
-      <div className="topline"><span>{binding?'通用数据绑定 / M5':quality?'工业质量追溯 / 精简 MVP':model?'本体设计 / ObjectType':'平台基座 / 系统概览'}</span><span className="env-chip">{auth.kind==='ready'?(auth.identity?.issuer==='local-mvp'?'本机隔离 MVP · 无登录': '已验证身份：'+auth.identity?.displayName):'身份模式待初始化'}</span>{auth.kind==='ready'&&auth.identity?.issuer!=='local-mvp'&&<button type="button" onClick={logout}>退出会话</button>}</div>
+      <div className="topline"><span>{binding?'通用数据绑定 / M5':quality?'工业质量追溯 / 精简 MVP':objectRuntime?'对象读取 / M6':model?'本体设计 / ObjectType':'平台基座 / 系统概览'}</span><span className="env-chip">{auth.kind==='ready'?(auth.identity?.issuer==='local-mvp'?'本机隔离 MVP · 无登录': '已验证身份：'+auth.identity?.displayName):'身份模式待初始化'}</span>{auth.kind==='ready'&&auth.identity?.issuer!=='local-mvp'&&<button type="button" onClick={logout}>退出会话</button>}</div>
       {(model||mvp)?(auth.kind==='ready'
-        ? (binding?<DataBindingWorkspace route={location} navigate={navigate} onDirtyChange={onDirtyChange}/>:quality?<QualityMvpWorkspace navigate={navigate}/>:location.startsWith('#/model/runtime-types/')
+        ? (binding?<DataBindingWorkspace route={location} navigate={navigate} onDirtyChange={onDirtyChange}/>:quality?<QualityMvpWorkspace navigate={navigate}/>:objectRuntime?<ObjectRuntimeWorkspace route={location} navigate={navigate}/>:location.startsWith('#/model/runtime-types/')
           ? <RuntimeTypeWorkspace route={location} navigate={navigate}/>
           : <NativeModelWorkspace identity={auth.identity!} onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>)
         : <section className="panel" aria-live="polite">

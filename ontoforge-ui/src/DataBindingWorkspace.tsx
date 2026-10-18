@@ -239,6 +239,7 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
       <section className="model-panel">
         <header className="model-panel-head"><div><h2>绑定详情</h2><p>{detail.objectTypeId} · revision {detail.revision}{detail.historical?' · 历史只读版本':''}</p></div>
           <div className="model-actions"><button className="model-btn" onClick={()=>{setDetail(null);setRevisions([]);}}><ArrowLeft size={14}/> 返回目录</button>
+            {!detail.historical&&<button className="model-btn" onClick={()=>navigate('#/mvp/objects?packageId='+encodeURIComponent(detail.packageId)+'&bindingId='+encodeURIComponent(detail.bindingId)+'&bindingRevision='+detail.revision)}><Database size={14}/> 读取对象</button>}
             {!detail.historical&&<button className="model-btn primary" onClick={()=>void beginEditor(detail.snapshotId,detail.objectTypeId,detail)}><Plus size={14}/> 创建新 revision</button>}</div></header>
         <div className="binding-contract"><div><span>绑定 ID</span><code>{detail.bindingId}</code></div><div><span>模型快照</span><code>{detail.snapshotId}</code></div>
           <div><span>来源</span><b>{detail.sourceSchema}.{detail.sourceTable}</b></div><div><span>身份域</span><code>{detail.identityDomainId}</code></div>
