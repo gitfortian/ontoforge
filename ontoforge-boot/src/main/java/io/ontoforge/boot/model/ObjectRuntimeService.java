@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.ontoforge.boot.security.B0AuthorizationService;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
@@ -54,6 +55,7 @@ public class ObjectRuntimeService {
     private static final int MAX_PROPERTIES = 100;
     private static final int MAX_ROWS_PER_IDENTITY = 10_000;
     private static final int MAX_OUTPUT_BYTES = 1024 * 1024;
+    private static final long MAX_SOURCE_SCAN_BYTES = 8L * 1024 * 1024;
     private static final int QUERY_TIMEOUT_SECONDS = 3;
 
     private final DataBindingService bindings;
@@ -322,10 +324,20 @@ public class ObjectRuntimeService {
                 statement.setMaxRows(MAX_ROWS_PER_IDENTITY + 1);
                 if ("INTEGER".equals(key.valueType())) statement.setLong(1, (Long) key.jdbcValue());
                 else statement.setString(1, (String) key.jdbcValue());
+                long scannedBytes = 0;
                 try (ResultSet resultSet = statement.executeQuery()) {
                     while (resultSet.next()) {
                         Map<String, Object> row = new LinkedHashMap<>();
-                        for (String column : selectedColumns) row.put(column, resultSet.getObject(column));
+                        for (String column : selectedColumns) {
+                            Object value = resultSet.getObject(column);
+                            scannedBytes += column.getBytes(StandardCharsets.UTF_8).length
+                                    + estimatedValueBytes(value);
+                            if (scannedBytes > MAX_SOURCE_SCAN_BYTES) {
+                                throw fail(429, "QUERY_BUDGET_EXCEEDED",
+                                        "对象来源扫描超过 8 MiB 预算；没有返回部分对象", "key", executionId);
+                            }
+                            row.put(column, value);
+                        }
                         rows.add(row);
                     }
                 }
@@ -694,6 +706,18 @@ public class ObjectRuntimeService {
     private static void putNullable(ObjectNode object, String field, Integer value) {
         if (value == null) object.putNull(field);
         else object.put(field, value);
+    }
+
+    private static long estimatedValueBytes(Object value) {
+        if (value == null) return 1;
+        String text;
+        if (value instanceof byte[] bytes) return bytes.length;
+        if (value instanceof BigDecimal decimal) text = decimal.toPlainString();
+        else if (value instanceof Timestamp timestamp) text = timestamp.toInstant().toString();
+        else if (value instanceof OffsetDateTime dateTime) text = dateTime.toInstant().toString();
+        else if (value instanceof Instant instant) text = instant.toString();
+        else text = String.valueOf(value);
+        return text.getBytes(StandardCharsets.UTF_8).length;
     }
 
     private static boolean isTimeout(Throwable error) {
