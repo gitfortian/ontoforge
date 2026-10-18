@@ -31,13 +31,13 @@ jobs:
       - name: Verify M6 UX-Low state and recovery flows
         env:
           UX_CAPTURE_SCREENSHOTS: '1'
-          UX_SCREENSHOT_DIR: '\${{ runner.temp }}/m6-object-runtime-lowfi-shots'
+          UX_SCREENSHOT_DIR: '${{ runner.temp }}/m6-object-runtime-lowfi-shots'
         run: python -m unittest doc.prototypes.tests.test_m6_object_runtime_lowfi_browser -v
       - name: Upload prototype screenshots on success and failure
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: m6-object-runtime-lowfi-chromium
-          path: '\${{ runner.temp }}/m6-object-runtime-lowfi-shots'
+          path: '${{ runner.temp }}/m6-object-runtime-lowfi-shots'
           if-no-files-found: warn
           retention-days: 14
