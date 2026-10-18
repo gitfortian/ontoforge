@@ -2,6 +2,9 @@ package io.ontoforge.boot.config;
 
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceProperties;
+import javax.sql.DataSource;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,5 +24,11 @@ public class ApplicationDataSourceConfiguration {
         return properties.initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
                 .build();
+    }
+
+    @Bean(name = "jdbcTemplate")
+    @Primary
+    JdbcTemplate jdbcTemplate(@Qualifier("dataSource") DataSource dataSource) {
+        return new JdbcTemplate(dataSource);
     }
 }
