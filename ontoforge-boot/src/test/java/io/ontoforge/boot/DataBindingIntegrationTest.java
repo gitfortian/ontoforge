@@ -8,6 +8,7 @@ import io.ontoforge.boot.model.DataBindingService;
 import io.ontoforge.boot.model.NativeDraftService;
 import io.ontoforge.boot.model.NativeSnapshotService;
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -368,6 +369,12 @@ class DataBindingIntegrationTest {
         ResponseEntity<String> invalidKey = post("/api/runtime/objects/read", wrongKeyType);
         assertThat(invalidKey.getStatusCode().value()).isEqualTo(422);
         assertThat(invalidKey.getBody()).contains("INVALID_OBJECT_KEY");
+
+        ObjectNode forgedContext = read.deepCopy();
+        forgedContext.putObject("authorizationContext").put("role", "OWNER");
+        ResponseEntity<String> rejectedContext = post("/api/runtime/objects/read", forgedContext);
+        assertThat(rejectedContext.getStatusCode().value()).isEqualTo(400);
+        assertThat(rejectedContext.getBody()).contains("INVALID_OBJECT_REQUEST");
 
         jdbc.execute("ALTER TABLE public.m5_supplier_source ADD COLUMN m6_test_drift TEXT");
         try {

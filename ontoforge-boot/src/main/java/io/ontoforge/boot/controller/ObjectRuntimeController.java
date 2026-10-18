@@ -5,6 +5,10 @@ import io.ontoforge.boot.model.ObjectRuntimeService.ObjectReadFailure;
 import io.ontoforge.boot.model.ObjectRuntimeService.ObjectReadRequest;
 import io.ontoforge.boot.model.ObjectRuntimeService.ObjectRuntimeFailure;
 import io.ontoforge.boot.model.ObjectRuntimeService.QualityEnvelope;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
@@ -30,8 +34,52 @@ public class ObjectRuntimeController {
     }
 
     @PostMapping("/read")
-    public ObjectRuntimeService.ObjectReadResult read(@RequestBody ObjectReadRequest request, Authentication authentication) {
-        return service.read(request, authentication);
+    public ObjectRuntimeService.ObjectReadResult read(@RequestBody JsonNode body, Authentication authentication) {
+        return service.read(parseRequest(body), authentication);
+    }
+
+    private ObjectReadRequest parseRequest(JsonNode body) {
+        String executionId = UUID.randomUUID().toString();
+        if (body == null || !body.isObject() || !hasOnlyFields(body, Set.of("bindingId", "bindingRevision", "key", "propertyRefs"))) {
+            throw new ObjectRuntimeFailure(400, "INVALID_OBJECT_REQUEST",
+                    "请求包含未知字段或不是 JSON 对象；授权上下文必须由服务端决定", "request", executionId);
+        }
+        JsonNode bindingId = body.get("bindingId");
+        JsonNode revision = body.get("bindingRevision");
+        JsonNode key = body.get("key");
+        if (bindingId == null || !bindingId.isTextual() || revision == null || !revision.isIntegralNumber()
+                || !revision.canConvertToLong() || key == null || !key.isObject()
+                || !hasOnlyFields(key, Set.of("valueType", "value"))
+                || key.get("valueType") == null || !key.get("valueType").isTextual()
+                || key.get("value") == null || !key.get("value").isTextual()) {
+            throw new ObjectRuntimeFailure(400, "INVALID_OBJECT_REQUEST",
+                    "bindingId、bindingRevision 与 key 必须符合已定义的 JSON 类型合同", "request", executionId);
+        }
+        java.util.List<String> propertyRefs = null;
+        if (body.has("propertyRefs")) {
+            JsonNode refs = body.get("propertyRefs");
+            if (refs == null || !refs.isArray()) {
+                throw new ObjectRuntimeFailure(400, "INVALID_OBJECT_REQUEST",
+                        "propertyRefs 必须是字符串数组", "propertyRefs", executionId);
+            }
+            propertyRefs = new ArrayList<>();
+            for (JsonNode ref : refs) {
+                if (!ref.isTextual()) {
+                    throw new ObjectRuntimeFailure(400, "INVALID_OBJECT_REQUEST",
+                            "propertyRefs 中的每项都必须是字符串", "propertyRefs", executionId);
+                }
+                propertyRefs.add(ref.asText());
+            }
+        }
+        return new ObjectReadRequest(bindingId.asText(), revision.longValue(),
+                new ObjectRuntimeService.ObjectKey(key.get("valueType").asText(), key.get("value").asText()),
+                propertyRefs);
+    }
+
+    private static boolean hasOnlyFields(JsonNode node, Set<String> allowed) {
+        Iterator<String> fields = node.fieldNames();
+        while (fields.hasNext()) if (!allowed.contains(fields.next())) return false;
+        return true;
     }
 }
 
