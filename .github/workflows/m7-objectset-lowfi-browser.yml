@@ -1,0 +1,43 @@
+name: M7 ObjectSet UX-Low Prototype Browser Review
+
+# Static UX evidence only. This workflow does not test or authorize the production query runtime.
+on:
+  pull_request:
+    paths:
+      - 'doc/prototypes/m7-objectset-lowfi.html'
+      - 'doc/prototypes/tests/test_m7_objectset_lowfi_browser.py'
+      - 'doc/implementation/M7-ObjectSet-UX-Low评审说明.md'
+      - 'doc/proposals/OFIP-0009-M7-通用ObjectSet查询.md'
+      - '.github/workflows/m7-objectset-lowfi-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  m7-prototype-chromium:
+    name: M7 UX-Low Real Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install Playwright
+        run: python -m pip install playwright==1.57.0
+      - name: Install actual Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Verify ObjectSet UX-Low interaction and failure contracts
+        env:
+          UX_CAPTURE_SCREENSHOTS: '1'
+          UX_SCREENSHOT_DIR: '${{ runner.temp }}/m7-objectset-lowfi-shots'
+        run: python -m unittest doc.prototypes.tests.test_m7_objectset_lowfi_browser -v
+      - name: Upload prototype screenshots on success and failure
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: m7-objectset-lowfi-chromium
+          path: '${{ runner.temp }}/m7-objectset-lowfi-shots'
+          if-no-files-found: warn
+          retention-days: 14
