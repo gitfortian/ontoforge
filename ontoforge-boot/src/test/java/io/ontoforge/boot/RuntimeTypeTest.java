@@ -173,7 +173,7 @@ class RuntimeTypeTest {
         assertThat(stale.path("code").asText()).isEqualTo("TYPE_SOURCE_REVISION_CONFLICT");
 
         JsonNode missing = call(HttpMethod.GET,
-                "/type-sources/drafts/" + draft.draftId() + "/types/not-a-valid-id?revision=2", null, 400);
+                "/type-sources/drafts/" + draft.draftId() + "/types/bad_id?revision=2", null, 400);
         assertThat(missing.path("code").asText()).isEqualTo("MALFORMED_TYPE_REF");
 
         JsonNode absent = call(HttpMethod.GET,
