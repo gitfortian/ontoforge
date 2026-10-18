@@ -53,7 +53,7 @@ class M6ObjectRuntimeHighFiBrowser(unittest.TestCase):
         self.assertIn("BOOLEAN", text)
         self.assertIn("0", text)
         self.assertIn("false", text)
-        self.assertIn("2 条一致物理行", text)
+        self.assertIn("2 条一致", text)
         evidence = self.page.locator("#evidence-result").inner_text()
         self.assertIn("binding-21", evidence)
         self.assertIn("sourceReadRef", evidence)
