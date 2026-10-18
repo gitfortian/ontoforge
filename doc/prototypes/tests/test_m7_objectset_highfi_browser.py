@@ -166,7 +166,7 @@ class M7ObjectSetHighFiBrowser(unittest.TestCase):
         self.assertEqual(self.page.locator("#result-rows tr").count(), 0)
         self.assertIn("已失效", self.page.locator("#evidence-snapshot").inner_text())
         self.assertIn(old_snapshot, self.page.locator("#evidence-snapshot").inner_text())
-        self.assertIn("未返回结果载荷", self.page.locator("#evidence-access").inner_text())
+        self.assertIn("无结果载荷", self.page.locator("#evidence-access").inner_text())
 
     def test_exact_empty_result_is_not_reported_as_failure(self):
         self.page.locator("#filter-value-0").fill("9.9")
