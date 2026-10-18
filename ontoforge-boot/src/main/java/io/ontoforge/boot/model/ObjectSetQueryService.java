@@ -298,8 +298,10 @@ public class ObjectSetQueryService {
                         sourceTable.schemaFingerprint())));
         long serializedBytes = serializedBytes(items, aggregate, executionId);
         if (serializedBytes > query.limits().maxSerializedResultBytes()) {
+            String resultBudgetLabel = query.limits().maxSerializedResultBytes() == MAX_RESULT_BYTES
+                    ? "8 MiB" : query.limits().maxSerializedResultBytes() + " 字节";
             throw fail(429, "QUERY_BUDGET_EXCEEDED",
-                    "冻结查询结果超过本次请求的序列化预算；未发布部分结果", "result", executionId);
+                    "冻结查询结果超过 " + resultBudgetLabel + " 序列化预算；未发布部分结果", "result", executionId);
         }
         BudgetEvidence budget = new BudgetEvidence(scan.rows().size(), objects.size(), scan.sourceBytes(),
                 serializedBytes, query.limits().maxPhysicalRows(), query.limits().maxSourceBytes(),
@@ -776,8 +778,12 @@ public class ObjectSetQueryService {
             }
             if (rowCount > limits.maxPhysicalRows()) throw fail(429, "QUERY_BUDGET_EXCEEDED",
                     "来源物理行数超过本次请求的 " + limits.maxPhysicalRows() + " 行预算；没有返回部分结果", "source", executionId);
-            if (sourceBytes > limits.maxSourceBytes()) throw fail(429, "QUERY_BUDGET_EXCEEDED",
-                    "本次查询来源扫描超过 " + limits.maxSourceBytes() + " 字节预算；没有返回部分结果", "source", executionId);
+            if (sourceBytes > limits.maxSourceBytes()) {
+                String sourceBudgetLabel = limits.maxSourceBytes() == MAX_SOURCE_BYTES
+                        ? "8 MiB" : limits.maxSourceBytes() + " 字节";
+                throw fail(429, "QUERY_BUDGET_EXCEEDED",
+                        "本次查询来源扫描超过 " + sourceBudgetLabel + " 预算；没有返回部分结果", "source", executionId);
+            }
             String sql = "SELECT " + projection + from + " ORDER BY " + qi(binding.sourceKey())
                     + " LIMIT " + (limits.maxPhysicalRows() + 1);
             List<Map<String,Object>> rows = new ArrayList<>();
