@@ -1,18 +1,18 @@
 # OFIP-0007：M5 通用 Data Binding 与只读来源映射
 
-**Status:** Discussion
+**Status:** Accepted
 
 **Discussion:** [PR #58 — [DISCUSS][OFIP-0007–0016] M5-M14 需求 Review 与方案设计](https://github.com/gitfortian/ontoforge/pull/58)
 
-**Decision:** Pending（等待维护者显式决策及 permalink）
+**Decision:** [VOTE] Accepted — [维护者正式决策记录（2026-10-18）](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6244833403)
 
-**Implementation:** Not Started
+**Implementation:** In Progress — M5 纵向交付分支 `feature/m5-data-binding-vertical`；等待 PR/CI 验收
 
 **Release:** Not Released
 
 **Related:** [M5 #44](https://github.com/gitfortian/ontoforge/issues/44) · [M4 #43](https://github.com/gitfortian/ontoforge/issues/43) · [M4 提案 PR #54](https://github.com/gitfortian/ontoforge/pull/54) · [M4 实现 PR #56（已合并）](https://github.com/gitfortian/ontoforge/pull/56) · [OFIP-0001](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2 候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md)
 
-> 2026-10-18 基于 main `6968ea0804f57b2b82f237e37f812bcadb32f343` 的设计评审。本文只提案、不授权实施 M5 或生产连接器，也不改变 M4 已交付边界。M4 类型解析与目录已由 [PR #56](https://github.com/gitfortian/ontoforge/pull/56) 合并；本提案消费其 TypeSourceRef/TypeRef 候选合同，不推定 M5 已实现或产品已发布。
+> 2026-10-18 维护者已在 [PR #58](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6244833403) 显式投票 Accepted，授权按 [PR #62 高保证审查](https://github.com/gitfortian/ontoforge/pull/62) 实施 M5。M4 类型解析与目录由 [PR #56](https://github.com/gitfortian/ontoforge/pull/56) 提供；本文记录的生产实现仍须以纵向交付 PR 的真实 CI、PG/HTTP/Chromium 证据验收，不代表已发布。
 
 ## Motivation
 
@@ -94,17 +94,17 @@ The high-fidelity candidate also demonstrates source drift/unavailability recove
 
 ## Implementation Readiness Audit
 
-[实施前高保证审查与实施切片](../implementation/M5-实施前高保证审查与实施切片.md) records the current code baseline, security/source-connection gaps, migration plan, required API list endpoint, digest profiles, and the single vertical implementation PR acceptance matrix. The audit is documentation-only and does not change the decision state.
+[实施前高保证审查与实施切片](../implementation/M5-实施前高保证审查与实施切片.md) 记录了代码基线、安全/来源连接缺口、迁移计划、绑定目录 API、摘要 profile 和单个纵向 PR 验收矩阵。维护者已通过 [PR #58 的正式投票](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6244833403) 接受方案；当前分支正在按矩阵实施，尚未合并或发布。
 
-**Current main baseline:** Flyway V1–V6 are occupied; V7 is the next migration number. Existing `mvp_demo_binding` remains a legacy fixed-quality binding and must not be repurposed as generic Binding storage. Production implementation remains blocked until a maintainer explicitly records `[VOTE] Accepted` on the proposal discussion.
+**Implementation baseline:** Flyway V1–V6 are occupied; M5 adds V7 without rewriting history. Existing `mvp_demo_binding` remains a legacy fixed-quality binding and must not be repurposed as generic Binding storage. The formal decision gate is satisfied; production implementation remains unaccepted until its vertical PR passes required CI and real PG/HTTP/Chromium gates.
 
 ## Proposed Changes
 
 ### 1. 用户流程与校验边界
 
 1. 从 M4 选择已保存的 Local Snapshot 和 ObjectType，进入“数据绑定”，页面显示来源类型、snapshotId 与模型摘要。
-2. 发现单个登记的本机 PG 来源；只显示允许的 `public.demo_* / public.mvp_source_*` BASE TABLE，排除视图、外部表、系统表。
-3. 选择来源键与属性列；在客户端即时提示，在服务端目录/类型/所属关系复核后生成预览。
+2. 发现服务端配置的 `local-pg-sandbox` 来源；只显示 `ONTOFORGE_BINDING_SOURCE_ALLOWED_TABLES` 白名单内的 `public` BASE TABLE，排除视图、外部表、系统表。首个合成夹具为 `m5_supplier_source`。
+3. 选择来源键与属性列；服务端核对所属关系、类型兼容与来源目录。Validated Draft 可用于精确 revision 的预览/校验；持久化 Binding 仅接受 Local Snapshot。
 4. 预览显示至多 20 行、采样策略和“不是全量校验”；用户修复问题后保存，服务端重查版本和来源指纹再写入。
 5. 重开看到保存版、已检查范围及可用/需复核状态；绑定不可用时保留历史定义，提示修复并创建新版本。
 
@@ -118,7 +118,7 @@ The high-fidelity candidate also demonstrates source drift/unavailability recove
 | INTEGER | smallint/integer/bigint；规范十进制有符号整数字符串传输，禁止浮点绕转 |
 | DECIMAL | numeric/decimal，有限精确值按十进制字符串传输；拒绝 NaN/Infinity/静默舍入 |
 | BOOLEAN | boolean；不把字符串、0/1 自动解释为布尔 |
-| DATETIME | timestamptz，统一 ISO-8601 UTC；无时区 timestamp 首版拒绝 |
+| DATETIME | timestamptz，统一 ISO-8601 UTC；无时区 timestamp 和 date 首版拒绝 |
 | ENUM | text/varchar 且值属于模型枚举；不自动补新枚举 |
 
 不支持的数组、JSON、二进制和 SQL 表达式返回明确错误。Native 主键仍限 STRING/INTEGER；来源键归一化与 M6 共用同一合同，不能每版变化。
@@ -172,4 +172,4 @@ M5 第一个实现 PR 交付“自定义 supplier→PG 映射→预览→校验�
 
 ---
 
-**Decision Gate:** Discussion 不授权实施。维护者须在提案 PR 显式记录 `[VOTE] Accepted` / `Rejected` 与决定链接；绿色 CI、合并或 Issue 评论均不替代该决定。
+**Decision Gate:** 已满足。维护者于 [PR #58 评论 #6244833403](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6244833403) 显式记录 `[VOTE] Accepted`。当前 Implementation 为 In Progress、Release 仍为 Not Released；生产交付仍须通过本提案 Test Plan 与 PR #62 的真实验收矩阵。
