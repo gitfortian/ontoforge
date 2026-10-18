@@ -77,7 +77,7 @@
       "allOf": [
         { "if": { "properties": { "operator": { "const": "IS_NULL" } } }, "then": { "not": { "anyOf": [{ "required": ["literal"] }, { "required": ["values"] }] } } },
         { "if": { "properties": { "operator": { "const": "IN" } } }, "then": { "required": ["values"], "not": { "required": ["literal"] } } },
-        { "if": { "properties": { "operator": { "enum": ["EQ", "GT", "GTE", "LT", "LTE", "PREFIX"] } } }, "then": { "required": ["literal"], "not": { "required": ["values"] } }
+        { "if": { "properties": { "operator": { "enum": ["EQ", "GT", "GTE", "LT", "LTE", "PREFIX"] } } }, "then": { "required": ["literal"], "not": { "required": ["values"] } } }
       ]
     },
     "filterStep": {
