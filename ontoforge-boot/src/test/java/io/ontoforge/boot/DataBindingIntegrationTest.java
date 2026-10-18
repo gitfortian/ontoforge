@@ -390,6 +390,13 @@ class DataBindingIntegrationTest {
         assertThat(invalidKey.getStatusCode().value()).isEqualTo(422);
         assertThat(invalidKey.getBody()).contains("INVALID_OBJECT_KEY");
 
+        ObjectNode oversizedPropertyRefs = read.deepCopy();
+        ArrayNode tooManyRefs = oversizedPropertyRefs.putArray("propertyRefs");
+        for (int i = 0; i < 101; i++) tooManyRefs.add("property-" + i);
+        ResponseEntity<String> tooManyProperties = post("/api/runtime/objects/read", oversizedPropertyRefs);
+        assertThat(tooManyProperties.getStatusCode().value()).isEqualTo(422);
+        assertThat(tooManyProperties.getBody()).contains("INVALID_OBJECT_REQUEST");
+
         ObjectNode forgedContext = read.deepCopy();
         forgedContext.putObject("authorizationContext").put("role", "OWNER");
         ResponseEntity<String> rejectedContext = post("/api/runtime/objects/read", forgedContext);
