@@ -90,6 +90,27 @@ P0 是**建模产品可用门槛**，P1 才是**工业业务价值开始成立�
 
 **功能成熟度**：M4 类型目录是 F02/F03/F04 的基础子能力。它为后续 Data Binding 锁定类型版本、为 ObjectSet 建立字段类型约束提供稳定入口；它本身不实现 Data Binding、ObjectFact、ObjectSet 查询、正式 SchemaRelease/Activation、Action 或 Agent。上述后续能力不得因为 M4 完成而标记为已实现。
 
+## 3.3 M5–M14 需求 Review 与设计提案状态（2026-10-18）
+
+> 本轮已完成 M5–M14 的逐项 Issue Review，并将评审意见整理为 OFIP-0007–OFIP-0016 候选设计。**这代表需求/设计已整理，不代表提案 Accepted、功能已实施或产品已发布。** 所有提案当前保持 Discussion / Decision Pending / Implementation Not Started / Not Released；必须由维护者在对应提案 PR 明确记录决策后，才能按标准流程进入实现。
+
+| M | Issue / 设计提案 | 设计收敛结果 | 当前边界与实施门槛 |
+| --- | --- | --- | --- |
+| M5 | [#44](https://github.com/gitfortian/ontoforge/issues/44) · [OFIP-0007](../proposals/OFIP-0007-M5-通用DataBinding.md) | 自定义 ObjectType → 单个登记的隔离 PG 来源 → 主键/属性映射 → 真实预览 → 有界校验 → 保存并重开；持久版固定 Local Snapshot | 不接受任意 JDBC URL/SQL；主键、identityDomain、CAS、源结构指纹、类型矩阵与只读来源角色必须一并验证 |
+| M6 | [#45](https://github.com/gitfortian/ontoforge/issues/45) · [OFIP-0008](../proposals/OFIP-0008-M6-通用ObjectRuntime.md) | 按需虚拟对象读取；ObjectRef 与版本证据分离，明确 PRESENT/NULL/MISSING | 不做全量 Object Store/跨源身份融合；重复一致行才折叠，身份/属性冲突和来源断线必须拒绝 |
+| M7 | [#46](https://github.com/gitfortian/ontoforge/issues/46) · [OFIP-0009](../proposals/OFIP-0009-M7-通用ObjectSet查询.md) | 版本化 local-query-v1 Typed AST；Filter/Sort/Project/Page/有限聚合；同执行有界结果快照 | 不开放任意 SQL/跨源 JOIN；预算失败不返回部分精确计数；游标绑定版本、查询、权限和 TTL |
+| M8 | [#47](https://github.com/gitfortian/ontoforge/issues/47) · [OFIP-0010](../proposals/OFIP-0010-M8-LinkFact与有界遍历.md) | 分切片交付：M8.1 外键映射与双向一跳；M8.2 桥表 M:N；M8.3 显式两跳 | M8.1 通过不能把桥表/二跳标记完成；分开统计对象、LinkFact、路径，严格验证双端基数/孤儿/扇出 |
+| M9 | [#48](https://github.com/gitfortian/ontoforge/issues/48) · [OFIP-0011](../proposals/OFIP-0011-M9-来源证据漂移与一致性.md) | 统一来源读取证据、四维质量、checkpoint UNKNOWN、结构差异复核与 Binding 修复闭环 | M5–M8 从首次读源就必须具备最低版本/权限/质量证据；M9 不是延迟安全的借口，也不承诺跨系统强一致 |
+| M10 | [#49](https://github.com/gitfortian/ontoforge/issues/49) · [OFIP-0012](../proposals/OFIP-0012-M10-发行边界与运行时版本锁.md) | 复用 OFIP-0005；区分 M10-A 本地不可变版本锁/兼容检查与 M10-B 正式发行/激活/回退 | Core 是否必须包含 M10-B 仍需维护者明确决定；Local Snapshot 不能改名 Release，本机占位身份不能审批 |
+| M11 | [#50](https://github.com/gitfortian/ontoforge/issues/50) · [OFIP-0013](../proposals/OFIP-0013-M11-通用OntologyStudio.md) | 收口模型→Binding→对象/查询→来源证据的连续工作流与上下文一致性 | M5–M9 各自先交付真实前后端闭环；低保真→高保真原型签收不可跳过，M11 不新增第二套前端或空模块 |
+| M12 | [#51](https://github.com/gitfortian/ontoforge/issues/51) · [OFIP-0014](../proposals/OFIP-0014-M12-沙箱受控Action.md) | Extended：一个自定义对象的沙箱复核任务，独立审批、持久幂等、UNKNOWN 对账、业务结果核验 | 不接生产写接口/工业物理控制；本机只提供非执行资格预演，真实执行必须有可信主体与独立授权 |
+| M13 | [#52](https://github.com/gitfortian/ontoforge/issues/52) · [OFIP-0015](../proposals/OFIP-0015-M13-Agent只读上下文.md) | Extended：REST 先行的类型发现→受限查询→来源证据，MCP 后续独立薄适配 | M13 不依赖 M12；正式对外需 M10/可信身份与撤权 Gate，Agent 内容不能更改服务端权限或触发 Action |
+| M14 | [#53](https://github.com/gitfortian/ontoforge/issues/53) · [OFIP-0016](../proposals/OFIP-0016-M14-多领域验收与交付证据.md) | 作为 Core 与 Extended 共用验收出口；质量/采购共用引擎，并由独立测试者挑战第三个自定义领域 | M10/Core 范围决议未定前不得宣告 Core 完成；CI/自动化/Windows 人工 UAT/产品签收分别记账，不新建第二套总账 |
+
+**关键依赖关系**：M4 → M5 → M6 → M7；M8 消费 M5/M7，M9 收敛 M5–M8 的证据与漂移；M10 复用 OFIP-0005 治理并向运行时提供版本锁；M11 串联 Core 用户旅程；M12 和 M13 为互相独立的 Extended 分支；M14 对 Core 与 Extended 分别验收，不把 M12/M13 变成 Core 查询闭环的隐式前置。
+
+**状态纪律**：设计评审完成 ≠ OFIP Accepted；OFIP Accepted ≠ 代码实现；代码合并 ≠ 真实环境验收；CI PASS ≠ Windows 用户 UAT 或产品 Release。每个 M 必须继续报告真实代码、未完成边界、风险、受测 SHA、测试链接及下一步。
+
 ## 4. P0「完整建模产品 MVP」建议功能包
 
 > 下列是**接下来要评审的 P0 候选最小清单**，不代表已批准排期。MVP 可以聚焦，但不能为了“最小”牺牲安全和发布语义。
