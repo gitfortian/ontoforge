@@ -14,6 +14,7 @@ import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,6 +64,16 @@ class DataBindingIntegrationTest {
     @Autowired ObjectSetQueryService objectSetQueries;
 
     private String url(String path) { return "http://127.0.0.1:" + port + path; }
+
+    @AfterEach
+    void clearVolatileObjectSetStateBetweenIntegrationTests() {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> snapshots = (Map<String, Object>) ReflectionTestUtils.getField(objectSetQueries, "snapshots");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> cursors = (Map<String, Object>) ReflectionTestUtils.getField(objectSetQueries, "cursors");
+        if (snapshots != null) snapshots.clear();
+        if (cursors != null) cursors.clear();
+    }
 
     @BeforeEach
     void provisionDedicatedReaderRole() {
