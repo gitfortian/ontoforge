@@ -3,7 +3,6 @@ package io.ontoforge.boot.config;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.net.URI;
-import java.util.Locale;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -91,6 +90,4 @@ public class BindingSourceConfiguration {
             throw new IllegalStateException("M5 source login must be a dedicated non-superuser role");
         }
     }
-
-    private BindingSourceConfiguration() {}
 }
