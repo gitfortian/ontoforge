@@ -4,7 +4,6 @@ import io.ontoforge.boot.model.DataBindingService;
 import io.ontoforge.boot.model.DataBindingService.BindingFailure;
 import io.ontoforge.boot.model.NativeDraftService.DraftFailure;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
