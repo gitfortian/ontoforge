@@ -76,6 +76,7 @@ class DataBindingRealBrowserTest(unittest.TestCase):
             ("supplier-active", "active", "是否有效", "BOOLEAN", True),
             ("supplier-onboarded", "onboardedAt", "入驻时间", "DATETIME", False),
             ("supplier-legacy", "legacyCode", "旧系统编码", "STRING", False),
+            ("supplier-unmapped-rating", "unmappedRating", "未绑定数值", "DECIMAL", False),
         ]
         for index, (property_id, api_name, label, value_type, required) in enumerate(properties):
             if index > 0:
@@ -91,7 +92,7 @@ class DataBindingRealBrowserTest(unittest.TestCase):
                 required_control.uncheck()
             # M7 deliberately exposes filters only for properties explicitly
             # marked searchable in the immutable ObjectType contract.
-            if property_id == "supplier-name":
+            if property_id in ("supplier-name", "supplier-legacy"):
                 searchable_control = page.locator(f"#prop-{index}-searchable")
                 if not searchable_control.is_checked():
                     searchable_control.check()
@@ -252,7 +253,13 @@ class DataBindingRealBrowserTest(unittest.TestCase):
         page.goto(BASE + "/#/mvp/object-sets?packageId=" + quote(self.package)
                   + "&bindingId=" + quote(binding_id) + "&bindingRevision=2")
         page.get_by_role("heading", name="对象集合查询", exact=True).wait_for(timeout=15000)
-        page.locator(".object-set-filter-row select").nth(0).select_option("supplier-name")
+        filter_property = page.locator(".object-set-filter-row select").nth(0)
+        filter_options = filter_property.locator("option").evaluate_all("(options) => options.map(option => option.value)")
+        self.assertIn("supplier-name", filter_options)
+        self.assertNotIn("supplier-legacy", filter_options)
+        sort_options = page.locator(".object-set-sort-row select").nth(0).locator("option").evaluate_all("(options) => options.map(option => option.value)")
+        self.assertNotIn("supplier-legacy", sort_options)
+        filter_property.select_option("supplier-name")
         page.locator(".object-set-filter-row select").nth(1).select_option("PREFIX")
         page.locator(".object-set-filter-row input").fill("North")
         page.get_by_role("button", name="执行查询", exact=True).click()
@@ -267,6 +274,9 @@ class DataBindingRealBrowserTest(unittest.TestCase):
         # The aggregate mode is mutually exclusive with sorting, projection and paging.
         page.get_by_role("button", name="聚合统计", exact=True).click()
         page.locator(".object-set-aggregate-choice select").nth(0).select_option("SUM")
+        aggregate_properties = page.locator(".object-set-aggregate-choice select").nth(1).locator("option").evaluate_all("(options) => options.map(option => option.value)")
+        self.assertIn("supplier-rating", aggregate_properties)
+        self.assertNotIn("supplier-unmapped-rating", aggregate_properties)
         page.locator(".object-set-aggregate-choice select").nth(1).select_option("supplier-rating")
         page.get_by_role("button", name="执行查询", exact=True).click()
         page.locator(".object-set-aggregate-result").wait_for(timeout=15000)
