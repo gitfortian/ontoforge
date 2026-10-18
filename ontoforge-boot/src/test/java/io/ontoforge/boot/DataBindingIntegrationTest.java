@@ -590,6 +590,17 @@ class DataBindingIntegrationTest {
             assertThat(second.path("pageNumber").asInt()).isEqualTo(2);
             assertThat(second.path("objects").size()).isEqualTo(2);
             assertThat(second.path("objects").toString()).contains(originalName).doesNotContain("Changed after first page");
+
+            // Replaying a cursor is idempotent and must not mint a fresh cursor token
+            // for the same snapshot offset on every request.
+            ResponseEntity<String> replayResponse = post("/api/runtime/object-sets/pages", nextRequest);
+            assertThat(replayResponse.getStatusCode().value()).as(replayResponse.getBody()).isEqualTo(200);
+            JsonNode replay = mapper.readTree(replayResponse.getBody());
+            assertThat(replay.path("resultSnapshotRef").asText()).isEqualTo(snapshotRef);
+            assertThat(replay.path("pageNumber").asInt()).isEqualTo(2);
+            assertThat(replay.path("nextCursor").asText()).isEqualTo(second.path("nextCursor").asText());
+            assertThat(replay.path("objects").toString()).contains(originalName).doesNotContain("Changed after first page");
+
             ObjectNode thirdRequest = mapper.createObjectNode().put("cursor", second.path("nextCursor").asText());
             ResponseEntity<String> thirdResponse = post("/api/runtime/object-sets/pages", thirdRequest);
             assertThat(thirdResponse.getStatusCode().value()).as(thirdResponse.getBody()).isEqualTo(200);
