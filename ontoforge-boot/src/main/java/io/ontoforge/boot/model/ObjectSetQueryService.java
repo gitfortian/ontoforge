@@ -1211,6 +1211,12 @@ public class ObjectSetQueryService {
             }
             throw ex;
         } catch (DataBindingService.BindingFailure ex) {
+            if ("BINDING_SCHEMA_DRIFT".equals(ex.code)) {
+                // A revoked SELECT grant can hide a relation from information_schema. Distinguish
+                // that from real schema drift while preserving the original query deadline.
+                if (deadlineNanos > 0) verifySourceReadable(binding, executionId, deadlineNanos);
+                else verifySourceReadable(binding, executionId);
+            }
             throw fail(ex.http, ex.code, ex.getMessage(), ex.fieldPath, executionId);
         } catch (DataAccessException ex) {
             throw fail(503, "SOURCE_UNAVAILABLE", "来源结构核验失败；不能继续读取冻结结果", "source", executionId);
