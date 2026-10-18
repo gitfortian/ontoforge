@@ -73,12 +73,13 @@
           <dl class="meta-grid"><dt>来源标识</dt><dd class="mono">local-pg-sandbox</dd><dt>表类型</dt><dd>BASE TABLE</dd><dt>来源主键候选</dt><dd>vendor_code · text</dd><dt>可映射列</dt><dd>vendor_code, name, rating, is_active</dd><dt>结构指纹</dt><dd class="mono" id="fingerprint">schema: demo_supplier@f1c3…a62e</dd><dt>发现状态</dt><dd><span class="pill">已发现（原型模拟）</span></dd></dl>
         </div>
       </div>
-      <div class="actions"><button id="back1">返回：模型</button><div class="right"><button class="primary" id="to3">确认来源并配置映射</button></div></div>
+      <div id="sourceDiscoveryState" class="callout hidden"></div>
+      <div class="actions"><button id="back1">返回：模型</button><div class="right"><button id="rediscoverSource">重新发现来源结构</button><button class="primary" id="to3">确认来源并配置映射</button></div></div>
     </section>
 
     <section class="panel step-panel hidden" id="step3">
       <div class="panel-head"><div><h2>3. 配置主键与属性映射</h2><p>一个主键属性映射一个来源键；每个本体属性最多映射一次。当前版本只支持直接列映射。</p></div><span class="pill">local-binding-v1 · 候选合同</span></div>
-      <div class="callout"><strong>主键与身份</strong>来源键必须映射到模型声明的 primaryKeyRef。普通属性映射变更不改变对象身份；来源表或键语义变化时必须显式新建 identityDomain。</div>
+      <div class="callout"><strong>主键与身份</strong>来源键必须映射到模型声明的 primaryKeyRef。普通属性映射变更不改变对象身份；来源表或键语义变化时必须显式新建 identityDomain。当前候选身份域：<span id="identityDomainPreview" class="mono">supplier-vendor-code-domain</span></div>
       <div class="table-wrap">
         <table class="mapping-table">
           <thead><tr><th style="width:26%">本体属性</th><th style="width:17%">值类型</th><th style="width:13%">角色</th><th style="width:30%">来源列</th><th style="width:14%">转换规则</th></tr></thead>
@@ -119,7 +120,7 @@
       <div id="saveState" class="callout"><strong>尚未保存</strong>只有当前映射校验通过后才允许保存。</div>
       <div id="casRecovery" class="callout hidden"><strong>保存冲突恢复</strong><p id="casRecoveryText" style="margin:5px 0 12px">当前编辑已保留。</p><button id="loadLatest">载入最新版本并比较差异</button></div>
       <div class="grid-two">
-        <div class="summary-card"><h3>待保存内容</h3><dl class="meta-grid"><dt>模型来源</dt><dd class="mono" id="summarySnapshot">LOCAL_SNAPSHOT(snapshot-supplier-01)</dd><dt>对象类型</dt><dd id="summaryType">Supplier</dd><dt>来源表</dt><dd class="mono" id="summaryTable">public.demo_supplier</dd><dt>映射数</dt><dd id="summaryMappings">4 项</dd><dt>身份域</dt><dd class="mono">supplier-code-domain</dd></dl></div>
+        <div class="summary-card"><h3>待保存内容</h3><dl class="meta-grid"><dt>模型来源</dt><dd class="mono" id="summarySnapshot">LOCAL_SNAPSHOT(snapshot-supplier-01)</dd><dt>对象类型</dt><dd id="summaryType">Supplier</dd><dt>来源表</dt><dd class="mono" id="summaryTable">public.demo_supplier</dd><dt>映射数</dt><dd id="summaryMappings">4 项</dd><dt>身份域</dt><dd class="mono" id="summaryIdentityDomain">supplier-vendor-code-domain</dd></dl></div>
         <div class="summary-card"><h3>已保存版本</h3><dl class="meta-grid"><dt>Binding ID</dt><dd class="mono" id="savedId">尚未创建</dd><dt>Revision</dt><dd id="savedRevision">—</dd><dt>校验范围</dt><dd id="savedCoverage">—</dd><dt>结构状态</dt><dd id="savedDrift">—</dd></dl></div>
       </div>
       <div class="actions"><button id="back4">返回：校验</button><div class="right"><button class="primary" id="saveBinding" disabled>保存绑定</button><button id="reopenBinding" disabled>重新打开已保存版本</button></div></div>
@@ -144,9 +145,15 @@
   document.querySelectorAll('[data-step]').forEach(b=>b.addEventListener('click',()=>{const n=Number(b.dataset.step);if(n<=activeStep||n===activeStep+1&&canAdvance(activeStep))setStep(n);}));
   function canAdvance(n){if(n===1)return true;if(n===2)return true;if(n===3)return true;if(n===4)return validationPass;return false;}
   function setCallout(el,kind,title,text){el.className='callout'+(kind?' '+kind:'');el.innerHTML='<strong>'+title+'</strong>'+text;}
-  function resetChecks(){previewDone=false;validationDone=false;validationPass=false;saved=false;reopened=false;$('runValidation').disabled=true;$('to5').disabled=true;$('saveBinding').disabled=true;$('reopenBinding').disabled=true;$('previewTableWrap').classList.add('hidden');$('mappedPreviewTableWrap').classList.add('hidden');$('validationResult').classList.add('hidden');$('reopenState').classList.add('hidden');$('casRecovery').classList.add('hidden');setCallout($('previewState'),'','尚未请求预览','点击“读取真实样本”查看受控来源的有限样本。');setCallout($('saveState'),'','尚未保存','只有当前映射校验通过后才允许保存。');$('savedId').textContent='尚未创建';$('savedRevision').textContent='—';$('savedCoverage').textContent='—';$('savedDrift').textContent='—';}
+  function resetChecks(){previewDone=false;validationDone=false;validationPass=false;saved=false;reopened=false;$('runValidation').disabled=true;$('to5').disabled=true;$('saveBinding').disabled=true;$('reopenBinding').disabled=true;$('previewTableWrap').classList.add('hidden');$('mappedPreviewTableWrap').classList.add('hidden');$('validationResult').classList.add('hidden');$('reopenState').classList.add('hidden');$('casRecovery').classList.add('hidden');$('backToSource').classList.add('hidden');setCallout($('previewState'),'','尚未请求预览','点击“读取真实样本”查看受控来源的有限样本。');setCallout($('saveState'),'','尚未保存','只有当前映射校验通过后才允许保存。');$('savedId').textContent='尚未创建';$('savedRevision').textContent='—';$('savedCoverage').textContent='—';$('savedDrift').textContent='—';}
   $('snapshot').addEventListener('change',()=>{state.snapshot=$('snapshot').value;$('snapshotRef').textContent='LOCAL_SNAPSHOT('+state.snapshot+') / payloadSha256: 9f2a…c81d';resetChecks();});
   $('sourceTable').addEventListener('change',()=>{state.table=$('sourceTable').value;$('fingerprint').textContent='schema: '+state.table.split('.').pop()+'@f1c3…a62e';resetChecks();});
+  function identityDomainId(){return 'supplier-'+$('mapPk').value.replace('_','-')+'-domain';}
+  function refreshIdentityDomain(){$('identityDomainPreview').textContent=identityDomainId();}
+  $('mapPk').addEventListener('change',refreshIdentityDomain);
+  $('rediscoverSource').addEventListener('click',()=>{$('scenario').value='normal';$('fingerprint').textContent='schema: '+state.table.split('.').pop()+'@f1c3…a62e';resetChecks();setCallout($('sourceDiscoveryState'),'success','来源结构已重新发现 · 原型模拟','请复核最新列清单，再返回映射重新预览和校验。系统不会按同名列自动重绑。');$('sourceDiscoveryState').classList.remove('hidden');});
+  $('backToSource').addEventListener('click',()=>setStep(2));
+
   $('to2').addEventListener('click',()=>setStep(2));$('back1').addEventListener('click',()=>setStep(1));$('to3').addEventListener('click',()=>setStep(3));$('back2').addEventListener('click',()=>setStep(2));$('to4').addEventListener('click',()=>{
     const msg=$('mappingMessage');
     const sourceTypes={vendor_code:'text',name:'text',rating:'numeric',is_active:'boolean'};
@@ -159,14 +166,14 @@
     if(incompatible){setCallout(msg,'error','属性类型不兼容 · UNSUPPORTED_MAPPING_TYPE',incompatible.label+' 需要 '+incompatible.expected+' 来源列，但当前选择 '+$(incompatible.id).value+'（'+sourceTypes[$(incompatible.id).value]+'）。请调整映射；不会自动强制转换。');msg.classList.remove('hidden');return;}
     msg.classList.add('hidden');resetChecks();setStep(4);
   });
-  $('resetMapping').addEventListener('click',()=>{$('mapPk').value='vendor_code';$('mapName').value='name';$('mapRating').value='rating';$('mapActive').value='is_active';$('mappingMessage').classList.add('hidden');resetChecks();});
+  $('resetMapping').addEventListener('click',()=>{$('mapPk').value='vendor_code';$('mapName').value='name';$('mapRating').value='rating';$('mapActive').value='is_active';$('mappingMessage').classList.add('hidden');refreshIdentityDomain();resetChecks();});
   $('back3').addEventListener('click',()=>setStep(3));$('back4').addEventListener('click',()=>setStep(4));
   $('scenario').addEventListener('change',()=>{resetChecks();$('fingerprint').textContent='schema: '+state.table.split('.').pop()+'@f1c3…a62e';});
   $('readPreview').addEventListener('click',()=>{
     const scenario=$('scenario').value;
-    if(scenario==='unavailable'){setCallout($('previewState'),'error','来源不可用 · SOURCE_UNAVAILABLE','服务端无法验证来源连接。不得把断线转换为空样本；保留映射并重试或返回修复。');return;}
-    if(scenario==='drift'){$('fingerprint').textContent='结构变化 · sourceSchemaFingerprint 不匹配';setCallout($('previewState'),'error','来源结构已漂移 · BINDING_SCHEMA_DRIFT','当前列结构与目录快照不同，必须重新发现并确认映射，不能自动按同名列重绑。');return;}
-    previewDone=true;$('previewTableWrap').classList.remove('hidden');$('runValidation').disabled=false;
+    if(scenario==='unavailable'){$('backToSource').classList.remove('hidden');setCallout($('previewState'),'error','来源不可用 · SOURCE_UNAVAILABLE','服务端无法验证来源连接。不得把断线转换为空样本；返回来源重新检查，或修复连接后重试。');return;}
+    if(scenario==='drift'){$('backToSource').classList.remove('hidden');$('fingerprint').textContent='结构变化 · sourceSchemaFingerprint 不匹配';setCallout($('previewState'),'error','来源结构已漂移 · BINDING_SCHEMA_DRIFT','当前列结构与目录快照不同，必须重新发现并确认映射，不能自动按同名列重绑。请返回来源重新发现。');return;}
+    previewDone=true;$('backToSource').classList.add('hidden');$('previewTableWrap').classList.remove('hidden');$('runValidation').disabled=false;
     const sourceRows=[
       {vendor_code:'V-1001',name:'北辰精密',rating:'4.70',is_active:'true'},
       {vendor_code:'V-1002',name:'远山材料',rating:'4.25',is_active:'true'},
@@ -190,11 +197,11 @@
     if(scenario==='drift'){setCallout($('validationResult'),'error','校验失败 · BINDING_SCHEMA_DRIFT','来源列或类型已变化。请重新发现、复核差异并调整映射。');}
     else if(scenario==='duplicate'){setCallout($('validationResult'),'error','校验失败 · IDENTITY_CONFLICT','发现重复主键且属性值冲突；不能选择首行或使用 MIN 自动消解。绑定不可保存。');}
     else if(scenario==='unavailable'){setCallout($('validationResult'),'error','校验失败 · SOURCE_UNAVAILABLE','来源不可达，无法证明绑定有效。保留当前编辑，不允许保存。');}
-    else if(scenario==='budget'){setCallout($('validationResult'),'error','校验未完成 · QUERY_BUDGET_EXCEEDED','校验超过 10,000 行或 3 秒预算。结果不是 PASS，也不能当作空集合；需缩小范围或调整验收策略。');}
+    else if(scenario==='budget'){$('backToSource').classList.remove('hidden');setCallout($('validationResult'),'error','校验未完成 · QUERY_BUDGET_EXCEEDED','校验超过 10,000 行或 3 秒预算。结果不是 PASS，也不能当作空集合；请返回来源调整隔离测试范围或由管理员调整预算后重新校验。');}
     else {validationPass=true;setCallout($('validationResult'),'success','校验通过 · VALIDATED（原型模拟）','已检查 248 行；主键非空且唯一、映射类型兼容、重复行无冲突。该结果仅用于评审，真实实现必须显示服务器返回的覆盖范围。');}
     $('to5').disabled=!validationPass;$('saveBinding').disabled=!validationPass;
   });
-  function refreshSummary(){ $('summarySnapshot').textContent='LOCAL_SNAPSHOT('+state.snapshot+')';$('summaryType').textContent=$('typeLabel').textContent;$('summaryTable').textContent=state.table;$('summaryMappings').textContent=[$('mapPk').value,$('mapName').value,$('mapRating').value,$('mapActive').value].filter(Boolean).length+' 项'; }
+  function refreshSummary(){ $('summarySnapshot').textContent='LOCAL_SNAPSHOT('+state.snapshot+')';$('summaryType').textContent=$('typeLabel').textContent;$('summaryTable').textContent=state.table;$('summaryMappings').textContent=[$('mapPk').value,$('mapName').value,$('mapRating').value,$('mapActive').value].filter(Boolean).length+' 项';$('summaryIdentityDomain').textContent=identityDomainId(); }
   $('to5').addEventListener('click',()=>{if(validationPass)setStep(5);});
   $('saveBinding').addEventListener('click',()=>{
     if(!validationPass)return;
