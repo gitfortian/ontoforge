@@ -234,9 +234,6 @@ public class ObjectSetQueryService {
                     "rootTypeRef 必须精确引用该 Binding revision 的 LOCAL_SNAPSHOT、package 与 ObjectType", "rootTypeRef", executionId);
         }
         RuntimeTypeResolver.TypeDescriptor type = resolveType(binding, authentication, executionId);
-        // Check source permission/existence before information_schema enumeration: PostgreSQL
-        // may hide a table from that catalog after SELECT is revoked, which is not schema drift.
-        verifySourceReadable(binding, executionId);
         DataBindingService.SourceTable sourceTable = currentSourceTable(binding, authentication, executionId);
         if (!Objects.equals(binding.sourceSchemaFingerprint(), sourceTable.schemaFingerprint())) {
             throw fail(409, "BINDING_SCHEMA_DRIFT",
@@ -267,7 +264,6 @@ public class ObjectSetQueryService {
             throw fail(409, "BINDING_REVISION_CONFLICT",
                     "执行期间 Binding 版本证据发生变化；拒绝发布查询结果，请重新执行", "bindingRevision", executionId);
         }
-        verifySourceReadable(binding, executionId);
         DataBindingService.SourceTable sourceAfter = currentSourceTable(binding, authentication, executionId);
         if (!Objects.equals(sourceTable.schemaFingerprint(), sourceAfter.schemaFingerprint())) {
             throw fail(409, "BINDING_SCHEMA_DRIFT",
@@ -365,9 +361,6 @@ public class ObjectSetQueryService {
             invalidateSnapshot(snapshot.id);
             throw fail(409, "BINDING_UNAVAILABLE", "分页期间 ObjectType 版本不再可用；旧结果已失效", "typeSourceRef", executionId);
         }
-        // Permission revocation must win over catalog visibility changes; never misreport
-        // a missing SELECT grant as schema drift when PostgreSQL hides the relation metadata.
-        verifySourceReadable(current, executionId);
         DataBindingService.SourceTable table = currentSourceTable(current, authentication, executionId);
         if (!Objects.equals(table.schemaFingerprint(), snapshot.schemaFingerprint)) {
             invalidateSnapshot(snapshot.id);
@@ -1078,6 +1071,11 @@ public class ObjectSetQueryService {
                     .findFirst().orElseThrow(() -> fail(409, "BINDING_SCHEMA_DRIFT",
                             "Binding 来源表不在当前服务端允许列表或已不存在", "sourceTable", executionId));
         } catch (QueryException ex) {
+            if ("BINDING_SCHEMA_DRIFT".equals(ex.code())) {
+                // information_schema may hide a relation after SELECT is revoked. Probe the
+                // independent source permission contract before deciding this is real drift.
+                verifySourceReadable(binding, executionId);
+            }
             throw ex;
         } catch (DataBindingService.BindingFailure ex) {
             throw fail(ex.http, ex.code, ex.getMessage(), ex.fieldPath, executionId);
