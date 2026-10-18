@@ -147,6 +147,7 @@ Object Runtime 消费模型和绑定，把 SourceFact 按版本投影为对象�
 - [PR #71 S0 frontend/backend CI](https://github.com/gitfortian/ontoforge/actions/runs/39107278433): PASS.
 - [PR #71 Required Quality Gate](https://github.com/gitfortian/ontoforge/actions/runs/39107278475): PASS, including real PG17 + API + React/Chromium golden story, PowerShell 5.1 parser, and PostgreSQL/Flyway tests.
 - PR #71 additionally proves that revoking the read-only source reader's SELECT privilege returns 503 without an object payload, and restores the grant in test cleanup.
+- Post-merge verification on main commit `67f791946b8ff65142860370afec3af40d42bb00`: [S0 frontend/backend CI PASS](https://github.com/gitfortian/ontoforge/actions/runs/39107566534) and [Required Quality Gate PASS](https://github.com/gitfortian/ontoforge/actions/runs/39107566591), including the real PG17 + API + React/Chromium golden story.
 
 **Not delivered / do not overstate**
 - This is an on-demand virtual read path, not a full Object Store or a general query engine. ObjectSet filtering/sorting/paging/aggregation belongs to M7; LinkFact and bounded traversal belong to M8.
