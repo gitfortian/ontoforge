@@ -120,6 +120,22 @@ class M6ObjectRuntimeHighFiBrowser(unittest.TestCase):
         self.assertEqual(self.page.locator("#object-key").input_value(), "SUP-001")
         self.assertIn("supplier-key-v2", self.page.locator("#context-domain").inner_text())
 
+    def test_visual_styles_and_three_column_layout_are_applied(self):
+        # A raw HTML file may open while silently rendering without its CSS.
+        # Assert computed styles so this regression cannot pass as a plain page.
+        self.assertEqual(self.page.locator(".shell").evaluate("(e) => getComputedStyle(e).display"), "flex")
+        self.assertEqual(self.page.locator(".workspace-grid").evaluate("(e) => getComputedStyle(e).display"), "grid")
+        self.assertGreater(
+            self.page.locator(".sidebar").evaluate("(e) => e.getBoundingClientRect().width"),
+            200,
+            "desktop prototype should render a real left navigation rail",
+        )
+        self.assertGreater(
+            self.page.locator(".card").first.evaluate("(e) => parseFloat(getComputedStyle(e).borderTopLeftRadius)"),
+            5,
+            "cards should retain the designed rounded-card visual treatment",
+        )
+
     def test_mobile_layout_has_no_horizontal_page_overflow(self):
         self.page.set_viewport_size({"width": 390, "height": 844})
         self.page.wait_for_timeout(50)
