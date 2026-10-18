@@ -27,6 +27,28 @@ class ObjectRuntimeValueSemanticsTest {
         assertThatCode(() -> ObjectRuntimeService.validateDuplicateRows(rows, selected, mappings, key.id(), "exec-1"))
                 .doesNotThrowAnyException();
     }
+ 
+    @Test
+    void rejectsConflictsInMappedPropertiesEvenWhenCallerDidNotRequestThem() {
+        var key = property("supplier-code", "STRING", true);
+        var name = property("supplier-name", "STRING", true);
+        var rating = property("supplier-rating", "DECIMAL", false);
+        var mappings = Map.of(
+                key.id(), new DataBindingService.FieldMapping(key.id(), "source_key", "AUTHORITATIVE"),
+                name.id(), new DataBindingService.FieldMapping(name.id(), "name", "AUTHORITATIVE"),
+                rating.id(), new DataBindingService.FieldMapping(rating.id(), "rating", "AUTHORITATIVE"));
+        var rows = List.of(
+                Map.<String, Object>of("source_key", "SUP-1", "name", "Forge Works", "rating", new java.math.BigDecimal("4.75")),
+                Map.<String, Object>of("source_key", "SUP-1", "name", "Forge Works", "rating", new java.math.BigDecimal("4.10")));
+
+        // The caller's selected list may omit rating, but duplicate identity folding
+        // must compare every authoritative mapped property to avoid hiding conflicts.
+        assertThatThrownBy(() -> ObjectRuntimeService.validateDuplicateRows(
+                rows, List.of(key, name, rating), mappings, key.id(), "exec-4"))
+                .isInstanceOf(ObjectRuntimeService.ObjectRuntimeFailure.class)
+                .satisfies(error -> assertThat(((ObjectRuntimeService.ObjectRuntimeFailure) error).code())
+                        .isEqualTo("PROPERTY_VALUE_CONFLICT"));
+    }
 
     @Test
     void rejectsIdentityAndRequestedPropertyConflictsInsteadOfChoosingFirstRow() {
