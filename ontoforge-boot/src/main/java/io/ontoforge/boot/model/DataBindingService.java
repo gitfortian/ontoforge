@@ -316,7 +316,8 @@ public class DataBindingService {
                 throw fail(422, "UNSUPPORTED_MAPPING_TYPE", "必填属性必须有权威来源映射", "fieldMappings." + property.id());
             }
         }
-        return new MappingContext(type, table, List.copyOf(mappings), Map.copyOf(properties));
+        return new MappingContext(type, table, mappings.stream()
+                .sorted(java.util.Comparator.comparing(FieldMapping::propertyRef)).toList(), Map.copyOf(properties));
     }
 
     private ValidationResult validateContext(MappingContext context) {
