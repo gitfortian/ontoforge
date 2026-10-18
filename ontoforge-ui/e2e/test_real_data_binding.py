@@ -356,6 +356,7 @@ class DataBindingRealBrowserTest(unittest.TestCase):
                 "bindingRevision": 2,
                 "resultSnapshotRef": cursor_first["resultSnapshotRef"],
                 "queryDigest": cursor_first["queryDigest"],
+                "query": cursor_query,
                 "expiresAt": cursor_first["expiresAt"],
                 "cursor": cursor_first["nextCursor"],
             }, indent=2), encoding="utf-8")
