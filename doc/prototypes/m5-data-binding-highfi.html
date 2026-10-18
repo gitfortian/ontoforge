@@ -229,10 +229,10 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
   $('mappedPreviewRows').innerHTML=sourceRows.map(row=>{const obj=toMappingObject(row);return '<tr>'+mappings.map(m=>'<td>'+obj[m.propertyId]+'</td>').join('')+'</tr>';}).join('');
   $('previewTables').classList.remove('hidden');
  }
- function goList(){showView('list');updateList();}
+ function goList(){showView('list');updateList();}\n function cancelWizard(){if(state.dirty&&!window.confirm('当前编辑尚未保存。确定放弃本次编辑并返回绑定目录吗？'))return;goList();}
  document.querySelectorAll('[data-step]').forEach(btn=>btn.addEventListener('click',()=>{const n=Number(btn.dataset.step);if(n<=state.step)setStep(n);}));
  $('createBinding').addEventListener('click',()=>startNewBinding());$('emptyCreate').addEventListener('click',()=>startNewBinding());$('refreshList').addEventListener('click',updateList);$('navBindings').addEventListener('click',goList);
- $('cancelWizard').addEventListener('click',()=>{if(state.dirty&&!window.confirm('当前编辑尚未保存。确定放弃本次编辑并返回绑定目录吗？'))return;goList();});$('returnList').addEventListener('click',goList);$('detailBack').addEventListener('click',goList);$('newRevision').addEventListener('click',()=>startNewBinding(state.current&&state.current.id));
+ $('cancelWizard').addEventListener('click',cancelWizard);$('returnList').addEventListener('click',cancelWizard);$('detailBack').addEventListener('click',goList);$('newRevision').addEventListener('click',()=>startNewBinding(state.current&&state.current.id));
  $('to2').addEventListener('click',()=>setStep(2));$('back1').addEventListener('click',()=>setStep(1));$('to3').addEventListener('click',()=>setStep(3));$('back2').addEventListener('click',()=>setStep(2));$('back3').addEventListener('click',()=>setStep(3));$('back4').addEventListener('click',()=>setStep(4));
  $('rediscoverSource').addEventListener('click',()=>{$('demoScenario').value='normal';$('fingerprint').textContent='schema: demo_supplier@f1c3…a62e';resetValidation();setNotice($('sourceDiscoveryState'),'success','来源结构已重新发现','请复核最新列清单，再重新确认映射。系统不会按同名列自动重绑。');$('sourceDiscoveryState').classList.remove('hidden');});
  $('mapPk').addEventListener('change',()=>{state.dirty=true;refreshMappingStatus();resetValidation();});['mapName','mapRating','mapActive'].forEach(id=>$(id).addEventListener('change',()=>{state.dirty=true;refreshMappingStatus();resetValidation();}));['snapshot','sourceId','sourceTable'].forEach(id=>$(id).addEventListener('change',()=>{state.dirty=true;resetValidation();}));
@@ -271,7 +271,7 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
   }
   let b=state.current;
   if(!b){b={id:'binding-supplier-01',typeId:'supplier',snapshot:$('snapshot').value,sourceId:$('sourceId').value,table:$('sourceTable').value,revision:0,status:'VALID'};state.bindings.push(b);}
-  b.revision+=1;b.snapshot=$('snapshot').value;b.sourceId=$('sourceId').value;b.table=$('sourceTable').value;b.identityDomain=identityDomain();b.mappings=Object.fromEntries(selectedMappings().map(m=>[m.propertyId,m.sourceColumn]));b.mappingsList=selectedMappings();b.checkedRows=248;b.status='VALID';b.checkedAt='刚刚';state.current=b;state.editing=true;state.baseRevision=b.revision;state.validated=true;
+  b.revision+=1;b.snapshot=$('snapshot').value;b.sourceId=$('sourceId').value;b.table=$('sourceTable').value;b.identityDomain=identityDomain();b.mappings=Object.fromEntries(selectedMappings().map(m=>[m.propertyId,m.sourceColumn]));b.mappingsList=selectedMappings();b.checkedRows=248;b.status='VALID';b.checkedAt='刚刚';state.current=b;state.editing=true;state.baseRevision=b.revision;state.validated=true;state.dirty=false;
   setNotice($('saveState'),'success','绑定版本已保存 · 原型模拟','已保存 '+b.id+' revision '+b.revision+'。真实实现必须以服务端保存回执为准。');$('openSaved').disabled=false;$('casRecovery').classList.add('hidden');updateList();
  });
  $('loadLatest').addEventListener('click',()=>{
