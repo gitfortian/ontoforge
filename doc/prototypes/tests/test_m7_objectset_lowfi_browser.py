@@ -96,6 +96,19 @@ class M7ObjectSetLowFiBrowser(unittest.TestCase):
         self.assertEqual(self.page.locator("#metric-page").inner_text(), "1 / 2")
         self.assertEqual(self.page.locator("#result-rows tr").count(), 5)
 
+    def test_descending_sort_keeps_null_values_last(self):
+        self.page.locator("#filter-property-0").select_option("active")
+        self.page.locator("#filter-op-0").select_option("EQ")
+        self.page.locator("#filter-value-0").fill("true")
+        self.page.locator("[data-filter-row]").nth(1).locator("[data-remove]").click()
+        self.page.locator("#sort-property").select_option("rating")
+        self.page.locator("#sort-direction").select_option("DESC")
+        self.page.get_by_role("button", name="执行查询").click()
+        rows = self.page.locator("#result-rows tr")
+        self.assertEqual(rows.count(), 10)
+        self.assertIn("SUP-1016", rows.nth(rows.count() - 1).inner_text())
+        self.assertIn("Rating Not Provided", rows.nth(rows.count() - 1).inner_text())
+
     def test_aggregate_mode_returns_exact_mock_metric_without_page_controls(self):
         self.page.get_by_role("button", name="聚合统计").click()
         self.assertTrue(self.page.locator("#aggregate-options").is_visible())
