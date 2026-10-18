@@ -140,7 +140,7 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
             <h2>确认绑定并保存新 revision</h2><p class="section-intro">绑定只保存来源映射合同与校验记录，不复制来源业务数据。历史 revision 不可覆盖。</p>
             <div class="notice"><span class="notice-mark">✓</span><div><strong>保存前最后复核</strong>服务端必须重新核对快照摘要、expectedRevision、来源结构指纹与校验有效性；任一条件变化都必须拒绝保存并保留编辑。</div></div>
             <div id="saveState" class="notice"><span class="notice-mark">i</span><div><strong>尚未保存</strong><span>完成校验后才能创建或更新绑定版本。</span></div></div>
-            <div id="casRecovery" class="notice error hidden"><span class="notice-mark">!</span><div><strong>版本冲突 · BINDING_REVISION_CONFLICT</strong><p id="casRecoveryText" style="margin:5px 0 10px">另一编辑已创建新 revision。当前编辑不会覆盖服务器版本。</p><button id="loadLatest">载入最新版本并比较差异</button></div></div>
+            <div id="casRecovery" class="notice error hidden"><span class="notice-mark">!</span><div><strong>版本冲突 · BINDING_REVISION_CONFLICT</strong><p id="casRecoveryText" style="margin:5px 0 10px">另一编辑已创建新 revision。当前编辑不会覆盖服务器版本。</p><div id="casDiff" class="table-wrap hidden" style="margin:10px 0"><table><thead><tr><th>本体属性</th><th>服务器当前来源列</th><th>本地编辑来源列</th></tr></thead><tbody id="casDiffRows"></tbody></table></div><button id="loadLatest">载入最新版本并比较差异</button></div></div>
             <div class="object-card"><div class="object-top"><div><div class="object-title">绑定摘要</div><div class="object-sub">请在保存前核对固定版本与来源</div></div><span class="tag blue">local-binding-v1</span></div><dl class="info-grid"><dt>模型快照</dt><dd class="mono" id="summarySnapshot">snapshot-supplier-01</dd><dt>对象类型</dt><dd id="summaryType">Supplier · supplier</dd><dt>来源</dt><dd class="mono" id="summarySource">local-pg-sandbox / public.demo_supplier</dd><dt>属性映射</dt><dd id="summaryMappings">4 项（含主键）</dd><dt>身份域</dt><dd class="mono" id="summaryIdentity">supplier-vendor-code-domain</dd><dt>预期 revision</dt><dd id="summaryRevision">创建首版（expectedRevision=0）</dd></dl></div>
             <div class="actions"><button id="back4">返回：校验</button><div class="actions-right"><button class="primary" id="saveBinding" disabled>保存绑定</button><button id="openSaved" disabled>重新打开已保存版本</button></div></div>
             <button class="link-button" id="returnList" style="margin-top:14px">返回绑定目录</button>
@@ -188,7 +188,7 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
  function identityDomain(){return 'supplier-'+$('mapPk').value.replace('_','-')+'-domain';}
  function selectedMappings(){return props.filter(p=>$(p.map).value).map(p=>({propertyId:p.id,label:p.label,type:p.type,sourceColumn:$(p.map).value}));}
  function resetValidation(){
-  state.previewed=false;state.validated=false;$('previewTables').classList.add('hidden');$('validationResult').classList.add('hidden');$('runValidation').disabled=true;$('to5').disabled=true;$('saveBinding').disabled=true;$('backToSource').classList.add('hidden');$('previewState').className='notice';$('previewState').innerHTML='<span class="notice-mark">i</span><div><strong>尚未读取来源样本</strong><span>点击“读取样本预览”查看来源行与映射后的对象字段。</span></div>';$('validationMetric').textContent='未运行';$('validationMetricNote').textContent='等待来源预览';$('casRecovery').classList.add('hidden');$('openSaved').disabled=true;
+  state.previewed=false;state.validated=false;$('previewTables').classList.add('hidden');$('validationResult').classList.add('hidden');$('runValidation').disabled=true;$('to5').disabled=true;$('saveBinding').disabled=true;$('backToSource').classList.add('hidden');$('previewState').className='notice';$('previewState').innerHTML='<span class="notice-mark">i</span><div><strong>尚未读取来源样本</strong><span>点击“读取样本预览”查看来源行与映射后的对象字段。</span></div>';$('validationMetric').textContent='未运行';$('validationMetricNote').textContent='等待来源预览';$('casRecovery').classList.add('hidden');$('casDiff').classList.add('hidden');$('openSaved').disabled=true;
  }
  function refreshMappingStatus(){
   props.forEach(p=>{const col=$(p.map).value;const compatible=!!col&&columnTypes[col]===p.expected;const el=$(p.status);el.textContent=compatible?'✓ 类型匹配':col?'! 类型不兼容':'! 未映射';el.classList.toggle('bad',!compatible);});
@@ -207,7 +207,7 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
  function startNewBinding(id){
   const existing=id?state.bindings.find(b=>b.id===id):state.bindings.find(b=>b.typeId==='supplier');
   state.current=existing||null;state.editing=!!existing;state.baseRevision=existing?existing.revision:0;state.dirty=false;
-  $('wizardTitle').textContent=existing?'创建绑定新版本':'创建数据绑定';$('wizardSubtitle').textContent=existing?'在当前绑定基础上编辑；保存时创建新的不可变 revision。':'完成来源绑定、类型映射与校验，再保存不可变版本。';
+  $('saveBinding').textContent='保存绑定';$('wizardTitle').textContent=existing?'创建绑定新版本':'创建数据绑定';$('wizardSubtitle').textContent=existing?'在当前绑定基础上编辑；保存时创建新的不可变 revision。':'完成来源绑定、类型映射与校验，再保存不可变版本。';
   $('existingBindingNotice').classList.toggle('hidden',!existing);
   $('existingBindingText').textContent=existing?'当前绑定 '+existing.id+' · revision '+existing.revision+'。保存会创建 revision '+(existing.revision+1)+'，不会产生第二条当前绑定。':'';
   $('snapshot').value=existing?existing.snapshot:'snapshot-supplier-01';$('sourceId').value=existing?existing.sourceId:'local-pg-sandbox';$('sourceTable').value=existing?existing.table:'public.demo_supplier';
@@ -221,6 +221,13 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
   $('detailRevision').textContent='revision '+b.revision;$('detailRows').textContent=String(b.checkedRows);$('detailStatus').textContent=b.status;$('detailStatusNote').textContent='最近校验 · 当前版本';$('detailBindingId').textContent=b.id;$('detailSnapshot').textContent=b.snapshot;$('detailType').textContent='Supplier · supplier';$('detailSource').textContent=b.sourceId+' / '+b.table;$('detailIdentity').textContent=b.identityDomain;
   $('detailMappings').innerHTML=b.mappingsList.map(m=>'<tr><td>'+m.label+'</td><td>'+m.type+'</td><td class="mono">'+m.sourceColumn+'</td><td>AUTHORITATIVE</td></tr>').join('');
   showView('detail');
+ }
+ function renderCasDiff(){
+  const server=state.current||state.bindings.find(b=>b.typeId==='supplier');
+  const serverMappings=server?server.mappings:{supplierCode:'vendor_code',supplierName:'name',rating:'rating',active:'is_active'};
+  const localMappings=Object.fromEntries(selectedMappings().map(m=>[m.propertyId,m.sourceColumn]));
+  $('casDiffRows').innerHTML=props.map(p=>'<tr><td>'+p.label+'</td><td class="mono">'+(serverMappings[p.id]||'未映射')+'</td><td class="mono">'+(localMappings[p.id]||'未映射')+'</td></tr>').join('');
+  $('casDiff').classList.remove('hidden');
  }
  function toMappingObject(row){const obj={};selectedMappings().forEach(m=>obj[m.propertyId]=row[m.sourceColumn]);return obj;}
  function drawPreview(){
@@ -267,18 +274,18 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
   if(!state.validated)return;
   if($('demoScenario').value==='cas'){
    setNotice($('saveState'),'error','保存冲突 · BINDING_REVISION_CONFLICT','服务器当前 revision 已变化。当前编辑不会覆盖服务器版本。');
-   $('casRecoveryText').textContent='请载入服务端最新 revision，比较后重新预览、校验再保存。';$('casRecovery').classList.remove('hidden');return;
+   $('casRecoveryText').textContent='服务器版本与本地编辑可能不同。请先比较下表；当前编辑不会覆盖服务器版本。';renderCasDiff();$('casRecovery').classList.remove('hidden');return;
   }
   let b=state.current;
   if(!b){b={id:'binding-supplier-01',typeId:'supplier',snapshot:$('snapshot').value,sourceId:$('sourceId').value,table:$('sourceTable').value,revision:0,status:'VALID'};state.bindings.push(b);}
   b.revision+=1;b.snapshot=$('snapshot').value;b.sourceId=$('sourceId').value;b.table=$('sourceTable').value;b.identityDomain=identityDomain();b.mappings=Object.fromEntries(selectedMappings().map(m=>[m.propertyId,m.sourceColumn]));b.mappingsList=selectedMappings();b.checkedRows=248;b.status='VALID';b.checkedAt='刚刚';state.current=b;state.editing=true;state.baseRevision=b.revision;state.validated=true;state.dirty=false;
-  setNotice($('saveState'),'success','绑定版本已保存 · 原型模拟','已保存 '+b.id+' revision '+b.revision+'。真实实现必须以服务端保存回执为准。');$('openSaved').disabled=false;$('casRecovery').classList.add('hidden');updateList();
+  setNotice($('saveState'),'success','绑定版本已保存 · 原型模拟','已保存 '+b.id+' revision '+b.revision+'。真实实现必须以服务端保存回执为准。');$('openSaved').disabled=false;$('saveBinding').disabled=true;$('saveBinding').textContent='已保存当前版本';$('casRecovery').classList.add('hidden');$('casDiff').classList.add('hidden');updateList();
  });
  $('loadLatest').addEventListener('click',()=>{
   let b=state.current||state.bindings.find(x=>x.typeId==='supplier');
   if(!b){b={id:'binding-supplier-01',typeId:'supplier',snapshot:$('snapshot').value,sourceId:$('sourceId').value,table:$('sourceTable').value,revision:1,status:'VALID',identityDomain:identityDomain(),mappings:{supplierCode:'vendor_code',supplierName:'name',rating:'rating',active:'is_active'},mappingsList:props.map(p=>({propertyId:p.id,label:p.label,type:p.type,sourceColumn:({supplierCode:'vendor_code',supplierName:'name',rating:'rating',active:'is_active'})[p.id]})),checkedRows:248};state.bindings.push(b);}
   else b.revision+=1;
-  state.current=b;state.editing=true;state.baseRevision=b.revision;state.validated=false;$('demoScenario').value='normal';state.scenario='normal';resetValidation();setNotice($('saveState'),'','已载入最新版本','当前服务器 revision '+b.revision+' 已载入。请重新读取样本、校验后再保存下一版。');$('casRecovery').classList.add('hidden');updateList();setStep(4);
+  state.current=b;state.editing=true;state.baseRevision=b.revision;state.validated=false;$('demoScenario').value='normal';state.scenario='normal';resetValidation();setNotice($('saveState'),'','已载入最新版本','当前服务器 revision '+b.revision+' 已载入。请重新读取样本、校验后再保存下一版。');$('casRecovery').classList.add('hidden');$('casDiff').classList.add('hidden');updateList();setStep(4);
  });
  $('openSaved').addEventListener('click',()=>{if(state.current)openDetail(state.current.id);});
  refreshMappingStatus();updateList();showView('list');setStep(1);
