@@ -549,8 +549,8 @@ public class ObjectSetQueryService {
             Map<String, DataBindingService.FieldMapping> mappings, String executionId) {
         for (Condition condition : query.filters()) {
             RuntimeTypeResolver.PropertyDescriptor property = properties.get(condition.propertyRef());
-            if (property == null || !property.searchable()) {
-                throw fail(422, "INVALID_QUERY_AST", "筛选只能引用当前 ObjectType 中可检索的属性", "filters." + condition.propertyRef(), executionId);
+            if (property == null || !property.searchable() || !mappings.containsKey(condition.propertyRef())) {
+                throw fail(422, "INVALID_QUERY_AST", "筛选只能引用当前 ObjectType 中已绑定且可检索的属性", "filters." + condition.propertyRef(), executionId);
             }
             String valueType = canonicalType(property.valueType());
             Set<String> allowed = switch (valueType) {
@@ -579,7 +579,10 @@ public class ObjectSetQueryService {
             if (!properties.containsKey(sort.propertyRef()) || !sortRefs.add(sort.propertyRef())) {
                 throw fail(422, "INVALID_QUERY_AST", "排序字段必须引用已定义且不重复的属性", "sort." + sort.propertyRef(), executionId);
             }
-            if (mappings.containsKey(sort.propertyRef()) && !isSupportedType(canonicalType(properties.get(sort.propertyRef()).valueType()))) {
+            if (!mappings.containsKey(sort.propertyRef())) {
+                throw fail(422, "INVALID_QUERY_AST", "排序只能引用已绑定到来源列的属性", "sort." + sort.propertyRef(), executionId);
+            }
+            if (!isSupportedType(canonicalType(properties.get(sort.propertyRef()).valueType()))) {
                 throw fail(422, "UNSUPPORTED_QUERY_OPERATOR", "该属性类型暂不支持排序", "sort." + sort.propertyRef(), executionId);
             }
         }
@@ -588,7 +591,10 @@ public class ObjectSetQueryService {
         }
         if (query.aggregate() != null && "SUM".equals(query.aggregate().operation())) {
             RuntimeTypeResolver.PropertyDescriptor property = properties.get(query.aggregate().propertyRef());
-            if (property == null || !Set.of("INTEGER", "DECIMAL").contains(canonicalType(property.valueType()))) {
+            if (property == null || !mappings.containsKey(query.aggregate().propertyRef())) {
+                throw fail(422, "INVALID_QUERY_AST", "SUM 必须引用已绑定到来源列的数值属性", "aggregate.propertyRef", executionId);
+            }
+            if (!Set.of("INTEGER", "DECIMAL").contains(canonicalType(property.valueType()))) {
                 throw fail(422, "UNSUPPORTED_QUERY_OPERATOR", "SUM 仅支持 INTEGER 或 DECIMAL 属性", "aggregate.propertyRef", executionId);
             }
         }
