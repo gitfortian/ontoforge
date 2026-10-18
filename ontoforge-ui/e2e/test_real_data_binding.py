@@ -254,6 +254,10 @@ class DataBindingRealBrowserTest(unittest.TestCase):
                   + "&bindingId=" + quote(binding_id) + "&bindingRevision=2")
         page.get_by_role("heading", name="对象集合查询", exact=True).wait_for(timeout=15000)
         filter_property = page.locator(".object-set-filter-row select").nth(0)
+        # The route heading renders before async binding/type resolution; wait for
+        # the resolved selector contract before inspecting its options.
+        filter_property.locator('option[value="supplier-name"]').wait_for(timeout=15000)
+        page.locator('.object-set-sort-row select option[value="supplier-code"]').wait_for(timeout=15000)
         filter_options = filter_property.locator("option").evaluate_all("(options) => options.map(option => option.value)")
         self.assertIn("supplier-name", filter_options)
         self.assertNotIn("supplier-legacy", filter_options)
