@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OntoForge · 砺元｜M5 数据绑定高保真交互原型</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#263246;background:#f6f8fb;--blue:#215f9f;--line:#e5ebf3;--muted:#687d93;--soft:#f4f8fc;--green:#22764b;--red:#a54558;--amber:#93631b}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#f6f8fb;color:#263246}button,input,select,textarea{font:inherit}button{cursor:pointer;min-height:38px;border:1px solid #d8e3ef;border-radius:8px;background:#fff;color:#46617c;padding:9px 13px;font-size:12px;font-weight:650}button:hover:not(:disabled){background:#f1f7fe;border-color:#b5d2eb}button:disabled{opacity:.45;cursor:not-allowed}button.primary{background:#215f9f;border-color:#215f9f;color:#fff}button.primary:hover:not(:disabled){background:#174e85}button.ghost{background:transparent}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #327ac0;outline-offset:2px}
+.shell{display:flex;min-height:100vh}.sidebar{width:252px;flex:none;background:#fff;border-right:1px solid #e8edf4;padding:24px 16px;display:flex;flex-direction:column}.brand{display:flex;align-items:center;gap:11px;margin:5px 8px 36px}.brand-icon{height:38px;width:38px;border-radius:11px;display:grid;place-items:center;background:#173657;color:#fff;font-size:18px;font-weight:800}.brand strong{font-size:15px;letter-spacing:.02em}.brand small{display:block;font-size:11px;color:#8292a4;font-weight:500;margin-top:2px}.nav-caption{font-size:10px;letter-spacing:.12em;color:#9aa8b8;margin:20px 12px 9px}.nav{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;text-align:left;padding:11px 12px;border-radius:8px;color:#61748a;font-weight:600}.nav .glyph{width:18px;text-align:center;color:#8298ad}.nav.active{background:#eaf3fc;color:#215f9f}.nav.active .glyph{color:#215f9f}.sidebar-foot{margin-top:auto;border-top:1px solid var(--line);padding:15px 10px 0;color:#7b8da1;font-size:11px;line-height:1.6}
+.workspace{min-width:0;flex:1}.topbar{height:58px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 30px;background:#fff;border-bottom:1px solid var(--line)}.crumb{font-size:12px;color:#8494a7}.top-tags{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.tag{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:6px;background:#f2f6fa;border:1px solid #e3ebf3;color:#5e738b;font-size:11px;font-weight:650;white-space:nowrap}.tag.blue{background:#eaf3fc;border-color:#d2e5f8;color:#215f9f}.tag.green{background:#eaf7f0;border-color:#cdebd9;color:#22764b}.tag.red{background:#fff0f2;border-color:#f3d4da;color:#a54558}.tag.amber{background:#fff7e9;border-color:#f0dfbd;color:#93631b}
+main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:22px}.eyebrow{font-size:10px;letter-spacing:.14em;color:#8193a8;font-weight:800;text-transform:uppercase}.page-head h1{font-size:25px;letter-spacing:-.02em;margin:7px 0 8px}.page-head p{margin:0;color:#718399;font-size:13px;line-height:1.65;max-width:780px}.head-actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin:20px 0}.metric{background:#fff;border:1px solid var(--line);border-radius:11px;padding:16px 18px;box-shadow:0 2px 5px #183b5d05}.metric-label{font-size:11px;color:#7d8ea2;font-weight:650}.metric-value{font-size:25px;font-weight:750;letter-spacing:-.03em;margin:8px 0 4px;color:#263b52}.metric-note{font-size:11px;color:#8b9bae}.panel{background:#fff;border:1px solid var(--line);border-radius:11px;padding:20px;margin-bottom:15px;box-shadow:0 2px 5px #183b5d04}.panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}.panel-head h2{font-size:15px;margin:0 0 6px}.panel-head p{font-size:12px;color:#8292a5;line-height:1.6;margin:0}.empty{padding:42px 20px;text-align:center;border:1px dashed #d4e0ec;border-radius:10px;background:#fbfdff}.empty-icon{height:45px;width:45px;border-radius:13px;display:grid;place-items:center;margin:0 auto 13px;background:#eaf3fc;color:#215f9f;font-size:22px}.empty h3{font-size:15px;margin:0 0 7px}.empty p{font-size:12px;line-height:1.7;color:#8292a5;margin:0 auto 17px;max-width:480px}.table-wrap{width:100%;overflow:auto}table{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}th{padding:11px 12px;text-align:left;color:#8494a6;background:#f8fafc;font-size:10px;letter-spacing:.02em;font-weight:750;border-bottom:1px solid var(--line)}td{padding:13px 12px;border-bottom:1px solid #edf1f6;color:#536b83;vertical-align:middle}tbody tr:last-child td{border-bottom:0}.binding-name{color:#263b52;font-weight:750}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;overflow-wrap:anywhere}.row-actions{display:flex;gap:7px}.link-button{border:0;background:transparent;padding:2px 0;min-height:25px;color:#2464a4;font-size:11px}.link-button:hover{background:transparent;text-decoration:underline}
+.prototype-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;margin-bottom:17px;border:1px dashed #c7d7e7;border-radius:9px;background:#f8fbff;color:#718399;font-size:11px}.prototype-bar label{font-weight:750;color:#60778f}.prototype-bar select{min-height:32px;border:1px solid #d7e2ed;border-radius:7px;padding:5px 9px;background:#fff;color:#3f5873;font-size:11px}.prototype-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hidden{display:none!important}.wizard-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px}.wizard-head h1{font-size:22px;margin:6px 0}.wizard-head p{font-size:12px;line-height:1.6;color:#8292a5;margin:0}.stepper{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:18px 0 16px}.step{display:flex;align-items:center;gap:9px;text-align:left;border:1px solid #e1eaf3;border-radius:9px;background:#fff;padding:11px 10px;min-width:0}.step-num{height:26px;width:26px;flex:none;display:grid;place-items:center;border:1px solid #d4e0ec;border-radius:8px;color:#8195aa;font-size:11px;font-weight:800}.step-title{font-size:11px;font-weight:750;color:#647991}.step-sub{font-size:10px;color:#9aa8b8;margin-top:3px}.step.active{background:#edf5fd;border-color:#b9d5ef}.step.active .step-num{background:#215f9f;color:white;border-color:#215f9f}.step.active .step-title{color:#215f9f}.step.done .step-num{background:#eaf7f0;color:#22764b;border-color:#bfe5cf}.step.done .step-title{color:#476b5a}.step-body{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr);gap:15px}.form-panel,.summary-panel{background:#fff;border:1px solid var(--line);border-radius:11px;padding:20px;min-width:0}.form-panel h2,.summary-panel h2{font-size:15px;margin:0 0 7px}.section-intro{font-size:12px;line-height:1.6;color:#8192a6;margin:0 0 19px}.field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.field{margin-bottom:15px;min-width:0}.field label{display:block;font-size:11px;color:#536a82;font-weight:750;margin-bottom:6px}.field select,.field input{width:100%;min-height:39px;border:1px solid #d7e2ed;border-radius:7px;background:#fff;color:#314a64;padding:8px 10px;font-size:12px}.field small{display:block;margin-top:6px;color:#92a0b0;font-size:10px;line-height:1.6}.object-card{border:1px solid #dce7f2;background:#f9fbfe;border-radius:9px;padding:15px}.object-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:13px}.object-title{font-size:14px;font-weight:800;color:#29435e}.object-sub{font-size:11px;color:#8294a7;margin-top:4px}.info-grid{display:grid;grid-template-columns:120px minmax(0,1fr);gap:9px;font-size:11px;line-height:1.5}.info-grid dt{color:#8293a6}.info-grid dd{margin:0;color:#425c76;overflow-wrap:anywhere}.notice{display:flex;gap:10px;padding:12px 14px;border-radius:8px;background:#f3f8fd;border:1px solid #dceaf7;color:#627d97;font-size:11px;line-height:1.65;margin:14px 0}.notice strong{display:block;color:#3c5d7e;margin-bottom:3px}.notice.warning{background:#fff8eb;border-color:#f1e0bb;color:#88682e}.notice.error{background:#fff1f3;border-color:#f0d3d9;color:#9d4d5d}.notice.success{background:#edf8f1;border-color:#ccebd8;color:#327350}.notice .notice-mark{font-weight:900;flex:none}.actions{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:19px;padding-top:16px;border-top:1px solid #edf1f6}.actions-right{display:flex;gap:8px;flex-wrap:wrap}.actions small{font-size:10px;color:#8b9bae;line-height:1.5}.mapping-table{table-layout:fixed}.mapping-table th,.mapping-table td{white-space:normal;padding:10px 9px}.mapping-table th:nth-child(1){width:24%}.mapping-table th:nth-child(2){width:16%}.mapping-table th:nth-child(3){width:30%}.mapping-table th:nth-child(4){width:17%}.mapping-table th:nth-child(5){width:13%}.property-name{font-weight:750;color:#314b65}.property-sub{font-size:10px;color:#92a1b1;margin-top:4px}.type-pill{display:inline-flex;border-radius:5px;background:#f1f5f9;color:#6a8097;padding:4px 6px;font-size:10px;font-weight:750}.mapping-table select{width:100%;min-width:0;min-height:34px;border:1px solid #d7e2ed;border-radius:6px;background:#fff;padding:6px;font-size:11px;color:#425c76}.inline-status{font-size:10px;color:#22764b;white-space:nowrap}.inline-status.bad{color:#a54558}.stats-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}.stat-card{padding:13px;border:1px solid #e2eaf2;border-radius:8px;background:#fbfdff}.stat-card small{display:block;font-size:10px;color:#8b9bae}.stat-card strong{display:block;font-size:19px;color:#2d4964;margin:5px 0}.stat-card span{font-size:10px;color:#8294a7}.validation-card{border:1px solid #dce8f3;border-radius:9px;padding:15px;background:#fbfdff;margin-top:15px}.validation-card h3{font-size:12px;margin:0 0 7px}.validation-card p{font-size:11px;color:#7c8fa4;line-height:1.65;margin:0}.validation-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}.validation-item{font-size:10px;color:#647b92;display:flex;gap:7px;align-items:flex-start}.validation-item .mark{color:#22764b;font-weight:900}.footer-note{margin:16px 2px 0;font-size:10px;line-height:1.6;color:#95a2b1}
+@media(max-width:1050px){.sidebar{width:210px}.step-body{grid-template-columns:1fr}.stepper{grid-template-columns:repeat(3,minmax(0,1fr))}.step:nth-child(4),.step:nth-child(5){grid-column:auto}}
+@media(max-width:760px){.sidebar{display:none}.topbar{padding:0 16px}.top-tags .tag:first-child{display:none}main{padding:18px 14px 30px}.metrics{grid-template-columns:1fr 1fr}.metric:last-child{grid-column:span 2}.stepper{grid-template-columns:1fr 1fr}.step:last-child{grid-column:span 2}.field-grid{grid-template-columns:1fr}.panel{padding:15px}.form-panel,.summary-panel{padding:15px}.page-head h1{font-size:22px}}
+@media(max-width:450px){.metrics{grid-template-columns:1fr}.metric:last-child{grid-column:auto}.stepper{grid-template-columns:1fr}.step:last-child{grid-column:auto}.stats-row{grid-template-columns:1fr}.validation-list{grid-template-columns:1fr}.topbar .crumb{max-width:58%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-icon">砺</span><div><strong>OntoForge · 砺元</strong><small>Ontology Engineering Workbench</small></div></div>
+    <div class="nav-caption">工作空间</div>
+    <button class="nav"><span class="glyph">⌂</span>工作台概览</button>
+    <button class="nav"><span class="glyph">▧</span>模型包</button>
+    <button class="nav"><span class="glyph">◇</span>模型快照</button>
+    <div class="nav-caption">运行时工程</div>
+    <button class="nav"><span class="glyph">▤</span>Runtime 类型目录</button>
+    <button class="nav active" id="navBindings"><span class="glyph">⇄</span>数据绑定</button>
+    <button class="nav"><span class="glyph">◉</span>对象运行时 <span class="tag" style="margin-left:auto">M6</span></button>
+    <button class="nav"><span class="glyph">⌘</span>对象集合查询 <span class="tag" style="margin-left:auto">M7</span></button>
+    <div class="sidebar-foot">本机 MVP · 固定只读来源<br>绑定定义与版本受治理；不复制来源业务数据。</div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <div class="crumb">本体建模 / Runtime 工程 / 数据绑定</div>
+      <div class="top-tags"><span class="tag">MVP · 本机环境</span><span class="tag blue">UX-High 原型</span></div>
+    </header>
+    <main>
+      <div class="prototype-bar">
+        <span><strong>评审模式</strong> · 当前为高保真静态原型，所有数据与服务端状态均为模拟。</span>
+        <div class="prototype-controls"><label for="demoScenario">异常场景</label><select id="demoScenario"><option value="normal">正常流程</option><option value="drift">来源结构漂移</option><option value="unavailable">来源不可用</option><option value="duplicate">主键冲突</option><option value="budget">校验超预算</option><option value="cas">保存版本冲突</option></select></div>
+      </div>
+
+      <section id="listView">
+        <div class="page-head">
+          <div><div class="eyebrow">Runtime Engineering / M5</div><h1>数据绑定</h1><p>把已保存的本体类型映射到受控 PostgreSQL 来源。一个对象类型只保留一个当前绑定，通过不可变 revision 记录每次变更与校验依据。</p></div>
+          <div class="head-actions"><button id="refreshList">刷新</button><button class="primary" id="createBinding">＋ 创建绑定</button></div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><div class="metric-label">当前绑定</div><div class="metric-value" id="metricBindings">0</div><div class="metric-note">按对象类型唯一计数</div></div>
+          <div class="metric"><div class="metric-label">待复核</div><div class="metric-value" id="metricReview">0</div><div class="metric-note">结构漂移或校验失效</div></div>
+          <div class="metric"><div class="metric-label">已验证映射</div><div class="metric-value" id="metricValidated">0</div><div class="metric-note">有界全量校验通过</div></div>
+        </div>
+        <section class="panel">
+          <div class="panel-head"><div><h2>绑定目录</h2><p>显示当前版本。历史 revision 在绑定详情中查看，不重复占用当前绑定名额。</p></div><span class="tag" id="listCount">0 条记录</span></div>
+          <div id="emptyState" class="empty"><div class="empty-icon">⇄</div><h3>还没有数据绑定</h3><p>从 M4 已保存的 Local Snapshot 选择一个自定义 ObjectType，发现受控来源，完成字段映射与校验后保存第一条绑定。</p><button class="primary" id="emptyCreate">创建第一个绑定</button></div>
+          <div id="bindingTableWrap" class="table-wrap hidden">
+            <table><thead><tr><th>对象类型</th><th>来源</th><th>模型版本</th><th>当前 revision</th><th>校验状态</th><th>最近校验</th><th>操作</th></tr></thead><tbody id="bindingRows"></tbody></table>
+          </div>
+        </section>
+        <div class="footer-note">产品边界：只保存映射合同与校验摘要；不执行任意 SQL，不向来源写入业务数据。来源凭据由服务端管理，来源账号必须具备真实只读权限。</div>
+      </section>
+
+      <section id="wizardView" class="hidden">
+        <div class="wizard-head">
+          <div><div class="eyebrow">Data Binding / Setup</div><h1 id="wizardTitle">创建数据绑定</h1><p id="wizardSubtitle">完成来源绑定、类型映射与校验，再保存不可变版本。</p></div>
+          <div class="head-actions"><button id="cancelWizard">取消并返回目录</button></div>
+        </div>
+        <div id="existingBindingNotice" class="notice hidden"><span class="notice-mark">i</span><div><strong>当前类型已有绑定</strong><span id="existingBindingText">继续编辑会创建新 revision，不会产生第二条当前绑定。</span></div></div>
+        <div class="stepper" aria-label="数据绑定步骤">
+          <button class="step active" data-step="1"><span class="step-num">1</span><span><span class="step-title">模型与类型</span><div class="step-sub">锁定快照</div></span></button>
+          <button class="step" data-step="2"><span class="step-num">2</span><span><span class="step-title">来源目录</span><div class="step-sub">只读测试表</div></span></button>
+          <button class="step" data-step="3"><span class="step-num">3</span><span><span class="step-title">字段映射</span><div class="step-sub">键与类型</div></span></button>
+          <button class="step" data-step="4"><span class="step-num">4</span><span><span class="step-title">预览校验</span><div class="step-sub">样本与范围</div></span></button>
+          <button class="step" data-step="5"><span class="step-num">5</span><span><span class="step-title">保存版本</span><div class="step-sub">确认并重开</div></span></button>
+        </div>
+
+        <section class="step-body" id="step1">
+          <div class="form-panel">
+            <h2>选择模型快照与对象类型</h2><p class="section-intro">绑定引用必须指向明确的 Local Snapshot。不会自动跟随“最新草稿”，也不在本阶段要求正式 SchemaRelease。</p>
+            <div class="field-grid">
+              <div class="field"><label for="snapshot">模型快照</label><select id="snapshot"><option value="snapshot-supplier-01">snapshot-supplier-01 · revision 3</option></select><small>来自 M4 已保存快照目录；实际版本摘要由服务端解析。</small></div>
+              <div class="field"><label for="objectType">ObjectType</label><select id="objectType"><option value="supplier">supplier · Supplier（自定义对象类型）</option></select><small>本轮以采购供应商验证通用绑定，不将 Supplier 写死为后端类型枚举。</small></div>
+            </div>
+            <div class="notice"><span class="notice-mark">✓</span><div><strong>引用版本已锁定</strong><span class="mono" id="snapshotRef">LOCAL_SNAPSHOT(snapshot-supplier-01) · payloadSha256: 9f2a…c81d</span><br>属性引用使用 ObjectType 内的 property ID，不使用显示名称替代。</div></div>
+            <div class="actions"><small>本步骤只选择模型，不修改模型定义。</small><div class="actions-right"><button class="primary" id="to2">继续：选择来源</button></div></div>
+          </div>
+          <aside class="summary-panel"><h2>类型摘要</h2><p class="section-intro">当前快照中的类型合同。</p><div class="object-card"><div class="object-top"><div><div class="object-title">Supplier · 供应商</div><div class="object-sub mono">ObjectType ID: supplier</div></div><span class="tag blue">LOCAL_SNAPSHOT</span></div><dl class="info-grid"><dt>主键属性</dt><dd>supplierCode · STRING</dd><dt>业务属性</dt><dd>supplierName · STRING<br>rating · DECIMAL<br>active · BOOLEAN</dd><dt>属性数量</dt><dd>4（含主键）</dd><dt>版本摘要</dt><dd class="mono">9f2a…c81d</dd></dl></div><div class="notice"><span class="notice-mark">!</span><div><strong>版本边界</strong>保存后绑定固定此快照。模型变更需要明确选择新快照并重新校验。</div></div></aside>
+        </section>
+
+        <section class="step-body hidden" id="step2">
+          <div class="form-panel">
+            <h2>选择受控数据来源</h2><p class="section-intro">服务端只展示已登记的来源与白名单 BASE TABLE。不接受客户端输入 JDBC URL、连接凭据或自由 SQL。</p>
+            <div class="field"><label for="sourceId">来源连接</label><select id="sourceId"><option value="local-pg-sandbox">local-pg-sandbox · 本机 PostgreSQL（只读）</option></select><small>连接凭据由服务端管理；页面不显示密码、主机串或用户名。</small></div>
+            <div class="field"><label for="sourceTable">测试表</label><select id="sourceTable"><option value="public.demo_supplier">public.demo_supplier · M5 隔离验收夹具</option></select><small>该表为待初始化的隔离测试夹具候选；本原型不声称 main 已有此表。</small></div>
+            <div id="sourceDiscoveryState" class="notice hidden"></div>
+            <div class="actions"><button id="back1">返回：模型</button><div class="actions-right"><button id="rediscoverSource">重新发现结构</button><button class="primary" id="to3">确认来源并配置映射</button></div></div>
+          </div>
+          <aside class="summary-panel"><h2>来源目录摘要</h2><p class="section-intro">以服务端目录结果为准，结构指纹在保存前再次核验。</p><dl class="info-grid"><dt>来源 ID</dt><dd class="mono">local-pg-sandbox</dd><dt>表类型</dt><dd>BASE TABLE</dd><dt>来源键候选</dt><dd>vendor_code · text</dd><dt>可映射列</dt><dd>vendor_code, name, rating, is_active</dd><dt>结构指纹</dt><dd class="mono" id="fingerprint">schema: demo_supplier@f1c3…a62e</dd><dt>来源权限</dt><dd><span class="tag green">只读（原型模拟）</span></dd></dl><div class="notice warning"><span class="notice-mark">!</span><div><strong>结构漂移策略</strong>来源列或类型变化时停止新预览；重新发现后必须重新确认映射，不自动按同名列重绑。</div></div></aside>
+        </section>
+
+        <section class="step-body hidden" id="step3">
+          <div class="form-panel">
+            <h2>配置来源键与属性映射</h2><p class="section-intro">主键必须映射到 ObjectType 声明的 primaryKeyRef。只允许严格类型兼容的直接列映射，不做隐式转换。</p>
+            <div class="notice"><span class="notice-mark">i</span><div><strong>身份域：<span class="mono" id="identityDomainPreview">supplier-vendor-code-domain</span></strong>普通属性映射变化不改变对象身份；更换来源表或来源键语义时必须显式创建新身份域。</div></div>
+            <div class="table-wrap"><table class="mapping-table"><thead><tr><th>本体属性</th><th>类型 / 角色</th><th>来源列</th><th>兼容性</th><th>映射方式</th></tr></thead><tbody>
+              <tr><td><div class="property-name">supplierCode</div><div class="property-sub">供应商编码 · primaryKeyRef</div></td><td><span class="type-pill">STRING</span><br><br><span class="tag">主键</span></td><td><select id="mapPk"><option value="vendor_code">vendor_code · text</option><option value="name">name · text</option><option value="rating">rating · numeric</option><option value="">未映射</option></select></td><td><span class="inline-status" id="pkTypeStatus">✓ 类型匹配</span></td><td><span class="type-pill">AUTHORITATIVE</span></td></tr>
+              <tr><td><div class="property-name">supplierName</div><div class="property-sub">供应商名称</div></td><td><span class="type-pill">STRING</span></td><td><select id="mapName"><option value="name">name · text</option><option value="vendor_code">vendor_code · text</option><option value="rating">rating · numeric</option><option value="is_active">is_active · boolean</option><option value="">未映射</option></select></td><td><span class="inline-status" id="nameTypeStatus">✓ 类型匹配</span></td><td><span class="type-pill">AUTHORITATIVE</span></td></tr>
+              <tr><td><div class="property-name">rating</div><div class="property-sub">供应商评级</div></td><td><span class="type-pill">DECIMAL</span></td><td><select id="mapRating"><option value="rating">rating · numeric</option><option value="vendor_code">vendor_code · text</option><option value="name">name · text</option><option value="is_active">is_active · boolean</option><option value="">未映射</option></select></td><td><span class="inline-status" id="ratingTypeStatus">✓ 类型匹配</span></td><td><span class="type-pill">AUTHORITATIVE</span></td></tr>
+              <tr><td><div class="property-name">active</div><div class="property-sub">是否有效</div></td><td><span class="type-pill">BOOLEAN</span></td><td><select id="mapActive"><option value="is_active">is_active · boolean</option><option value="vendor_code">vendor_code · text</option><option value="name">name · text</option><option value="rating">rating · numeric</option><option value="">未映射</option></select></td><td><span class="inline-status" id="activeTypeStatus">✓ 类型匹配</span></td><td><span class="type-pill">AUTHORITATIVE</span></td></tr>
+            </tbody></table></div>
+            <div id="mappingMessage" class="notice error hidden"></div>
+            <div class="actions"><button id="back2">返回：来源</button><div class="actions-right"><button id="resetMapping">恢复推荐映射</button><button class="primary" id="to4">校验映射并预览</button></div></div>
+          </div>
+          <aside class="summary-panel"><h2>映射规则</h2><p class="section-intro">当前 MVP 的最小可执行合同。</p><dl class="info-grid"><dt>映射类型</dt><dd>直接列映射</dd><dt>属性权威性</dt><dd>AUTHORITATIVE</dd><dt>主键类型</dt><dd>STRING / INTEGER</dd><dt>冲突策略</dt><dd>REJECT</dd><dt>属性最少数量</dt><dd>主键之外至少 2 项</dd><dt>未支持类型</dt><dd>明确拒绝，不自动强制转换</dd></dl><div class="notice warning"><span class="notice-mark">!</span><div><strong>身份不可静默改变</strong>来源键从 vendor_code 切换为 name 会生成新的身份域；既有 ObjectRef 不自动重定位。</div></div></aside>
+        </section>
+
+        <section class="step-body hidden" id="step4">
+          <div class="form-panel">
+            <h2>预览映射结果并运行有界校验</h2><p class="section-intro">样本预览用于检查字段映射，不代表全量有效。只有有界身份与类型校验通过后，才允许保存。</p>
+            <div class="stats-row"><div class="stat-card"><small>样本预览上限</small><strong>20 行</strong><span>实际展示 3 行（模拟）</span></div><div class="stat-card"><small>全量校验预算</small><strong>10,000 行</strong><span>最长 3 秒（合同候选）</span></div><div class="stat-card"><small>当前校验结果</small><strong id="validationMetric">未运行</strong><span id="validationMetricNote">等待来源预览</span></div></div>
+            <div id="previewState" class="notice"><span class="notice-mark">i</span><div><strong>尚未读取来源样本</strong><span>点击“读取样本预览”查看来源行与映射后的对象字段。</span></div></div>
+            <div class="actions" style="border-top:0;padding-top:0"><span></span><div class="actions-right"><button id="readPreview">读取样本预览</button><button class="primary" id="runValidation" disabled>运行有界校验</button></div></div>
+            <div id="previewTables" class="hidden">
+              <h3 style="font-size:12px;margin:16px 0 8px">来源原始样本</h3>
+              <div class="table-wrap"><table><thead><tr><th>vendor_code</th><th>name</th><th>rating</th><th>is_active</th></tr></thead><tbody id="previewRows"></tbody></table></div>
+              <h3 style="font-size:12px;margin:18px 0 8px">映射后的本体对象</h3>
+              <div class="table-wrap"><table><thead id="mappedPreviewHead"></thead><tbody id="mappedPreviewRows"></tbody></table></div>
+            </div>
+            <div id="validationResult" class="validation-card hidden"></div>
+            <div class="actions"><button id="back3">返回：映射</button><button id="backToSource" class="hidden">返回来源重新发现</button><div class="actions-right"><button class="primary" id="to5" disabled>确认校验并继续</button></div></div>
+          </div>
+          <aside class="summary-panel"><h2>校验范围与解释</h2><p class="section-intro">保存时服务端必须重新核验，不能信任客户端的 PASS 标志。</p><div class="validation-list"><div class="validation-item"><span class="mark">✓</span><span>主键非空且唯一</span></div><div class="validation-item"><span class="mark">✓</span><span>映射类型兼容</span></div><div class="validation-item"><span class="mark">✓</span><span>必填属性完整</span></div><div class="validation-item"><span class="mark">✓</span><span>重复键无冲突</span></div></div><div class="notice"><span class="notice-mark">i</span><div><strong>预览与校验不同</strong>样本最多 20 行；全量校验受 10,000 行 / 3 秒预算限制，超预算必须返回 QUERY_BUDGET_EXCEEDED，不得把结果当成通过。</div></div></aside>
+        </section>
+
+        <section class="step-body hidden" id="step5">
+          <div class="form-panel">
+            <h2>确认绑定并保存新 revision</h2><p class="section-intro">绑定只保存来源映射合同与校验记录，不复制来源业务数据。历史 revision 不可覆盖。</p>
+            <div class="notice"><span class="notice-mark">✓</span><div><strong>保存前最后复核</strong>服务端必须重新核对快照摘要、expectedRevision、来源结构指纹与校验有效性；任一条件变化都必须拒绝保存并保留编辑。</div></div>
+            <div id="saveState" class="notice"><span class="notice-mark">i</span><div><strong>尚未保存</strong><span>完成校验后才能创建或更新绑定版本。</span></div></div>
+            <div id="casRecovery" class="notice error hidden"><span class="notice-mark">!</span><div><strong>版本冲突 · BINDING_REVISION_CONFLICT</strong><p id="casRecoveryText" style="margin:5px 0 10px">另一编辑已创建新 revision。当前编辑不会覆盖服务器版本。</p><div id="casDiff" class="table-wrap hidden" style="margin:10px 0"><table><thead><tr><th>本体属性</th><th>服务器当前来源列</th><th>本地编辑来源列</th></tr></thead><tbody id="casDiffRows"></tbody></table></div><button id="loadLatest">载入最新版本并比较差异</button></div></div>
+            <div class="object-card"><div class="object-top"><div><div class="object-title">绑定摘要</div><div class="object-sub">请在保存前核对固定版本与来源</div></div><span class="tag blue">local-binding-v1</span></div><dl class="info-grid"><dt>模型快照</dt><dd class="mono" id="summarySnapshot">snapshot-supplier-01</dd><dt>对象类型</dt><dd id="summaryType">Supplier · supplier</dd><dt>来源</dt><dd class="mono" id="summarySource">local-pg-sandbox / public.demo_supplier</dd><dt>属性映射</dt><dd id="summaryMappings">4 项（含主键）</dd><dt>身份域</dt><dd class="mono" id="summaryIdentity">supplier-vendor-code-domain</dd><dt>预期 revision</dt><dd id="summaryRevision">创建首版（expectedRevision=0）</dd></dl></div>
+            <div class="actions"><button id="back4">返回：校验</button><div class="actions-right"><button class="primary" id="saveBinding" disabled>保存绑定</button><button id="openSaved" disabled>重新打开已保存版本</button></div></div>
+            <button class="link-button" id="returnList" style="margin-top:14px">返回绑定目录</button>
+          </div>
+          <aside class="summary-panel"><h2>保存后你会得到</h2><div class="validation-list"><div class="validation-item"><span class="mark">✓</span><span>固定 Local Snapshot 与类型引用</span></div><div class="validation-item"><span class="mark">✓</span><span>来源表结构指纹</span></div><div class="validation-item"><span class="mark">✓</span><span>不可变 binding revision</span></div><div class="validation-item"><span class="mark">✓</span><span>校验范围与问题摘要</span></div></div><div class="notice warning"><span class="notice-mark">!</span><div><strong>不会写回来源</strong>本阶段不执行业务数据写回，也不提供任意 SQL。M6 对象读取仍需重新核验来源可用性。</div></div></aside>
+        </section>
+        <div class="footer-note">UX-High Mock：此页面用于评审交互，不调用 API / PostgreSQL。示例快照、来源、样本、校验和持久化结果均为模拟数据；真实产品需由服务端返回并验证。</div>
+      </section>
+
+      <section id="detailView" class="hidden">
+        <div class="page-head"><div><div class="eyebrow">Runtime Engineering / Binding Detail</div><h1>绑定详情</h1><p>查看当前绑定的精确模型引用、来源、映射和校验摘要。历史版本不可覆盖，编辑将创建新 revision。</p></div><div class="head-actions"><button id="detailBack">返回绑定目录</button><button class="primary" id="newRevision">创建新版本</button></div></div>
+        <div class="metrics"><div class="metric"><div class="metric-label">当前 revision</div><div class="metric-value" id="detailRevision">—</div><div class="metric-note">单调递增，不覆盖历史</div></div><div class="metric"><div class="metric-label">已检查来源行</div><div class="metric-value" id="detailRows">—</div><div class="metric-note">有界全量校验范围</div></div><div class="metric"><div class="metric-label">绑定状态</div><div class="metric-value" id="detailStatus">—</div><div class="metric-note" id="detailStatusNote">保存时校验摘要</div></div></div>
+        <section class="panel"><div class="panel-head"><div><h2>版本与来源</h2><p>此处显示持久化绑定版本的快照摘要和来源结构指纹。</p></div><span class="tag blue" id="detailBindingId">binding-supplier-01</span></div><dl class="info-grid"><dt>模型快照</dt><dd class="mono" id="detailSnapshot">—</dd><dt>ObjectType</dt><dd id="detailType">—</dd><dt>来源</dt><dd class="mono" id="detailSource">—</dd><dt>结构指纹</dt><dd class="mono">schema: demo_supplier@f1c3…a62e</dd><dt>身份域</dt><dd class="mono" id="detailIdentity">—</dd></dl></section>
+        <section class="panel"><div class="panel-head"><div><h2>历史 revision</h2><p>每次保存生成不可变版本。选择历史版可查看当时的来源、映射与校验摘要。</p></div><span class="tag" id="historyCount">0 个版本</span></div><div class="table-wrap"><table><thead><tr><th>Revision</th><th>模型快照</th><th>来源表</th><th>状态</th><th>检查行数</th><th>操作</th></tr></thead><tbody id="detailHistoryRows"></tbody></table></div></section>
+        <section class="panel"><div class="panel-head"><div><h2>字段映射</h2><p>映射按属性 ID 记录；本页为只读详情。</p></div><span class="tag">AUTHORITATIVE</span></div><div class="table-wrap"><table><thead><tr><th>本体属性</th><th>类型</th><th>来源列</th><th>权威性</th></tr></thead><tbody id="detailMappings"></tbody></table></div></section>
+        <div class="notice"><span class="notice-mark">i</span><div><strong>历史版本语义</strong>新 revision 不修改旧版本内容。来源结构变化后，旧绑定定义仍可追溯，但不代表来源事实仍可读取。</div></div>
+      </section>
+    </main>
+  </div>
+</div>
+<script>
+(function(){
+ const $=id=>document.getElementById(id);
+ const steps=[1,2,3,4,5];
+ const sourceRows=[
+  {vendor_code:'V-1001',name:'北辰精密',rating:'4.70',is_active:'true'},
+  {vendor_code:'V-1002',name:'远山材料',rating:'4.25',is_active:'true'},
+  {vendor_code:'V-1003',name:'澄海组件',rating:'3.90',is_active:'false'}
+ ];
+ const props=[
+  {id:'supplierCode',label:'supplierCode',type:'STRING',map:'mapPk',status:'pkTypeStatus',expected:'text'},
+  {id:'supplierName',label:'supplierName',type:'STRING',map:'mapName',status:'nameTypeStatus',expected:'text'},
+  {id:'rating',label:'rating',type:'DECIMAL',map:'mapRating',status:'ratingTypeStatus',expected:'numeric'},
+  {id:'active',label:'active',type:'BOOLEAN',map:'mapActive',status:'activeTypeStatus',expected:'boolean'}
+ ];
+ const columnTypes={vendor_code:'text',name:'text',rating:'numeric',is_active:'boolean'};
+ const state={view:'list',step:1,scenario:'normal',bindings:[],current:null,viewedRevision:null,editing:false,baseRevision:0,validated:false,previewed:false,dirty:false};
+ function showView(name){state.view=name;$('listView').classList.toggle('hidden',name!=='list');$('wizardView').classList.toggle('hidden',name!=='wizard');$('detailView').classList.toggle('hidden',name!=='detail');}
+ function setNotice(el,kind,title,body){el.className='notice'+(kind?' '+kind:'');el.innerHTML='<span class="notice-mark">'+(kind==='error'?'!':kind==='success'?'✓':'i')+'</span><div><strong>'+title+'</strong><span>'+body+'</span></div>';}
+ function setStep(n){
+  state.step=n;
+  steps.forEach(i=>{const panel=$('step'+i);panel.classList.toggle('hidden',i!==n);const btn=document.querySelector('[data-step="'+i+'"]');btn.classList.toggle('active',i===n);btn.classList.toggle('done',i<n);});
+  if(n===5)refreshSummary();
+  window.scrollTo({top:0,behavior:'smooth'});
+ }
+ function identityDomain(){return 'supplier-'+$('mapPk').value.replace('_','-')+'-domain';}
+ function selectedMappings(){return props.filter(p=>$(p.map).value).map(p=>({propertyId:p.id,label:p.label,type:p.type,sourceColumn:$(p.map).value}));}
+ function resetValidation(){
+  state.previewed=false;state.validated=false;$('previewTables').classList.add('hidden');$('validationResult').classList.add('hidden');$('runValidation').disabled=true;$('to5').disabled=true;$('saveBinding').disabled=true;$('backToSource').classList.add('hidden');$('previewState').className='notice';$('previewState').innerHTML='<span class="notice-mark">i</span><div><strong>尚未读取来源样本</strong><span>点击“读取样本预览”查看来源行与映射后的对象字段。</span></div>';$('validationMetric').textContent='未运行';$('validationMetricNote').textContent='等待来源预览';$('casRecovery').classList.add('hidden');$('casDiff').classList.add('hidden');$('openSaved').disabled=true;
+ }
+ function refreshMappingStatus(){
+  props.forEach(p=>{const col=$(p.map).value;const compatible=!!col&&columnTypes[col]===p.expected;const el=$(p.status);el.textContent=compatible?'✓ 类型匹配':col?'! 类型不兼容':'! 未映射';el.classList.toggle('bad',!compatible);});
+  $('identityDomainPreview').textContent=identityDomain();
+ }
+ function clearMappingMessage(){$('mappingMessage').classList.add('hidden');}
+ function refreshSummary(){
+  $('summarySnapshot').textContent=$('snapshot').value;$('summaryType').textContent='Supplier · supplier';$('summarySource').textContent=$('sourceId').value+' / '+$('sourceTable').value;$('summaryMappings').textContent=selectedMappings().length+' 项';$('summaryIdentity').textContent=identityDomain();$('summaryRevision').textContent=state.editing?'expectedRevision='+state.baseRevision+'（保存后 '+(state.baseRevision+1)+'）':'创建首版（expectedRevision=0）';
+ }
+ function updateList(){
+  const count=state.bindings.length;$('metricBindings').textContent=String(count);$('metricReview').textContent=String(state.bindings.filter(b=>b.status!=='VALID').length);$('metricValidated').textContent=String(state.bindings.filter(b=>b.status==='VALID').length);$('listCount').textContent=count+' 条记录';$('emptyState').classList.toggle('hidden',count>0);$('bindingTableWrap').classList.toggle('hidden',count===0);
+  $('bindingRows').innerHTML=state.bindings.map(b=>'<tr><td><div class="binding-name">Supplier · supplier</div><div class="mono">'+b.id+'</div></td><td><div>local-pg-sandbox</div><div class="mono">'+b.table+'</div></td><td><div class="mono">'+b.snapshot+'</div><div class="property-sub">固定 Local Snapshot</div></td><td><span class="tag blue">revision '+b.revision+'</span></td><td><span class="tag '+(b.status==='VALID'?'green':'amber')+'">'+b.status+'</span></td><td>刚刚 · '+b.checkedRows+' 行</td><td><div class="row-actions"><button class="link-button" data-open="'+b.id+'">查看详情</button><button class="link-button" data-edit="'+b.id+'">创建新版本</button></div></td></tr>').join('');
+  document.querySelectorAll('[data-open]').forEach(btn=>btn.addEventListener('click',()=>openDetail(btn.dataset.open)));
+  document.querySelectorAll('[data-edit]').forEach(btn=>btn.addEventListener('click',()=>startNewBinding(btn.dataset.edit)));
+ }
+ function startNewBinding(id){
+  const existing=id?state.bindings.find(b=>b.id===id):state.bindings.find(b=>b.typeId==='supplier');
+  state.current=existing||null;state.editing=!!existing;state.baseRevision=existing?existing.revision:0;state.dirty=false;
+  $('saveBinding').textContent='保存绑定';$('wizardTitle').textContent=existing?'创建绑定新版本':'创建数据绑定';$('wizardSubtitle').textContent=existing?'在当前绑定基础上编辑；保存时创建新的不可变 revision。':'完成来源绑定、类型映射与校验，再保存不可变版本。';
+  $('existingBindingNotice').classList.toggle('hidden',!existing);
+  $('existingBindingText').textContent=existing?'当前绑定 '+existing.id+' · revision '+existing.revision+'。保存会创建 revision '+(existing.revision+1)+'，不会产生第二条当前绑定。':'';
+  $('snapshot').value=existing?existing.snapshot:'snapshot-supplier-01';$('sourceId').value=existing?existing.sourceId:'local-pg-sandbox';$('sourceTable').value=existing?existing.table:'public.demo_supplier';
+  const mapping=existing?existing.mappings:{supplierCode:'vendor_code',supplierName:'name',rating:'rating',active:'is_active'};
+  $('mapPk').value=mapping.supplierCode||'vendor_code';$('mapName').value=mapping.supplierName||'name';$('mapRating').value=mapping.rating||'rating';$('mapActive').value=mapping.active||'is_active';
+  $('fingerprint').textContent='schema: demo_supplier@f1c3…a62e';$('sourceDiscoveryState').classList.add('hidden');$('mappingMessage').classList.add('hidden');refreshMappingStatus();resetValidation();$('saveState').className='notice';$('saveState').innerHTML='<span class="notice-mark">i</span><div><strong>尚未保存</strong><span>完成校验后才能创建或更新绑定版本。</span></div>';$('returnList').classList.remove('hidden');
+  setStep(1);showView('wizard');
+ }
+ function cloneVersion(b){
+  return {id:b.id,revision:b.revision,snapshot:b.snapshot,sourceId:b.sourceId,table:b.table,identityDomain:b.identityDomain,mappings:{...(b.mappings||{})},mappingsList:(b.mappingsList||[]).map(m=>({...m})),checkedRows:b.checkedRows||0,status:b.status||'VALID',checkedAt:b.checkedAt||'刚刚'};
+ }
+ function recordVersion(b){
+  if(!b.history)b.history=[];
+  const version=cloneVersion(b);const index=b.history.findIndex(v=>v.revision===version.revision);
+  if(index>=0)b.history[index]=version;else b.history.push(version);
+  b.history.sort((a,c)=>a.revision-c.revision);
+ }
+ function openDetail(id,revision){
+  const b=state.bindings.find(x=>x.id===id);if(!b)return;state.current=b;
+  const version=revision?(b.history||[]).find(v=>v.revision===revision)||b:b;state.viewedRevision=version.revision;
+  $('detailRevision').textContent='revision '+version.revision;$('detailRows').textContent=String(version.checkedRows);$('detailStatus').textContent=version.status;$('detailStatusNote').textContent=version.revision===b.revision?'最近校验 · 当前版本':'历史版本 · 只读';$('detailBindingId').textContent=b.id+' · revision '+version.revision;$('detailSnapshot').textContent=version.snapshot;$('detailType').textContent='Supplier · supplier';$('detailSource').textContent=version.sourceId+' / '+version.table;$('detailIdentity').textContent=version.identityDomain;
+  const history=[...(b.history||[])].sort((a,c)=>c.revision-a.revision);$('historyCount').textContent=history.length+' 个版本';
+  $('detailHistoryRows').innerHTML=history.map(v=>'<tr><td><span class="tag '+(v.revision===b.revision?'blue':'')+'">revision '+v.revision+'</span></td><td class="mono">'+v.snapshot+'</td><td class="mono">'+v.table+'</td><td>'+v.status+'</td><td>'+v.checkedRows+'</td><td><button class="link-button" data-history-revision="'+v.revision+'">'+(v.revision===version.revision?'当前查看':'查看版本')+'</button></td></tr>').join('');
+  document.querySelectorAll('[data-history-revision]').forEach(btn=>btn.addEventListener('click',()=>openDetail(id,Number(btn.dataset.historyRevision))));
+  $('detailMappings').innerHTML=version.mappingsList.map(m=>'<tr><td>'+m.label+'</td><td>'+m.type+'</td><td class="mono">'+m.sourceColumn+'</td><td>AUTHORITATIVE</td></tr>').join('');
+  showView('detail');
+ }
+ function renderCasDiff(){
+  const server=state.current||state.bindings.find(b=>b.typeId==='supplier');
+  const serverMappings=server?server.mappings:{supplierCode:'vendor_code',supplierName:'name',rating:'rating',active:'is_active'};
+  const localMappings=Object.fromEntries(selectedMappings().map(m=>[m.propertyId,m.sourceColumn]));
+  $('casDiffRows').innerHTML=props.map(p=>'<tr><td>'+p.label+'</td><td class="mono">'+(serverMappings[p.id]||'未映射')+'</td><td class="mono">'+(localMappings[p.id]||'未映射')+'</td></tr>').join('');
+  $('casDiff').classList.remove('hidden');
+ }
+ function toMappingObject(row){const obj={};selectedMappings().forEach(m=>obj[m.propertyId]=row[m.sourceColumn]);return obj;}
+ function drawPreview(){
+  $('previewRows').innerHTML=sourceRows.map(r=>'<tr><td>'+r.vendor_code+'</td><td>'+r.name+'</td><td>'+r.rating+'</td><td>'+r.is_active+'</td></tr>').join('');
+  const mappings=selectedMappings();$('mappedPreviewHead').innerHTML='<tr>'+mappings.map(m=>'<th>'+m.label+' ← '+m.sourceColumn+'</th>').join('')+'</tr>';
+  $('mappedPreviewRows').innerHTML=sourceRows.map(row=>{const obj=toMappingObject(row);return '<tr>'+mappings.map(m=>'<td>'+obj[m.propertyId]+'</td>').join('')+'</tr>';}).join('');
+  $('previewTables').classList.remove('hidden');
+ }
+ function goList(){showView('list');updateList();}
+ function cancelWizard(){if(state.dirty&&!window.confirm('当前编辑尚未保存。确定放弃本次编辑并返回绑定目录吗？'))return;goList();}
+ document.querySelectorAll('[data-step]').forEach(btn=>btn.addEventListener('click',()=>{const n=Number(btn.dataset.step);if(n<=state.step)setStep(n);}));
+ $('createBinding').addEventListener('click',()=>startNewBinding());$('emptyCreate').addEventListener('click',()=>startNewBinding());$('refreshList').addEventListener('click',updateList);$('navBindings').addEventListener('click',goList);
+ $('cancelWizard').addEventListener('click',cancelWizard);$('returnList').addEventListener('click',cancelWizard);$('detailBack').addEventListener('click',goList);$('newRevision').addEventListener('click',()=>startNewBinding(state.current&&state.current.id));
+ $('to2').addEventListener('click',()=>setStep(2));$('back1').addEventListener('click',()=>setStep(1));$('to3').addEventListener('click',()=>setStep(3));$('back2').addEventListener('click',()=>setStep(2));$('back3').addEventListener('click',()=>setStep(3));$('back4').addEventListener('click',()=>setStep(4));
+ $('rediscoverSource').addEventListener('click',()=>{$('demoScenario').value='normal';$('fingerprint').textContent='schema: demo_supplier@f1c3…a62e';resetValidation();setNotice($('sourceDiscoveryState'),'success','来源结构已重新发现','请复核最新列清单，再重新确认映射。系统不会按同名列自动重绑。');$('sourceDiscoveryState').classList.remove('hidden');});
+ $('mapPk').addEventListener('change',()=>{state.dirty=true;refreshMappingStatus();resetValidation();});['mapName','mapRating','mapActive'].forEach(id=>$(id).addEventListener('change',()=>{state.dirty=true;refreshMappingStatus();resetValidation();}));['snapshot','sourceId','sourceTable'].forEach(id=>$(id).addEventListener('change',()=>{state.dirty=true;resetValidation();}));
+ $('resetMapping').addEventListener('click',()=>{state.dirty=true;$('mapPk').value='vendor_code';$('mapName').value='name';$('mapRating').value='rating';$('mapActive').value='is_active';refreshMappingStatus();clearMappingMessage();resetValidation();});
+ $('to4').addEventListener('click',()=>{
+  clearMappingMessage();refreshMappingStatus();const mappings=selectedMappings();const key=$('mapPk').value;
+  if(!key||columnTypes[key]!=='text'){setNotice($('mappingMessage'),'error','主键映射不兼容 · UNSUPPORTED_MAPPING_TYPE','supplierCode 是 STRING 主键；请选择 text 来源键。不能把 numeric 或 boolean 隐式转换为字符串。');$('mappingMessage').classList.remove('hidden');return;}
+  if(mappings.filter(m=>m.propertyId!=='supplierCode').length<2){setNotice($('mappingMessage'),'error','属性映射不足','除主键外，至少映射两个属性后才能继续。');$('mappingMessage').classList.remove('hidden');return;}
+  const bad=mappings.find(m=>columnTypes[m.sourceColumn]!==props.find(p=>p.id===m.propertyId).expected);
+  if(bad){setNotice($('mappingMessage'),'error','属性类型不兼容 · UNSUPPORTED_MAPPING_TYPE',bad.label+' 需要 '+props.find(p=>p.id===bad.propertyId).expected+' 来源列；当前为 '+columnTypes[bad.sourceColumn]+'。请调整映射，不做隐式转换。');$('mappingMessage').classList.remove('hidden');return;}
+  resetValidation();setStep(4);
+ });
+ $('demoScenario').addEventListener('change',()=>{state.scenario=$('demoScenario').value;resetValidation();$('fingerprint').textContent='schema: demo_supplier@f1c3…a62e';});
+ $('readPreview').addEventListener('click',()=>{
+  const scenario=$('demoScenario').value;state.scenario=scenario;
+  if(scenario==='unavailable'){setNotice($('previewState'),'error','来源不可用 · SOURCE_UNAVAILABLE','服务端无法验证来源连接。不得将断线转换成空样本成功；返回来源重新检查或修复连接。');$('backToSource').classList.remove('hidden');return;}
+  if(scenario==='drift'){$('fingerprint').textContent='结构变化 · sourceSchemaFingerprint 不匹配';setNotice($('previewState'),'error','来源结构已漂移 · BINDING_SCHEMA_DRIFT','必须重新发现并确认映射；不能按同名列自动重绑。');$('backToSource').classList.remove('hidden');return;}
+  state.previewed=true;$('backToSource').classList.add('hidden');drawPreview();$('runValidation').disabled=false;setNotice($('previewState'),'success','样本预览已返回 · 原型模拟','展示 3 行样本和按当前映射生成的对象字段。样本不代表全量唯一性或完整性。');
+ });
+ $('runValidation').addEventListener('click',()=>{
+  const scenario=$('demoScenario').value;state.validated=false;$('validationResult').classList.remove('hidden');
+  if(scenario==='duplicate'){setNotice($('validationResult'),'error','校验失败 · IDENTITY_CONFLICT','发现重复主键且属性值冲突。不能自动选择首行或用聚合函数消解。绑定不可保存。');$('validationMetric').textContent='失败';$('validationMetricNote').textContent='身份冲突';}
+  else if(scenario==='budget'){setNotice($('validationResult'),'error','校验未完成 · QUERY_BUDGET_EXCEEDED','超过 10,000 行或 3 秒预算。结果不是 PASS；请调整隔离测试范围或由管理员调整预算后重试。');$('validationMetric').textContent='超预算';$('validationMetricNote').textContent='未完成校验';$('backToSource').classList.remove('hidden');}
+  else if(scenario==='drift'){setNotice($('validationResult'),'error','校验失败 · BINDING_SCHEMA_DRIFT','来源结构已变化；重新发现、确认映射并重新预览。');$('validationMetric').textContent='需复核';$('validationMetricNote').textContent='来源漂移';$('backToSource').classList.remove('hidden');}
+  else if(scenario==='unavailable'){setNotice($('validationResult'),'error','校验失败 · SOURCE_UNAVAILABLE','来源不可达，无法证明绑定有效。保留当前编辑，不允许保存。');$('validationMetric').textContent='不可用';$('validationMetricNote').textContent='来源未连接';$('backToSource').classList.remove('hidden');}
+  else{state.validated=true;setNotice($('validationResult'),'success','有界校验通过 · VALIDATED（原型模拟）','已检查 248 行；主键非空且唯一，映射类型兼容，重复键无冲突。真实实现必须展示服务端返回的检查范围和时间。');$('validationMetric').textContent='通过';$('validationMetricNote').textContent='248 行 · 有界校验';$('backToSource').classList.add('hidden');}
+  $('to5').disabled=!state.validated;$('saveBinding').disabled=!state.validated;
+ });
+ $('backToSource').addEventListener('click',()=>setStep(2));
+ $('to5').addEventListener('click',()=>{if(state.validated)setStep(5);});
+ $('saveBinding').addEventListener('click',()=>{
+  if(!state.validated)return;
+  if($('demoScenario').value==='cas'){
+   setNotice($('saveState'),'error','保存冲突 · BINDING_REVISION_CONFLICT','服务器当前 revision 已变化。当前编辑不会覆盖服务器版本。');
+   $('casRecoveryText').textContent='服务器版本与本地编辑可能不同。请先比较下表；当前编辑不会覆盖服务器版本。';renderCasDiff();$('casRecovery').classList.remove('hidden');return;
+  }
+  let b=state.current;
+  if(!b){b={id:'binding-supplier-01',typeId:'supplier',snapshot:$('snapshot').value,sourceId:$('sourceId').value,table:$('sourceTable').value,revision:0,status:'VALID',history:[]};state.bindings.push(b);}else if(b.revision>0)recordVersion(b);
+  b.revision+=1;b.snapshot=$('snapshot').value;b.sourceId=$('sourceId').value;b.table=$('sourceTable').value;b.identityDomain=identityDomain();b.mappings=Object.fromEntries(selectedMappings().map(m=>[m.propertyId,m.sourceColumn]));b.mappingsList=selectedMappings();b.checkedRows=248;b.status='VALID';b.checkedAt='刚刚';state.current=b;state.editing=true;state.baseRevision=b.revision;state.validated=true;state.dirty=false;
+  recordVersion(b);setNotice($('saveState'),'success','绑定版本已保存 · 原型模拟','已保存 '+b.id+' revision '+b.revision+'。真实实现必须以服务端保存回执为准。');$('openSaved').disabled=false;$('saveBinding').disabled=true;$('saveBinding').textContent='已保存当前版本';$('casRecovery').classList.add('hidden');$('casDiff').classList.add('hidden');updateList();
+ });
+ $('loadLatest').addEventListener('click',()=>{
+  let b=state.current||state.bindings.find(x=>x.typeId==='supplier');
+  if(!b){b={id:'binding-supplier-01',typeId:'supplier',snapshot:$('snapshot').value,sourceId:$('sourceId').value,table:$('sourceTable').value,revision:1,status:'VALID',identityDomain:identityDomain(),mappings:{supplierCode:'vendor_code',supplierName:'name',rating:'rating',active:'is_active'},mappingsList:props.map(p=>({propertyId:p.id,label:p.label,type:p.type,sourceColumn:({supplierCode:'vendor_code',supplierName:'name',rating:'rating',active:'is_active'})[p.id]})),checkedRows:248,history:[]};state.bindings.push(b);recordVersion(b);}
+  else{recordVersion(b);b.revision+=1;recordVersion(b);}
+  state.current=b;state.editing=true;state.baseRevision=b.revision;state.validated=false;$('demoScenario').value='normal';state.scenario='normal';resetValidation();setNotice($('saveState'),'','已载入最新版本','当前服务器 revision '+b.revision+' 已载入。请重新读取样本、校验后再保存下一版。');$('casRecovery').classList.add('hidden');$('casDiff').classList.add('hidden');updateList();setStep(4);
+ });
+ $('openSaved').addEventListener('click',()=>{if(state.current)openDetail(state.current.id);});
+ refreshMappingStatus();updateList();showView('list');setStep(1);
+})();
+</script>
+</body>
+</html>
