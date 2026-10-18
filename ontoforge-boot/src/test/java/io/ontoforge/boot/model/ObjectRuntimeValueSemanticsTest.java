@@ -6,11 +6,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import java.util.Map;
+import java.sql.SQLException;
 import org.junit.jupiter.api.Test;
 
 class ObjectRuntimeValueSemanticsTest {
     private static RuntimeTypeResolver.PropertyDescriptor property(String id, String type, boolean required) {
         return new RuntimeTypeResolver.PropertyDescriptor(id, id, id, type, required, true, "INTERNAL", null);
+    }
+
+    @Test
+    void recognizesPostgresStatementTimeoutState() {
+        assertThat(ObjectRuntimeService.isTimeout(
+                new SQLException("canceling statement due to statement timeout", "57014"))).isTrue();
+        assertThat(ObjectRuntimeService.isTimeout(
+                new SQLException("permission denied", "42501"))).isFalse();
     }
 
     @Test
