@@ -229,11 +229,33 @@ jobs:
           finally:
               psql("-v", "package_id=" + package_id, "-v", "workspace_id=" + workspace_id, "-f", "-",
                    input_sql="INSERT INTO b0_package_assignment(workspace_id,package_id) VALUES (:'workspace_id'::uuid, :'package_id') ON CONFLICT (package_id) DO NOTHING;")
+
+          # Restoring the grant must not resurrect a cursor whose revalidation failed.
+          replay_status = None
+          replay_code = None
+          replay_request = Request(
+              "http://127.0.0.1:8080/api/runtime/object-sets/pages",
+              data=json.dumps({"cursor": evidence["cursor"]}).encode("utf-8"),
+              method="POST",
+              headers={"Authorization": "Bearer " + fixture["editorToken"], "Content-Type": "application/json"},
+          )
+          try:
+              with urlopen(replay_request, timeout=15) as response:
+                  raise AssertionError("M7 cursor unexpectedly revived after B0 package grant restoration")
+          except HTTPError as error:
+              replay_status = error.code
+              replay_payload = json.loads(error.read())
+              replay_code = replay_payload.get("code")
+              assert replay_status == 410, f"Expected 410 after restoring grant for invalidated cursor, got {replay_status}: {replay_payload}"
+              assert replay_code == "RESULT_EXPIRED", f"Expected RESULT_EXPIRED after grant restoration: {replay_payload}"
+              assert "objects" not in replay_payload and "aggregate" not in replay_payload, "Expired cursor replay leaked results"
+
           Path("/tmp/ontoforge-m7-b0-revocation.json").write_text(json.dumps({
               "packageId": package_id, "bindingId": evidence["bindingId"], "status": status,
-              "code": code, "message": message, "result": "B0_GRANT_REVOKED_PAGE_DENIED",
+              "code": code, "message": message, "replayStatus": replay_status,
+              "replayCode": replay_code, "result": "B0_GRANT_REVOKED_THEN_RESTORED_CURSOR_EXPIRED",
           }, indent=2), encoding="utf-8")
-          print("M7 cursor rechecked B0 package authorization; revoked grant returns 403 FORBIDDEN without partial results")
+          print("M7 cursor rechecked B0 package authorization; revoked grant returns 403, restoring the grant does not revive the old cursor (410)")
           PY
       - name: Exercise isolated ObjectType, Snapshot and LinkType HTTP acceptance in real PostgreSQL
         shell: pwsh
