@@ -109,9 +109,14 @@ public class ObjectSetQueryService {
     public record ObjectKey(String valueType, String value) {}
     public record ObjectRef(String packageId, String objectTypeId, String identityDomainId, ObjectKey key) {}
     public record BindingVersion(String bindingId, long revision, String digest, String sourceId, String kind) {}
+    public record TypeSourceRef(String kind, String snapshotId) {}
+    public record SchemaFingerprintRef(String sourceId, String schema, String table, String schemaFingerprint) {}
+    public record VersionLock(TypeSourceRef typeSourceRef, String payloadSha256,
+            List<BindingVersion> bindingVersions, List<SchemaFingerprintRef> sourceSchemaFingerprints) {}
+    public record CheckpointEvidence(String status, String reason) {}
     public record SourceReadRef(String id, String sourceId, String schema, String table, List<String> columns,
             String schemaFingerprint, Instant startedAt, Instant completedAt,
-            String transactionIsolation, String consistencyNote) {}
+            String transactionIsolation, CheckpointEvidence checkpoint, String consistencyNote) {}
     public record PropertyProvenance(String sourceId, String schema, String table, String column,
             String bindingId, long bindingRevision, String sourceReadRef) {}
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -125,10 +130,10 @@ public class ObjectSetQueryService {
     public record AggregateResult(String operation, String propertyRef, String valueType, String value, int matchedObjects) {}
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record QueryResult(String status, String executionId, Instant executedAt, String queryVersion,
-            String queryDigest, String resultSnapshotRef, Instant expiresAt, Integer totalCount,
-            Integer pageSize, Integer pageNumber, String nextCursor, List<ObjectSetItem> items,
-            AggregateResult aggregate, List<BindingVersion> bindingVersions, SourceReadRef sourceReadRef,
-            QualityEnvelope quality, BudgetEvidence budget) {}
+            TypeSourceRef typeSourceRef, String payloadSha256, String accessMode, List<BindingVersion> bindingVersions,
+            VersionLock versionLock, SourceReadRef sourceReadRef, String queryDigest, String resultSnapshotRef,
+            Instant expiresAt, Integer totalCount, Integer pageSize, Integer pageNumber, String nextCursor,
+            List<ObjectSetItem> items, AggregateResult aggregate, QualityEnvelope quality, BudgetEvidence budget) {}
     public record QueryFailureResult(String status, String executionId, String code, String message,
             String fieldPath, QualityEnvelope quality) {}
 
@@ -136,7 +141,8 @@ public class ObjectSetQueryService {
     private record Condition(String propertyRef, String operator, List<Literal> literals) {}
     private record SortField(String propertyRef, String direction) {}
     private record AggregateSpec(String operation, String propertyRef) {}
-    private record ParsedQuery(String bindingId, long bindingRevision, List<Condition> filters,
+    private record RootTypeRef(String kind, String snapshotId, String packageId, String objectTypeId) {}
+    private record ParsedQuery(RootTypeRef rootTypeRef, String bindingId, long bindingRevision, List<Condition> filters,
             List<SortField> sorts, List<String> project, Integer pageSize, AggregateSpec aggregate,
             List<Object> canonicalSteps) {}
     private record TypedValue(String valueType, String status, Object value) {}
@@ -144,7 +150,7 @@ public class ObjectSetQueryService {
     private record RawScan(List<Map<String, Object>> rows, List<String> columns,
             Instant startedAt, Instant completedAt, long sourceBytes) {}
     private record CursorRef(String snapshotId, int offset, String actorKey) {}
-    private record DigestMaterial(String queryVersion, String bindingId, long bindingRevision,
+    private record DigestMaterial(String queryVersion, RootTypeRef rootTypeRef, String bindingId, long bindingRevision,
             String bindingDigest, String payloadSha256, String sourceSchemaFingerprint, List<Object> steps) {}
 
     private static final class StoredSnapshot {
@@ -162,6 +168,9 @@ public class ObjectSetQueryService {
         private final List<ObjectSetItem> items;
         private final AggregateResult aggregate;
         private final List<BindingVersion> bindingVersions;
+        private final TypeSourceRef typeSourceRef;
+        private final String accessMode;
+        private final VersionLock versionLock;
         private final SourceReadRef sourceReadRef;
         private final QualityEnvelope quality;
         private final BudgetEvidence budget;
@@ -171,14 +180,15 @@ public class ObjectSetQueryService {
                 String resultSnapshotRef, Instant executedAt, Instant expiresAt,
                 DataBindingService.BindingDetail binding, RuntimeTypeResolver.TypeDescriptor type,
                 String schemaFingerprint, int pageSize, List<ObjectSetItem> items, AggregateResult aggregate,
-                List<BindingVersion> bindingVersions, SourceReadRef sourceReadRef,
-                QualityEnvelope quality, BudgetEvidence budget, long bytes) {
+                List<BindingVersion> bindingVersions, TypeSourceRef typeSourceRef, String accessMode,
+                VersionLock versionLock, SourceReadRef sourceReadRef, QualityEnvelope quality, BudgetEvidence budget, long bytes) {
             this.id = id; this.actorKey = actorKey; this.executionId = executionId;
             this.queryDigest = queryDigest; this.resultSnapshotRef = resultSnapshotRef;
             this.executedAt = executedAt; this.expiresAt = expiresAt; this.binding = binding; this.type = type;
             this.schemaFingerprint = schemaFingerprint; this.pageSize = pageSize;
             this.items = List.copyOf(items); this.aggregate = aggregate;
-            this.bindingVersions = List.copyOf(bindingVersions); this.sourceReadRef = sourceReadRef;
+            this.bindingVersions = List.copyOf(bindingVersions); this.typeSourceRef = typeSourceRef;
+            this.accessMode = accessMode; this.versionLock = versionLock; this.sourceReadRef = sourceReadRef;
             this.quality = quality; this.budget = budget; this.bytes = bytes;
         }
     }
@@ -187,8 +197,15 @@ public class ObjectSetQueryService {
         String executionId = UUID.randomUUID().toString();
         cleanupExpired();
         ParsedQuery query = parse(body, executionId);
-        UUID bindingId = parseUuid(query.bindingId(), "bindingId", executionId);
+        UUID bindingId = parseUuid(query.bindingId(), "bindingRef.bindingId", executionId);
         DataBindingService.BindingDetail binding = getBinding(bindingId, query.bindingRevision(), authentication, executionId);
+        if (!"LOCAL_SNAPSHOT".equals(query.rootTypeRef().kind())
+                || !Objects.equals(query.rootTypeRef().snapshotId(), binding.snapshotId())
+                || !Objects.equals(query.rootTypeRef().packageId(), binding.packageId())
+                || !Objects.equals(query.rootTypeRef().objectTypeId(), binding.objectTypeId())) {
+            throw fail(409, "BINDING_SNAPSHOT_MISMATCH",
+                    "rootTypeRef 必须精确引用该 Binding revision 的 LOCAL_SNAPSHOT、package 与 ObjectType", "rootTypeRef", executionId);
+        }
         RuntimeTypeResolver.TypeDescriptor type = resolveType(binding, authentication, executionId);
         DataBindingService.SourceTable sourceTable = currentSourceTable(binding, authentication, executionId);
         if (!Objects.equals(binding.sourceSchemaFingerprint(), sourceTable.schemaFingerprint())) {
@@ -230,7 +247,8 @@ public class ObjectSetQueryService {
         String sourceReadId = UUID.randomUUID().toString();
         SourceReadRef sourceRead = new SourceReadRef(sourceReadId, binding.sourceId(), binding.sourceSchema(),
                 binding.sourceTable(), scan.columns(), sourceTable.schemaFingerprint(), scan.startedAt(), scan.completedAt(),
-                "REPEATABLE_READ", "单次只读 PostgreSQL REPEATABLE READ 中完成有界来源扫描；结果快照冻结本次成员，不是源历史快照。业务新鲜度没有可信水位，因此为 UNKNOWN。");
+                "REPEATABLE_READ", new CheckpointEvidence("UNKNOWN", "没有可验证的业务新鲜度水位"),
+                "单次只读 PostgreSQL REPEATABLE READ 中完成有界来源扫描；结果快照冻结本次成员，不是源历史快照。业务新鲜度没有可信水位，因此为 UNKNOWN。");
         List<Materialized> objects = materialize(scan.rows(), needed, properties, mappings, binding, type, sourceReadId, executionId);
         List<Materialized> filtered = objects.stream().filter(item -> matches(item, query.filters(), properties)).collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         filtered.sort(comparator(query.sorts(), properties, type, executionId));
@@ -246,6 +264,10 @@ public class ObjectSetQueryService {
         String digest = queryDigest(query, binding, type, sourceTable.schemaFingerprint(), executionId);
         List<BindingVersion> versions = List.of(new BindingVersion(binding.bindingId(), binding.revision(),
                 binding.digest(), binding.sourceId(), "OBJECT"));
+        TypeSourceRef typeSourceRef = new TypeSourceRef("LOCAL_SNAPSHOT", binding.snapshotId());
+        VersionLock versionLock = new VersionLock(typeSourceRef, binding.payloadSha256(), versions,
+                List.of(new SchemaFingerprintRef(binding.sourceId(), binding.sourceSchema(), binding.sourceTable(),
+                        sourceTable.schemaFingerprint())));
         long serializedBytes = serializedBytes(items, aggregate, executionId);
         if (serializedBytes > MAX_RESULT_BYTES) {
             throw fail(429, "QUERY_BUDGET_EXCEEDED",
@@ -255,11 +277,12 @@ public class ObjectSetQueryService {
                 serializedBytes, MAX_ROWS, MAX_SOURCE_BYTES, MAX_RESULT_BYTES, QUERY_TIMEOUT_SECONDS);
         Instant now = Instant.now();
         String id = UUID.randomUUID().toString();
+        String accessMode = authentication instanceof JwtAuthenticationToken ? "JWT_AUTHENTICATED" : "LOCAL_ISOLATED";
         StoredSnapshot stored = new StoredSnapshot(id, actorKey(authentication), executionId, digest,
                 "local-result:" + id, now, now.plusSeconds(TTL_SECONDS), binding, type,
                 sourceTable.schemaFingerprint(), query.pageSize() == null ? 1 : query.pageSize(),
-                items, aggregate, versions, sourceRead, new QualityEnvelope("EXACT", "COMPLETE", "UNKNOWN", "REQUESTED_SCOPE"),
-                budget, serializedBytes);
+                items, aggregate, versions, typeSourceRef, accessMode, versionLock, sourceRead,
+                new QualityEnvelope("EXACT", "COMPLETE", "UNKNOWN", "REQUESTED_SCOPE"), budget, serializedBytes);
         publishSnapshot(stored, executionId);
         return pageResult(stored, 0, executionId);
     }
@@ -312,8 +335,9 @@ public class ObjectSetQueryService {
     private QueryResult pageResult(StoredSnapshot snapshot, int offset, String errorExecutionId) {
         if (snapshot.aggregate != null) {
             return new QueryResult("SUCCESS", snapshot.executionId, snapshot.executedAt, "local-query-v1",
-                    snapshot.queryDigest, snapshot.resultSnapshotRef, snapshot.expiresAt, null, null, null, null,
-                    List.of(), snapshot.aggregate, snapshot.bindingVersions, snapshot.sourceReadRef, snapshot.quality, snapshot.budget);
+                    snapshot.typeSourceRef, snapshot.binding.payloadSha256(), snapshot.accessMode, snapshot.bindingVersions,
+                    snapshot.versionLock, snapshot.sourceReadRef, snapshot.queryDigest, snapshot.resultSnapshotRef,
+                    snapshot.expiresAt, null, null, null, null, List.of(), snapshot.aggregate, snapshot.quality, snapshot.budget);
         }
         if (offset < 0 || offset > snapshot.items.size() || offset % snapshot.pageSize != 0) {
             throw fail(400, "INVALID_CURSOR", "cursor 对应的页位置不合法", "cursor", errorExecutionId);
@@ -326,21 +350,34 @@ public class ObjectSetQueryService {
             cursors.put(next, new CursorRef(snapshot.id, end, snapshot.actorKey));
         }
         return new QueryResult("SUCCESS", snapshot.executionId, snapshot.executedAt, "local-query-v1",
-                snapshot.queryDigest, snapshot.resultSnapshotRef, snapshot.expiresAt, snapshot.items.size(),
-                snapshot.pageSize, offset / snapshot.pageSize + 1, next, List.copyOf(page), null,
-                snapshot.bindingVersions, snapshot.sourceReadRef, snapshot.quality, snapshot.budget);
+                snapshot.typeSourceRef, snapshot.binding.payloadSha256(), snapshot.accessMode, snapshot.bindingVersions,
+                snapshot.versionLock, snapshot.sourceReadRef, snapshot.queryDigest, snapshot.resultSnapshotRef,
+                snapshot.expiresAt, snapshot.items.size(), snapshot.pageSize, offset / snapshot.pageSize + 1,
+                next, List.copyOf(page), null, snapshot.quality, snapshot.budget);
     }
 
     private ParsedQuery parse(JsonNode body, String executionId) {
-        if (body == null || !body.isObject() || !hasOnlyFields(body, Set.of("queryVersion", "bindingId", "bindingRevision", "steps"))) {
-            throw fail(400, "INVALID_QUERY_AST", "请求必须是只含 queryVersion、bindingId、bindingRevision、steps 的 JSON 对象", "request", executionId);
+        if (body == null || !body.isObject() || !hasOnlyFields(body, Set.of("queryVersion", "rootTypeRef", "bindingRef", "steps"))) {
+            throw fail(400, "INVALID_QUERY_AST", "请求必须只包含 queryVersion、rootTypeRef、bindingRef、steps", "request", executionId);
         }
+        JsonNode root = body.path("rootTypeRef");
+        JsonNode sourceRef = root.path("sourceRef");
+        JsonNode bindingRef = body.path("bindingRef");
         if (!body.path("queryVersion").isTextual() || !"local-query-v1".equals(body.path("queryVersion").asText())
-                || !body.path("bindingId").isTextual() || !body.path("bindingRevision").canConvertToLong()
-                || !body.path("bindingRevision").isIntegralNumber() || body.path("bindingRevision").asLong() < 1
+                || !root.isObject() || !hasOnlyFields(root, Set.of("sourceRef", "packageId", "objectTypeId"))
+                || !sourceRef.isObject() || !hasOnlyFields(sourceRef, Set.of("kind", "snapshotId"))
+                || !"LOCAL_SNAPSHOT".equals(sourceRef.path("kind").asText())
+                || !sourceRef.path("snapshotId").isTextual()
+                || !root.path("packageId").isTextual() || root.path("packageId").asText().isBlank()
+                || !root.path("objectTypeId").isTextual() || root.path("objectTypeId").asText().isBlank()
+                || !bindingRef.isObject() || !hasOnlyFields(bindingRef, Set.of("bindingId", "revision"))
+                || !bindingRef.path("bindingId").isTextual() || !bindingRef.path("revision").canConvertToLong()
+                || !bindingRef.path("revision").isIntegralNumber() || bindingRef.path("revision").asLong() < 1
                 || !body.path("steps").isArray() || body.path("steps").isEmpty() || body.path("steps").size() > 16) {
-            throw fail(422, "INVALID_QUERY_AST", "queryVersion、Binding revision 或 AST 节点数不符合 local-query-v1 合同", "steps", executionId);
+            throw fail(422, "INVALID_QUERY_AST", "rootTypeRef、bindingRef 或 AST 节点数不符合 local-query-v1 合同", "request", executionId);
         }
+        try { UUID.fromString(sourceRef.path("snapshotId").asText()); }
+        catch (RuntimeException ex) { throw fail(422, "INVALID_QUERY_AST", "rootTypeRef.sourceRef.snapshotId 必须是 UUID", "rootTypeRef.sourceRef", executionId); }
         List<Condition> filters = new ArrayList<>();
         List<SortField> sorts = new ArrayList<>();
         List<String> project = List.of();
@@ -447,7 +484,9 @@ public class ObjectSetQueryService {
             throw fail(422, "INVALID_QUERY_AST", "查询必须以 PAGE 或 AGGREGATE 结束", "steps", executionId);
         }
         if (nodeCount > 16) throw fail(422, "INVALID_QUERY_AST", "AST 节点总数超过 16", "steps", executionId);
-        return new ParsedQuery(body.path("bindingId").asText(), body.path("bindingRevision").asLong(),
+        RootTypeRef rootTypeRef = new RootTypeRef(sourceRef.path("kind").asText(), sourceRef.path("snapshotId").asText(),
+                root.path("packageId").asText(), root.path("objectTypeId").asText());
+        return new ParsedQuery(rootTypeRef, bindingRef.path("bindingId").asText(), bindingRef.path("revision").asLong(),
                 List.copyOf(filters), List.copyOf(sorts), project, pageSize, aggregate, List.copyOf(canonicalSteps));
     }
 
@@ -1034,8 +1073,8 @@ public class ObjectSetQueryService {
     private String queryDigest(ParsedQuery query, DataBindingService.BindingDetail binding,
             RuntimeTypeResolver.TypeDescriptor type, String fingerprint, String executionId) {
         try {
-            byte[] bytes = mapper.writeValueAsBytes(new DigestMaterial("local-query-v1", binding.bindingId(),
-                    binding.revision(), binding.digest(), type.payloadSha256(), fingerprint, query.canonicalSteps()));
+            byte[] bytes = mapper.writeValueAsBytes(new DigestMaterial("local-query-v1", query.rootTypeRef(),
+                    binding.bindingId(), binding.revision(), binding.digest(), type.payloadSha256(), fingerprint, query.canonicalSteps()));
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         } catch (JsonProcessingException | NoSuchAlgorithmException ex) {
             throw fail(500, "QUERY_DIGEST_FAILED", "无法生成查询版本摘要", null, executionId);
