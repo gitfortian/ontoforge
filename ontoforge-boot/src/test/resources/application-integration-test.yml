@@ -4,3 +4,8 @@ spring:
     url: ${TEST_DB_URL}
     username: ${TEST_DB_USERNAME}
     password: ${TEST_DB_PASSWORD}
+
+# Stable test-only HMAC key for restart-detectable M7 cursors; never used by production.
+ontoforge:
+  objectset:
+    cursor-signing-secret: ${ONTOFORGE_OBJECTSET_CURSOR_SIGNING_SECRET:ontoforge-test-only-cursor-signing-secret-2026}
