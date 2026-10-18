@@ -175,6 +175,9 @@ public class ObjectSetQueryService {
         private final QualityEnvelope quality;
         private final BudgetEvidence budget;
         private final long bytes;
+        // Replaying the same opaque cursor must reuse the next-page token instead of
+        // allocating an unbounded number of tokens for one snapshot/offset.
+        private final Map<Integer, String> cursorsByOffset = new ConcurrentHashMap<>();
 
         private StoredSnapshot(String id, String actorKey, String executionId, String queryDigest,
                 String resultSnapshotRef, Instant executedAt, Instant expiresAt,
@@ -346,8 +349,14 @@ public class ObjectSetQueryService {
         List<ObjectSetItem> page = snapshot.items.subList(offset, end);
         String next = null;
         if (end < snapshot.items.size()) {
-            next = "cursor:" + UUID.randomUUID();
-            cursors.put(next, new CursorRef(snapshot.id, end, snapshot.actorKey));
+            synchronized (snapshot) {
+                next = snapshot.cursorsByOffset.get(end);
+                if (next == null) {
+                    next = "cursor:" + UUID.randomUUID();
+                    snapshot.cursorsByOffset.put(end, next);
+                    cursors.put(next, new CursorRef(snapshot.id, end, snapshot.actorKey));
+                }
+            }
         }
         return new QueryResult("SUCCESS", snapshot.executionId, snapshot.executedAt, "local-query-v1",
                 snapshot.typeSourceRef, snapshot.binding.payloadSha256(), snapshot.accessMode, snapshot.bindingVersions,
