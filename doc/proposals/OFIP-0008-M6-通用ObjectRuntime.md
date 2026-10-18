@@ -154,13 +154,15 @@ Object Runtime 消费模型和绑定，把 SourceFact 按版本投影为对象�
 4. **MIN/首行/最新行自动消冲突**：来源没有已批准的权威/时间选择合同；冲突必须可见且安全拒绝。
 5. **先建全量通用 Object Store**：当前单 PG 按键读取已有实际来源，复制增加刷新和一致性成本；先按需虚拟读取。
 
-## UX-Low Prototype Candidate（2026-10-18）
+## UX-Low Prototype Sign-off（2026-10-18）
 
 - 原型：[M6 Object Runtime UX-Low](../prototypes/m6-object-runtime-lowfi.html)
-- 评审说明：[M6 UX-Low 原型评审说明](../implementation/M6-ObjectRuntime-UX-Low评审说明.md)
-- Chromium 交互回归：`doc.prototypes.tests.test_m6_object_runtime_lowfi_browser`，由 [M6 UX-Low Browser Review workflow](../../.github/workflows/m6-object-runtime-lowfi-browser.yml) 执行。
-- 当前仅为 UX-Low 候选；交互测试使用 Mock，不证明 Runtime API、PostgreSQL、权限或生产代码已实现。
-- 仍须完成产品评审与 UX-Low 签收，之后再制作高保真原型并单独签收；未获维护者显式 `[VOTE] Accepted` 前，不启动 M6 生产 Java/React/Flyway 实施。
+- 签收记录：[M6 UX-Low 原型签收记录](../implementation/M6-ObjectRuntime-UX-Low评审说明.md)
+- 交付与回归：[PR #64](https://github.com/gitfortian/ontoforge/pull/64)；[专用 Chromium workflow（5/5 PASS）](https://github.com/gitfortian/ontoforge/actions/runs/39098922723)；[全量原型回归（132 tests PASS）](https://github.com/gitfortian/ontoforge/actions/runs/39098922643)。
+- 产品所有者已明确认可对象身份、属性值语义、错误与恢复、来源证据四项交互原则；无阻断性 UX-Low 修改项。
+- **UX-Low 已签收；下一阶段进入 UX-High 高保真设计，UX-High 必须独立评审并签收。**
+- 本签收只覆盖静态原型与交互合同，不证明 Runtime API、PostgreSQL、权限或生产代码已实现。
+- OFIP-0008 的 Decision 仍为 Pending。UX-Low 与 UX-High 均签收且维护者依治理流程显式记录 `[VOTE] Accepted` 之前，不得启动 M6 生产 Java/React/Flyway 实施。
 
 ---
 
