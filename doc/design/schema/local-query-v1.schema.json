@@ -155,7 +155,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["cursor"],
-      "properties": { "cursor": { "type": "string", "minLength": 1, "maxLength": 128 } }
+      "properties": { "cursor": { "type": "string", "minLength": 1, "maxLength": 512 } }
     }
   }
 }
