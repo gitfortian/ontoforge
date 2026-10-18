@@ -977,14 +977,14 @@ class DataBindingIntegrationTest {
         ResponseEntity<String> rowBudgetFailure = post("/api/runtime/object-sets/query", lowerRows);
         assertThat(rowBudgetFailure.getStatusCode().value()).isEqualTo(429);
         assertThat(rowBudgetFailure.getBody()).contains("QUERY_BUDGET_EXCEEDED");
-        assertThat(rowBudgetFailure.getBody()).doesNotContain("\\"objects\\"", "\\"aggregate\\"");
+        assertThat(rowBudgetFailure.getBody()).doesNotContain("\"objects\"", "\"aggregate\"");
 
         ObjectNode lowerResultBytes = objectSetQuery(bindingId, 2);
         lowerResultBytes.putObject("limits").put("maxSerializedResultBytes", 1);
         ResponseEntity<String> resultBudgetFailure = post("/api/runtime/object-sets/query", lowerResultBytes);
         assertThat(resultBudgetFailure.getStatusCode().value()).isEqualTo(429);
         assertThat(resultBudgetFailure.getBody()).contains("QUERY_BUDGET_EXCEEDED");
-        assertThat(resultBudgetFailure.getBody()).doesNotContain("\\"objects\\"", "\\"aggregate\\"");
+        assertThat(resultBudgetFailure.getBody()).doesNotContain("\"objects\"", "\"aggregate\"");
 
         ObjectNode escalated = objectSetQuery(bindingId, 2);
         escalated.putObject("limits").put("maxPhysicalRows", 10001);
