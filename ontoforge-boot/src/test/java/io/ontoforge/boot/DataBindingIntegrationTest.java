@@ -560,18 +560,18 @@ class DataBindingIntegrationTest {
         JsonNode filtered = mapper.readTree(filteredResponse.getBody());
         assertThat(filtered.path("queryVersion").asText()).isEqualTo("local-query-v1");
         assertThat(filtered.path("totalCount").asInt()).isEqualTo(1);
-        assertThat(filtered.path("items").size()).isEqualTo(1);
-        assertThat(filtered.path("items").get(0).path("objectRef").path("key").path("value").asText()).isEqualTo("SUP-1001");
+        assertThat(filtered.path("objects").size()).isEqualTo(1);
+        assertThat(filtered.path("objects").get(0).path("objectRef").path("key").path("value").asText()).isEqualTo("SUP-1001");
         assertThat(filtered.path("quality").path("freshness").asText()).isEqualTo("UNKNOWN");
         assertThat(filtered.path("resultSnapshotRef").asText()).startsWith("local-result:");
-        assertThat(filtered.path("items").get(0).path("properties").toString()).contains("Northwind Components");
+        assertThat(filtered.path("objects").get(0).path("properties").toString()).contains("Northwind Components");
 
         ObjectNode allRowsQuery = objectSetQuery(bindingId, 2);
         ResponseEntity<String> firstResponse = post("/api/runtime/object-sets/query", allRowsQuery);
         assertThat(firstResponse.getStatusCode().value()).as(firstResponse.getBody()).isEqualTo(200);
         JsonNode first = mapper.readTree(firstResponse.getBody());
         assertThat(first.path("totalCount").asInt()).isEqualTo(5);
-        assertThat(first.path("items").size()).isEqualTo(2);
+        assertThat(first.path("objects").size()).isEqualTo(2);
         assertThat(first.path("pageNumber").asInt()).isEqualTo(1);
         assertThat(first.path("nextCursor").asText()).startsWith("cursor:");
         String snapshotRef = first.path("resultSnapshotRef").asText();
@@ -585,15 +585,15 @@ class DataBindingIntegrationTest {
             JsonNode second = mapper.readTree(secondResponse.getBody());
             assertThat(second.path("resultSnapshotRef").asText()).isEqualTo(snapshotRef);
             assertThat(second.path("pageNumber").asInt()).isEqualTo(2);
-            assertThat(second.path("items").size()).isEqualTo(2);
-            assertThat(second.path("items").toString()).contains(originalName).doesNotContain("Changed after first page");
+            assertThat(second.path("objects").size()).isEqualTo(2);
+            assertThat(second.path("objects").toString()).contains(originalName).doesNotContain("Changed after first page");
             ObjectNode thirdRequest = mapper.createObjectNode().put("cursor", second.path("nextCursor").asText());
             ResponseEntity<String> thirdResponse = post("/api/runtime/object-sets/pages", thirdRequest);
             assertThat(thirdResponse.getStatusCode().value()).as(thirdResponse.getBody()).isEqualTo(200);
             JsonNode third = mapper.readTree(thirdResponse.getBody());
             assertThat(third.path("resultSnapshotRef").asText()).isEqualTo(snapshotRef);
             assertThat(third.path("pageNumber").asInt()).isEqualTo(3);
-            assertThat(third.path("items").size()).isEqualTo(1);
+            assertThat(third.path("objects").size()).isEqualTo(1);
             assertThat(third.path("nextCursor").isMissingNode() || third.path("nextCursor").isNull()).isTrue();
         } finally {
             jdbc.update("UPDATE public.m5_supplier_source SET name=? WHERE vendor_code='SUP-1003'", originalName);
@@ -616,10 +616,7 @@ class DataBindingIntegrationTest {
     @Test
     void m7AggregateUsesExactValuesAndFailsClosedOnNullOrInvalidAst() throws Exception {
         String bindingId = createSupplierBindingForM7();
-        ObjectNode sum = mapper.createObjectNode();
-        sum.put("queryVersion", "local-query-v1");
-        sum.put("bindingId", bindingId);
-        sum.put("bindingRevision", 1);
+        ObjectNode sum = objectSetRequest(bindingId);
         sum.putArray("steps").addObject().put("kind", "AGGREGATE")
                 .put("operation", "SUM").put("propertyRef", "supplier-rating");
         ResponseEntity<String> sumResponse = post("/api/runtime/object-sets/query", sum);
@@ -687,12 +684,24 @@ class DataBindingIntegrationTest {
         return mapper.readTree(created.getBody()).path("bindingId").asText();
     }
 
-    private ObjectNode objectSetQuery(String bindingId, int pageSize) {
+    private ObjectNode objectSetRequest(String bindingId) throws Exception {
+        ResponseEntity<String> bindingResponse = http.getForEntity(url("/api/runtime/bindings/" + bindingId + "?revision=1"), String.class);
+        assertThat(bindingResponse.getStatusCode().value()).as(bindingResponse.getBody()).isEqualTo(200);
+        JsonNode detail = mapper.readTree(bindingResponse.getBody());
         ObjectNode query = mapper.createObjectNode();
         query.put("queryVersion", "local-query-v1");
-        query.put("bindingId", bindingId);
-        query.put("bindingRevision", 1);
-        ArrayNode steps = query.putArray("steps");
+        ObjectNode rootType = query.putObject("rootTypeRef");
+        rootType.putObject("sourceRef").put("kind", "LOCAL_SNAPSHOT").put("snapshotId", detail.path("snapshotId").asText());
+        rootType.put("packageId", detail.path("packageId").asText());
+        rootType.put("objectTypeId", detail.path("objectTypeId").asText());
+        query.putObject("bindingRef").put("bindingId", bindingId).put("revision", 1);
+        query.putArray("steps");
+        return query;
+    }
+
+    private ObjectNode objectSetQuery(String bindingId, int pageSize) throws Exception {
+        ObjectNode query = objectSetRequest(bindingId);
+        ArrayNode steps = query.withArray("steps");
         ObjectNode sort = steps.addObject();
         sort.put("kind", "SORT");
         ObjectNode field = sort.putArray("fields").addObject();
