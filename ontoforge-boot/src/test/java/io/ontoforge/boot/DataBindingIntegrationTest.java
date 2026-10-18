@@ -117,6 +117,22 @@ class DataBindingIntegrationTest {
         NativeDraftService.DraftDetail saved = drafts.save(UUID.fromString(draft.draftId()), draft.revision(), editor);
         NativeDraftService.ValidationReport report = drafts.validate(UUID.fromString(draft.draftId()), saved.revision());
         assertThat(report.status()).isEqualTo("VALID");
+
+        ObjectNode draftPreviewRequest = bindingRequest(null);
+        draftPreviewRequest.remove("snapshotId");
+        draftPreviewRequest.put("draftId", draft.draftId());
+        draftPreviewRequest.put("draftRevision", saved.revision());
+        ResponseEntity<String> draftPreview = post("/api/runtime/bindings/preview", draftPreviewRequest);
+        assertThat(draftPreview.getStatusCode().value()).isEqualTo(200);
+        String draftFingerprint = mapper.readTree(draftPreview.getBody()).path("source").path("schemaFingerprint").asText();
+        draftPreviewRequest.put("expectedSchemaFingerprint", draftFingerprint);
+        ResponseEntity<String> draftValidation = post("/api/runtime/bindings/validate", draftPreviewRequest);
+        assertThat(draftValidation.getStatusCode().value()).isEqualTo(200);
+        assertThat(mapper.readTree(draftValidation.getBody()).path("status").asText()).isEqualTo("VALID");
+        ResponseEntity<String> draftSave = post("/api/runtime/bindings", draftPreviewRequest);
+        assertThat(draftSave.getStatusCode().value()).isEqualTo(422);
+        assertThat(draftSave.getBody()).contains("INVALID_TYPE_REFERENCE");
+
         NativeSnapshotService.FreezeResult frozen = snapshots.freeze(
                 UUID.fromString(draft.draftId()), saved.revision(), UUID.randomUUID());
         String snapshotId = frozen.snapshot().snapshotId();
