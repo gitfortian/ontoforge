@@ -89,6 +89,12 @@ class DataBindingRealBrowserTest(unittest.TestCase):
                 required_control.check()
             elif not required and required_control.is_checked():
                 required_control.uncheck()
+            # M7 deliberately exposes filters only for properties explicitly
+            # marked searchable in the immutable ObjectType contract.
+            if property_id == "supplier-name":
+                searchable_control = page.locator(f"#prop-{index}-searchable")
+                if not searchable_control.is_checked():
+                    searchable_control.check()
         page.locator("#obj-pk").select_option("supplier-code")
         page.get_by_role("button", name="保存编辑进度").click()
         page.get_by_text("已写入 PostgreSQL", exact=False).wait_for(timeout=15000)
