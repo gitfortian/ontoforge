@@ -57,7 +57,7 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
   const [result,setResult]=useState<QueryResult|null>(null);
 
   const properties=descriptor?.properties||[];
-  const propertyById=useMemo(()=>new Map(properties.map(p=>[p.id,p])),[properties]);
+  const propertyById=useMemo(()=>new Map<string,Property>(properties.map(p=>[p.id,p] as const)),[properties]);
   const mappedRefs=new Set(binding?.fieldMappings.map(m=>m.propertyRef)||[]);
   const numericProperties=properties.filter(p=>['INTEGER','DECIMAL'].includes(canonicalType(p.valueType)));
   const filterableProperties=properties.filter(p=>p.searchable);
@@ -176,6 +176,7 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
     </div>
     <div className="object-set-notice"><ShieldAlert size={16}/><span><strong>本机 local-query-v1</strong> · 只读白名单来源 · 单次扫描最多 10,000 行 / 8 MiB · 结果快照有效 5 分钟。新鲜度始终标记 UNKNOWN；本结果快照不代表源数据历史快照或正式索引。</span></div>
 
+    {!binding&&error&&<div className="object-set-error" role="alert"><strong>{errorMessage(error)}</strong><p>未打开绑定，因此没有执行查询或返回对象数据。</p></div>}
     {!binding&&<section className="model-panel object-set-binding-panel">
       <header className="model-panel-head"><div><h2>选择已保存的 Binding revision</h2><p>只读取通过 M5 校验的版本；不会从草稿或客户端字段推断来源。</p></div></header>
       <div className="object-set-package-search"><label htmlFor="object-set-package">模型包 ID</label><input id="object-set-package" value={packageInput} onChange={e=>setPackageInput(e.target.value)} placeholder="例如 manufacturing.procurement"/><button className="model-btn primary" onClick={()=>void loadBindings()} disabled={loadingBindings||busy||!packageInput.trim()}><Database size={14}/> 查询绑定</button></div>
@@ -203,7 +204,7 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
           </div>
           {mode==='PAGE'?<>
             <div className="object-set-step" id="object-set-sort-step"><div className="object-set-step-head"><strong>02 · 排序</strong><span>最多 3 个字段 · NULLS LAST</span></div>
-              {sorts.map((sort,index)=><div className="object-set-sort-row" key={sort.id}><label><span>优先级 {index+1}</span><select value={sort.propertyRef} onChange={e=>{setSorts(old=>old.map(s=>s.id===sort.id?{...s,propertyRef:e.target.value}:s));setResult(null);}}>{properties.map(p=><option key={p.id} value={p.id}>{propertyLabel(p.id)}</option>)}</select></label><label><span>方向</span><select value={sort.direction} onChange={e=>{setSorts(old=>old.map(s=>s.id===sort.id?{...s,direction:e.target.value as 'ASC'|'DESC'}:s));setResult(null);}}><option value="ASC">升序 ASC</option><option value="DESC">降序 DESC</option></select></label><button className="object-set-icon-button" aria-label={'删除排序 '+(index+1)} onClick={()=>{setSorts(old=>old.filter(s=>s.id!==sort.id));setResult(null);}}>×</button></div>)}
+              {sorts.map((sort,index)=><div className="object-set-sort-row" key={sort.id}><label><span>优先级 {index+1}</span><select value={sort.propertyRef} onChange={e=>{setSorts(old=>old.map(s=>s.id===sort.id?{...s,propertyRef:e.target.value}:s));setResult(null);}}>{properties.map(p=><option key={p.id} value={p.id} disabled={sorts.some(s=>s.id!==sort.id&&s.propertyRef===p.id)}>{propertyLabel(p.id)}</option>)}</select></label><label><span>方向</span><select value={sort.direction} onChange={e=>{setSorts(old=>old.map(s=>s.id===sort.id?{...s,direction:e.target.value as 'ASC'|'DESC'}:s));setResult(null);}}><option value="ASC">升序 ASC</option><option value="DESC">降序 DESC</option></select></label><button className="object-set-icon-button" aria-label={'删除排序 '+(index+1)} onClick={()=>{setSorts(old=>old.filter(s=>s.id!==sort.id));setResult(null);}}>×</button></div>)}
               <button className="model-btn object-set-add" onClick={addSort} disabled={sorts.length>=3||properties.length===0}>＋ 添加排序</button>
             </div>
             <div className="object-set-step"><div className="object-set-step-head"><strong>03 · 选择结果列</strong><span>{project.length} / {properties.length}</span></div><div className="object-set-project-grid">{properties.map(p=><label key={p.id}><input type="checkbox" checked={project.includes(p.id)} onChange={e=>{setProject(old=>e.target.checked?[...old,p.id]:old.filter(id=>id!==p.id));setResult(null);}}/><span>{p.label||p.apiName}<small>{p.id} · {p.valueType}{mappedRefs.has(p.id)?'':' · MISSING'}</small></span></label>)}</div></div>
