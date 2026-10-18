@@ -79,7 +79,9 @@ public class DataBindingService {
     }
 
     public record SourceColumn(String name, String dataType, String udtName, boolean nullable,
-                               int ordinalPosition, boolean primaryKey, boolean uniqueKey) {}
+                               int ordinalPosition, boolean primaryKey, boolean uniqueKey,
+                               Integer characterMaximumLength, Integer numericPrecision,
+                               Integer numericScale, Integer datetimePrecision) {}
     public record SourceTable(String sourceId, String schema, String table,
                               List<SourceColumn> columns, String schemaFingerprint) {}
     public record FieldMapping(String propertyRef, String sourceColumn, String authority) {}
@@ -467,55 +469,48 @@ public class DataBindingService {
         try {
             List<SourceColumn> columns = source.query("""
                     SELECT c.column_name, c.data_type, c.udt_name, c.is_nullable, c.ordinal_position,
+                           c.character_maximum_length, c.numeric_precision, c.numeric_scale, c.datetime_precision,
                            EXISTS (
-                             SELECT 1 FROM information_schema.key_column_usage k
-                             JOIN information_schema.table_constraints t
-                               ON t.constraint_catalog=k.constraint_catalog
-                              AND t.constraint_schema=k.constraint_schema
-                              AND t.constraint_name=k.constraint_name
-                              AND t.table_schema=k.table_schema AND t.table_name=k.table_name
-                            WHERE k.table_schema=c.table_schema AND k.table_name=c.table_name
-                              AND k.column_name=c.column_name AND t.constraint_type='PRIMARY KEY'
-                              AND (SELECT count(*) FROM information_schema.key_column_usage k2
-                                    WHERE k2.constraint_catalog=k.constraint_catalog
-                                      AND k2.constraint_schema=k.constraint_schema
-                                      AND k2.constraint_name=k.constraint_name
-                                      AND k2.table_schema=k.table_schema AND k2.table_name=k.table_name)=1
+                             SELECT 1
+                               FROM pg_catalog.pg_constraint pc
+                               JOIN pg_catalog.pg_class tbl ON tbl.oid=pc.conrelid
+                               JOIN pg_catalog.pg_namespace ns ON ns.oid=tbl.relnamespace
+                               JOIN pg_catalog.pg_attribute a ON a.attrelid=tbl.oid AND a.attnum=ANY(pc.conkey)
+                              WHERE ns.nspname=c.table_schema AND tbl.relname=c.table_name
+                                AND a.attname=c.column_name AND pc.contype='p'
+                                AND array_length(pc.conkey,1)=1
                            ) AS is_primary,
                            EXISTS (
-                             SELECT 1 FROM information_schema.key_column_usage k
-                             JOIN information_schema.table_constraints t
-                               ON t.constraint_catalog=k.constraint_catalog
-                              AND t.constraint_schema=k.constraint_schema
-                              AND t.constraint_name=k.constraint_name
-                              AND t.table_schema=k.table_schema AND t.table_name=k.table_name
-                            WHERE k.table_schema=c.table_schema AND k.table_name=c.table_name
-                              AND k.column_name=c.column_name AND t.constraint_type='UNIQUE'
-                              AND (SELECT count(*) FROM information_schema.key_column_usage k2
-                                    WHERE k2.constraint_catalog=k.constraint_catalog
-                                      AND k2.constraint_schema=k.constraint_schema
-                                      AND k2.constraint_name=k.constraint_name
-                                      AND k2.table_schema=k.table_schema AND k2.table_name=k.table_name)=1
+                             SELECT 1
+                               FROM pg_catalog.pg_constraint pc
+                               JOIN pg_catalog.pg_class tbl ON tbl.oid=pc.conrelid
+                               JOIN pg_catalog.pg_namespace ns ON ns.oid=tbl.relnamespace
+                               JOIN pg_catalog.pg_attribute a ON a.attrelid=tbl.oid AND a.attnum=ANY(pc.conkey)
+                              WHERE ns.nspname=c.table_schema AND tbl.relname=c.table_name
+                                AND a.attname=c.column_name AND pc.contype='u'
+                                AND array_length(pc.conkey,1)=1
                            ) AS is_unique
                       FROM information_schema.columns c
                      WHERE c.table_schema=? AND c.table_name=?
                      ORDER BY c.ordinal_position
                     """, (rs, rowNum) -> new SourceColumn(rs.getString("column_name"), rs.getString("data_type"),
                     rs.getString("udt_name"), "YES".equals(rs.getString("is_nullable")),
-                    rs.getInt("ordinal_position"), rs.getBoolean("is_primary"), rs.getBoolean("is_unique")),
-                    schema, table);
+                    rs.getInt("ordinal_position"), rs.getBoolean("is_primary"), rs.getBoolean("is_unique"),
+                    rs.getObject("character_maximum_length", Integer.class),
+                    rs.getObject("numeric_precision", Integer.class), rs.getObject("numeric_scale", Integer.class),
+                    rs.getObject("datetime_precision", Integer.class)), schema, table);
             if (columns.isEmpty()) throw fail(404, "SOURCE_TABLE_NOT_FOUND", "允许列表中的来源表不存在或不可见", "table");
             List<KeyColumn> keys = source.query("""
-                    SELECT tc.constraint_name, tc.constraint_type, kcu.column_name, kcu.ordinal_position
-                      FROM information_schema.table_constraints tc
-                      JOIN information_schema.key_column_usage kcu
-                        ON kcu.constraint_catalog=tc.constraint_catalog
-                       AND kcu.constraint_schema=tc.constraint_schema
-                       AND kcu.constraint_name=tc.constraint_name
-                       AND kcu.table_schema=tc.table_schema AND kcu.table_name=tc.table_name
-                     WHERE tc.table_schema=? AND tc.table_name=?
-                       AND tc.constraint_type IN ('PRIMARY KEY','UNIQUE')
-                     ORDER BY tc.constraint_name, kcu.ordinal_position
+                    SELECT pc.conname,
+                           CASE pc.contype WHEN 'p' THEN 'PRIMARY KEY' ELSE 'UNIQUE' END AS constraint_type,
+                           a.attname AS column_name, key.ordinality::int AS ordinal_position
+                      FROM pg_catalog.pg_constraint pc
+                      JOIN pg_catalog.pg_class tbl ON tbl.oid=pc.conrelid
+                      JOIN pg_catalog.pg_namespace ns ON ns.oid=tbl.relnamespace
+                      JOIN LATERAL unnest(pc.conkey) WITH ORDINALITY AS key(attnum, ordinality) ON TRUE
+                      JOIN pg_catalog.pg_attribute a ON a.attrelid=tbl.oid AND a.attnum=key.attnum
+                     WHERE ns.nspname=? AND tbl.relname=? AND pc.contype IN ('p','u')
+                     ORDER BY pc.conname, key.ordinality
                     """, (rs, rowNum) -> new KeyColumn(rs.getString(1), rs.getString(2),
                     rs.getString(3), rs.getInt(4)), schema, table);
             return new SourceTable(sourceId, schema, table, columns, fingerprint(sourceId, schema, table, columns, keys));
@@ -543,6 +538,10 @@ public class DataBindingService {
             item.put("ordinalPosition", column.ordinalPosition());
             item.put("primaryKey", column.primaryKey());
             item.put("uniqueKey", column.uniqueKey());
+            putNullable(item, "characterMaximumLength", column.characterMaximumLength());
+            putNullable(item, "numericPrecision", column.numericPrecision());
+            putNullable(item, "numericScale", column.numericScale());
+            putNullable(item, "datetimePrecision", column.datetimePrecision());
         }
         ArrayNode constraintArray = doc.putArray("constraints");
         for (KeyColumn key : keys) {
@@ -718,8 +717,7 @@ public class DataBindingService {
         return switch (type) {
             case "STRING", "TEXT" -> Set.of("text", "character varying").contains(data);
             case "UUID" -> Set.of("text", "character varying").contains(data) || "uuid".equals(udt);
-            case "INTEGER", "INT" -> Set.of("smallint", "integer").contains(data);
-            case "LONG" -> Set.of("smallint", "integer", "bigint").contains(data);
+            case "INTEGER", "INT", "LONG" -> Set.of("smallint", "integer", "bigint").contains(data);
             case "DECIMAL", "NUMBER", "NUMERIC" -> Set.of("numeric", "decimal").contains(data);
             case "BOOLEAN", "BOOL" -> "boolean".equals(data);
             case "DATETIME", "TIMESTAMP" -> "timestamp with time zone".equals(data);
@@ -749,11 +747,20 @@ public class DataBindingService {
 
     private static Object safeValue(Object value) {
         if (value instanceof java.math.BigDecimal decimal) return decimal.toPlainString();
-        if (value == null || value instanceof String || value instanceof Number || value instanceof Boolean) return value;
+        if (value instanceof Byte || value instanceof Short || value instanceof Integer
+                || value instanceof Long || value instanceof java.math.BigInteger) {
+            return String.valueOf(value);
+        }
+        if (value == null || value instanceof String || value instanceof Boolean) return value;
         return String.valueOf(value);
     }
 
     private static Instant instant(Timestamp timestamp) { return timestamp == null ? null : timestamp.toInstant(); }
+
+    private static void putNullable(ObjectNode object, String field, Integer value) {
+        if (value == null) object.putNull(field);
+        else object.put(field, value);
+    }
 
     private String json(Object value) {
         try { return mapper.writeValueAsString(value); }

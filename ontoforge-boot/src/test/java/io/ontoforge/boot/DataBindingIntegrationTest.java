@@ -73,7 +73,7 @@ class DataBindingIntegrationTest {
     }
 
     @Test
-    void sourceAccountHasRealSelectOnlyPrivilegesAndCatalogIsAllowlisted() {
+    void sourceAccountHasRealSelectOnlyPrivilegesAndCatalogIsAllowlisted() throws Exception {
         assertThat(jdbc.queryForObject("SELECT rolsuper FROM pg_roles WHERE rolname='ontoforge_binding_login'", Boolean.class)).isFalse();
         assertThat(jdbc.queryForObject("SELECT has_table_privilege('ontoforge_binding_login','public.m5_supplier_source','SELECT')", Boolean.class)).isTrue();
         assertThat(jdbc.queryForObject("SELECT has_table_privilege('ontoforge_binding_login','public.m5_supplier_source','INSERT')", Boolean.class)).isFalse();
@@ -101,6 +101,14 @@ class DataBindingIntegrationTest {
                 "/api/runtime/sources/local-pg-sandbox/tables?packageId=m5.test.catalog")), String.class);
         assertThat(catalog.getStatusCode().value()).isEqualTo(200);
         assertThat(catalog.getBody()).contains("m5_supplier_source", "schemaFingerprint", "vendor_code");
+        JsonNode catalogJson = mapper.readTree(catalog.getBody());
+        boolean vendorCodeIsPrimary = false;
+        for (JsonNode column : catalogJson.get(0).path("columns")) {
+            if ("vendor_code".equals(column.path("name").asText())) {
+                vendorCodeIsPrimary = column.path("primaryKey").asBoolean();
+            }
+        }
+        assertThat(vendorCodeIsPrimary).isTrue();
         ResponseEntity<String> rejected = http.getForEntity(URI.create(url(
                 "/api/runtime/sources/unknown/tables?packageId=m5.test.catalog")), String.class);
         assertThat(rejected.getStatusCode().value()).isEqualTo(403);
@@ -178,6 +186,15 @@ class DataBindingIntegrationTest {
             ResponseEntity<String> rejectedFloat = post("/api/runtime/bindings/preview", request);
             assertThat(rejectedFloat.getStatusCode().value()).isEqualTo(422);
             assertThat(rejectedFloat.getBody()).contains("UNSUPPORTED_MAPPING_TYPE");
+        } finally {
+            jdbc.execute("ALTER TABLE public.m5_supplier_source ALTER COLUMN rating TYPE NUMERIC(4,2) USING round(rating::numeric, 2)");
+        }
+
+        jdbc.execute("ALTER TABLE public.m5_supplier_source ALTER COLUMN rating TYPE NUMERIC(10,4) USING rating::numeric");
+        try {
+            ResponseEntity<String> precisionDrift = post("/api/runtime/bindings/validate", request);
+            assertThat(precisionDrift.getStatusCode().value()).isEqualTo(409);
+            assertThat(precisionDrift.getBody()).contains("BINDING_SCHEMA_DRIFT");
         } finally {
             jdbc.execute("ALTER TABLE public.m5_supplier_source ALTER COLUMN rating TYPE NUMERIC(4,2) USING round(rating::numeric, 2)");
         }
