@@ -9,6 +9,8 @@ import io.ontoforge.boot.model.NativeDraftService;
 import io.ontoforge.boot.model.NativeSnapshotService;
 import io.ontoforge.boot.model.ObjectSetQueryService;
 import java.net.URI;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -630,6 +632,19 @@ class DataBindingIntegrationTest {
             assertThat(drift.getBody()).doesNotContain("\"objects\"", "\"aggregate\"");
         } finally {
             jdbc.execute("ALTER TABLE public.m5_supplier_source DROP COLUMN IF EXISTS m7_test_drift");
+        }
+    }
+
+    @Test
+    void m7ExpiredEndToEndDeadlineFailsClosedBeforeStartingAnotherSourceStatement() throws Exception {
+        try (Connection connection = sourceJdbc.getDataSource().getConnection();
+             PreparedStatement statement = connection.prepareStatement("SELECT 1")) {
+            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(objectSetQueries, "applyRemainingTimeout",
+                    connection, statement, System.nanoTime() - 1_000_000L, "m7-deadline-test"))
+                    .isInstanceOfSatisfying(ObjectSetQueryService.QueryException.class, exception -> {
+                        assertThat(exception.http()).isEqualTo(503);
+                        assertThat(exception.code()).isEqualTo("SOURCE_TIMEOUT");
+                    });
         }
     }
 
