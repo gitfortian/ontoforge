@@ -105,7 +105,7 @@ class M7ObjectSetLowFiBrowser(unittest.TestCase):
         self.page.locator("#sort-direction").select_option("DESC")
         self.page.get_by_role("button", name="执行查询").click()
         rows = self.page.locator("#result-rows tr")
-        self.assertEqual(rows.count(), 10)
+        self.assertEqual(rows.count(), 12)
         self.assertIn("SUP-1016", rows.nth(rows.count() - 1).inner_text())
         self.assertIn("Rating Not Provided", rows.nth(rows.count() - 1).inner_text())
 
