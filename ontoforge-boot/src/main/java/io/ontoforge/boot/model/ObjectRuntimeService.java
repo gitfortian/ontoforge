@@ -314,13 +314,48 @@ public class ObjectRuntimeService {
                 }
             }
             String projection = String.join(", ", selectedColumns.stream().map(ObjectRuntimeService::qi).toList());
-            String sql = "SELECT " + projection + " FROM " + qt(binding.sourceTable())
-                    + " WHERE " + qi(binding.sourceKey()) + " = ? ORDER BY " + qi(binding.sourceKey())
+            String fromWhere = " FROM " + qt(binding.sourceTable())
+                    + " WHERE " + qi(binding.sourceKey()) + " = ?";
+            String sizeExpression = selectedColumns.stream()
+                    .map(column -> "COALESCE(octet_length(" + qi(column) + "::text), 0)::bigint")
+                    .reduce((left, right) -> left + " + " + right)
+                    .orElse("0");
+            // Check row count and the textual byte budget inside PostgreSQL before returning
+            // source values to the JVM. A post-getObject() limit alone cannot protect against
+            // one very large TEXT value or a large JDBC fetch batch.
+            String budgetSql = "WITH candidates AS (SELECT " + projection + fromWhere
+                    + " LIMIT " + (MAX_ROWS_PER_IDENTITY + 1) + ") "
+                    + "SELECT COUNT(*)::bigint AS row_count, "
+                    + "COALESCE(SUM(" + sizeExpression + "), 0)::bigint AS source_bytes FROM candidates";
+            long rowCount;
+            long sourceBytes;
+            try (PreparedStatement budgetStatement = connection.prepareStatement(budgetSql)) {
+                budgetStatement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+                if ("INTEGER".equals(key.valueType())) budgetStatement.setLong(1, (Long) key.jdbcValue());
+                else budgetStatement.setString(1, (String) key.jdbcValue());
+                try (ResultSet budget = budgetStatement.executeQuery()) {
+                    if (!budget.next()) throw new SQLException("Object Runtime source budget query returned no row");
+                    rowCount = budget.getLong("row_count");
+                    sourceBytes = budget.getLong("source_bytes");
+                }
+            }
+            if (rowCount > MAX_ROWS_PER_IDENTITY) {
+                throw fail(429, "QUERY_BUDGET_EXCEEDED",
+                        "单个对象超过 10000 条来源行预算；没有返回部分对象", "key", executionId);
+            }
+            long columnNameBytes = selectedColumns.stream()
+                    .mapToLong(column -> column.getBytes(StandardCharsets.UTF_8).length).sum();
+            if (sourceBytes + rowCount * columnNameBytes > MAX_SOURCE_SCAN_BYTES) {
+                throw fail(429, "QUERY_BUDGET_EXCEEDED",
+                        "对象来源扫描超过 8 MiB 预算；没有返回部分对象", "key", executionId);
+            }
+            String sql = "SELECT " + projection + fromWhere
+                    + " ORDER BY " + qi(binding.sourceKey())
                     + " LIMIT " + (MAX_ROWS_PER_IDENTITY + 1);
             List<Map<String, Object>> rows = new ArrayList<>();
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
                 statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
-                statement.setFetchSize(500);
+                statement.setFetchSize(50);
                 statement.setMaxRows(MAX_ROWS_PER_IDENTITY + 1);
                 if ("INTEGER".equals(key.valueType())) statement.setLong(1, (Long) key.jdbcValue());
                 else statement.setString(1, (String) key.jdbcValue());
