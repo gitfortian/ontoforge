@@ -60,8 +60,8 @@
         "value": { "oneOf": [{ "type": "string", "maxLength": 4096 }, { "type": "boolean" }] }
       },
       "allOf": [
-        { "if": { "properties": { "valueType": { "const": "BOOLEAN" } } }, "then": { "properties": { "value": { "type": "boolean" } } },
-        { "if": { "properties": { "valueType": { "enum": ["STRING", "INTEGER", "DECIMAL", "ENUM", "DATETIME", "DATE", "UUID"] } } }, "then": { "properties": { "value": { "type": "string", "maxLength": 4096 } } }
+        { "if": { "properties": { "valueType": { "const": "BOOLEAN" } } }, "then": { "properties": { "value": { "type": "boolean" } } } },
+        { "if": { "properties": { "valueType": { "enum": ["STRING", "INTEGER", "DECIMAL", "ENUM", "DATETIME", "DATE", "UUID"] } } }, "then": { "properties": { "value": { "type": "string", "maxLength": 4096 } } } }
       ]
     },
     "condition": {
