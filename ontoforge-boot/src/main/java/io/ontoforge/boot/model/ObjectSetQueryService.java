@@ -8,6 +8,7 @@ import io.ontoforge.boot.security.B0AuthorizationService;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
@@ -23,6 +24,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -34,7 +36,11 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -60,6 +66,8 @@ public class ObjectSetQueryService {
     private static final long MAX_TOTAL_SNAPSHOT_BYTES = 80L * 1024 * 1024;
     private static final long TTL_SECONDS = 300;
     private static final int QUERY_TIMEOUT_SECONDS = 3;
+    private static final int MAX_CURSOR_LENGTH = 512;
+    private static final String CURSOR_PREFIX = "cursor:v1:";
 
     private final DataBindingService bindings;
     private final RuntimeTypeResolver typeResolver;
@@ -67,13 +75,17 @@ public class ObjectSetQueryService {
     private final ObjectMapper mapper;
     private final ObjectProvider<JdbcTemplate> sourceProvider;
     private final List<String> allowedTables;
+    private final byte[] cursorSigningKey;
+    @Value("$" + "{ontoforge.objectset.result-ttl-seconds:300}")
+    private long ttlSeconds = TTL_SECONDS;
     private final Map<String, StoredSnapshot> snapshots = new ConcurrentHashMap<>();
     private final Map<String, CursorRef> cursors = new ConcurrentHashMap<>();
 
     public ObjectSetQueryService(DataBindingService bindings, RuntimeTypeResolver typeResolver,
             B0AuthorizationService authorization, ObjectMapper mapper,
             @Qualifier("bindingSourceJdbcTemplate") ObjectProvider<JdbcTemplate> sourceProvider,
-            @Value("$" + "{ontoforge.binding.source.allowed-tables:m5_supplier_source}") String allowedTables) {
+            @Value("$" + "{ontoforge.binding.source.allowed-tables:m5_supplier_source}") String allowedTables,
+            @Value("$" + "{ontoforge.objectset.cursor-signing-secret:ontoforge-local-query-v1-development-only-secret}") String cursorSigningSecret) {
         this.bindings = bindings;
         this.typeResolver = typeResolver;
         this.authorization = authorization;
@@ -81,6 +93,10 @@ public class ObjectSetQueryService {
         this.sourceProvider = sourceProvider;
         this.allowedTables = Arrays.stream(allowedTables.split(","))
                 .map(String::trim).filter(s -> !s.isEmpty()).distinct().toList();
+        if (cursorSigningSecret == null || cursorSigningSecret.length() < 32) {
+            throw new IllegalStateException("M7 cursor signing secret must contain at least 32 characters");
+        }
+        this.cursorSigningKey = cursorSigningSecret.getBytes(StandardCharsets.UTF_8);
         if (this.allowedTables.stream().anyMatch(t -> !IDENT.matcher(t).matches())) {
             throw new IllegalStateException("M7 allowed source table names must be simple identifiers");
         }
@@ -137,6 +153,13 @@ public class ObjectSetQueryService {
     public record QueryFailureResult(String status, String executionId, String code, String message,
             String fieldPath, QualityEnvelope quality) {}
 
+    @PostConstruct
+    private void validateRuntimeLimits() {
+        if (ttlSeconds < 1 || ttlSeconds > TTL_SECONDS) {
+            throw new IllegalStateException("M7 result snapshot TTL must be between 1 and 300 seconds");
+        }
+    }
+
     private record Literal(String valueType, Object value) {}
     private record Condition(String propertyRef, String operator, List<Literal> literals) {}
     private record SortField(String propertyRef, String direction) {}
@@ -150,6 +173,7 @@ public class ObjectSetQueryService {
     private record RawScan(List<Map<String, Object>> rows, List<String> columns,
             Instant startedAt, Instant completedAt, long sourceBytes) {}
     private record CursorRef(String snapshotId, int offset, String actorKey) {}
+    private record CursorPayload(String snapshotId, int offset, long expiresAtMillis, String actorHash, String nonce) {}
     private record DigestMaterial(String queryVersion, RootTypeRef rootTypeRef, String bindingId, long bindingRevision,
             String bindingDigest, String payloadSha256, String sourceSchemaFingerprint, List<Object> steps) {}
 
@@ -282,7 +306,7 @@ public class ObjectSetQueryService {
         String id = UUID.randomUUID().toString();
         String accessMode = authentication instanceof JwtAuthenticationToken ? "JWT_AUTHENTICATED" : "LOCAL_ISOLATED";
         StoredSnapshot stored = new StoredSnapshot(id, actorKey(authentication), executionId, digest,
-                "local-result:" + id, now, now.plusSeconds(TTL_SECONDS), binding, type,
+                "local-result:" + id, now, now.plusSeconds(ttlSeconds), binding, type,
                 sourceTable.schemaFingerprint(), query.pageSize() == null ? 1 : query.pageSize(),
                 items, aggregate, versions, typeSourceRef, accessMode, versionLock, sourceRead,
                 new QualityEnvelope("EXACT", "COMPLETE", "UNKNOWN", "REQUESTED_SCOPE"), budget, serializedBytes);
@@ -295,22 +319,32 @@ public class ObjectSetQueryService {
         cleanupExpired();
         if (body == null || !body.isObject() || !hasOnlyFields(body, Set.of("cursor"))
                 || !body.path("cursor").isTextual() || body.path("cursor").asText().isBlank()
-                || body.path("cursor").asText().length() > 128) {
+                || body.path("cursor").asText().length() > MAX_CURSOR_LENGTH) {
             throw fail(400, "INVALID_CURSOR", "后续页只接受有效的服务端 cursor", "cursor", executionId);
         }
         String token = body.path("cursor").asText();
-        CursorRef cursor = cursors.get(token);
-        if (cursor == null) throw fail(400, "INVALID_CURSOR", "cursor 无效或不属于已签发的查询结果", "cursor", executionId);
-        if (!cursor.actorKey().equals(actorKey(authentication))) {
+        CursorPayload payload = decodeCursor(token, executionId);
+        if (!payload.actorHash().equals(actorHash(actorKey(authentication)))) {
             throw fail(403, "FORBIDDEN", "cursor 不属于当前主体；cursor 本身不授予访问权限", "cursor", executionId);
         }
-        StoredSnapshot snapshot = snapshots.get(cursor.snapshotId());
+        if (!Instant.ofEpochMilli(payload.expiresAtMillis()).isAfter(Instant.now())) {
+            throw fail(410, "RESULT_EXPIRED", "查询结果快照已过期；请重新执行查询", "cursor", executionId);
+        }
+        CursorRef cursor = cursors.get(token);
+        if (cursor != null && (!cursor.snapshotId().equals(payload.snapshotId())
+                || cursor.offset() != payload.offset())) {
+            throw fail(400, "INVALID_CURSOR", "cursor 与服务端签发记录不一致", "cursor", executionId);
+        }
+        StoredSnapshot snapshot = snapshots.get(payload.snapshotId());
         if (snapshot == null || !snapshot.expiresAt.isAfter(Instant.now())) {
             cursors.remove(token);
             throw fail(410, "RESULT_EXPIRED", "查询结果快照已过期或服务重启后失效，请重新执行查询", "cursor", executionId);
         }
+        if (!snapshot.actorKey.equals(actorKey(authentication))) {
+            throw fail(403, "FORBIDDEN", "cursor 不属于当前主体；cursor 本身不授予访问权限", "cursor", executionId);
+        }
         revalidateForPage(snapshot, authentication, executionId);
-        return pageResult(snapshot, cursor.offset(), snapshot.executionId);
+        return pageResult(snapshot, payload.offset(), snapshot.executionId);
     }
 
     private void revalidateForPage(StoredSnapshot snapshot, Authentication authentication, String executionId) {
@@ -352,7 +386,7 @@ public class ObjectSetQueryService {
             synchronized (snapshot) {
                 next = snapshot.cursorsByOffset.get(end);
                 if (next == null) {
-                    next = "cursor:" + UUID.randomUUID();
+                    next = encodeCursor(snapshot, end);
                     snapshot.cursorsByOffset.put(end, next);
                     cursors.put(next, new CursorRef(snapshot.id, end, snapshot.actorKey));
                 }
@@ -638,6 +672,8 @@ public class ObjectSetQueryService {
         boolean auto = connection.getAutoCommit();
         int isolation = connection.getTransactionIsolation();
         boolean readOnly = connection.isReadOnly();
+        Instant started = Instant.now();
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(QUERY_TIMEOUT_SECONDS);
         try {
             connection.setReadOnly(true);
             connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
@@ -645,9 +681,9 @@ public class ObjectSetQueryService {
             try (Statement statement = connection.createStatement()) {
                 statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
                 statement.execute("SET TRANSACTION READ ONLY");
+                statement.execute("SET LOCAL statement_timeout = '" + QUERY_TIMEOUT_SECONDS + "s'");
             }
-            Instant started = Instant.now();
-            verifySourceReadable(connection, binding, executionId);
+            verifySourceReadable(connection, binding, executionId, deadlineNanos);
             String projection = String.join(", ", columns.stream().map(ObjectSetQueryService::qi).toList());
             String from = " FROM " + qt(binding.sourceSchema(), binding.sourceTable());
             String sizeExpr = columns.stream()
@@ -660,7 +696,7 @@ public class ObjectSetQueryService {
             long rowCount;
             long sourceBytes;
             try (PreparedStatement statement = connection.prepareStatement(budgetSql)) {
-                statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+                applyRemainingTimeout(connection, statement, deadlineNanos, executionId);
                 try (ResultSet rs = statement.executeQuery()) {
                     if (!rs.next()) throw new SQLException("M7 source budget query returned no row");
                     rowCount = rs.getLong("row_count");
@@ -675,11 +711,14 @@ public class ObjectSetQueryService {
                     + " LIMIT " + (MAX_ROWS + 1);
             List<Map<String,Object>> rows = new ArrayList<>();
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
-                statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+                applyRemainingTimeout(connection, statement, deadlineNanos, executionId);
                 statement.setFetchSize(50);
                 statement.setMaxRows(MAX_ROWS + 1);
                 try (ResultSet rs = statement.executeQuery()) {
                     while (rs.next()) {
+                        if (System.nanoTime() >= deadlineNanos) {
+                            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过 3 秒端到端预算；未返回部分结果", "source", executionId);
+                        }
                         Map<String,Object> row = new LinkedHashMap<>();
                         for (String column : columns) row.put(column, rs.getObject(column));
                         rows.add(row);
@@ -721,6 +760,11 @@ public class ObjectSetQueryService {
 
     private void verifySourceReadable(Connection connection, DataBindingService.BindingDetail binding,
             String executionId) throws SQLException {
+        verifySourceReadable(connection, binding, executionId, 0L);
+    }
+
+    private void verifySourceReadable(Connection connection, DataBindingService.BindingDetail binding,
+            String executionId, long deadlineNanos) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT has_schema_privilege(current_user, ?, 'USAGE') AS schema_usable,
                        to_regclass(quote_ident(?) || '.' || quote_ident(?)) IS NOT NULL AS relation_exists,
@@ -728,7 +772,8 @@ public class ObjectSetQueryService {
                             ELSE has_table_privilege(current_user,
                                  to_regclass(quote_ident(?) || '.' || quote_ident(?)), 'SELECT') END AS can_select
                 """)) {
-            statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+            if (deadlineNanos > 0) applyRemainingTimeout(connection, statement, deadlineNanos, executionId);
+            else statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
             statement.setString(1, binding.sourceSchema());
             statement.setString(2, binding.sourceSchema()); statement.setString(3, binding.sourceTable());
             statement.setString(4, binding.sourceSchema()); statement.setString(5, binding.sourceTable());
@@ -739,6 +784,90 @@ public class ObjectSetQueryService {
                     throw fail(503, "SOURCE_UNAVAILABLE", "来源不可用或当前只读账号没有 SELECT 权限；拒绝返回结果", "source", executionId);
                 }
             }
+        }
+    }
+
+    private void applyRemainingTimeout(Connection connection, PreparedStatement statement,
+            long deadlineNanos, String executionId) throws SQLException {
+        long remainingNanos = deadlineNanos - System.nanoTime();
+        if (remainingNanos <= 0) {
+            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过 3 秒端到端预算；未返回部分结果", "source", executionId);
+        }
+        // Reserve a small margin for the SET LOCAL round-trip so the next SQL statement
+        // cannot inherit a timeout that extends beyond the original end-to-end deadline.
+        long remainingMillis = Math.max(1, TimeUnit.NANOSECONDS.toMillis(remainingNanos) - 10);
+        int jdbcTimeoutSeconds = (int) Math.max(1, Math.min(QUERY_TIMEOUT_SECONDS, (remainingMillis + 999) / 1000));
+        try (PreparedStatement timeout = connection.prepareStatement("SELECT set_config('statement_timeout', ?, true)")) {
+            timeout.setQueryTimeout(jdbcTimeoutSeconds);
+            timeout.setString(1, remainingMillis + "ms");
+            timeout.execute();
+        }
+        long afterConfigNanos = deadlineNanos - System.nanoTime();
+        if (afterConfigNanos <= 0) {
+            throw fail(503, "SOURCE_TIMEOUT", "来源查询超过 3 秒端到端预算；未返回部分结果", "source", executionId);
+        }
+        long jdbcRemainingMillis = Math.max(1, TimeUnit.NANOSECONDS.toMillis(afterConfigNanos));
+        statement.setQueryTimeout((int) Math.max(1,
+                Math.min(QUERY_TIMEOUT_SECONDS, (jdbcRemainingMillis + 999) / 1000)));
+    }
+
+    private String encodeCursor(StoredSnapshot snapshot, int offset) {
+        String payload = String.join("|", snapshot.id, Integer.toString(offset),
+                Long.toString(snapshot.expiresAt.toEpochMilli()), actorHash(snapshot.actorKey), UUID.randomUUID().toString());
+        String encodedPayload = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(payload.getBytes(StandardCharsets.UTF_8));
+        String signed = CURSOR_PREFIX + encodedPayload;
+        return signed + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(signCursor(signed));
+    }
+
+    private CursorPayload decodeCursor(String token, String executionId) {
+        if (token.length() > MAX_CURSOR_LENGTH || !token.startsWith(CURSOR_PREFIX)) {
+            throw fail(400, "INVALID_CURSOR", "cursor 格式无效或超过长度限制", "cursor", executionId);
+        }
+        int separator = token.lastIndexOf('.');
+        if (separator <= CURSOR_PREFIX.length() || separator == token.length() - 1) {
+            throw fail(400, "INVALID_CURSOR", "cursor 格式无效", "cursor", executionId);
+        }
+        String signed = token.substring(0, separator);
+        try {
+            byte[] suppliedSignature = Base64.getUrlDecoder().decode(token.substring(separator + 1));
+            if (!MessageDigest.isEqual(signCursor(signed), suppliedSignature)) {
+                throw fail(400, "INVALID_CURSOR", "cursor 签名无效或已被篡改", "cursor", executionId);
+            }
+            String encodedPayload = signed.substring(CURSOR_PREFIX.length());
+            String[] fields = new String(Base64.getUrlDecoder().decode(encodedPayload), StandardCharsets.UTF_8).split("\\|", -1);
+            if (fields.length != 5) throw new IllegalArgumentException("invalid cursor payload");
+            UUID.fromString(fields[0]);
+            int offset = Integer.parseInt(fields[1]);
+            long expiresAtMillis = Long.parseLong(fields[2]);
+            if (offset < 0 || expiresAtMillis <= 0 || !fields[3].matches("[0-9a-f]{64}")) {
+                throw new IllegalArgumentException("invalid cursor fields");
+            }
+            UUID.fromString(fields[4]);
+            return new CursorPayload(fields[0], offset, expiresAtMillis, fields[3], fields[4]);
+        } catch (QueryException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw fail(400, "INVALID_CURSOR", "cursor 格式无效或签名无效", "cursor", executionId);
+        }
+    }
+
+    private byte[] signCursor(String signed) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(cursorSigningKey, "HmacSHA256"));
+            return mac.doFinal(signed.getBytes(StandardCharsets.UTF_8));
+        } catch (GeneralSecurityException ex) {
+            throw new IllegalStateException("M7 cursor signature could not be generated", ex);
+        }
+    }
+
+    private String actorHash(String actorKey) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(actorKey.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is not available", ex);
         }
     }
 
