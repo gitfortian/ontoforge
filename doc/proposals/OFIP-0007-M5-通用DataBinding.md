@@ -12,7 +12,7 @@
 
 **Related:** [M5 #44](https://github.com/gitfortian/ontoforge/issues/44) · [M4 #43](https://github.com/gitfortian/ontoforge/issues/43) · [M4 提案 PR #54](https://github.com/gitfortian/ontoforge/pull/54) · [M4 实现 PR #56（已合并）](https://github.com/gitfortian/ontoforge/pull/56) · [OFIP-0001](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2 候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md)
 
-> 2026-10-18 基于 main `6968ea0804f57b2b82f237e37f812bcadb32f343` 的设计评审。本文只提案，不实现、不批准 M4 或生产连接器。M4 类型解析与目录已由 [PR #56](https://github.com/gitfortian/ontoforge/pull/56) 合并；本提案消费其 TypeSourceRef/TypeRef 候选合同，不推定 M5 已实现或产品已发布。
+> 2026-10-18 基于 main `6968ea0804f57b2b82f237e37f812bcadb32f343` 的设计评审。本文只提案、不授权实施 M5 或生产连接器，也不改变 M4 已交付边界。M4 类型解析与目录已由 [PR #56](https://github.com/gitfortian/ontoforge/pull/56) 合并；本提案消费其 TypeSourceRef/TypeRef 候选合同，不推定 M5 已实现或产品已发布。
 
 ## Motivation
 
