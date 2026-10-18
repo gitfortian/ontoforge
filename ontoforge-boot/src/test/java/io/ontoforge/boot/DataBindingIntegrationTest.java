@@ -563,6 +563,9 @@ class DataBindingIntegrationTest {
         assertThat(filtered.path("objects").size()).isEqualTo(1);
         assertThat(filtered.path("objects").get(0).path("objectRef").path("key").path("value").asText()).isEqualTo("SUP-1001");
         assertThat(filtered.path("quality").path("freshness").asText()).isEqualTo("UNKNOWN");
+        assertThat(filtered.path("typeSourceRef").path("kind").asText()).isEqualTo("LOCAL_SNAPSHOT");
+        assertThat(filtered.path("versionLock").path("payloadSha256").asText()).hasSize(64);
+        assertThat(filtered.path("sourceReadRef").path("checkpoint").path("status").asText()).isEqualTo("UNKNOWN");
         assertThat(filtered.path("resultSnapshotRef").asText()).startsWith("local-result:");
         assertThat(filtered.path("objects").get(0).path("properties").toString()).contains("Northwind Components");
 
