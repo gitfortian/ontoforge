@@ -6,7 +6,7 @@
 
 **Decision:** [VOTE] Accepted — [维护者正式决策记录（2026-10-18）](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6244833403)
 
-**Implementation:** In Progress — M5 纵向交付分支 `feature/m5-data-binding-vertical`；等待 PR/CI 验收
+**Implementation:** In Progress — [PR #63 纵向交付（Draft）](https://github.com/gitfortian/ontoforge/pull/63)；CI 与真实环境验收待完成
 
 **Release:** Not Released
 
@@ -90,7 +90,7 @@ Native V0.2 候选包含 SemVer、sourceSchemaVersion 等不同字段。本合�
 
 The high-fidelity candidate also demonstrates source drift/unavailability recovery, identity-domain changes, duplicate-key and budget failures, save-time CAS conflict recovery, and unsaved-edit discard confirmation. Its dedicated Chromium tests are in [test_m5_binding_highfi_browser.py](../prototypes/tests/test_m5_binding_highfi_browser.py).
 
-**Status:** UX-Low accepted by [PR #60](https://github.com/gitfortian/ontoforge/pull/60) and UX-High accepted by [PR #61](https://github.com/gitfortian/ontoforge/pull/61). The HTML and browser checks remain mocked; no runtime API, Flyway migration, real PostgreSQL validation, or production UI is implied.
+**Status:** UX-Low accepted by [PR #60](https://github.com/gitfortian/ontoforge/pull/60) and UX-High accepted by [PR #61](https://github.com/gitfortian/ontoforge/pull/61). Those prototype artifacts remain mocked; [PR #63](https://github.com/gitfortian/ontoforge/pull/63) separately implements production APIs/UI and is not yet accepted or released.
 
 ## Implementation Readiness Audit
 
@@ -160,7 +160,7 @@ M5 第一个实现 PR 交付“自定义 supplier→PG 映射→预览→校验�
 | UI | 新建非制造类型→选择快照→映射→真实预览→保存→重开 | 取消预览不持久化、来源漂移、校验错误定位、并发覆盖阻断 | React/Chromium E2E；用户在专用本机合成库实际操作 |
 | 回归 | M2/M3 原制造流程继续可用 | 不改变旧路由/绑定 JSON/固定接口错误语义 | 原 QualityImpactObjectSetTest 与已有产品 E2E |
 
-提案 PR 只做文档治理/相对链接检查；运行时、PG、浏览器、来源只读权限、迁移和生产发布均 **NOT RUN**。实际文档命令结果及受测 head SHA 由 PR 报告；CI 使用 PASS/FAIL/NOT SELECTED/NOT RUN 分层记录。
+PR #58 只做文档治理/相对链接检查；当时的运行时、PG、浏览器、来源只读权限、迁移和生产发布均 NOT RUN。PR #63 正在补充真实实现证据；其结果须按受测 head SHA 记录，并区分 PASS/FAIL/NOT SELECTED/NOT RUN。
 
 ## Rejected Alternatives
 
