@@ -472,6 +472,18 @@ class DataBindingIntegrationTest {
         } finally {
             jdbc.execute("ALTER TABLE public.m5_supplier_source DROP COLUMN IF EXISTS m6_test_drift");
         }
+
+        // A revoked source SELECT grant must be reported as unavailable, not as a missing
+        // object or schema drift, and must never produce a partial successful object.
+        jdbc.execute("REVOKE SELECT ON TABLE public.m5_supplier_source FROM ontoforge_binding_reader");
+        try {
+            ResponseEntity<String> unavailable = post("/api/runtime/objects/read", read);
+            assertThat(unavailable.getStatusCode().value()).isEqualTo(503);
+            assertThat(unavailable.getBody()).contains("SOURCE_UNAVAILABLE");
+            assertThat(unavailable.getBody()).doesNotContain("objectRef", "properties");
+        } finally {
+            jdbc.execute("GRANT SELECT ON TABLE public.m5_supplier_source TO ontoforge_binding_reader");
+        }
     }
 
     private JsonNode objectProperty(JsonNode object, String propertyRef) {

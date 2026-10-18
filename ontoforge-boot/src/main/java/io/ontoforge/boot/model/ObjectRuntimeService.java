@@ -283,6 +283,7 @@ public class ObjectRuntimeService {
                 statement.execute("SET TRANSACTION READ ONLY");
             }
             Instant startedAt = Instant.now();
+            verifySourceReadable(connection, binding, executionId);
             DataBindingService.SourceTable source = inspectSourceTable(connection, binding, executionId);
             if (!Objects.equals(binding.sourceSchemaFingerprint(), source.schemaFingerprint())) {
                 throw fail(409, "BINDING_SCHEMA_DRIFT",
@@ -393,6 +394,41 @@ public class ObjectRuntimeService {
             throw ex;
         } finally {
             restoreConnection(connection, originalAutoCommit, originalIsolation, originalReadOnly);
+        }
+    }
+
+    private void verifySourceReadable(Connection connection, DataBindingService.BindingDetail binding,
+            String executionId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT has_schema_privilege(current_user, ?, 'USAGE') AS schema_usable,
+                       relation.oid IS NOT NULL AS relation_exists,
+                       CASE WHEN relation.oid IS NULL THEN FALSE
+                            ELSE has_table_privilege(current_user, relation.oid, 'SELECT') END AS can_select
+                  FROM (SELECT to_regclass(quote_ident(?) || '.' || quote_ident(?)) AS oid) target
+                  LEFT JOIN pg_catalog.pg_class relation ON relation.oid = target.oid
+                """)) {
+            statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+            statement.setString(1, binding.sourceSchema());
+            statement.setString(2, binding.sourceSchema());
+            statement.setString(3, binding.sourceTable());
+            try (ResultSet rs = statement.executeQuery()) {
+                if (!rs.next()) {
+                    throw fail(503, "SOURCE_UNAVAILABLE",
+                            "来源数据库暂不可用；不能判断对象是否存在", "source", executionId);
+                }
+                if (!rs.getBoolean("schema_usable")) {
+                    throw fail(503, "SOURCE_UNAVAILABLE",
+                            "来源 schema 不可访问；不能判断对象是否存在", "source", executionId);
+                }
+                if (!rs.getBoolean("relation_exists")) {
+                    throw fail(409, "BINDING_SCHEMA_DRIFT",
+                            "绑定来源表不存在；请返回 M5 重新核验映射", "sourceTable", executionId);
+                }
+                if (!rs.getBoolean("can_select")) {
+                    throw fail(503, "SOURCE_UNAVAILABLE",
+                            "来源数据库拒绝了只读查询；不能判断对象是否存在", "source", executionId);
+                }
+            }
         }
     }
 
@@ -756,7 +792,7 @@ public class ObjectRuntimeService {
         return text.getBytes(StandardCharsets.UTF_8).length;
     }
 
-    private static boolean isTimeout(Throwable error) {
+    static boolean isTimeout(Throwable error) {
         Throwable current = error;
         while (current != null) {
             if (current instanceof SQLException sql && "57014".equals(sql.getSQLState())) return true;
