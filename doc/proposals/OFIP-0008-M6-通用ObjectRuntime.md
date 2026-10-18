@@ -6,7 +6,7 @@
 
 **Decision:** Accepted — 维护者于 2026-10-18 在 [PR #58 决策评论](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6246406521) 显式记录 `[VOTE] Accepted`
 
-**Implementation:** In Progress — [PR #68](https://github.com/gitfortian/ontoforge/pull/68) 已提交首个纵向实现；当前 head `5fba4eb39fc74e037bcb32a4b28d90be093373cc` 的 Required Quality、PostgreSQL/Flyway、React build 与真实 PG17 + API + React/Chromium 黄金故事均 PASS；独立 Review/合并/发布仍待完成
+**Implementation:** Partial vertical slice merged — [PR #68](https://github.com/gitfortian/ontoforge/pull/68) merged to main (`a9f0b0494c79e66410784a83c04d2a4daff46858`); [PR #71](https://github.com/gitfortian/ontoforge/pull/71) merged source-access failure semantics hardening (`67f791946b8ff65142860370afec3af40d42bb00`). Both PR heads passed their required CI, including real PG17 + API + React/Chromium golden story. This delivers a bounded read-only virtual Object Runtime for registered local PostgreSQL bindings, not the full Object Runtime roadmap.
 
 **Release:** Not Released
 
@@ -130,6 +130,31 @@ Object Runtime 消费模型和绑定，把 SourceFact 按版本投影为对象�
 - 删除或改变主键、切换身份域时显式拒绝旧引用或保留旧域读取入口；无条件把旧 key 解释成新语义不可接受。属性增减需以新的绑定/快照明确采用。
 - 回退实现可停用新路由，不能改写历史 ObjectRef 或伪造不存在的对象；来源角色撤权使后续读取立即失败，不回退到先前缓存。
 - 跨来源身份合并、对象写回、历史 as-of 查询为 None：首版没有这些合同，不预留假实现或自动兼容承诺。
+
+## Implementation and acceptance record (2026-10-18)
+
+**Delivered to main**
+- `POST /api/runtime/objects/read`: bounded read of a custom ObjectType through an exact immutable Binding revision and local Snapshot.
+- Typed values and explicit `PRESENT` / `NULL` / `MISSING` semantics; ObjectRef keeps package/type/identity domain/key separate from binding and execution evidence.
+- Read-only PostgreSQL `REPEATABLE READ` transaction, source schema fingerprint verification, source-column provenance, and explicit quality envelope. Without a trustworthy business watermark, freshness remains `UNKNOWN`.
+- Bounded requests: at most 100 distinct requested properties, 10,000 source rows per identity, 8 MiB source scan budget preflighted in PostgreSQL, 1 MiB output limit, and 3-second query timeout. Unrequested property columns are not projected.
+- Identical duplicate rows fold only within the requested property scope; conflicting requested values, required NULLs, schema drift, unknown/noncanonical keys, and budget violations fail closed without a partial object.
+- [PR #71](https://github.com/gitfortian/ontoforge/pull/71) distinguishes a missing relation/schema drift (409 `BINDING_SCHEMA_DRIFT`) from revoked schema/table access (503 `SOURCE_UNAVAILABLE`) and PostgreSQL statement timeout (503 `SOURCE_TIMEOUT`).
+
+**Current-head automated evidence**
+- [PR #68 S0 frontend/backend CI](https://github.com/gitfortian/ontoforge/actions/runs/39106550335): PASS.
+- [PR #68 Required Quality Gate](https://github.com/gitfortian/ontoforge/actions/runs/39106550267): PASS, including real PG17 + Spring Boot + React/Chromium golden story.
+- [PR #71 S0 frontend/backend CI](https://github.com/gitfortian/ontoforge/actions/runs/39107278433): PASS.
+- [PR #71 Required Quality Gate](https://github.com/gitfortian/ontoforge/actions/runs/39107278475): PASS, including real PG17 + API + React/Chromium golden story, PowerShell 5.1 parser, and PostgreSQL/Flyway tests.
+- PR #71 additionally proves that revoking the read-only source reader's SELECT privilege returns 503 without an object payload, and restores the grant in test cleanup.
+
+**Not delivered / do not overstate**
+- This is an on-demand virtual read path, not a full Object Store or a general query engine. ObjectSet filtering/sorting/paging/aggregation belongs to M7; LinkFact and bounded traversal belong to M8.
+- No cross-source identity merge, computed/inferred properties, object writes, Action execution, Agent runtime, release/activation, or production connector.
+- CI does not replace the user's Windows 11 local PostgreSQL UAT. That remains NOT RUN until actual evidence is supplied. Product Release remains Not Released.
+
+**Next stage**
+- Start M7 (#46 / OFIP-0009) with issue and product-contract review, query-language/typed AST design, and low-fi then high-fi prototype sign-off before implementing a query engine. Keep Object Runtime read contracts stable and do not add query features opportunistically to M6.
 
 ## Test Plan
 
