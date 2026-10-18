@@ -271,6 +271,7 @@ class DataBindingRealBrowserTest(unittest.TestCase):
         query_text = page.locator(".object-set-result-panel").inner_text()
         self.assertIn("Northwind Components", query_text)
         self.assertIn("匹配对象总数", query_text)
+        self.assertIn("当前页 / 总页数", query_text)
         self.assertIn("UNKNOWN", page.locator(".object-set-evidence").inner_text())
         self.assertIn("local-result:", page.locator(".object-set-evidence").inner_text())
         self.assertNotIn("Changed after first page", query_text)
