@@ -2,7 +2,7 @@
 
 **Status:** Discussion
 
-**Discussion:** 待创建的 `[DISCUSS]` 提案 PR；需求讨论见 [M12 #51](https://github.com/gitfortian/ontoforge/issues/51)。
+**Discussion:** [PR #58 — [DISCUSS][OFIP-0007–0016] M5-M14 需求 Review 与方案设计](https://github.com/gitfortian/ontoforge/pull/58)；需求讨论见 [M12 #51](https://github.com/gitfortian/ontoforge/issues/51)。
 
 **Decision:** Pending（须维护者显式记录决定、日期和 permalink；本提案不提供运行授权）
 
