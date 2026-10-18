@@ -241,3 +241,31 @@ class DataBindingRealBrowserTest(unittest.TestCase):
         page.locator(".object-runtime-error").wait_for(timeout=15000)
         self.assertIn("OBJECT_NOT_FOUND", page.locator(".object-runtime-error").inner_text())
         self.assertNotIn("Northwind Components", page.locator(".object-runtime-result").inner_text())
+
+        # M7 vertical story: the same saved custom Supplier Binding drives a real ObjectSet query.
+        page.goto(BASE + "/#/mvp/object-sets?packageId=" + quote(self.package)
+                  + "&bindingId=" + quote(binding_id) + "&bindingRevision=2")
+        page.get_by_role("heading", name="对象集合查询", exact=True).wait_for(timeout=15000)
+        page.locator(".object-set-filter-row select").nth(0).select_option("supplier-name")
+        page.locator(".object-set-filter-row select").nth(1).select_option("PREFIX")
+        page.locator(".object-set-filter-row input").fill("North")
+        page.get_by_role("button", name="执行查询", exact=True).click()
+        page.locator(".object-set-result-summary").wait_for(timeout=15000)
+        query_text = page.locator(".object-set-result-panel").inner_text()
+        self.assertIn("Northwind Components", query_text)
+        self.assertIn("匹配对象总数", query_text)
+        self.assertIn("UNKNOWN", page.locator(".object-set-evidence").inner_text())
+        self.assertIn("local-result:", page.locator(".object-set-evidence").inner_text())
+        self.assertNotIn("Changed after first page", query_text)
+
+        # The aggregate mode is mutually exclusive with sorting, projection and paging.
+        page.get_by_role("button", name="聚合统计", exact=True).click()
+        page.locator(".object-set-aggregate-choice select").nth(0).select_option("SUM")
+        page.locator(".object-set-aggregate-choice select").nth(1).select_option("supplier-rating")
+        page.get_by_role("button", name="执行查询", exact=True).click()
+        page.locator(".object-set-aggregate-result").wait_for(timeout=15000)
+        aggregate_text = page.locator(".object-set-aggregate-result").inner_text()
+        self.assertIn("SUM", aggregate_text)
+        self.assertIn("匹配对象", aggregate_text)
+        self.assertIn("UNKNOWN", page.locator(".object-set-evidence").inner_text())
+
