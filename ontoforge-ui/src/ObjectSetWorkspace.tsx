@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {ArrowLeft, CheckCircle2, ChevronRight, Database, Filter, RefreshCw, ShieldAlert, Sigma} from 'lucide-react';
 import {authorizedFetch} from './auth';
 import './model.css';
@@ -14,6 +14,7 @@ type PropertyValue={propertyRef:string;valueType:string;status:'PRESENT'|'NULL'|
 type ObjectSetItem={objectRef:{packageId:string;objectTypeId:string;identityDomainId:string;key:{valueType:string;value:string}};properties:PropertyValue[]};
 type QueryResult={status:string;executionId:string;executedAt:string;queryVersion:string;typeSourceRef:{kind:string;snapshotId:string};payloadSha256:string;accessMode:string;bindingVersions:Array<{bindingId:string;revision:number;digest:string;sourceId:string;kind:string}>;versionLock:{typeSourceRef:{kind:string;snapshotId:string};payloadSha256:string;bindingVersions:Array<{bindingId:string;revision:number;digest:string;sourceId:string;kind:string}>;sourceSchemaFingerprints:Array<{sourceId:string;schema:string;table:string;schemaFingerprint:string}>};sourceReadRef:{id:string;sourceId:string;schema:string;table:string;columns:string[];schemaFingerprint:string;startedAt:string;completedAt:string;transactionIsolation:string;checkpoint:{status:string;reason:string};consistencyNote:string};queryDigest:string;resultSnapshotRef:string;expiresAt:string;totalCount?:number;pageSize?:number;pageNumber?:number;nextCursor?:string;objects?:ObjectSetItem[];aggregate?:{operation:string;propertyRef?:string;valueType:string;value:string;matchedObjects:number};quality:{accuracy:string;completeness:string;freshness:string;answerScope:string};budget:{physicalRows:number;distinctObjects:number;sourceBytes:number;serializedResultBytes:number;maxPhysicalRows:number;maxSourceBytes:number;maxSerializedResultBytes:number;queryTimeoutSeconds:number}};
 type ApiError={status?:string;code?:string;message?:string;fieldPath?:string;executionId?:string;httpStatus?:number};
+type FailureEvidence={kind:'QUERY_EXECUTION'|'PAGE_REVALIDATION';resultSnapshotRef?:string;executionId?:string;failedPageNumber?:number;code:string;message:string;serverConfirmed:boolean};
 const API='/api/runtime';
 const canonicalType=(type:string)=>type.trim().replace(/-/g,'_').toUpperCase().replace(/^(TEXT|VARCHAR|CHAR)$/,'STRING').replace(/^(INT|LONG|BIGINT|SMALLINT)$/,'INTEGER').replace(/^(NUMBER|NUMERIC)$/,'DECIMAL').replace(/^BOOL$/,'BOOLEAN').replace(/^(TIMESTAMP|TIMESTAMPTZ|TIMESTAMP_WITH_TIME_ZONE|TIMESTAMP_WITHOUT_TIME_ZONE)$/,'DATETIME');
 const operatorsFor=(type:string)=>{
@@ -55,6 +56,8 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
   const [aggregateOperation,setAggregateOperation]=useState<'COUNT_DISTINCT'|'SUM'>('COUNT_DISTINCT');
   const [aggregateProperty,setAggregateProperty]=useState('');
   const [result,setResult]=useState<QueryResult|null>(null);
+  const [failureEvidence,setFailureEvidence]=useState<FailureEvidence|null>(null);
+  const operationGeneration=useRef(0);
 
   const properties=descriptor?.properties||[];
   const propertyById=useMemo(()=>new Map<string,Property>(properties.map(p=>[p.id,p] as const)),[properties]);
@@ -63,25 +66,38 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
   const filterableProperties=properties.filter(p=>p.searchable&&mappedRefs.has(p.id));
   const sortableProperties=properties.filter(p=>mappedRefs.has(p.id)&&['STRING','INTEGER','DECIMAL','BOOLEAN','ENUM','DATETIME','DATE','UUID'].includes(canonicalType(p.valueType)));
   const propertyLabel=(ref:string)=>{const p=propertyById.get(ref);return p?(p.label||p.apiName)+' · '+p.id:ref;};
+  const activeFilterSummary=filters.filter(f=>f.propertyRef&&(f.operator==='IS_NULL'||f.value.trim()!==''))
+    .map(f=>propertyLabel(f.propertyRef)+' '+labelOperator(f.operator)+(f.operator==='IS_NULL'?' SQL NULL':' '+f.value.trim())).join(' AND ')||'无';
+  const sortSummary=sorts.map(s=>propertyLabel(s.propertyRef)+' '+s.direction).join(' → ')||'ObjectRef 稳定顺序';
+  const projectSummary=project.map(propertyLabel).join('、')||'未选择';
+  const outputSummary=mode==='PAGE'?'列表 · 每页 '+pageSize+' 条':aggregateOperation==='COUNT_DISTINCT'
+    ?'COUNT_DISTINCT(ObjectRef)':'SUM('+propertyLabel(aggregateProperty)+')';
+
+  function clearResultState(){setResult(null);setError(null);setFailureEvidence(null);}
 
   async function loadBindings(pkg=packageInput){
+    const generation=++operationGeneration.current;
     if(!pkg.trim()){setListError({code:'PACKAGE_REQUIRED',message:'请输入模型包 ID。'});setBindings([]);return;}
-    setLoadingBindings(true);setListError(null);setBindings([]);setBinding(null);setDescriptor(null);setResult(null);setError(null);
+    setLoadingBindings(true);setListError(null);setBindings([]);setBinding(null);setDescriptor(null);clearResultState();
     try{
       const rows=await request<BindingSummary[]>(API+'/bindings?packageId='+encodeURIComponent(pkg.trim()));
+      if(generation!==operationGeneration.current)return;
       setPackageInput(pkg.trim());setBindings(rows);
       if(rows.length===0)setListError({code:'NO_BINDINGS',message:'当前模型包没有已保存的 Binding。请先完成 M4 类型定义和 M5 绑定校验。'});
-    }catch(e){setListError(e as ApiError);}
-    finally{setLoadingBindings(false);}
+    }catch(e){if(generation===operationGeneration.current)setListError(e as ApiError);}
+    finally{if(generation===operationGeneration.current)setLoadingBindings(false);}
   }
 
   async function openBinding(id:string,revision?:number){
-    setBusy(true);setError(null);setResult(null);setBinding(null);setDescriptor(null);
+    const generation=++operationGeneration.current;
+    setBusy(true);clearResultState();setBinding(null);setDescriptor(null);
     try{
       const suffix=revision?'?revision='+revision:'';
       const loaded=await request<BindingDetail>(API+'/bindings/'+encodeURIComponent(id)+suffix);
+      if(generation!==operationGeneration.current)return;
       if(loaded.validationStatus!=='VALID')throw {code:'BINDING_UNAVAILABLE',message:'该 Binding revision 未通过校验，不能执行 ObjectSet。'} as ApiError;
       const type=await request<TypeDescriptor>('/api/model/type-sources/snapshots/'+encodeURIComponent(loaded.snapshotId)+'/types/'+encodeURIComponent(loaded.objectTypeId));
+      if(generation!==operationGeneration.current)return;
       if(type.packageId!==loaded.packageId||type.objectTypeId!==loaded.objectTypeId||type.payloadSha256!==loaded.payloadSha256)throw {code:'BINDING_SNAPSHOT_MISMATCH',message:'Binding 与不可变 Snapshot 的类型摘要不一致。'} as ApiError;
       setBinding(loaded);setDescriptor(type);setPackageInput(loaded.packageId);
       // Filters must target explicitly searchable properties. Do not silently
@@ -94,36 +110,38 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
       setProject(type.properties.filter(p=>loaded.fieldMappings.some(m=>m.propertyRef===p.id)).map(p=>p.id));
       setAggregateProperty(type.properties.find(p=>mappedPropertyRefs.has(p.id)&&['INTEGER','DECIMAL'].includes(canonicalType(p.valueType)))?.id||'');
       setMode('PAGE');
-    }catch(e){setError(e as ApiError);}
-    finally{setBusy(false);}
+    }catch(e){if(generation===operationGeneration.current)setError(e as ApiError);}
+    finally{if(generation===operationGeneration.current)setBusy(false);}
   }
 
   useEffect(()=>{
+    operationGeneration.current++;
     const params=new URLSearchParams(route.split('?')[1]||'');
     const pkg=params.get('packageId')||'';
     const id=params.get('bindingId')||'';
     const revText=params.get('bindingRevision');
-    setPackageInput(pkg);setBindings([]);setBinding(null);setDescriptor(null);setFilters([]);setSorts([]);setProject([]);setResult(null);setError(null);setListError(null);
+    setPackageInput(pkg);setBindings([]);setBinding(null);setDescriptor(null);setFilters([]);setSorts([]);setProject([]);clearResultState();setListError(null);setBusy(false);setLoadingBindings(false);
     if(id){const revision=revText&&/^[1-9]\d*$/.test(revText)?Number(revText):undefined;void openBinding(id,revision);}
     else if(pkg)void loadBindings(pkg);
   },[route]);
 
   function updateFilter(id:number,patch:Partial<FilterDraft>){
     setFilters(old=>old.map(f=>f.id===id?{...f,...patch}:f));
-    setResult(null);
+    clearResultState();
   }
   function addFilter(){
     if(filters.length>=8||!filterableProperties.length)return;
     const p=filterableProperties[0];
     setFilters(old=>[...old,{id:Math.max(0,...old.map(f=>f.id))+1,propertyRef:p.id,operator:operatorsFor(p.valueType)[0],value:''}]);
-    setResult(null);
+    clearResultState();
   }
   function addSort(){
     if(sorts.length>=3)return;
-    const available=sortableProperties.find(p=>!sorts.some(s=>s.propertyRef===p.id))||sortableProperties[0];
+    const used=new Set(sorts.map(s=>s.propertyRef));
+    const available=sortableProperties.find(p=>!used.has(p.id));
     if(!available)return;
     setSorts(old=>[...old,{id:Math.max(0,...old.map(s=>s.id))+1,propertyRef:available.id,direction:'ASC'}]);
-    setResult(null);
+    clearResultState();
   }
   function buildSteps(){
     const steps:Array<Record<string,unknown>>=[];
@@ -154,24 +172,45 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
     if(!binding||!descriptor)return;
     if(mode==='PAGE'&&project.length===0){setError({code:'PROJECT_REQUIRED',message:'至少选择一个结果属性。'});return;}
     if(mode==='AGGREGATE'&&aggregateOperation==='SUM'&&!aggregateProperty){setError({code:'AGGREGATE_PROPERTY_REQUIRED',message:'请选择用于 SUM 的数值属性。'});return;}
+    const generation=++operationGeneration.current;
     const payload={queryVersion:'local-query-v1',rootTypeRef:{sourceRef:{kind:'LOCAL_SNAPSHOT',snapshotId:binding.snapshotId},packageId:binding.packageId,objectTypeId:binding.objectTypeId},bindingRef:{bindingId:binding.bindingId,revision:binding.revision},steps:buildSteps()};
-    setBusy(true);setError(null);setResult(null);
-    try{setResult(await request<QueryResult>(API+'/object-sets/query',jsonPost(payload)));}
-    catch(e){setError(e as ApiError);}
-    finally{setBusy(false);}
+    setBusy(true);clearResultState();
+    try{
+      const response=await request<QueryResult>(API+'/object-sets/query',jsonPost(payload));
+      if(generation===operationGeneration.current)setResult(response);
+    }catch(e){
+      if(generation===operationGeneration.current){
+        const failure=e as ApiError;
+        setError(failure);
+        setFailureEvidence({kind:'QUERY_EXECUTION',executionId:failure.executionId,code:failure.code||'QUERY_FAILED',
+          message:failure.message||'查询未完成；没有可用的结果载荷。',serverConfirmed:typeof failure.httpStatus==='number'});
+      }
+    }finally{if(generation===operationGeneration.current)setBusy(false);}
   }
   async function nextPage(){
-    if(!result?.nextCursor)return;
-    const cursor=result.nextCursor;
-    setBusy(true);setError(null);
+    const currentResult=result;
+    if(!currentResult?.nextCursor)return;
+    const cursor=currentResult.nextCursor;
+    const generation=++operationGeneration.current;
+    setBusy(true);setError(null);setFailureEvidence(null);
     try{
       const next=await request<QueryResult>(API+'/object-sets/pages',jsonPost({cursor}));
-      if(next.resultSnapshotRef!==result.resultSnapshotRef)throw {code:'RESULT_SNAPSHOT_MISMATCH',message:'服务端返回的分页快照与当前执行不一致；已停止展示。'} as ApiError;
+      if(generation!==operationGeneration.current)return;
+      if(next.resultSnapshotRef!==currentResult.resultSnapshotRef)throw {code:'RESULT_SNAPSHOT_MISMATCH',message:'服务端返回的分页快照与当前执行不一致；已停止展示。'} as ApiError;
       setResult(next);
-    }catch(e){setResult(null);setError(e as ApiError);}
-    finally{setBusy(false);}
+    }catch(e){
+      if(generation===operationGeneration.current){
+        const failure=e as ApiError;
+        setResult(null);
+        setError(failure);
+        setFailureEvidence({kind:'PAGE_REVALIDATION',resultSnapshotRef:currentResult.resultSnapshotRef,
+          executionId:currentResult.executionId,failedPageNumber:(currentResult.pageNumber||1)+1,
+          code:failure.code||'PAGE_FAILED',message:failure.message||'后续页未能通过复核；旧结果载荷已停止展示。',
+          serverConfirmed:typeof failure.httpStatus==='number'});
+      }
+    }finally{if(generation===operationGeneration.current)setBusy(false);}
   }
-  function resetQuery(){setFilters([]);setResult(null);setError(null);setMode('PAGE');}
+  function resetQuery(){setFilters([]);clearResultState();setError(null);setMode('PAGE');}
 
   return <div className="model-page object-set-page">
     <div className="model-head">
@@ -196,34 +235,50 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
       <div className="object-set-workspace-grid">
         <section className="model-panel object-set-query-panel">
           <header className="model-panel-head"><div><h2>查询设计</h2><p>配置执行条件与结果范围</p></div><Filter size={17}/></header>
-          <div className="object-set-mode"><button className={mode==='PAGE'?'active':''} onClick={()=>{setMode('PAGE');setResult(null);setError(null);}}>对象列表</button><button className={mode==='AGGREGATE'?'active':''} onClick={()=>{setMode('AGGREGATE');setResult(null);setError(null);}}><Sigma size={14}/> 聚合统计</button></div>
+          <div className="object-set-mode"><button className={mode==='PAGE'?'active':''} onClick={()=>{setMode('PAGE');clearResultState();setError(null);}}>对象列表</button><button className={mode==='AGGREGATE'?'active':''} onClick={()=>{setMode('AGGREGATE');clearResultState();setError(null);}}><Sigma size={14}/> 聚合统计</button></div>
           <div className="object-set-step"><div className="object-set-step-head"><strong>01 · 筛选</strong><span>AND · 最多 8 条</span></div>
             {filterableProperties.length===0&&<p className="object-set-hint">当前 Binding 没有同时满足“可搜索”且“已映射”的属性。请返回本体建模启用可搜索，并在 M5 完成字段映射、校验和保存后重新进入。</p>}
             {filters.map((filter,index)=>{const property=propertyById.get(filter.propertyRef);const options=property?operatorsFor(property.valueType):['EQ'];return <div className="object-set-filter-row" key={filter.id}>
               <label><span>属性</span><select value={filter.propertyRef} onChange={e=>{const p=propertyById.get(e.target.value);updateFilter(filter.id,{propertyRef:e.target.value,operator:p?operatorsFor(p.valueType)[0]:'EQ',value:''});}}>{filterableProperties.map(p=><option key={p.id} value={p.id}>{propertyLabel(p.id)}</option>)}</select></label>
               <label><span>操作</span><select value={filter.operator} onChange={e=>updateFilter(filter.id,{operator:e.target.value,value:''})}>{options.map(op=><option key={op} value={op}>{labelOperator(op)}</option>)}</select></label>
               {filter.operator!=='IS_NULL'&&<label className="object-set-filter-value"><span>{filter.operator==='IN'?'值（逗号分隔）':'值'}</span>{property&&canonicalType(property.valueType)==='BOOLEAN'?<select value={filter.value} onChange={e=>updateFilter(filter.id,{value:e.target.value})}><option value="">请选择</option><option value="true">true</option><option value="false">false</option></select>:<input value={filter.value} onChange={e=>updateFilter(filter.id,{value:e.target.value})} placeholder={filter.operator==='IN'?'A,B,C':'输入规范值'}/>}</label>}
-              <button className="object-set-icon-button" aria-label={'删除筛选条件 '+(index+1)} onClick={()=>{setFilters(old=>old.filter(f=>f.id!==filter.id));setResult(null);}}>×</button>
+              <button className="object-set-icon-button" aria-label={'删除筛选条件 '+(index+1)} onClick={()=>{setFilters(old=>old.filter(f=>f.id!==filter.id));clearResultState();}}>×</button>
             </div>;})}
             <button className="model-btn object-set-add" onClick={addFilter} disabled={filters.length>=8||filterableProperties.length===0}>＋ 添加筛选条件</button>
           </div>
           {mode==='PAGE'?<>
             <div className="object-set-step" id="object-set-sort-step"><div className="object-set-step-head"><strong>02 · 排序</strong><span>最多 3 个字段 · NULLS LAST</span></div>
-              {sorts.map((sort,index)=><div className="object-set-sort-row" key={sort.id}><label><span>优先级 {index+1}</span><select value={sort.propertyRef} onChange={e=>{setSorts(old=>old.map(s=>s.id===sort.id?{...s,propertyRef:e.target.value}:s));setResult(null);}}>{sortableProperties.map(p=><option key={p.id} value={p.id} disabled={sorts.some(s=>s.id!==sort.id&&s.propertyRef===p.id)}>{propertyLabel(p.id)}</option>)}</select></label><label><span>方向</span><select value={sort.direction} onChange={e=>{setSorts(old=>old.map(s=>s.id===sort.id?{...s,direction:e.target.value as 'ASC'|'DESC'}:s));setResult(null);}}><option value="ASC">升序 ASC</option><option value="DESC">降序 DESC</option></select></label><button className="object-set-icon-button" aria-label={'删除排序 '+(index+1)} onClick={()=>{setSorts(old=>old.filter(s=>s.id!==sort.id));setResult(null);}}>×</button></div>)}
-              <button className="model-btn object-set-add" onClick={addSort} disabled={sorts.length>=3||sortableProperties.length===0}>＋ 添加排序</button>
+              {sorts.map((sort,index)=><div className="object-set-sort-row" key={sort.id}><label><span>优先级 {index+1}</span><select value={sort.propertyRef} onChange={e=>{setSorts(old=>old.map(s=>s.id===sort.id?{...s,propertyRef:e.target.value}:s));clearResultState();}}>{sortableProperties.map(p=><option key={p.id} value={p.id} disabled={sorts.some(s=>s.id!==sort.id&&s.propertyRef===p.id)}>{propertyLabel(p.id)}</option>)}</select></label><label><span>方向</span><select value={sort.direction} onChange={e=>{setSorts(old=>old.map(s=>s.id===sort.id?{...s,direction:e.target.value as 'ASC'|'DESC'}:s));clearResultState();}}><option value="ASC">升序 ASC</option><option value="DESC">降序 DESC</option></select></label><button className="object-set-icon-button" aria-label={'删除排序 '+(index+1)} onClick={()=>{setSorts(old=>old.filter(s=>s.id!==sort.id));clearResultState();}}>×</button></div>)}
+              <button className="model-btn object-set-add" onClick={addSort} disabled={sorts.length>=3||sortableProperties.every(p=>sorts.some(s=>s.propertyRef===p.id))}>＋ 添加排序</button>
             </div>
-            <div className="object-set-step"><div className="object-set-step-head"><strong>03 · 选择结果列</strong><span>{project.length} / {properties.length}</span></div><div className="object-set-project-grid">{properties.map(p=><label key={p.id}><input type="checkbox" checked={project.includes(p.id)} onChange={e=>{setProject(old=>e.target.checked?[...old,p.id]:old.filter(id=>id!==p.id));setResult(null);}}/><span>{p.label||p.apiName}<small>{p.id} · {p.valueType}{mappedRefs.has(p.id)?'':' · MISSING'}</small></span></label>)}</div></div>
-            <div className="object-set-step"><div className="object-set-step-head"><strong>04 · 分页</strong><span>稳定结果快照</span></div><label className="object-set-page-size"><span>每页条数</span><select value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setResult(null);}}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label></div>
-          </>:<div className="object-set-step"><div className="object-set-step-head"><strong>02 · 聚合统计</strong><span>不与分页/排序/投影混用</span></div><label className="object-set-aggregate-choice"><span>聚合操作</span><select value={aggregateOperation} onChange={e=>{setAggregateOperation(e.target.value as 'COUNT_DISTINCT'|'SUM');setResult(null);}}><option value="COUNT_DISTINCT">COUNT_DISTINCT（对象数）</option><option value="SUM">SUM（精确数值求和）</option></select></label>{aggregateOperation==='SUM'&&<label className="object-set-aggregate-choice"><span>数值属性</span><select value={aggregateProperty} onChange={e=>{setAggregateProperty(e.target.value);setResult(null);}}>{numericProperties.map(p=><option key={p.id} value={p.id}>{propertyLabel(p.id)}</option>)}</select></label>}<p className="object-set-hint">SUM 匹配对象中若包含 NULL/MISSING，整次聚合失败关闭，不会将缺失值默认当作 0。</p></div>}
+            <div className="object-set-step"><div className="object-set-step-head"><strong>03 · 选择结果列</strong><span>{project.length} / {properties.length}</span></div><div className="object-set-project-grid">{properties.map(p=><label key={p.id}><input type="checkbox" checked={project.includes(p.id)} onChange={e=>{setProject(old=>e.target.checked?[...old,p.id]:old.filter(id=>id!==p.id));clearResultState();}}/><span>{p.label||p.apiName}<small>{p.id} · {p.valueType}{mappedRefs.has(p.id)?'':' · MISSING'}</small></span></label>)}</div></div>
+            <div className="object-set-step"><div className="object-set-step-head"><strong>04 · 分页</strong><span>稳定结果快照</span></div><label className="object-set-page-size"><span>每页条数</span><select value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));clearResultState();}}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label></div>
+          </>:<div className="object-set-step"><div className="object-set-step-head"><strong>02 · 聚合统计</strong><span>不与分页/排序/投影混用</span></div><label className="object-set-aggregate-choice"><span>聚合操作</span><select value={aggregateOperation} onChange={e=>{setAggregateOperation(e.target.value as 'COUNT_DISTINCT'|'SUM');clearResultState();}}><option value="COUNT_DISTINCT">COUNT_DISTINCT（对象数）</option><option value="SUM">SUM（精确数值求和）</option></select></label>{aggregateOperation==='SUM'&&<label className="object-set-aggregate-choice"><span>数值属性</span><select value={aggregateProperty} onChange={e=>{setAggregateProperty(e.target.value);clearResultState();}}>{numericProperties.map(p=><option key={p.id} value={p.id}>{propertyLabel(p.id)}</option>)}</select></label>}<p className="object-set-hint">SUM 匹配对象中若包含 NULL/MISSING，整次聚合失败关闭，不会将缺失值默认当作 0。</p></div>}
           <div className="object-set-query-actions"><button className="model-btn primary" onClick={()=>void executeQuery()} disabled={busy||!binding}>{busy?'执行中…':'执行查询'}</button><button className="model-btn" onClick={resetQuery} disabled={busy}>重置条件</button></div>
+          <div className="object-set-query-summary" aria-label="当前查询摘要">
+            <strong>当前查询摘要</strong>
+            <p><span>筛选</span>{activeFilterSummary}</p>
+            <p><span>排序</span>{sortSummary}</p>
+            <p><span>投影</span>{mode==='PAGE'?projectSummary:'聚合模式不使用投影'}</p>
+            <p><span>返回</span>{outputSummary}</p>
+            <p><span>版本与新鲜度</span>Binding revision {binding.revision} · freshness UNKNOWN</p>
+          </div>
           {error&&<div className="object-set-error" role="alert"><strong>{errorMessage(error)}</strong><p>{error.fieldPath?'字段路径：'+error.fieldPath+'。':''}本次失败没有可用的对象/聚合载荷。修正条件、核验来源或重新执行。</p>{error.executionId&&<small>executionId · {error.executionId}</small>}</div>}
         </section>
         <section className="model-panel object-set-result-panel">
           <header className="model-panel-head"><div><h2>查询结果</h2><p>冻结执行范围与来源证据</p></div>{result&&<span className="model-status valid">SUCCESS</span>}{error&&<span className="model-status invalid">FAILED</span>}</header>
-          {!result&&!error&&<div className="object-set-empty"><Database size={30}/><strong>等待执行查询</strong><p>配置筛选、排序、投影或聚合后执行。成功空结果与执行失败分别呈现。</p></div>}
-          {error&&!result&&<div className="object-set-empty failed"><ShieldAlert size={28}/><strong>查询未完成</strong><p>没有显示部分结果。来源状态、新鲜度或授权不确定时，系统不会将失败伪装为空集合。</p></div>}
+          {!result&&!error&&!failureEvidence&&<div className="object-set-empty"><Database size={30}/><strong>等待执行查询</strong><p>配置筛选、排序、投影或聚合后执行。成功空结果与执行失败分别呈现。</p></div>}
+          {failureEvidence&&<div className="object-set-failure-evidence" role="status">
+            <strong>失败证据已保留 · {failureEvidence.code}</strong>
+            <p>{failureEvidence.kind==='PAGE_REVALIDATION'?'后续页复核失败，旧对象/聚合载荷已停止展示。':'本次查询执行未完成，没有可用的结果载荷。'} {failureEvidence.serverConfirmed?'服务端失败响应已确认。':'未收到可确认的服务端响应，执行状态未知。'} 请重新执行查询获取新的执行证据。</p>
+            {failureEvidence.resultSnapshotRef&&<small>旧结果快照（仅证据，不含载荷） · {failureEvidence.resultSnapshotRef}</small>}
+            {failureEvidence.failedPageNumber&&<small>失败页码 · {failureEvidence.failedPageNumber}</small>}
+            {failureEvidence.executionId&&<small>executionId · {failureEvidence.executionId}</small>}
+            <small>失败原因 · {failureEvidence.message}</small>
+          </div>}
+          {error&&!result&&!failureEvidence&&<div className="object-set-empty failed"><ShieldAlert size={28}/><strong>查询未完成</strong><p>没有显示部分结果。来源状态、新鲜度或授权不确定时，系统不会将失败伪装为空集合。</p></div>}
           {result&&result.aggregate&&<div className="object-set-aggregate-result"><span>{result.aggregate.operation}{result.aggregate.propertyRef?'('+propertyLabel(result.aggregate.propertyRef)+')':''}</span><strong>{result.aggregate.value}</strong><small>匹配对象：{result.aggregate.matchedObjects} · {result.aggregate.valueType}</small></div>}
-          {result&&!result.aggregate&&<><div className="object-set-result-summary"><div><span>匹配对象总数</span><strong>{result.totalCount??0}</strong></div><div><span>当前页</span><strong>{result.pageNumber||1}</strong></div><div><span>每页条数</span><strong>{result.pageSize||pageSize}</strong></div></div>
+          {result&&!result.aggregate&&<><div className="object-set-result-summary"><div><span>匹配对象总数</span><strong>{result.totalCount??0}</strong></div><div><span>当前页 / 总页数</span><strong>{result.pageNumber||1} / {Math.max(1,Math.ceil((result.totalCount??0)/(result.pageSize||pageSize)))}</strong></div><div><span>每页条数</span><strong>{result.pageSize||pageSize}</strong></div></div>
             {(result.objects||[]).length===0?<div className="object-set-empty"><CheckCircle2 size={28}/><strong>查询成功 · 0 条结果</strong><p>这是准确的空结果，不是来源失败或权限错误。</p></div>:<div className="object-set-table-wrap"><table className="model-table"><thead><tr><th>ObjectRef</th>{project.map(ref=><th key={ref}>{propertyLabel(ref)}</th>)}</tr></thead><tbody>{(result.objects||[]).map(item=><tr key={item.objectRef.key.valueType+':'+item.objectRef.key.value}><td><code>{item.objectRef.key.value}</code><small>{item.objectRef.objectTypeId} · {item.objectRef.identityDomainId}</small></td>{project.map(ref=>{const value=item.properties.find(p=>p.propertyRef===ref);return <td key={ref}><span className={'object-set-value '+(value?.status||'MISSING').toLowerCase()}>{value?showValue(value):'未返回'}</span></td>;})}</tr>)}</tbody></table></div>}
             <div className="object-set-page-controls"><span>同一执行快照 · {result.resultSnapshotRef}</span><button className="model-btn primary" onClick={()=>void nextPage()} disabled={busy||!result.nextCursor}>{busy?'读取中…':'下一页 →'}</button></div>
           </>}
