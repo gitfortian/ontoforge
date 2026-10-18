@@ -171,7 +171,7 @@ public class DataBindingService {
         if (request.expectedRevision() != 0) {
             throw fail(400, "MALFORMED_REQUEST", "创建绑定时 expectedRevision 必须为 0", "expectedRevision");
         }
-        MappingContext context = context(request, auth, true);
+        MappingContext context = context(request, auth, true, false);
         authorization.requirePackage(auth, context.type().packageId(), B0AuthorizationService.Operation.WRITE_DRAFT);
         ValidationResult validation = validateContext(context);
         requireValid(validation);
@@ -212,7 +212,7 @@ public class DataBindingService {
         if (locked.currentRevision() != request.expectedRevision()) {
             throw fail(409, "BINDING_REVISION_CONFLICT", "绑定版本已被其他编辑更新；当前编辑未覆盖服务端版本", "expectedRevision");
         }
-        MappingContext context = context(request, auth, true);
+        MappingContext context = context(request, auth, true, false);
         if (!locked.packageId().equals(context.type().packageId())
                 || !locked.objectTypeId().equals(context.type().objectTypeId())) {
             throw fail(422, "INVALID_TYPE_REFERENCE", "新 revision 必须继续引用同一模型包和 ObjectType", "objectTypeId");
