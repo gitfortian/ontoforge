@@ -76,6 +76,14 @@ Native V0.2 候选包含 SemVer、sourceSchemaVersion 等不同字段。本合�
 
 **Prototype status:** Candidate for UX-Low review only. No UX sign-off, high-fidelity sign-off, runtime API, Flyway migration, or M5 implementation is implied. The standard workflow still requires review of this prototype, then a high-fidelity prototype and explicit sign-off before the production UI is developed.
 
+## UX-High Prototype Candidate
+
+[M5 Data Binding high-fidelity interactive prototype](../prototypes/m5-data-binding-highfi.html) refines the accepted UX-Low flow into a product-like workspace with a binding directory, empty state, five-step editor, typed mapping diagnostics, source and mapped-object previews, bounded validation, immutable revision save, read-only detail, and explicit new-revision flow when a binding already exists for the same ObjectType.
+
+The high-fidelity candidate also demonstrates source drift/unavailability recovery, identity-domain changes, duplicate-key and budget failures, save-time CAS conflict recovery, and unsaved-edit discard confirmation. Its dedicated Chromium tests are in [test_m5_binding_highfi_browser.py](../prototypes/tests/test_m5_binding_highfi_browser.py).
+
+**Status:** UX-Low accepted by [PR #60](https://github.com/gitfortian/ontoforge/pull/60); UX-High is a separate review candidate. The HTML and browser checks remain mocked; no runtime API, Flyway migration, real PostgreSQL validation, or production UI is implied. UX-High sign-off is required before M5 implementation begins.
+
 ## Proposed Changes
 
 ### 1. 用户流程与校验边界
