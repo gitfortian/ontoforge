@@ -330,6 +330,10 @@ public class DataBindingService {
 
     private List<ValidationIssue> inspectRows(MappingContext context, List<Map<String, Object>> rows) {
         List<ValidationIssue> issues = new ArrayList<>();
+        if (rows.isEmpty()) {
+            issues.add(new ValidationIssue("NO_SOURCE_ROWS", "来源表没有可用于校验的记录，不能将空样本判定为通过", "source"));
+            return issues;
+        }
         Set<String> seen = new HashSet<>();
         for (Map<String, Object> row : rows) {
             Object key = row.get(contextSourceKey(context));
@@ -445,7 +449,7 @@ public class DataBindingService {
                      ORDER BY tc.constraint_name, kcu.ordinal_position
                     """, (rs, rowNum) -> new KeyColumn(rs.getString(1), rs.getString(2),
                     rs.getString(3), rs.getInt(4)), schema, table);
-            return new SourceTable(sourceId, schema, table, fingerprint(sourceId, schema, table, columns, keys), columns);
+            return new SourceTable(sourceId, schema, table, columns, fingerprint(sourceId, schema, table, columns, keys));
         } catch (BindingFailure ex) {
             throw ex;
         } catch (DataAccessException ex) {
@@ -579,8 +583,8 @@ public class DataBindingService {
 
     private List<FieldMapping> readMappings(String source) {
         try {
-            return Arrays.asList(mapper.readValue(source,
-                    mapper.getTypeFactory().constructCollectionType(List.class, FieldMapping.class)).toArray(FieldMapping[]::new));
+            return mapper.readValue(source,
+                    mapper.getTypeFactory().constructCollectionType(List.class, FieldMapping.class));
         } catch (JsonProcessingException ex) {
             throw fail(500, "BINDING_STORAGE_INVALID", "绑定版本内容无法读取", "fieldMappings");
         }
@@ -632,7 +636,7 @@ public class DataBindingService {
         String data = column.dataType().toLowerCase(Locale.ROOT);
         String udt = column.udtName().toLowerCase(Locale.ROOT);
         return switch (type) {
-            case "STRING", "TEXT", "UUID" -> Set.of("text", "character varying", "character", "uuid", "name").contains(data);
+            case "STRING", "TEXT", "UUID" -> Set.of("text", "character varying", "character", "name").contains(data) || "uuid".equals(udt);
             case "INTEGER", "INT", "LONG" -> Set.of("smallint", "integer", "bigint").contains(data);
             case "DECIMAL", "NUMBER", "NUMERIC" -> Set.of("numeric", "decimal", "real", "double precision").contains(data);
             case "BOOLEAN", "BOOL" -> "boolean".equals(data);
