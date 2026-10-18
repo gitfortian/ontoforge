@@ -21,7 +21,7 @@
 >
 > **当前结论（2026-10-18）**：M4 Runtime Type Catalog（[PR #56](https://github.com/gitfortian/ontoforge/pull/56)）、M5 Data Binding（[PR #63](https://github.com/gitfortian/ontoforge/pull/63)）均已合并。M6 设计与 OFIP-0008 已签收/Accepted；[PR #68](https://github.com/gitfortian/ontoforge/pull/68) 交付了有界通用对象读取，[PR #71](https://github.com/gitfortian/ontoforge/pull/71) 修正了来源权限撤销与结构漂移的错误区分，两条 PR 的 Required Quality、真实 PG17 + API + React/Chromium 黄金故事及 S0 CI 均 PASS。M6 当前只覆盖一个登记只读 PostgreSQL 来源和按需读取，不是全量 Object Runtime；Windows 用户既有安装人工 UAT 仍待执行，产品 Release 未发布。
 
-> **最新可信的当前代码快照（2026-10-17）**：[已实现功能全景](./OntoForge-AS-IS-已实现功能全景-20261017.md)与[实际架构全景](./OntoForge-AS-IS-实际架构全景-20261017.md)。本文件后面 0.3/0.4、P0-B 的文本保留历史评审语境，不等于当前 main 最新状态。#34 脱敏 CSV 导入脚本已合并 main，但真实生产连接仍未实现。
+> **历史 AS-IS 基线（2026-10-17）**：[已实现功能全景](./OntoForge-AS-IS-已实现功能全景-20261017.md)与[实际架构全景](./OntoForge-AS-IS-实际架构全景-20261017.md)冻结于更早的代码基线，不能单独作为当前 main 的最新功能清单。M5/M6 的当前状态以本页顶部更新、下方 M5/M6 实施收口记录及对应合并 PR/CI 为准。本文其余 0.3/0.4、P0-B 段落保留历史评审语境；真实生产连接仍未实现。
 >
 ## 1. 五条产品成熟度边界：必须说清哪个 MVP
 
