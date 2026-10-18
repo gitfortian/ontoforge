@@ -63,6 +63,10 @@ class M5DataBindingLowFiBrowser(unittest.TestCase):
         self.preview_and_validate()
         self.assertIn("校验通过", self.page.locator("#validationResult").inner_text())
         self.assertIn("248 行", self.page.locator("#validationResult").inner_text())
+        self.assertTrue(self.page.locator("#mappedPreviewTableWrap").is_visible())
+        self.assertIn("supplierCode ← vendor_code", self.page.locator("#mappedPreviewHead").inner_text())
+        self.assertEqual(self.page.locator("#mappedPreviewRows tr").count(), 3)
+        self.assertEqual(self.page.locator("#mappedPreviewRows tr").first.inner_text(), "V-1001北辰精密4.70true")
         self.page.get_by_role("button", name="继续：保存绑定").click()
         self.page.get_by_role("heading", name="5. 保存并重新打开").wait_for()
         self.page.get_by_role("button", name="保存绑定").click()
@@ -77,6 +81,18 @@ class M5DataBindingLowFiBrowser(unittest.TestCase):
         self.page.get_by_role("button", name="预览映射").click()
         self.assertIn("UNSUPPORTED_MAPPING_TYPE", self.page.locator("#mappingMessage").inner_text())
         self.assertIn("主键类型不兼容", self.page.locator("#mappingMessage").inner_text())
+        self.assertTrue(self.page.locator("#step3").is_visible())
+
+    def test_property_type_mismatch_and_minimum_attribute_count_are_rejected(self):
+        self.to_mapping()
+        self.page.locator("#mapRating").select_option("vendor_code")
+        self.page.get_by_role("button", name="预览映射").click()
+        self.assertIn("UNSUPPORTED_MAPPING_TYPE", self.page.locator("#mappingMessage").inner_text())
+        self.page.locator("#mapRating").select_option("rating")
+        self.page.locator("#mapName").select_option("")
+        self.page.locator("#mapActive").select_option("")
+        self.page.get_by_role("button", name="预览映射").click()
+        self.assertIn("至少映射两个属性", self.page.locator("#mappingMessage").inner_text())
         self.assertTrue(self.page.locator("#step3").is_visible())
 
     def test_source_unavailable_does_not_look_like_empty_success(self):
