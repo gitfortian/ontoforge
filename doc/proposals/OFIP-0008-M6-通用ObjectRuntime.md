@@ -154,6 +154,14 @@ Object Runtime 消费模型和绑定，把 SourceFact 按版本投影为对象�
 4. **MIN/首行/最新行自动消冲突**：来源没有已批准的权威/时间选择合同；冲突必须可见且安全拒绝。
 5. **先建全量通用 Object Store**：当前单 PG 按键读取已有实际来源，复制增加刷新和一致性成本；先按需虚拟读取。
 
+## UX-Low Prototype Candidate（2026-10-18）
+
+- 原型：[M6 Object Runtime UX-Low](../prototypes/m6-object-runtime-lowfi.html)
+- 评审说明：[M6 UX-Low 原型评审说明](../implementation/M6-ObjectRuntime-UX-Low评审说明.md)
+- Chromium 交互回归：`doc.prototypes.tests.test_m6_object_runtime_lowfi_browser`，由 [M6 UX-Low Browser Review workflow](../../.github/workflows/m6-object-runtime-lowfi-browser.yml) 执行。
+- 当前仅为 UX-Low 候选；交互测试使用 Mock，不证明 Runtime API、PostgreSQL、权限或生产代码已实现。
+- 仍须完成产品评审与 UX-Low 签收，之后再制作高保真原型并单独签收；未获维护者显式 `[VOTE] Accepted` 前，不启动 M6 生产 Java/React/Flyway 实施。
+
 ---
 
 **Decision Gate:** Discussion 不授权实施。维护者须在提案 PR 显式记录 `[VOTE] Accepted` / `Rejected` 与决定链接；代码合并、CI 或评论不替代设计和实际验收。
