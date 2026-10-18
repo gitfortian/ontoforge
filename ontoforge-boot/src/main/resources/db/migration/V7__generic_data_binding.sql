@@ -76,12 +76,12 @@ INSERT INTO m5_supplier_source(vendor_code, alternate_code, sequence_no, name, r
 
 -- Group role contains only read privileges for the explicit M5 fixture.
 -- A separate LOGIN role is provisioned by scripts/provision-m5-source-reader.ps1.
-DO $m5_role$
+DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ontoforge_binding_reader') THEN
-        CREATE ROLE ontoforge_binding_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+        CREATE ROLE ontoforge_binding_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
     END IF;
-    ALTER ROLE ontoforge_binding_reader WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+    ALTER ROLE ontoforge_binding_reader WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
     IF EXISTS (
         SELECT 1
           FROM pg_auth_members membership
@@ -90,12 +90,19 @@ BEGIN
     ) THEN
         RAISE EXCEPTION 'ontoforge_binding_reader must not be a member of any other role';
     END IF;
-END $m5_role$;
+END $$;
+
 -- Reconcile the dedicated group to schema USAGE and fixture SELECT only.
-REVOKE ALL PRIVILEGES ON SCHEMA ${flyway:defaultSchema} FROM ontoforge_binding_reader;
-REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${flyway:defaultSchema} FROM ontoforge_binding_reader;
-REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA ${flyway:defaultSchema} FROM ontoforge_binding_reader;
-GRANT USAGE ON SCHEMA ${flyway:defaultSchema} TO ontoforge_binding_reader;
-GRANT SELECT ON TABLE ${flyway:defaultSchema}.m5_supplier_source TO ontoforge_binding_reader;
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-    ON TABLE ${flyway:defaultSchema}.m5_supplier_source FROM ontoforge_binding_reader;
+-- current_schema() resolves to Flyway's configured default schema, including
+-- isolated migration-upgrade tests; avoid relying on Flyway-specific placeholders.
+DO $$
+DECLARE
+    target_schema TEXT := current_schema();
+BEGIN
+    EXECUTE format('REVOKE ALL PRIVILEGES ON SCHEMA %I FROM ontoforge_binding_reader', target_schema);
+    EXECUTE format('REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA %I FROM ontoforge_binding_reader', target_schema);
+    EXECUTE format('REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA %I FROM ontoforge_binding_reader', target_schema);
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO ontoforge_binding_reader', target_schema);
+    EXECUTE format('GRANT SELECT ON TABLE %I.m5_supplier_source TO ontoforge_binding_reader', target_schema);
+    EXECUTE format('REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE %I.m5_supplier_source FROM ontoforge_binding_reader', target_schema);
+END $$;
