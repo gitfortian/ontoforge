@@ -170,6 +170,7 @@ public class DataBindingService {
             throw fail(400, "MALFORMED_REQUEST", "创建绑定时 expectedRevision 必须为 0", "expectedRevision");
         }
         MappingContext context = context(request, auth, true);
+        authorization.requirePackage(auth, context.type().packageId(), B0AuthorizationService.Operation.WRITE_DRAFT);
         ValidationResult validation = validateContext(context);
         requireValid(validation);
         UUID bindingId = UUID.randomUUID();
