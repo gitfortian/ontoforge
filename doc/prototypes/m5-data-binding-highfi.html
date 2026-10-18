@@ -176,7 +176,7 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
   {id:'active',label:'active',type:'BOOLEAN',map:'mapActive',status:'activeTypeStatus',expected:'boolean'}
  ];
  const columnTypes={vendor_code:'text',name:'text',rating:'numeric',is_active:'boolean'};
- const state={view:'list',step:1,scenario:'normal',bindings:[],current:null,editing:false,baseRevision:0,validated:false,previewed:false};
+ const state={view:'list',step:1,scenario:'normal',bindings:[],current:null,editing:false,baseRevision:0,validated:false,previewed:false,dirty:false};
  function showView(name){state.view=name;$('listView').classList.toggle('hidden',name!=='list');$('wizardView').classList.toggle('hidden',name!=='wizard');$('detailView').classList.toggle('hidden',name!=='detail');}
  function setNotice(el,kind,title,body){el.className='notice'+(kind?' '+kind:'');el.innerHTML='<span class="notice-mark">'+(kind==='error'?'!':kind==='success'?'✓':'i')+'</span><div><strong>'+title+'</strong><span>'+body+'</span></div>';}
  function setStep(n){
@@ -206,7 +206,7 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
  }
  function startNewBinding(id){
   const existing=id?state.bindings.find(b=>b.id===id):state.bindings.find(b=>b.typeId==='supplier');
-  state.current=existing||null;state.editing=!!existing;state.baseRevision=existing?existing.revision:0;
+  state.current=existing||null;state.editing=!!existing;state.baseRevision=existing?existing.revision:0;state.dirty=false;
   $('wizardTitle').textContent=existing?'创建绑定新版本':'创建数据绑定';$('wizardSubtitle').textContent=existing?'在当前绑定基础上编辑；保存时创建新的不可变 revision。':'完成来源绑定、类型映射与校验，再保存不可变版本。';
   $('existingBindingNotice').classList.toggle('hidden',!existing);
   $('existingBindingText').textContent=existing?'当前绑定 '+existing.id+' · revision '+existing.revision+'。保存会创建 revision '+(existing.revision+1)+'，不会产生第二条当前绑定。':'';
@@ -232,11 +232,11 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
  function goList(){showView('list');updateList();}
  document.querySelectorAll('[data-step]').forEach(btn=>btn.addEventListener('click',()=>{const n=Number(btn.dataset.step);if(n<=state.step)setStep(n);}));
  $('createBinding').addEventListener('click',()=>startNewBinding());$('emptyCreate').addEventListener('click',()=>startNewBinding());$('refreshList').addEventListener('click',updateList);$('navBindings').addEventListener('click',goList);
- $('cancelWizard').addEventListener('click',goList);$('returnList').addEventListener('click',goList);$('detailBack').addEventListener('click',goList);$('newRevision').addEventListener('click',()=>startNewBinding(state.current&&state.current.id));
+ $('cancelWizard').addEventListener('click',()=>{if(state.dirty&&!window.confirm('当前编辑尚未保存。确定放弃本次编辑并返回绑定目录吗？'))return;goList();});$('returnList').addEventListener('click',goList);$('detailBack').addEventListener('click',goList);$('newRevision').addEventListener('click',()=>startNewBinding(state.current&&state.current.id));
  $('to2').addEventListener('click',()=>setStep(2));$('back1').addEventListener('click',()=>setStep(1));$('to3').addEventListener('click',()=>setStep(3));$('back2').addEventListener('click',()=>setStep(2));$('back3').addEventListener('click',()=>setStep(3));$('back4').addEventListener('click',()=>setStep(4));
  $('rediscoverSource').addEventListener('click',()=>{$('demoScenario').value='normal';$('fingerprint').textContent='schema: demo_supplier@f1c3…a62e';resetValidation();setNotice($('sourceDiscoveryState'),'success','来源结构已重新发现','请复核最新列清单，再重新确认映射。系统不会按同名列自动重绑。');$('sourceDiscoveryState').classList.remove('hidden');});
- $('mapPk').addEventListener('change',()=>{refreshMappingStatus();resetValidation();});['mapName','mapRating','mapActive'].forEach(id=>$(id).addEventListener('change',()=>{refreshMappingStatus();resetValidation();}));
- $('resetMapping').addEventListener('click',()=>{$('mapPk').value='vendor_code';$('mapName').value='name';$('mapRating').value='rating';$('mapActive').value='is_active';refreshMappingStatus();clearMappingMessage();resetValidation();});
+ $('mapPk').addEventListener('change',()=>{state.dirty=true;refreshMappingStatus();resetValidation();});['mapName','mapRating','mapActive'].forEach(id=>$(id).addEventListener('change',()=>{state.dirty=true;refreshMappingStatus();resetValidation();}));['snapshot','sourceId','sourceTable'].forEach(id=>$(id).addEventListener('change',()=>{state.dirty=true;resetValidation();}));
+ $('resetMapping').addEventListener('click',()=>{state.dirty=true;$('mapPk').value='vendor_code';$('mapName').value='name';$('mapRating').value='rating';$('mapActive').value='is_active';refreshMappingStatus();clearMappingMessage();resetValidation();});
  $('to4').addEventListener('click',()=>{
   clearMappingMessage();refreshMappingStatus();const mappings=selectedMappings();const key=$('mapPk').value;
   if(!key||columnTypes[key]!=='text'){setNotice($('mappingMessage'),'error','主键映射不兼容 · UNSUPPORTED_MAPPING_TYPE','supplierCode 是 STRING 主键；请选择 text 来源键。不能把 numeric 或 boolean 隐式转换为字符串。');$('mappingMessage').classList.remove('hidden');return;}
@@ -276,14 +276,11 @@ main{max-width:1450px;margin:0 auto;padding:28px 30px 44px}.page-head{display:fl
  });
  $('loadLatest').addEventListener('click',()=>{
   let b=state.current||state.bindings.find(x=>x.typeId==='supplier');
-  if(!b){b={id:'binding-supplier-01',typeId:'supplier',snapshot:$('snapshot').value,sourceId:$('sourceId').value,table:$('sourceTable').value,revision:1,status:'VALID',identityDomain:identityDomain(),mappings:{supplierCode:'vendor_code',supplierName:'name',rating:'rating',active:'is_active'},mappingsList:props.map(p=>({propertyId:p.id,label:p.label,type:p.type,sourceColumn:$('mapPk').value})),checkedRows:248};state.bindings.push(b);}
+  if(!b){b={id:'binding-supplier-01',typeId:'supplier',snapshot:$('snapshot').value,sourceId:$('sourceId').value,table:$('sourceTable').value,revision:1,status:'VALID',identityDomain:identityDomain(),mappings:{supplierCode:'vendor_code',supplierName:'name',rating:'rating',active:'is_active'},mappingsList:props.map(p=>({propertyId:p.id,label:p.label,type:p.type,sourceColumn:({supplierCode:'vendor_code',supplierName:'name',rating:'rating',active:'is_active'})[p.id]})),checkedRows:248};state.bindings.push(b);}
   else b.revision+=1;
   state.current=b;state.editing=true;state.baseRevision=b.revision;state.validated=false;$('demoScenario').value='normal';state.scenario='normal';resetValidation();setNotice($('saveState'),'','已载入最新版本','当前服务器 revision '+b.revision+' 已载入。请重新读取样本、校验后再保存下一版。');$('casRecovery').classList.add('hidden');updateList();setStep(4);
  });
  $('openSaved').addEventListener('click',()=>{if(state.current)openDetail(state.current.id);});
- $('detailBack').addEventListener('click',goList);
- $('newRevision').addEventListener('click',()=>{if(state.current)startNewBinding(state.current.id);});
- $('returnList').addEventListener('click',goList);
  refreshMappingStatus();updateList();showView('list');setStep(1);
 })();
 </script>
