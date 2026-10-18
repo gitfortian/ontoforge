@@ -77,7 +77,7 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
 
   async function loadBindings(pkg=packageInput){
     const generation=++operationGeneration.current;
-    if(!pkg.trim()){setListError({code:'PACKAGE_REQUIRED',message:'请输入模型包 ID。'});setBindings([]);return;}
+    if(!pkg.trim()){setLoadingBindings(false);setListError({code:'PACKAGE_REQUIRED',message:'请输入模型包 ID。'});setBindings([]);return;}
     setLoadingBindings(true);setListError(null);setBindings([]);setBinding(null);setDescriptor(null);clearResultState();
     try{
       const rows=await request<BindingSummary[]>(API+'/bindings?packageId='+encodeURIComponent(pkg.trim()));
@@ -137,10 +137,13 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
   }
   function addSort(){
     if(sorts.length>=3)return;
-    const used=new Set(sorts.map(s=>s.propertyRef));
-    const available=sortableProperties.find(p=>!used.has(p.id));
-    if(!available)return;
-    setSorts(old=>[...old,{id:Math.max(0,...old.map(s=>s.id))+1,propertyRef:available.id,direction:'ASC'}]);
+    setSorts(old=>{
+      if(old.length>=3)return old;
+      const used=new Set(old.map(s=>s.propertyRef));
+      const available=sortableProperties.find(p=>!used.has(p.id));
+      if(!available)return old;
+      return [...old,{id:Math.max(0,...old.map(s=>s.id))+1,propertyRef:available.id,direction:'ASC'}];
+    });
     clearResultState();
   }
   function buildSteps(){
@@ -270,7 +273,7 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
           {!result&&!error&&!failureEvidence&&<div className="object-set-empty"><Database size={30}/><strong>等待执行查询</strong><p>配置筛选、排序、投影或聚合后执行。成功空结果与执行失败分别呈现。</p></div>}
           {failureEvidence&&<div className="object-set-failure-evidence" role="status">
             <strong>失败证据已保留 · {failureEvidence.code}</strong>
-            <p>{failureEvidence.kind==='PAGE_REVALIDATION'?'后续页复核失败，旧对象/聚合载荷已停止展示。':'本次查询执行未完成，没有可用的结果载荷。'} {failureEvidence.serverConfirmed?'服务端失败响应已确认。':'未收到可确认的服务端响应，执行状态未知。'} 请重新执行查询获取新的执行证据。</p>
+            <p>{failureEvidence.kind==='PAGE_REVALIDATION'?'后续页复核失败，旧对象/聚合载荷已停止展示。':'本次查询执行未完成，没有可用的结果载荷。'} {failureEvidence.serverConfirmed?'服务端失败响应已确认。':'未收到可确认的服务端失败响应，执行状态未知。'} 请重新执行查询获取新的执行证据。</p>
             {failureEvidence.resultSnapshotRef&&<small>旧结果快照（仅证据，不含载荷） · {failureEvidence.resultSnapshotRef}</small>}
             {failureEvidence.failedPageNumber&&<small>失败页码 · {failureEvidence.failedPageNumber}</small>}
             {failureEvidence.executionId&&<small>executionId · {failureEvidence.executionId}</small>}
