@@ -47,7 +47,7 @@ class DataBindingIntegrationTest {
 
     @LocalServerPort int port;
     @Autowired TestRestTemplate http;
-    @Autowired JdbcTemplate jdbc;
+    @Autowired @Qualifier("jdbcTemplate") JdbcTemplate jdbc;
     @Autowired @Qualifier("bindingSourceJdbcTemplate") JdbcTemplate sourceJdbc;
     @Autowired ObjectMapper mapper;
     @Autowired NativeDraftService drafts;
