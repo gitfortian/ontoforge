@@ -137,6 +137,11 @@ class LocalQueryV1ContractTest(unittest.TestCase):
         query["steps"][0]["conditions"] = query["steps"][0]["conditions"] * 9
         self.assertFalse(valid(self.query_validator, query))
 
+    def test_page_request_schema_accepts_server_cursor_length(self):
+        page_validator = Draft202012Validator(QUERY_SCHEMA["$defs"]["pageRequest"], format_checker=FORMATS)
+        self.assertTrue(valid(page_validator, {"cursor": "cursor:v1:" + "a" * 240}))
+        self.assertFalse(valid(page_validator, {"cursor": "x" * 513}))
+
     def test_result_schema_accepts_page_aggregate_and_unknown_freshness(self):
         page = result_base()
         page.update({"objects": [], "totalCount": 0, "pageSize": 25, "pageNumber": 1})
