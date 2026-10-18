@@ -1,18 +1,18 @@
 # OFIP-0009：M7 通用 ObjectSet AST 与有界查询执行
 
-**Status:** Discussion
+**Status:** Accepted
 
 **Discussion:** [PR #58 — [DISCUSS][OFIP-0007–0016] M5-M14 需求 Review 与方案设计](https://github.com/gitfortian/ontoforge/pull/58)
 
-**Decision:** Pending（等待维护者显式决策及 permalink）
+**Decision:** Accepted — 维护者于 2026-10-18 在 [PR #58 决策评论](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6248979717) 显式记录 `[VOTE] Accepted`
 
-**Implementation:** Not Started
+**Implementation:** In Progress — [PR #75 通用 ObjectSet 查询纵向交付](https://github.com/gitfortian/ontoforge/pull/75)（真实生产验收尚未完成）
 
 **Release:** Not Released
 
 **Related:** [M7 #46](https://github.com/gitfortian/ontoforge/issues/46) · [M3 #39](https://github.com/gitfortian/ontoforge/issues/39) · [OFIP-0007](./OFIP-0007-M5-通用DataBinding.md) · [OFIP-0008](./OFIP-0008-M6-通用ObjectRuntime.md) · [OFIP-0001](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2 候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md)
 
-> 2026-10-18 基于 main `29cb194a706ee1785c0f40ef6ddf982493205383` 重新核对的设计候选。M6 PR #68/#71 已合并并通过合并后 S0/Required Quality；这更新了 M7 前置状态，不改变本提案 Decision Pending、Implementation Not Started 的状态。通用查询仍未实施；现有 M2/M3 的真实受限查询继续有效，不能把本提案当成重做全部查询的授权。
+> 2026-10-18 基于 main `29cb194a706ee1785c0f40ef6ddf982493205383` 重新核对的设计候选。M6 PR #68/#71 已合并并通过合并后 S0/Required Quality。维护者已在 [PR #58 决策评论](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6248979717) 显式 Accepted；M7 生产纵向交付正在 [PR #75](https://github.com/gitfortian/ontoforge/pull/75) 实施，尚未完成验收或发布。现有 M2/M3 的真实受限查询继续有效，不能把本提案当成重做全部查询的授权。
 
 ## Re-review after M6 implementation (2026-10-18)
 
@@ -27,7 +27,7 @@ M6 的有界 Object Runtime 已通过 [PR #68](https://github.com/gitfortian/ont
 
 ### UX-Low prototype candidate
 
-[M7 UX-Low review note](../implementation/M7-ObjectSet-UX-Low评审说明.md) 和 [static prototype](../prototypes/m7-objectset-lowfi.html) 用于验证用户流程与失败恢复。它们只作为原型，不证明查询运行时已实现。UX-Low 尚待产品所有者签收；随后需 UX-High 独立评审。OFIP-0009 仍需维护者显式 `[VOTE] Accepted` 后才允许生产实现。
+[M7 UX-Low review note](../implementation/M7-ObjectSet-UX-Low评审说明.md) 和 [static prototype](../prototypes/m7-objectset-lowfi.html) 验证了用户流程与失败恢复；产品所有者已于 2026-10-18 明确签收 UX-Low 与 UX-High（[PR #74](https://github.com/gitfortian/ontoforge/pull/74)）。该签收不代替正式决策；OFIP-0009 已由维护者 Accepted，生产实现正在 [PR #75](https://github.com/gitfortian/ontoforge/pull/75) 中进行，真实 PG17/API/React-Chromium 验收仍须通过。
 
 ## Motivation
 
@@ -163,4 +163,4 @@ M9 收敛 SourceReadEvidence、漂移和留存策略；本 M 已提供真实读�
 
 ---
 
-**Decision Gate:** Discussion 不授权实施。维护者须在提案 PR 显式记录 `[VOTE] Accepted` / `Rejected` 与决定链接；PR合并、CI和Issue评论不替代该决定。
+**Decision Gate:** Accepted。正式维护者投票 permalink：[PR #58 #issuecomment-6248979717](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6248979717)。生产实现由 [PR #75](https://github.com/gitfortian/ontoforge/pull/75) 承担；其合并、生产验收和 Release 分别记账，CI PASS 不自动代表发布。
