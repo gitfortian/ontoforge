@@ -724,7 +724,8 @@ public class ObjectSetQueryService {
             }
             if (!"PRESENT".equals(value.status())) return false;
             if ("IN".equals(condition.operator())) {
-                boolean found = condition.literals().stream().anyMatch(l -> compareValues(value.valueType(), value.value(), l.value()) == 0);
+                TypedValue selectedValue = value;
+                boolean found = condition.literals().stream().anyMatch(l -> compareValues(selectedValue.valueType(), selectedValue.value(), l.value()) == 0);
                 if (!found) return false;
             } else {
                 Object literal = condition.literals().getFirst().value();
