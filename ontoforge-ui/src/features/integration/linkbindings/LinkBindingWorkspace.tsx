@@ -164,6 +164,7 @@ export default function LinkBindingWorkspace({route,navigate,onDirtyChange}:{rou
     finally{setBusy(false);}
   }
   async function query(){
+    if(dirty){setError('仍有未保存的关系绑定草稿；请先 FULL 校验保存，或重新打开已保存修订后再执行。');return;}
     if(!revision||!selectedRoot||!selectedDestination||!rootValue.trim())return;
     setBusy(true);setError('');setResult(null);
     try{
@@ -230,7 +231,8 @@ export default function LinkBindingWorkspace({route,navigate,onDirtyChange}:{rou
       <header className="model-panel-head"><div><h2>04 · OUT / IN 一跳实例查询</h2><p>始终使用已持久化 revision，不使用页面未保存的 FK 草稿。</p></div><GitBranch size={17}/></header>
       <div className="link-three-col"><label>方向<select value={direction} onChange={e=>{setDirection(e.target.value as 'OUT'|'IN');setResult(null);}}><option value="OUT">OUT · SOURCE → TARGET</option><option value="IN">IN · TARGET → SOURCE</option></select></label>
         <label>根对象身份值<input value={rootValue} onChange={e=>setRootValue(e.target.value)} placeholder="例如 EQ-001 或 LOT-11"/></label>
-        <div className="link-query-go"><button className="model-btn primary" disabled={busy||!rootValue.trim()} onClick={()=>void query()}>查询真实一跳</button></div></div>
+        <div className="link-query-go"><button className="model-btn primary" disabled={busy||dirty||!rootValue.trim()} onClick={()=>void query()}>查询真实一跳</button></div></div>
+      {dirty&&<div className="link-tip">未保存的 FK/端点版本不能直接执行。保存后使用新 revision，或重开原有不可变 revision 再查询。</div>}
       <div className="link-tip">当前根端点：{selectedRoot?.objectTypeId||'—'} · {selectedRoot?.identityDomainId.slice(0,8)||'—'}；输出 {selectedDestination?.objectTypeId||'—'}。root ObjectRef 的身份与查询方向由后端验证。</div>
       {result&&<><div className={'link-quality '+(result.quality.completeness==='PARTIAL'?'warn':'good')}><b>{result.status} / {result.quality.completeness}</b><span>对象 {result.objectCount} · LinkFact {result.linkCount} · 路径 {result.pathCount} · 当前页 {result.pageNumber}</span><small>answerScope {result.quality.answerScope} · 已知孤儿 {result.quality.knownOrphanCount}</small></div>
         {result.objects.length===0?<div className="model-empty compact">本次根作用域无关联对象（与查询失败不同）。</div>:<div className="link-result-list">{result.objects.map((item,i)=><div key={i} className="link-result-item"><strong>{keyOf(item.objectRef)}</strong><small>{item.objectRef.packageId} · {item.objectRef.key.valueType}</small></div>)}</div>}
