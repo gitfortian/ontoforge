@@ -213,6 +213,14 @@ M8 主 Issue 作为上述切片的验收汇总；M8.1 完成只能勾选首切�
 
 **实施前高保证准入及 L01–L18 验收矩阵：** [M8.1 实施前审查](../implementation/M8-1-实施前高保证审查与纵向交付验收矩阵.md)。该审查列明真实 `main@86da1c71` 的 M5/M7/Native/Security/React/Flyway V7 可复用责任，以及 LinkBinding 与 Traverse 缺口；无任何生产代码在本次决策 PR 中修改。
 
+### 第二轮复核后，请维护者在 M8-D2 / M8-D4 中确认两项细节
+
+**IDEMPOTENCY（P1）**：已签收的 UX 支持“修改已有 revision 后保存结果 UNKNOWN → 用幂等键恢复”，但当前 R2 结构化请求仅在创建 `expectedRevision=0` 时必需 `idempotencyKey`；更新若省略，在服务端成功写入但响应丢失后，仅重试原 CAS 可能错误返回 409。建议强制 CREATE/UPDATE 都绑定操作级 idempotencyKey + 规范化请求 digest，应用数据库中随 revision 原子写入；同键同 body 恢复原结果、同键不同 body 安全 409。若不采用此方案，维护者应写出可证明等价的 UPDATE UNKNOWN 恢复策略，并覆盖跨 package 与服务重启后恢复的负例。
+
+**IDENTITY（P1）**：不同 ObjectType 的 `identityDomainId` 正常可以不同，绝不能以「两端 domain 不相等」拒绝合法 LinkFact。身份域参与每个端点完整 `ObjectRef` 的相等、版本、去重；而 FK JOIN 判断依赖受控来源实际 FK 对另一端受控 sourceKey 的**严格类型兼容值等价**，并且 source/target ObjectType 与 LinkType 声明一致。相同 key 文本不能自动让两个对象 Ref 相等，但也不能禁止确有外键事实的跨类型关系。保存及执行均须有 PG 真实负例。
+
+详细取舍与精确测试期望列于 [M8.1 高保证实施前审查 §3.1](../implementation/M8-1-实施前高保证审查与纵向交付验收矩阵.md)。两项只补足已批准方向的风险边界，**未修改**尚未生效的生产 Schema、REST 或 DB；如果维护者认为构成 R2 实质改变，应退回产品/架构复议，而不是静默推进。
+
 ### 治理操作说明
 
 维护者须在本次 **OFIP-0010 独立决策 PR** 留下可追溯、带理由和日期的明确 `[VOTE] Accepted` / `Rejected` / `Request changes`，**至少覆盖以上 M8-D1–D8 与 M8.1 单阶段边界**。投票真实存在后，再将其 permalink 回填本文件的 `Decision`，变更 `Status` 并按独立流程合并 Accepted 设计。**不得代维护者投票或在其缺席时合并为 Accepted。**
