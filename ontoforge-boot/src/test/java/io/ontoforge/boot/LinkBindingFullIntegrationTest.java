@@ -536,6 +536,46 @@ class LinkBindingFullIntegrationTest {
         ((ObjectNode) stringDepth.withArray("steps").get(0)).put("maxDepth", "1");
         assertThat(traverse(stringDepth).getStatusCode().value()).isEqualTo(422);
 
+        // L15-L16: real near-ceiling fanout, below the combined 10,000-row
+        // physical read budget. Never treat PAGE 50 as a reason to truncate
+        // join candidates before enforcement. A PostgreSQL ANALYZE plan is
+        // evaluated against the same SELECT-only source privilege as M8.
+        jdbc.execute("INSERT INTO public." + INSPECTION
+                + " SELECT 'CEIL-' || lpad(g::text,5,'0'), 'EQ-001', 'PASS', 1.00"
+                + " FROM generate_series(1,9800) AS g");
+        try {
+            jdbc.execute("ANALYZE public." + INSPECTION);
+            String explained = sourceJdbc.queryForObject("""
+                    EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+                    SELECT t.lot_code
+                      FROM public.m8_equipment_source e
+                      JOIN public.m8_inspection_source t
+                        ON t.equipment_code=e.equipment_code
+                     WHERE e.equipment_code='EQ-001'
+                    """, String.class);
+            JsonNode plan = mapper.readTree(explained).get(0);
+            assertThat(plan.path("Plan").path("Actual Rows").asInt())
+                    .as("EXPLAIN must observe all 9,800 new edges and two original matches")
+                    .isEqualTo(9802);
+            assertThat(plan.path("Execution Time").asDouble())
+                    .as("SQL-side measured PG17 execution should respect the 3-second limit")
+                    .isLessThan(3000.0);
+            ObjectNode nearingLimit = traverseRequest(pkg, snapshotId, equipment, lot, id,
+                    "equipment-inspections", "OUT", "EQ-001", 50);
+            nearingLimit.putObject("limits").put("maxJoinCandidates", 9000);
+            ResponseEntity<String> rejected = traverse(nearingLimit);
+            assertThat(rejected.getStatusCode().value())
+                    .as(rejected.getBody()).isEqualTo(429);
+            assertThat(rejected.getBody()).contains("QUERY_BUDGET_EXCEEDED");
+            JsonNode denied = mapper.readTree(rejected.getBody());
+            assertThat(denied.has("objects")).isFalse();
+            assertThat(denied.has("links")).isFalse();
+            assertThat(denied.has("nextCursor")).isFalse();
+        } finally {
+            jdbc.execute("DELETE FROM public." + INSPECTION
+                    + " WHERE lot_code LIKE 'CEIL-%'");
+        }
+
         ResponseEntity<String> replay = post("", request);
         assertThat(replay.getStatusCode().value()).as(replay.getBody()).isEqualTo(201);
         assertThat(mapper.readTree(replay.getBody()).path("linkBindingId").asText()).isEqualTo(id);
