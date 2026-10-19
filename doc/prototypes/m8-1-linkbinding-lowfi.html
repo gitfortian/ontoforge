@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OntoForge · M8.1 关联实例来源与一跳查询 · UX-Low</title>
+<style>
+:root{font:14px/1.55 system-ui,-apple-system,"Microsoft YaHei",sans-serif;color:#273442;background:#f5f6f7;--line:#cbd0d5;--ink:#273442;--muted:#62707b;--surface:#fff;--nav:#e7eaec}
+*{box-sizing:border-box}body{margin:0}button,select,input{font:inherit;color:inherit}button{cursor:pointer;border:1px solid #919da7;border-radius:4px;background:white;padding:8px 13px;min-height:36px}button:disabled{opacity:.48;cursor:not-allowed}button.primary{background:#364450;color:#fff;border-color:#364450}button.active{background:#d9e0e5;font-weight:700}button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #68839b;outline-offset:2px}input,select{width:100%;padding:9px;border:1px solid #a7b2ba;border-radius:4px;background:white;min-height:38px}label{display:block;color:#394954;font-weight:600;margin:0 0 6px}.small{font-size:12px;color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.top{background:white;border-bottom:1px solid var(--line);padding:15px 30px;display:flex;gap:18px;align-items:center;justify-content:space-between}.brand{font-weight:750;font-size:17px}.topmeta{color:var(--muted);font-size:12px}.shell{display:grid;grid-template-columns:224px minmax(0,1fr);min-height:calc(100vh - 67px)}nav{background:var(--nav);border-right:1px solid var(--line);padding:20px 12px}nav h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin:4px 10px 18px;color:#596974}nav button{display:block;width:100%;border:0;background:transparent;text-align:left;padding:11px 13px;border-radius:5px;font-weight:550;margin-bottom:4px}nav button[aria-current=page]{background:#fff;border:1px solid var(--line);font-weight:700}main{max-width:1500px;width:100%;padding:22px 28px 50px;margin:auto}.crumb{font-size:12px;color:var(--muted);margin:0 0 10px}.heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}.heading h1{margin:0 0 5px;font-size:23px}.heading p{margin:0;color:var(--muted)}.tag{display:inline-block;border:1px solid #a9b3bb;border-radius:12px;padding:2px 10px;background:#f0f2f3;font-size:11px;font-weight:600;color:#4d5d68}.tag.strong{border-color:#5d707d;background:#e5eaee;color:#324753}.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:22px 0}.summary>div,.panel{border:1px solid var(--line);background:var(--surface);border-radius:5px}.summary>div{padding:11px 14px}.summary b{display:block;font-size:12px;margin-bottom:2px}.summary span{font-size:12px;color:#62707b}.tabs{display:flex;gap:7px;flex-wrap:wrap;margin:18px 0}.tabs button{background:#eef1f3;border:1px solid var(--line);font-weight:600}.tabs button[aria-selected=true]{background:white;border-bottom:3px solid #445664}.panel{padding:20px;margin-bottom:16px}.panel h2{font-size:17px;margin:0 0 8px}.panel h3{font-size:14px;margin:14px 0 10px}.panel p{margin:7px 0}.steps{display:flex;flex-wrap:wrap;gap:6px;padding:0;margin:0 0 17px;list-style:none}.steps li{background:#f0f2f4;border:1px solid var(--line);border-radius:4px;padding:7px 10px;font-size:12px}.steps li.current{border-color:#5d6f7a;font-weight:700;background:#dfe5e9}.columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.field{min-width:0}.field.span{grid-column:1/-1}.foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:17px;padding-top:16px;border-top:1px solid var(--line)}.status{padding:12px 14px;border:1px solid #bbc4cb;background:#f4f5f6;margin-top:12px;border-radius:4px}.status.error{border-left:4px solid #8c6666}.status.success{border-left:4px solid #587260}.status.warning{border-left:4px solid #a28156}.status strong{display:block;margin-bottom:5px}.status[hidden],[hidden]{display:none!important}.data{border-collapse:collapse;width:100%;font-size:12px}.data th,.data td{border-bottom:1px solid #dbe0e3;padding:9px 10px;text-align:left;vertical-align:top}.data th{background:#edf0f1}.empty{border:1px dashed #b3bdc3;padding:20px;text-align:center;color:var(--muted);border-radius:5px}.link-note{border-left:3px solid #81919d;padding:9px 13px;background:#f5f7f8;margin:13px 0;font-size:12px}.hint{color:#596e7a;font-size:12px}.break{overflow-wrap:anywhere}.evidence{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.evidence div{padding:10px;border:1px solid var(--line);background:#fafbfb}.evidence b{font-size:12px;display:block}.evidence span{font-size:12px;color:#51616b}.quality{display:flex;gap:8px;flex-wrap:wrap}.quality span{padding:6px 9px;border:1px solid #c6cdd2;background:#f4f6f7;font-size:12px}.demo{border:1px dashed #98a4ac;padding:12px 16px;background:#f2f4f5;margin-top:15px}.demo h3{margin:0 0 5px}.demo p{font-size:12px}.divider{border-top:1px solid var(--line);margin:16px 0}.summary strong{display:block;font-size:12px}.call{border:1px solid #cbd3d8;padding:10px 12px;margin-top:12px;background:#f6f7f8}.call b{display:block}.hide-mobile{}@media(max-width:900px){.shell{grid-template-columns:1fr}nav{display:flex;gap:8px;overflow:auto;padding:8px}nav h2{display:none}nav button{width:auto;flex:none;margin:0}.top{padding:12px 14px}main{padding:18px 13px}.columns{grid-template-columns:1fr}.summary{grid-template-columns:repeat(2,minmax(0,1fr))}.heading{flex-direction:column;gap:7px}}@media(max-width:530px){.summary{grid-template-columns:1fr}.fields,.evidence{grid-template-columns:1fr}.heading h1{font-size:19px}.hide-mobile{display:none}}
+</style>
+</head>
+<body>
+<header class="top"><div class="brand">OntoForge / 砺元 <span class="tag">M8.1 · UX-Low</span></div><div class="topmeta">纯本地交互原型 · 合成数据 · 非生产 API / 非 UX 签收</div></header>
+<div class="shell">
+<nav aria-label="产品导航"><h2>本体工作区</h2><button id="nav-type" data-nav="type">本体建模 · 关系类型</button><button id="nav-config" data-nav="config" aria-current="page">实例关联配置</button><button id="nav-query" data-nav="query">对象集合 · 一跳关联</button><button id="nav-evidence" data-nav="evidence">执行证据与恢复</button></nav>
+<main>
+<p class="crumb">当前项目 / 设备质量域 / Local Snapshot #S-021 / 关系类型 equipment-inspections</p>
+<div class="heading"><div><h1 id="page-title">实例关联配置</h1><p id="page-description">先核验关系来源，再保存版本；查询属于下一步，不会在保存时自动执行。</p></div><span id="head-status" class="tag strong">未配置</span></div>
+<div class="summary" aria-label="当前模型与版本证据">
+<div><b>LinkType</b><span>设备 → 检验批次 · ONE_TO_MANY</span></div>
+<div><b>来源端点</b><span>Equipment · Binding #B-11 / r2</span></div>
+<div><b>目标端点</b><span>InspectionLot · Binding #B-15 / r3</span></div>
+<div><b>模型来源</b><span>LOCAL_SNAPSHOT #S-021 · 锁定</span></div>
+</div>
+<div class="tabs" role="tablist" aria-label="M8.1 操作阶段">
+<button role="tab" id="tab-config" data-tab="config" aria-selected="true">1 配置来源</button>
+<button role="tab" id="tab-validate" data-tab="validate" aria-selected="false">2 来源核验</button>
+<button role="tab" id="tab-save" data-tab="save" aria-selected="false">3 保存版本</button>
+<button role="tab" id="tab-query" data-tab="query" aria-selected="false">4 一跳查询</button>
+<button role="tab" id="tab-evidence" data-tab="evidence" aria-selected="false">5 证据与恢复</button>
+</div>
+<section id="view-type" hidden class="panel">
+<h2>本体建模 / 关系类型（导航示意）</h2>
+<div class="link-note">这不是新增的“专业工具”菜单，也不是生产中的独立 LinkType 详情路由。本原型从既有「关系类型」页签延续到下方配置工作区。</div>
+<table class="data"><thead><tr><th>LinkType</th><th>起点</th><th>终点</th><th>声明</th><th>实例状态</th></tr></thead><tbody><tr><td>equipment-inspections</td><td>Equipment</td><td>InspectionLot</td><td>ONE_TO_MANY</td><td id="type-status">尚无 LinkBinding</td></tr></tbody></table>
+<div class="foot"><button class="primary" id="type-continue">配置实例关联 →</button></div>
+</section>
+<section id="view-config" class="panel">
+<ol class="steps"><li class="current">① 选择两端版本</li><li>② 明确外键端与来源列</li><li>③ 只读核验</li><li>④ CAS 保存</li></ol>
+<h2>关系实例来源</h2><p class="small">“设备与批次之间可以有关联”只是模型定义；只有保存来源映射并成功核验后才有可查询的关系事实。</p>
+<div class="fields">
+<div class="field"><label for="source-binding">起点：Equipment · 对象绑定版本</label><select id="source-binding"><option value="B-11:r2">B-11 / r2 · 已保存</option><option value="B-11:r1">B-11 / r1 · 历史，仍需复核</option><option value="bad">另一个 Snapshot（无效）</option></select></div>
+<div class="field"><label for="target-binding">终点：InspectionLot · 对象绑定版本</label><select id="target-binding"><option value="B-15:r3">B-15 / r3 · 已保存</option><option value="B-15:r2">B-15 / r2 · 历史，仍需复核</option><option value="bad">另一个 Snapshot（无效）</option></select></div>
+<div class="field"><label for="fk-owner">外键在哪一端</label><select id="fk-owner"><option value="TARGET">终点 InspectionLot（与 ONE_TO_MANY 匹配）</option><option value="SOURCE">起点 Equipment（不符合此 LinkType 的基数）</option></select></div>
+<div class="field"><label for="fk-column">外键来源列（只可从白名单来源选择）</label><select id="fk-column"><option value="equipment_code">inspection_lot.equipment_code</option><option value="missing_column">不存在的列（负例）</option><option value="order_id">不匹配的类型/列（负例）</option></select></div>
+<div class="field span"><div class="call"><b>关系含义（只读）</b>Equipment → InspectionLot · ONE_TO_MANY。被引用身份列来自已锁定的 Equipment Binding：<span class="mono">equipment.equipment_code (STRING / PK)</span>。不支持手填 SQL、转换或自由指定目标主键列。</div></div>
+</div>
+<div class="foot"><button id="config-validate" class="primary">验证关系来源 →</button><button id="config-undo">还原未保存编辑</button><span id="unsaved" class="tag" hidden>存在未保存编辑</span></div>
+<div class="link-note">M8.1 仅 FOREIGN_KEY；MANY_TO_MANY 桥表进入 M8.2，两跳进入 M8.3。此页不自动纳管资产、不自动执行查询。</div>
+</section>
+<section id="view-validate" class="panel" hidden>
+<ol class="steps"><li>① 选择端点</li><li class="current">② 核验真实来源（模拟）</li><li>③ 保存修订</li></ol>
+<h2>来源核验（只读预演）</h2>
+<p>为完整核验真实双端 FK / PK、孤儿与基数，生产实施必须在受控 PG17 只读事务内验证。这里采用固定合成数据演示产品反馈与恢复路径。</p>
+<div class="fields"><div class="field span"><label for="validation-scenario">评审场景</label><select id="validation-scenario">
+<option value="valid">正常关系：设备 EQ-001 ↔ LOT-11、LOT-12</option>
+<option value="orphans">全表已知孤儿：LOT-14 → 不存在的设备</option>
+<option value="null">批次 LOT-13 外键 NULL：合法无关联</option>
+<option value="conflict">ONE_TO_ONE 基数冲突：两个批次指向同一设备</option>
+<option value="budget">全表验证超过 10,000 行预算</option>
+<option value="source">来源结构漂移或 SELECT 被撤销</option>
+<option value="type">端点版本/外键类型不相容</option>
+</select></div></div>
+<div class="foot"><button id="run-validation" class="primary">执行完整核验（模拟）</button><button id="back-config">返回修改映射</button></div>
+<div id="validation-outcome" role="status" aria-live="polite" class="status"><strong>尚未核验</strong>本工作台不把抽样当 FULL，也不会先保存后补验证。</div>
+<div id="validation-evidence" hidden class="evidence" style="margin-top:12px"><div><b>验证范围</b><span id="validation-scope">—</span></div><div><b>受控来源</b><span>隔离 PostgreSQL 17 · equipment / inspection_lot</span></div><div><b>端点版本锁</b><span id="validation-versions">—</span></div><div><b>校验证据</b><span id="validation-evidence-id">—</span></div></div>
+<div class="foot"><button class="primary" id="continue-save" disabled>核验通过，继续保存 →</button></div>
+</section>
+<section id="view-save" class="panel" hidden>
+<ol class="steps"><li>① 已选择两端</li><li>② 校验完成</li><li class="current">③ CAS 保存不可变版本</li></ol>
+<h2>保存关系来源配置</h2><p class="small">保存只建立 LinkBinding 版本证据，不会实时执行对象查询；之后仍需用户明确进入一跳查询。</p>
+<div class="evidence"><div><b>声明方向</b><span>Equipment → InspectionLot (OUT) · 可反向 IN</span></div><div><b>外键来源</b><span id="save-mapping">inspection_lot.equipment_code → equipment PK</span></div><div><b>校验结果</b><span id="save-validation">尚未校验</span></div><div><b>CAS 预期修订</b><span id="save-expected">0（首次创建）</span></div></div>
+<div class="demo"><h3>保存失败演练</h3><p>可模拟另一编辑者抢先保存、请求响应丢失，验证不覆盖现有修订和如何恢复。</p><label for="save-scenario">模拟保存条件</label><select id="save-scenario"><option value="normal">正常保存</option><option value="cas">其他人已保存新版本（409）</option><option value="unknown">网络中断，保存结果未知</option><option value="changed">保存前来源指纹发生变化（409）</option></select></div>
+<div class="foot"><button class="primary" id="save-binding" disabled>保存不可变版本</button><button id="save-back">返回来源核验</button><button id="lookup-save" hidden>按幂等键查询保存结果</button></div>
+<div id="save-outcome" role="status" aria-live="polite" class="status"><strong>等待完整核验</strong>只有通过 FULL 且预算内的验证才能保存有效或有可确认孤儿的修订。</div>
+<div class="foot"><button id="to-query" class="primary" hidden>保存成功，继续查询关联对象 →</button><button id="reload-saved" hidden>刷新后重开此版本</button></div>
+</section>
+<section id="view-query" class="panel" hidden>
+<div class="columns"><div><h2>一跳关联查询</h2><p class="small">必须先有合格的 LinkBinding revision。正向/反向只改变遍历输入输出，不改变 LinkFact 原始端点身份。</p>
+<div class="fields">
+<div class="field span"><label for="query-direction">关系遍历方向</label><select id="query-direction"><option value="OUT">OUT：设备 → 检验批次</option><option value="IN">IN：检验批次 → 设备</option></select></div>
+<div class="field span"><label for="query-root">选择根对象（合成夹具）</label><select id="query-root"></select></div>
+<div class="field span"><label for="query-fault">模拟执行/翻页故障</label><select id="query-fault"><option value="none">正常查询</option><option value="revoke">翻页时来源授权撤销</option><option value="drift">翻页时 schema 漂移</option><option value="timeout">当前执行来源超时（503）</option><option value="expired">结果快照已过期（410）</option></select></div>
+</div><div class="foot"><button class="primary" id="run-query">执行一跳查询</button><button id="query-repair">修复关系配置</button></div>
+<div class="link-note">示例关系：Equipment EQ-001 → LOT-11 / LOT-12。LOT-14 的孤儿属于它自己的 IN 根范围，**不会污染** EQ-001 的 OUT 查询质量。</div>
+</div><div><h2>结果和质量</h2><div id="query-outcome" class="empty" role="status">尚未执行。本区域不会把 0 条、孤儿部分结果、FAILED 混为一类。</div>
+<div id="result-box" hidden>
+<div id="result-summary" class="quality" style="margin:14px 0"></div>
+<table class="data"><thead><tr><th>输出对象</th><th>关系身份（保持 SOURCE → TARGET）</th><th>来源</th></tr></thead><tbody id="result-rows"></tbody></table>
+<div class="foot"><button id="next-page">下一页</button><span id="page-indicator" class="small">第 1 / 1 页</span><span id="snapshot-indicator" class="small mono">—</span></div></div></div></div>
+</section>
+<section id="view-evidence" class="panel" hidden><h2>执行证据与恢复</h2><p class="small">失败会隐藏旧对象载荷，但独立保留可以安全显示的执行 ID、旧快照标识、错误原因和新执行入口。</p>
+<div id="evidence-empty" class="empty">暂无查询执行。保存成功不等于已经执行。</div>
+<div id="evidence-details" hidden><div class="evidence">
+<div><b>最近执行</b><span id="ev-exec" class="mono">—</span></div>
+<div><b>结果快照 / 状态</b><span id="ev-snapshot" class="mono">—</span></div>
+<div><b>版本闭包</b><span id="ev-version">—</span></div>
+<div><b>双端来源证据</b><span id="ev-sources">—</span></div>
+<div><b>质量与范围</b><span id="ev-quality">—</span></div>
+<div><b>新鲜度</b><span>UNKNOWN（无可验证业务水位）</span></div></div>
+<div id="failure-evidence" class="status" hidden role="alert"></div>
+<div class="foot"><button class="primary" id="retry-query">重新执行一跳查询</button><button id="repair-evidence">审阅或修复来源映射</button></div></div>
+</section>
+<div class="demo" aria-label="交互原型边界说明"><h3>原型边界</h3><p>此文件是独立静态 UX-Low：交互与故障均使用合成数据。没有连接真实 PostgreSQL、没有真实授权、没有持久化 revision，也不会写入生产 API。M8.1 生产功能需 UX-Low/UX-High 另行签收及 OFIP-0010 维护者正式决策后实施。</p></div>
+</main></div>
+<script>
+"use strict";
+(() => {
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const state={view:"config",dirty:false,validated:false,validationQuality:null,validationId:null,saved:null,revision:0,pendingUnknown:false,execute:0,lastResult:null,retired:[],failure:null,pending:false};
+const approved={source:"B-11:r2",target:"B-15:r3",owner:"TARGET",column:"equipment_code"};
+const input=()=>({source:$("#source-binding").value,target:$("#target-binding").value,owner:$("#fk-owner").value,column:$("#fk-column").value});
+const original=()=>Object.keys(approved).every(k=>input()[k]===approved[k]);
+const say=(el,kind,head,detail)=>{el.className="status "+kind;el.replaceChildren();const strong=document.createElement("strong");strong.textContent=head;const span=document.createElement("span");span.textContent=detail;el.append(strong,span);};
+const escapeText=s=>String(s);
+const touch=()=>{state.dirty=true;state.validated=false;state.validationQuality=null;$("#unsaved").hidden=false;$("#continue-save").disabled=true;$("#save-binding").disabled=true;$("#validation-evidence").hidden=true;$("#validation-outcome").textContent="来源配置已修改，需要重新执行完整核验。";$("#save-validation").textContent="已失效，需重新核验";};
+function confirmLeave(next){
+ if(state.dirty && !["config","validate","save"].includes(next)){
+  if(!window.confirm("存在未保存的关系来源编辑。离开后将丢弃本次编辑，是否继续？"))return false;
+  state.dirty=false;$("#unsaved").hidden=true;
+ }
+ return true;
+}
+function navigate(view,guard=true){
+ if(guard && !confirmLeave(view))return;
+ state.view=view;
+ ["type","config","validate","save","query","evidence"].forEach(v=>{$("#view-"+v).hidden=v!==view;});
+ $$("[data-tab]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===view)));
+ $$("[data-nav]").forEach(b=>{if(b.dataset.nav===view)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");});
+ const names={type:"关系类型",config:"实例关联配置",validate:"来源核验",save:"保存关系版本",query:"一跳关联查询",evidence:"证据与恢复"};
+ $("#page-title").textContent=names[view];
+ $("#page-description").textContent=view==="query"?"从指定根对象查询真实关联（本原型为模拟），展示已知范围的完整性与来源证据。":"模型定义与实例关系独立，先核验和保存来源，再由用户显式查询。";
+ $("#head-status").textContent=state.saved?"已保存 · r"+state.revision:"未配置";
+ $("#type-status").textContent=state.saved?"已配置 · revision "+state.revision:"尚无 LinkBinding";
+ if(view==="query")refreshRootOptions();
+}
+function runValidation(){
+ state.validated=false;state.validationQuality=null;$("#continue-save").disabled=true;$("#save-binding").disabled=true;
+ const v=input(), scenario=$("#validation-scenario").value;state.validationId="validation-demo-"+Date.now().toString(36);
+ $("#validation-evidence").hidden=false;
+ $("#validation-versions").textContent=v.source+" / "+v.target;
+ $("#validation-evidence-id").textContent=state.validationId+" · 合成证据";
+ const out=$("#validation-outcome");
+ const incorrect=v.source==="bad"||v.target==="bad"||v.column!=="equipment_code"||v.owner!=="TARGET";
+ if(incorrect||scenario==="type"){say(out,"error","FAILED · INVALID_LINK_MAPPING (422)","端点不在同一快照、基数与 FK 方向不匹配，或来源列/类型不合格。请返回配置审阅。");$("#validation-scope").textContent="FULL 校验未完成";return;}
+ if(scenario==="conflict"){say(out,"error","FAILED · LINK_CARDINALITY_CONFLICT (409)","ONE_TO_ONE + TARGET FK：两个不同 LOT 关联同一个设备，违反起点端至多一条。不能仅返回第一条。");$("#validation-scope").textContent="FULL · 失败，无可执行资格";return;}
+ if(scenario==="budget"){say(out,"error","FAILED · QUERY_BUDGET_EXCEEDED (429)","完整验证超过 10,000 行预算。不能把抽样视为 FULL，也不能保存可执行的 LinkBinding。");$("#validation-scope").textContent="SAMPLE / UNKNOWN_TOTAL · 不可保存";return;}
+ if(scenario==="source"){say(out,"error","FAILED · SOURCE_UNAVAILABLE (503)","受控来源结构漂移或 SELECT 资格被撤销，无法确认目标端是否存在；不泄露孤儿信息。");$("#validation-scope").textContent="NOT_VERIFIED · 不可保存";return;}
+ state.validated=true;state.validationQuality=scenario==="orphans"?"VALID_WITH_ORPHANS":"VALID";
+ $("#validation-scope").textContent="FULL · 两端关系均在预算内覆盖";
+ if(scenario==="orphans"){say(out,"warning","VALID_WITH_ORPHANS · FULL 校验合格","检测到 LOT-14 指向不存在的设备。允许保存带质量提示的来源修订；只在遍历 LOT-14 时标记 PARTIAL。");}
+ else if(scenario==="null"){say(out,"success","VALID · NULL FK 已核验","LOT-13 外键为 SQL NULL：无关系，不是孤儿。空字符串需严格按值比较。");}
+ else{say(out,"success","VALID · FULL 核验通过","Equipment / InspectionLot 身份、PK、FK、ONE_TO_MANY 基数与来源列均已核验；当前只演示合成数据。");}
+ $("#continue-save").disabled=false;$("#save-binding").disabled=false;$("#save-validation").textContent=state.validationQuality+" · FULL";
+ $("#save-mapping").textContent=(v.owner==="TARGET"?"inspection_lot.":"equipment.")+v.column+" → equipment.equipment_code";
+ $("#save-expected").textContent=String(state.revision)+"（CAS 预期版本）";
+}
+function save(){
+ if(!state.validated){say($("#save-outcome"),"error","保存被拒绝","必须先完整核验，不允许直接提交未经核验的关系。");return;}
+ const mode=$("#save-scenario").value;
+ if(mode==="cas"){say($("#save-outcome"),"error","409 · BINDING_REVISION_CONFLICT","当前 head 已由其他人更新。未覆盖原 revision，编辑仍保留；重新读取对比后再核验。");return;}
+ if(mode==="changed"){state.validated=false;$("#save-binding").disabled=true;say($("#save-outcome"),"error","409 · BINDING_SCHEMA_DRIFT","保存前结构指纹改变。旧验证报告不再赋予资格；重新核验并生成新修订。");return;}
+ if(mode==="unknown"){state.pendingUnknown=true;$("#lookup-save").hidden=false;say($("#save-outcome"),"warning","UNKNOWN · 保存响应丢失","结果未知，禁止盲目点击新建。请先按幂等键查询已存在的保存结果。");return;}
+ commitSave();
+}
+function commitSave(){
+ state.revision+=1;
+ state.saved={revision:state.revision,quality:state.validationQuality,source:$("#source-binding").value,target:$("#target-binding").value,fkOwner:$("#fk-owner").value,column:$("#fk-column").value,id:"LB-DEMO-021",digest:"sha256:demo-r"+state.revision};
+ state.dirty=false;state.validated=false;state.pendingUnknown=false;
+ $("#unsaved").hidden=true;$("#lookup-save").hidden=true;$("#save-binding").disabled=true;
+ $("#to-query").hidden=false;$("#reload-saved").hidden=false;
+ say($("#save-outcome"),"success","已保存 · LinkBinding / revision "+state.revision,"不可变来源修订已创建（模拟）；B-11、B-15、模型快照和 FK 映射被版本锁定。保存不自动触发查询。");
+ $("#save-expected").textContent=String(state.revision)+"（下次修订 CAS）";
+ $("#head-status").textContent="已保存 · r"+state.revision;
+}
+function refreshRootOptions(){
+ const direction=$("#query-direction").value, old=$("#query-root").value;
+ const options=direction==="OUT"?[
+ ["EQ-001","设备 EQ-001 · 有两个检验批次"],["EQ-002","设备 EQ-002 · 合法零关联"]
+ ]:[
+ ["LOT-11","检验批次 LOT-11 · 反查设备 EQ-001"],
+ ["LOT-13","检验批次 LOT-13 · FK NULL，准确零关联"],
+ ["LOT-14","检验批次 LOT-14 · 非空 FK 孤儿（PARTIAL）"]
+ ];
+ $("#query-root").replaceChildren();
+ options.forEach(([value,name])=>{const o=document.createElement("option");o.value=value;o.textContent=name;$("#query-root").append(o)});
+ if(options.some(([value])=>value===old))$("#query-root").value=old;
+}
+function recordEvidence(kind,msg){
+ $("#evidence-empty").hidden=true;$("#evidence-details").hidden=false;
+ $("#ev-exec").textContent=state.lastResult?.executionId||"execution-demo-"+state.execute;
+ $("#ev-snapshot").textContent=state.lastResult?.snapshot||"—";
+ $("#ev-version").textContent=state.saved?"Snapshot S-021 · Equipment B-11 / InspectionLot B-15 · LinkBinding LB-DEMO-021 / r"+state.revision:"尚无有效 LinkBinding";
+ $("#ev-sources").textContent="SOURCE equipment(equipment_code) · TARGET inspection_lot(equipment_code) · 受控 PG 概念证据";
+ $("#ev-quality").textContent=state.lastResult?.quality||"UNKNOWN";
+ const el=$("#failure-evidence");
+ el.hidden=kind!=="failure";
+ if(kind==="failure")say(el,"error","旧结果已失效",msg);
+}
+function failure(code,message){
+ if(state.lastResult && state.lastResult.snapshot)state.retired.push(state.lastResult.snapshot);
+ $("#result-box").hidden=true;
+ say($("#query-outcome"),"error",code,message+"。已隐藏旧对象和关系载荷，保留失败证据；恢复后旧 cursor 不得再复用。");
+ state.failure={code,message};
+ if(state.lastResult){state.lastResult.quality="FAILED / OLD_SNAPSHOT_INVALID";}
+ recordEvidence("failure",code+" · "+message+" · 恢复需重新执行新查询");
+}
+function runQuery(){
+ state.execute+=1;
+ if(!state.saved){say($("#query-outcome"),"warning","尚未配置实例关系","请先配置、完整核验并保存 LinkBinding revision，再执行一跳查询。");$("#result-box").hidden=true;return;}
+ const root=$("#query-root").value,dir=$("#query-direction").value,fault=$("#query-fault").value;
+ state.lastResult={executionId:"execution-demo-"+String(state.execute).padStart(3,"0"),snapshot:"local-result:DEMO-"+String(state.execute).padStart(3,"0"),quality:"COMPLETE / REQUESTED_SCOPE · freshness UNKNOWN",page:1,rows:[],root,dir};
+ state.failure=null;
+ if(fault==="timeout"||fault==="expired"){failure(fault==="timeout"?"503 · SOURCE_TIMEOUT":"410 · RESULT_EXPIRED",fault==="timeout"?"本次来源执行超出 3 秒预算":"结果快照已过期/进程重启，旧结果不能恢复");return;}
+ let rows=[];
+ let partial=false;
+ if(dir==="OUT"&&root==="EQ-001")rows=[["LOT-11","EQ-001 → LOT-11"],["LOT-12","EQ-001 → LOT-12"]];
+ if(dir==="IN"&&root==="LOT-11")rows=[["EQ-001","EQ-001 → LOT-11"]];
+ if(dir==="IN"&&root==="LOT-14")partial=true;
+ state.lastResult.rows=rows;state.lastResult.quality=partial?"PARTIAL / KNOWN_SUBSET · orphan LOT-14 · freshness UNKNOWN":"COMPLETE / REQUESTED_SCOPE · freshness UNKNOWN";
+ $("#query-outcome").className="status "+(partial?"warning":"success");
+ $("#query-outcome").replaceChildren();
+ const title=document.createElement("strong");title.textContent=partial?"PARTIAL · 当前根对象存在可确认断链":rows.length?"SUCCESS · 本次根集合的关联对象":"SUCCESS · 真实零关联";
+ const msg=document.createElement("span");msg.textContent=partial?"LOT-14 的非空 FK 指向不存在的设备：已知子集 0 条，不能冒称完整结果。":rows.length?"本次查询共 "+rows.length+" 个去重对象 / "+rows.length+" 条 LinkFact（模拟）。":"根对象确实没有匹配关系（例如 FK NULL 或该设备无批次），不是查询失败。";
+ $("#query-outcome").append(title,msg);
+ $("#result-box").hidden=false;
+ showPage();
+ recordEvidence("success");
+}
+function showPage(){
+ const r=state.lastResult;if(!r||state.failure)return;
+ const rows=r.rows, pageSize=1,total=Math.max(1,Math.ceil(rows.length/pageSize)),page=Math.min(total,r.page);
+ $("#result-summary").replaceChildren();
+ [r.quality,"对象 "+rows.length,"关系 "+rows.length,"一跳路径 "+rows.length].forEach(s=>{const e=document.createElement("span");e.textContent=s;$("#result-summary").append(e)});
+ $("#result-rows").replaceChildren();
+ rows.slice((page-1)*pageSize,page*pageSize).forEach(([obj,link])=>{const tr=document.createElement("tr");[obj,link,"SourceReadRef · equipment + inspection_lot"].forEach(t=>{const td=document.createElement("td");td.textContent=t;tr.append(td)});$("#result-rows").append(tr)});
+ if(!rows.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=3;td.textContent=r.quality.startsWith("PARTIAL")?"可确认孤儿：无匹配目标，详见质量与证据":"无关联对象";tr.append(td);$("#result-rows").append(tr);}
+ $("#page-indicator").textContent="第 "+page+" / "+total+" 页（同一冻结结果）";
+ $("#snapshot-indicator").textContent=r.snapshot;
+ $("#next-page").disabled=page>=total;
+}
+function nextPage(){
+ if(!state.lastResult||state.failure)return;
+ const fault=$("#query-fault").value;
+ if(fault==="revoke"){failure("403 · BINDING_ACCESS_REVOKED","翻页时 B0 授权已撤销；当前快照永久失效");return;}
+ if(fault==="drift"){failure("409 · BINDING_SCHEMA_DRIFT","翻页时双端来源指纹不一致；快照已失效");return;}
+ if(fault==="expired"){failure("410 · RESULT_EXPIRED","TTL 到期或服务重启，原游标不可继续");return;}
+ state.lastResult.page+=1;showPage();recordEvidence("success");
+}
+$$("[data-nav]").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.nav)));
+$$("[data-tab]").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.tab)));
+["source-binding","target-binding","fk-owner","fk-column"].forEach(id=>$("#"+id).addEventListener("change",touch));
+$("#type-continue").onclick=()=>navigate("config");
+$("#config-validate").onclick=()=>{navigate("validate",false);runValidation()};
+$("#back-config").onclick=()=>navigate("config",false);
+$("#run-validation").onclick=runValidation;
+$("#continue-save").onclick=()=>{navigate("save",false);$("#save-validation").textContent=state.validationQuality+" · FULL";};
+$("#save-back").onclick=()=>navigate("validate",false);
+$("#save-binding").onclick=save;
+$("#lookup-save").onclick=()=>{if(state.pendingUnknown)commitSave();};
+$("#to-query").onclick=()=>navigate("query",false);
+$("#reload-saved").onclick=()=>{if(state.saved){say($("#save-outcome"),"success","刷新重开 · 修订 r"+state.revision+"（模拟）","重开已保存修订，冻结两端绑定和 FK 来源配置保持一致；没有产生新版本。");}};
+$("#config-undo").onclick=()=>{$("#source-binding").value=approved.source;$("#target-binding").value=approved.target;$("#fk-owner").value=approved.owner;$("#fk-column").value=approved.column;touch();state.dirty=false;$("#unsaved").hidden=true;};
+$("#query-direction").onchange=()=>{refreshRootOptions();$("#result-box").hidden=true;$("#query-outcome").textContent="方向已更改，请明确执行新查询。";};
+$("#query-root").onchange=()=>{$("#result-box").hidden=true;$("#query-outcome").textContent="根对象已更改，请执行新查询。";};
+$("#run-query").onclick=runQuery;
+$("#next-page").onclick=nextPage;
+$("#query-repair").onclick=()=>navigate("config");
+$("#retry-query").onclick=()=>{navigate("query");$("#query-fault").value="none";runQuery()};
+$("#repair-evidence").onclick=()=>navigate("config");
+refreshRootOptions();navigate("config",false);
+window.__uxLowDemo={getState:()=>({view:state.view,dirty:state.dirty,validated:state.validated,quality:state.validationQuality,revision:state.revision,saved:!!state.saved,execution:state.lastResult?.executionId,snapshot:state.lastResult?.snapshot,retired:[...state.retired],failure:state.failure,qualityResult:state.lastResult?.quality})};
+})();
+</script>
+</body>
+</html>
