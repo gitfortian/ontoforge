@@ -6,6 +6,7 @@ import io.ontoforge.business.model.NativeDraftService.DraftFailure;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -79,6 +80,14 @@ class LinkBindingErrorAdvice {
         return ResponseEntity.badRequest().body(new ErrorBody("MALFORMED_REQUEST",
                 "输入格式不合法",null,UUID.randomUUID().toString()));
     }
+    @ExceptionHandler(DuplicateKeyException.class)
+    ResponseEntity<ErrorBody> conflict(DuplicateKeyException ignored) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                new ErrorBody("LINK_BINDING_REVISION_CONFLICT",
+                        "LinkBinding 创建或幂等操作发生并发竞争；请先按操作 UUID 恢复已有结果",
+                        "expectedRevision",UUID.randomUUID().toString()));
+    }
+
     @ExceptionHandler(DataAccessException.class)
     ResponseEntity<ErrorBody> persistence(DataAccessException ignored){
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
