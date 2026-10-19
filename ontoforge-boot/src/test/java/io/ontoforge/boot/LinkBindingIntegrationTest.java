@@ -132,7 +132,8 @@ class LinkBindingIntegrationTest {
         String sf=p1.path("source").path("schemaFingerprint").asText();
         String tf=p2.path("source").path("schemaFingerprint").asText();
         a.put("expectedSchemaFingerprint",sf);b.put("expectedSchemaFingerprint",tf);
-        var sa=post("/api/runtime/bindings",a),sb=post("/api/runtime/bindings",b);
+        var sa=post("/api/runtime/bindings",a);
+        var sb=post("/api/runtime/bindings",b);
         assertThat(sa.getStatusCode().value()).as(sa.getBody()).isEqualTo(201);
         assertThat(sb.getStatusCode().value()).as(sb.getBody()).isEqualTo(201);
         JsonNode s=mapper.readTree(sa.getBody()),t=mapper.readTree(sb.getBody());
