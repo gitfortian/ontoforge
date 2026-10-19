@@ -90,6 +90,12 @@ def result():
         "checkpoint": {"status": "UNKNOWN", "reason": "No business watermark"},
         "startedAt": "2026-10-19T10:00:00Z", "completedAt": "2026-10-19T10:00:01Z",
     }
+    source_endpoint = dict(source)
+    source_endpoint.update({
+        "id": "2dfb4f48-c86a-47e6-8fb7-7a190cb8b9ce", "role": "SOURCE",
+        "table": "m8_equipment", "columns": ["equipment_code"],
+        "schemaFingerprint": "fingerprint-2",
+    })
     return {
         "status": "SUCCESS", "resultKind": "PAGE", "executionId": EXEC,
         "executedAt": "2026-10-19T10:00:01Z",
@@ -102,11 +108,13 @@ def result():
             "snapshotId": SNAP, "payloadSha256": "d" * 64,
             "bindingVersions": bindings,
             "sourceSchemaFingerprints": [
-                {"sourceId": "local-pg-sandbox", "schema": "public",
+                {"role": "SOURCE", "sourceId": "local-pg-sandbox", "schema": "public",
+                 "table": "m8_equipment", "schemaFingerprint": "fingerprint-2"},
+                {"role": "TARGET", "sourceId": "local-pg-sandbox", "schema": "public",
                  "table": "m8_inspection_lot", "schemaFingerprint": "fingerprint-1"},
             ],
         },
-        "bindingVersions": bindings, "sourceReadRefs": [source],
+        "bindingVersions": bindings, "sourceReadRefs": [source_endpoint, source],
         "queryDigest": "e" * 64, "resultSnapshotRef": "local-result:" + EXEC,
         "expiresAt": "2026-10-19T10:05:01Z",
         "quality": {
@@ -121,8 +129,15 @@ def result():
             "maxSourceBytes": 8388608, "maxSerializedResultBytes": 8388608,
             "queryTimeoutSeconds": 3,
         },
-        "objects": [], "links": [], "objectCount": 2, "linkCount": 2,
-        "pathCount": 2, "pageSize": 25, "pageNumber": 1,
+        "objects": [{"objectRef": object_ref("inspection-lot", "LOT-11"), "properties": []}],
+        "links": [{
+            "linkTypeId": "equipment-inspections", "linkBindingId": LINK_BIND,
+            "linkBindingRevision": 1, "source": object_ref(),
+            "target": object_ref("inspection-lot", "LOT-11"),
+            "sourceReadRefs": [source_endpoint["id"], READ],
+        }],
+        "objectCount": 1, "linkCount": 1,
+        "pathCount": 1, "pageSize": 25, "pageNumber": 1,
     }
 
 
@@ -223,6 +238,18 @@ class M8R2CandidateContracts(unittest.TestCase):
         false_partial = copy.deepcopy(partial)
         false_partial["quality"]["knownOrphanCount"] = 0
         self.assertFalse(valid(R, false_partial))
+        missing_source = copy.deepcopy(good)
+        missing_source["sourceReadRefs"] = missing_source["sourceReadRefs"][1:]
+        self.assertFalse(valid(R, missing_source))
+        missing_schema = copy.deepcopy(good)
+        missing_schema["versionLock"]["sourceSchemaFingerprints"] = [
+            fp for fp in missing_schema["versionLock"]["sourceSchemaFingerprints"]
+            if fp["role"] == "TARGET"
+        ]
+        self.assertFalse(valid(R, missing_schema))
+        missing_link_version = copy.deepcopy(good)
+        missing_link_version["bindingVersions"] = missing_link_version["bindingVersions"][:2]
+        self.assertFalse(valid(R, missing_link_version))
         false_fresh = copy.deepcopy(good)
         false_fresh["quality"]["freshness"] = "FRESH"
         self.assertFalse(valid(R, false_fresh))
