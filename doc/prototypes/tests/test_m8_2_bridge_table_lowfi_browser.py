@@ -25,6 +25,9 @@ class M82BridgeTableUXLowBrowser(unittest.TestCase):
 
     def setUp(self):
         self.page = self.browser.new_page(viewport={"width": 1440, "height": 950}, locale="zh-CN")
+        # A synchronous static prototype must never leave a 30s implicit locator wait.
+        self.page.set_default_timeout(2500)
+        self.page.set_default_navigation_timeout(5000)
         self.errors = []
         self.page.on("pageerror", lambda error: self.errors.append(str(error)))
         self.page.goto(PROTOTYPE.as_uri())
