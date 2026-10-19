@@ -232,7 +232,8 @@ class LinkBindingIntegrationTest {
         assertThat(nullFk.path("quality").path("completeness").asText()).isEqualTo("COMPLETE");
         assertThat(nullFk.path("objectCount").asInt()).isZero();
         JsonNode orphan=mapper.readTree(post("/api/runtime/object-sets/traverse",query(s,id,1,"IN","LOT-14",25)).getBody());
-        assertThat(orphan.path("status").asText()).isEqualTo("PARTIAL");
+        assertThat(orphan.path("status").asText()).isEqualTo("SUCCESS");
+        assertThat(orphan.path("quality").path("completeness").asText()).isEqualTo("PARTIAL");
         assertThat(orphan.path("quality").path("answerScope").asText()).isEqualTo("KNOWN_SUBSET");
 
         b.put("expectedRevision",1);b.put("idempotencyKey",UUID.randomUUID().toString());
