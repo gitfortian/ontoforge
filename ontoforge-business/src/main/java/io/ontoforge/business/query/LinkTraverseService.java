@@ -658,9 +658,9 @@ public class LinkTraverseService {
                         "linkBindingRef", "direction", "maxDepth"))
                 || !fields(body.path("steps").get(0).path("linkBindingRef"),
                         Set.of("bindingId", "revision"))
-                || !fields(body.path("steps").get(body.path("steps").size()-1), Set.of("kind", "pageSize"))
                 || !"TRAVERSE".equals(body.path("steps").get(0).path("kind").asText())
-                || !"PAGE".equals(body.path("steps").get(body.path("steps").size()-1).path("kind").asText())
+                || !Set.of("PAGE","AGGREGATE")
+                        .contains(body.path("steps").get(body.path("steps").size()-1).path("kind").asText())
                 || !body.path("steps").get(0).path("maxDepth").isIntegralNumber()
                 || body.path("steps").get(0).path("maxDepth").asInt() != 1) {
             throw fail(422, "UNSUPPORTED_TRAVERSE_AST",
@@ -707,21 +707,81 @@ public class LinkTraverseService {
                 rootConditions = readConditions(body.path("rootSelector").path("conditions"));
             }
             List<Condition> targetConditions = new ArrayList<>();
+            List<SortField> sort = new ArrayList<>();
+            List<String> project = new ArrayList<>();
+            String aggregateOperation = null, aggregateProperty = null;
+            int phase = 0;
             for (int i = 1; i < body.path("steps").size()-1; i++) {
-                JsonNode filter = body.path("steps").get(i);
-                if (!fields(filter, Set.of("kind", "scope", "conditions"))
-                        || !"FILTER".equals(filter.path("kind").asText())
-                        || !"TARGET".equals(filter.path("scope").asText())) {
-                    throw new IllegalArgumentException("target filter");
+                JsonNode part = body.path("steps").get(i);
+                String kind = required(part.path("kind"));
+                if ("FILTER".equals(kind) && phase == 0
+                        && fields(part, Set.of("kind", "scope", "conditions"))
+                        && "TARGET".equals(part.path("scope").asText())) {
+                    targetConditions.addAll(readConditions(part.path("conditions")));
+                    if (targetConditions.size() > 8) throw new IllegalArgumentException("too many conditions");
+                } else if ("SORT".equals(kind) && phase < 2 && sort.isEmpty()
+                        && fields(part, Set.of("kind", "fields"))) {
+                    phase = 2;
+                    JsonNode fields = part.path("fields");
+                    if (!fields.isArray() || fields.isEmpty() || fields.size() > 3) {
+                        throw new IllegalArgumentException("sort fields");
+                    }
+                    for (JsonNode sortField : fields) {
+                        if (!fields(sortField, Set.of("propertyRef", "direction"))) {
+                            throw new IllegalArgumentException("sort fields");
+                        }
+                        String prop = required(sortField.path("propertyRef"));
+                        String dir = required(sortField.path("direction"));
+                        if (!prop.matches("[a-z][a-z0-9-]{1,63}") || !Set.of("ASC","DESC").contains(dir)
+                                || sort.stream().anyMatch(x -> x.propertyRef().equals(prop))) {
+                            throw new IllegalArgumentException("sort field invalid");
+                        }
+                        sort.add(new SortField(prop, dir));
+                    }
+                } else if ("PROJECT".equals(kind) && phase < 3 && project.isEmpty()
+                        && fields(part, Set.of("kind", "propertyRefs"))) {
+                    phase = 3;
+                    JsonNode names = part.path("propertyRefs");
+                    if (!names.isArray() || names.isEmpty() || names.size() > 100) {
+                        throw new IllegalArgumentException("projection fields");
+                    }
+                    for (JsonNode prop : names) {
+                        String value = required(prop);
+                        if (!value.matches("[a-z][a-z0-9-]{1,63}") || project.contains(value)) {
+                            throw new IllegalArgumentException("duplicate projection");
+                        }
+                        project.add(value);
+                    }
+                } else {
+                    throw new IllegalArgumentException("unsupported step ordering");
                 }
-                targetConditions.addAll(readConditions(filter.path("conditions")));
-                if (targetConditions.size()>8) throw new IllegalArgumentException("too many target conditions");
             }
-            JsonNode pageNode = body.path("steps").get(body.path("steps").size()-1).path("pageSize");
-            if (!pageNode.isIntegralNumber() || !pageNode.canConvertToInt()) {
-                throw new IllegalArgumentException("pageSize");
+            JsonNode terminal = body.path("steps").get(body.path("steps").size()-1);
+            boolean aggregate = "AGGREGATE".equals(terminal.path("kind").asText());
+            int pageSize = 50;
+            if (aggregate) {
+                if (!fields(terminal, Set.of("kind","operation","propertyRef"))) {
+                    throw new IllegalArgumentException("aggregate fields");
+                }
+                aggregateOperation = required(terminal.path("operation"));
+                if (!Set.of("COUNT_DISTINCT","SUM").contains(aggregateOperation)
+                        || "SUM".equals(aggregateOperation) != terminal.has("propertyRef")) {
+                    throw new IllegalArgumentException("aggregate operation");
+                }
+                if (terminal.has("propertyRef")) {
+                    aggregateProperty = required(terminal.path("propertyRef"));
+                    if (!aggregateProperty.matches("[a-z][a-z0-9-]{1,63}")) {
+                        throw new IllegalArgumentException("aggregate property");
+                    }
+                }
+            } else {
+                if (!fields(terminal, Set.of("kind","pageSize"))
+                        || !terminal.path("pageSize").isIntegralNumber()
+                        || !terminal.path("pageSize").canConvertToInt()) {
+                    throw new IllegalArgumentException("pageSize");
+                }
+                pageSize = terminal.path("pageSize").intValue();
             }
-            int pageSize = pageNode.intValue();
             if (pageSize < 1 || pageSize > 50
                     || rootKey != null && rootKey.length() > 4096
                     || !Set.of("OUT","IN").contains(required(step.path("direction")))) {
@@ -743,7 +803,9 @@ public class LinkTraverseService {
                     required(type.path("objectTypeId")),
                     required(body.path("rootBindingRef").path("bindingId")), rootRevision,
                     rootDomain, rootKeyType, rootKey, selectorKind, List.copyOf(rootConditions),
-                    List.copyOf(targetConditions), required(step.path("direction")), required(step.path("linkTypeRef")),
+                    List.copyOf(targetConditions), List.copyOf(sort), List.copyOf(project),
+                    aggregateOperation, aggregateProperty,
+                    required(step.path("direction")), required(step.path("linkTypeRef")),
                     required(step.path("linkBindingRef").path("bindingId")), linkRevision,
                     pageSize, maxRows, maxJoin, maxLinks, maxSource, maxResult, timeout);
         } catch (RuntimeException ex) {
