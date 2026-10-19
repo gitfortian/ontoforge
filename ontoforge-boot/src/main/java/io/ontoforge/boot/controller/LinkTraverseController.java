@@ -32,6 +32,11 @@ public class LinkTraverseController {
     public ObjectNode execute(@RequestBody JsonNode query, Authentication auth) {
         return service.execute(query, auth);
     }
+
+    @PostMapping("/traverse/pages")
+    public ObjectNode pages(@RequestBody JsonNode cursorBody, Authentication auth) {
+        return service.nextPage(cursorBody, auth);
+    }
 }
 
 @RestControllerAdvice(assignableTypes = LinkTraverseController.class)
