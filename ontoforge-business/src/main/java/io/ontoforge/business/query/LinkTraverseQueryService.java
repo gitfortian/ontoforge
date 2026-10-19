@@ -94,7 +94,7 @@ public class LinkTraverseQueryService {
             int objectCount,int linkCount,int pathCount,int pageSize,int pageNumber,String nextCursor){}
     private record Parsed(UUID id,long revision,String linkType,String direction,int pageSize,
             TypeRef rootType,JsonNode rootSelector,JsonNode rootBindingRef,JsonNode limits){}
-    private record Frozen(String id,String actor,UUID bindingId,long revision,String linkType,String executionId,
+    private record Frozen(String id,String actor,UUID bindingId,long revision,String linkType,String direction,String executionId,
             Instant executedAt,Instant expiresAt,String digest,TypeRef rootType,TypeRef outputType,
             VersionLock lock,List<BindingVersion> versions,List<SourceRead> reads,Quality quality,
             Budget budget,List<Item> objects,List<Link> links,int pageSize){}
@@ -231,7 +231,7 @@ public class LinkTraverseQueryService {
         var objects=List.copyOf(f.objects().subList(offset,end));
         Set<String> visible=new LinkedHashSet<>();
         objects.forEach(o->visible.add(identity(o.objectRef())));
-        boolean out=f.outputType().objectTypeId().equals(f.links().isEmpty()?"":f.links().getFirst().target().objectTypeId());
+        boolean out="OUT".equals(f.direction());
         var links=f.links().stream().filter(l->visible.contains(identity(
                 out?l.target():l.source()))).toList();
         String next=end<f.objects().size()?cursor(f,end):null;
@@ -277,6 +277,22 @@ public class LinkTraverseQueryService {
         Detail d=linkBindings.revalidate(parsed.id(),parsed.revision(),auth);
         if(!parsed.linkType().equals(d.linkTypeId()))
             throw fail(422,"LINK_TYPE_MISMATCH","TRAVERSE 的 LinkType 不匹配冻结关系","steps[0].linkTypeRef",eid);
+        if("OBJECT_REF".equals(parsed.rootSelector().path("kind").asText())){
+            JsonNode object=parsed.rootSelector().path("objectRef");
+            only(object,Set.of("packageId","objectTypeId","identityDomainId","key"),"rootSelector.objectRef",eid);
+            JsonNode k=object.path("key");
+            only(k,Set.of("valueType","value"),"rootSelector.objectRef.key",eid);
+            DataBindingService.BindingDetail rootBinding="OUT".equals(parsed.direction())
+                    ?linkBindings.endpointSource(d,auth):linkBindings.endpointTarget(d,auth);
+            if(!Objects.equals(object.path("packageId").asText(),rootBinding.packageId())
+                    ||!Objects.equals(object.path("objectTypeId").asText(),rootBinding.objectTypeId())
+                    ||!Objects.equals(object.path("identityDomainId").asText(),rootBinding.identityDomainId())
+                    ||!k.path("value").isTextual()||k.path("value").asText().isEmpty()
+                    ||!Set.of("STRING","INTEGER").contains(k.path("valueType").asText()))
+                throw fail(422,"OBJECT_REF_IDENTITY_MISMATCH",
+                        "根 ObjectRef 必须具备已冻结 Binding 的 package/type/domain 和类型化键",
+                        "rootSelector.objectRef",eid);
+        }
         var facts=linkBindings.sourceFacts(parsed.id(),parsed.revision(),auth);
         int rowsRead=facts.sourceRows().size()+facts.targetRows().size();
         if(rowsRead>budget(parsed.limits(),"maxPhysicalRows",MAX_ROWS)
@@ -366,7 +382,7 @@ public class LinkTraverseQueryService {
                 facts.sourceBytes(),bytes,MAX_ROWS,MAX_ROWS,MAX_BYTES,MAX_BYTES,3);
         String digest=hash(query.toString().getBytes(StandardCharsets.UTF_8));
         var frozen=new Frozen("local-result:"+UUID.randomUUID(),actor(auth),parsed.id(),parsed.revision(),
-                d.linkTypeId(),eid,now,now.plusSeconds(TTL_SECONDS),digest,parsed.rootType(),output,
+                d.linkTypeId(),parsed.direction(),eid,now,now.plusSeconds(TTL_SECONDS),digest,parsed.rootType(),output,
                 lock,versions,List.of(sourceRef,targetRef),quality,budget,items,edges,parsed.pageSize());
         if(snapshots.size()>=MAX_SNAPSHOTS)throw fail(429,"RESULT_SNAPSHOT_BUDGET",
                 "结果快照数量已达到当前 Worker 上限","limits",eid);
