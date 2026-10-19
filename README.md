@@ -1,6 +1,8 @@
 # OntoForge · 砺元
 
-> **当前功能盘点基线（待正式全域签收，2026-10-19）**：[产品功能说明书 V1.0：12 个一级模块、30 个二级功能组、125 个三级功能点](./doc/implementation/OntoForge-产品功能说明书-三级功能-V1.0.md)。以主线合并的 M4–M7 为实际代码基准，区分已实现·限定环境、部分实现和未来规划；不是正式发布声明。
+> **完整产品功能树（V1.1，待产品签收）**：[8 个一级功能域、F01–F29 共 29 个二级模块、209 个三级能力](./doc/product/OntoForge-产品完整功能树-三级-V1.1.md)。产品范围以此为主视角，已开发代码证据仍见下方 **V1.0 AS-IS 实施盘点**；209 项不代表已实施/已验收。  
+> **核心验收设计**：[15 项功能合同及 8 条端到端黄金故事](./doc/product/OntoForge-Core功能验收合同与黄金故事-V1.1.md)。缺陷分开追踪：[M7 未填筛选扩大查询 #80](https://github.com/gitfortian/ontoforge/issues/80)、[Native UUID 前后端不一致 #81](https://github.com/gitfortian/ontoforge/issues/81)；[全域正式签收 #82](https://github.com/gitfortian/ontoforge/issues/82)。  
+> **当前功能盘点基线（待正式全域签收，2026-10-19）**：[V1.0 实施视角：12 个交付模块、30 个实现分组、125 个能力／边界条目](./doc/implementation/OntoForge-产品功能说明书-三级功能-V1.0.md)。以主线合并的 M4–M7 为实际代码基准，区分已实现·限定环境、部分实现和未来规划；不是正式发布声明。
 > **正式产品评审结论（REVISE）**：[PR #78 的 7 项 P1 / 12 项 P2 与 F01–F29 漏项审查](./doc/implementation/OntoForge-三级功能正式产品评审报告-20261019.md)。现行目录可核对已合并 M4–M7，但未获全产品功能范围签收。  
 
 **Onto**logy + **Forge**：本体在真实工业数据、来源核验和业务闭环中不断锻造。
