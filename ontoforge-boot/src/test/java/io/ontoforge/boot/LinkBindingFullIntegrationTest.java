@@ -172,6 +172,18 @@ class LinkBindingFullIntegrationTest {
         assertThat(first.path("revision").asLong()).isEqualTo(1L);
         assertThat(first.path("validationStatus").asText()).isEqualTo("VALID_WITH_ORPHANS");
         assertThat(first.path("digest").asText()).matches("[0-9a-f]{64}");
+        assertThat(first.path("sourceBindingDigest").asText()).isEqualTo(equipment.digest());
+        assertThat(first.path("targetBindingDigest").asText()).isEqualTo(lot.digest());
+        assertThat(first.path("modelPayloadSha256").asText()).isEqualTo(equipment.payloadSha256());
+        assertThat(first.path("sourceSchemaFingerprint").asText())
+                .isEqualTo(equipment.sourceSchemaFingerprint());
+        assertThat(first.path("targetSchemaFingerprint").asText())
+                .isEqualTo(lot.sourceSchemaFingerprint());
+        assertThat(first.path("validationScope").path("coverage").asText()).isEqualTo("FULL");
+        assertThat(first.path("validationQuality").path("orphanCount").asInt()).isEqualTo(2);
+        assertThat(first.path("validationQuality").path("nullFkCount").asInt()).isEqualTo(1);
+        assertThat(first.path("validationQuality").path("matchedLinks").asInt()).isEqualTo(2);
+
 
         ResponseEntity<String> replay = post("", request);
         assertThat(replay.getStatusCode().value()).as(replay.getBody()).isEqualTo(201);
@@ -213,7 +225,12 @@ class LinkBindingFullIntegrationTest {
         ResponseEntity<String> historical = http.getForEntity(URI.create(url("/" + id)
                 + "?packageId=" + pkg + "&revision=1"), String.class);
         assertThat(historical.getStatusCode().value()).isEqualTo(200);
-        assertThat(mapper.readTree(historical.getBody()).path("historical").asBoolean()).isTrue();
+        JsonNode originalRevision = mapper.readTree(historical.getBody());
+        assertThat(originalRevision.path("historical").asBoolean()).isTrue();
+        assertThat(originalRevision.path("digest").asText()).isEqualTo(first.path("digest").asText());
+        assertThat(originalRevision.path("validationQuality")).isEqualTo(first.path("validationQuality"));
+        assertThat(originalRevision.path("sourceBindingDigest").asText())
+                .isEqualTo(equipment.digest());
 
         jdbc.execute("ALTER TABLE public." + INSPECTION + " ADD COLUMN m8_drift TEXT");
         try {
