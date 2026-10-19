@@ -6,6 +6,8 @@
 > **2026-10-19 整改进展**：本文件改为 **AS-IS 实施视角证据账**，原 125 行中混入范围排除/CI/UAT 等条目，不能再作为完整产品三级功能树或计算产品完工率。全产品一级/二级/三级结构请使用 [V1.1 八域/F01–F29/216 项](../product/OntoForge-产品完整功能树-三级-V1.1.md)，实际验收模板见 [15 项核心合同与 8 条黄金故事](../product/OntoForge-Core功能验收合同与黄金故事-V1.1.md)；正式签收由 [#82](https://github.com/gitfortian/ontoforge/issues/82) 跟踪。  
 > **正式功能评审（2026-10-19）**：此版可作为**已实现功能核对初稿**，但**尚未通过“全产品三级功能目录”签收**。详见[正式产品功能评审报告](./OntoForge-三级功能正式产品评审报告-20261019.md)：当前未与 V1.3 的八功能域、F01–F29 建立完整映射，且部分条目其实是非功能质量门或范围排除项。
 
+> **代码位置更新提醒（2026-10-19）**：当前 `main` 已从 `c9de0336` 演进至 M8 R2 文档阶段的 `c157d228`，期间进行工程模块化迁移。以下实现证据链接已改指向迁移后的 `ontoforge-business`/`ontoforge-core`/`ontoforge-ui/src/features` 等真实路径；本文件仍是基于 c9de 功能行为的 **AS-IS 历史核验账**，不能单凭路径存在推出 c157 的全量功能人工回归已通过。
+
 ## 0. 使用说明与状态判定
 
 此文档按照**一级产品模块 → 二级功能组 → 三级可验收功能点**编目。三级项为业务功能，不把 Java 类、数据库表或一个按钮拆成虚假业务模块。每一行都给出最小可观察行为、状态与一处直接代码或批准范围的依据。
@@ -61,15 +63,15 @@
 |---|---|---|---|---|
 | OF-F01.01.01 | **服务与数据库状态** | 展示 API 与 PostgreSQL 实际连接状态；失败不能展示为已连接 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/SystemStatusController.java) |
 | OF-F01.01.02 | **安装身份查看** | 显示 installationId 及环境标识；重启后可用于核对同一安装 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/SystemStatusController.java) |
-| OF-F01.01.03 | **异常重试入口** | 系统状态读取失败可主动重试，不代替全平台监控 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/main.tsx) |
+| OF-F01.01.03 | **异常重试入口** | 系统状态读取失败可主动重试，不代替全平台监控 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/app/App.tsx) |
 
 ### OF-F01.02 导航与工作续接
 
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
-| OF-F01.02.01 | **主功能导航** | 进入建模、质量追溯、数据绑定、对象读取与对象集合查询入口 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/main.tsx) |
-| OF-F01.02.02 | **浏览器前后退接续** | Hash 路由切换、浏览器返回及前进使用统一导航规则 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/main.tsx) |
-| OF-F01.02.03 | **未保存编辑保护** | 离开编辑页或退出登录前提醒确认，拒绝时保留当前编辑上下文 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/main.tsx) |
+| OF-F01.02.01 | **主功能导航** | 进入建模、质量追溯、数据绑定、对象读取与对象集合查询入口 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/app/App.tsx) |
+| OF-F01.02.02 | **浏览器前后退接续** | Hash 路由切换、浏览器返回及前进使用统一导航规则 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/app/App.tsx) |
+| OF-F01.02.03 | **未保存编辑保护** | 离开编辑页或退出登录前提醒确认，拒绝时保留当前编辑上下文 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/app/App.tsx) |
 | OF-F01.02.04 | **跨模块统一工作流** | 从模型到快照、绑定、对象、查询的无重复选择连续向导 | 部分实现／待加固 | [查看依据](https://github.com/gitfortian/ontoforge/issues/50) |
 
 ## OF-F02 Native 本体建模
@@ -80,35 +82,35 @@
 |---|---|---|---|---|
 | OF-F02.01.01 | **新建模型包** | 使用 packageId 建立持久草稿模型包并返回实际草稿身份 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/NativeDraftController.java) |
 | OF-F02.01.02 | **草稿列表与打开** | 分页查询模型包草稿并以 draftId 重开 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/NativeDraftController.java) |
-| OF-F02.01.03 | **工作中编辑恢复** | 符合编辑合同的不完整 WIP 保存后刷新可恢复 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeDraftService.java) |
+| OF-F02.01.03 | **工作中编辑恢复** | 符合编辑合同的不完整 WIP 保存后刷新可恢复 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/model/NativeDraftService.java) |
 | OF-F02.01.04 | **跨包引用与依赖** | 跨模型包 Import、依赖锁及冲突控制尚无生产功能 | 规划中／未开发 | [查看依据](https://github.com/gitfortian/ontoforge/issues/49) |
 
 ### OF-F02.02 对象类型定义
 
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
-| OF-F02.02.01 | **多 ObjectType 定义** | 在同一模型包新增、切换和编辑多个对象类型 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/NativeModelWorkspace.tsx) |
-| OF-F02.02.02 | **对象标识与 API 命名** | 编辑稳定 ID、API 名、展示名及描述 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/NativeModelWorkspace.tsx) |
-| OF-F02.02.03 | **对象主键设置** | 从属性中设置 primaryKeyRef；缺少有效主键不能通过完整性校验 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java) |
-| OF-F02.02.04 | **对象类型结构移除** | 在当前模型编辑稿内调整和移除类型，并由校验阻断悬空关系引用 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/NativeModelWorkspace.tsx) |
+| OF-F02.02.01 | **多 ObjectType 定义** | 在同一模型包新增、切换和编辑多个对象类型 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/design/modeling/NativeModelWorkspace.tsx) |
+| OF-F02.02.02 | **对象标识与 API 命名** | 编辑稳定 ID、API 名、展示名及描述 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/design/modeling/NativeModelWorkspace.tsx) |
+| OF-F02.02.03 | **对象主键设置** | 从属性中设置 primaryKeyRef；缺少有效主键不能通过完整性校验 | 已实现·限定环境 | [查看依据](../../ontoforge-core/src/main/java/io/ontoforge/core/compiler/DraftValidation.java) |
+| OF-F02.02.04 | **对象类型结构移除** | 在当前模型编辑稿内调整和移除类型，并由校验阻断悬空关系引用 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/design/modeling/NativeModelWorkspace.tsx) |
 
 ### OF-F02.03 属性与类型
 
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
-| OF-F02.03.01 | **属性基础信息** | 定义稳定属性 ID、API 名、展示名、说明 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/NativeModelWorkspace.tsx) |
-| OF-F02.03.02 | **属性值类型** | 前端支持 STRING、INTEGER、DECIMAL、BOOLEAN、DATETIME、ENUM；服务端校验合同另接受 UUID，但 UI 尚无 UUID 选项及 UUID 主键选择 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java) |
-| OF-F02.03.03 | **属性约束** | 设置 required、searchable、classification、枚举取值及主键引用 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/NativeModelWorkspace.tsx) |
-| OF-F02.03.04 | **属性合法性校验** | 拒绝重复命名、错误枚举或无效主键引用，返回路径 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java) |
+| OF-F02.03.01 | **属性基础信息** | 定义稳定属性 ID、API 名、展示名、说明 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/design/modeling/NativeModelWorkspace.tsx) |
+| OF-F02.03.02 | **属性值类型** | 前端支持 STRING、INTEGER、DECIMAL、BOOLEAN、DATETIME、ENUM；服务端校验合同另接受 UUID，但 UI 尚无 UUID 选项及 UUID 主键选择 | 已实现·限定环境 | [查看依据](../../ontoforge-core/src/main/java/io/ontoforge/core/compiler/DraftValidation.java) |
+| OF-F02.03.03 | **属性约束** | 设置 required、searchable、classification、枚举取值及主键引用 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/design/modeling/NativeModelWorkspace.tsx) |
+| OF-F02.03.04 | **属性合法性校验** | 拒绝重复命名、错误枚举或无效主键引用，返回路径 | 已实现·限定环境 | [查看依据](../../ontoforge-core/src/main/java/io/ontoforge/core/compiler/DraftValidation.java) |
 | OF-F02.03.05 | **复杂业务语义类型** | 单位量纲、复杂约束、计算属性与完整规则语言尚未进入生产闭环 | 规划中／未开发 | [查看依据](../../doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md) |
 
 ### OF-F02.04 关系类型定义
 
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
-| OF-F02.04.01 | **LinkType 结构建模** | 设置关系稳定 ID、API 名与含义 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/NativeModelWorkspace.tsx) |
-| OF-F02.04.02 | **关系端点与基数** | 选择源/目标 ObjectType、cardinality 和 evidenceRequired | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/NativeModelWorkspace.tsx) |
-| OF-F02.04.03 | **关系完整性检查** | 识别非法端点引用、非法基数、重复关系定义等错误 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java) |
+| OF-F02.04.01 | **LinkType 结构建模** | 设置关系稳定 ID、API 名与含义 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/design/modeling/NativeModelWorkspace.tsx) |
+| OF-F02.04.02 | **关系端点与基数** | 选择源/目标 ObjectType、cardinality 和 evidenceRequired | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/design/modeling/NativeModelWorkspace.tsx) |
+| OF-F02.04.03 | **关系完整性检查** | 识别非法端点引用、非法基数、重复关系定义等错误 | 已实现·限定环境 | [查看依据](../../ontoforge-core/src/main/java/io/ontoforge/core/compiler/DraftValidation.java) |
 | OF-F02.04.04 | **实例关联事实** | LinkType 定义不自动生成通用 LinkFact；实例级关联由后续 M8 负责 | 规划中／未开发 | [查看依据](https://github.com/gitfortian/ontoforge/issues/47) |
 
 ## OF-F03 草稿校验与编辑控制
@@ -117,19 +119,19 @@
 
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
-| OF-F03.01.01 | **草稿乐观版本保存** | 保存携带 expectedRevision，成功后 revision 递增 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeDraftService.java) |
-| OF-F03.01.02 | **并发冲突保护** | 过期修订返回 409，避免旧编辑覆盖新内容 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeDraftService.java) |
-| OF-F03.01.03 | **未完成结构安全保存** | 不完整业务模型允许 WIP 持久化，但非法编辑 JSON 拒绝 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeDraftService.java) |
-| OF-F03.01.04 | **保存结果真实性** | 网络/服务端失败不显示虚假成功；保留未保存内容 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/NativeModelWorkspace.tsx) |
+| OF-F03.01.01 | **草稿乐观版本保存** | 保存携带 expectedRevision，成功后 revision 递增 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/model/NativeDraftService.java) |
+| OF-F03.01.02 | **并发冲突保护** | 过期修订返回 409，避免旧编辑覆盖新内容 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/model/NativeDraftService.java) |
+| OF-F03.01.03 | **未完成结构安全保存** | 不完整业务模型允许 WIP 持久化，但非法编辑 JSON 拒绝 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/model/NativeDraftService.java) |
+| OF-F03.01.04 | **保存结果真实性** | 网络/服务端失败不显示虚假成功；保留未保存内容 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/design/modeling/NativeModelWorkspace.tsx) |
 
 ### OF-F03.02 模型有效性
 
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
-| OF-F03.02.01 | **执行完整性校验** | 按当前 revision 生成 NOT_RUN / INCOMPLETE / INVALID / VALID 等状态 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java) |
-| OF-F03.02.02 | **属性主键与关系验证** | 验证必填属性、主键、枚举、关系端点和 ID 唯一性 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java) |
+| OF-F03.02.01 | **执行完整性校验** | 按当前 revision 生成 NOT_RUN / INCOMPLETE / INVALID / VALID 等状态 | 已实现·限定环境 | [查看依据](../../ontoforge-core/src/main/java/io/ontoforge/core/compiler/DraftValidation.java) |
+| OF-F03.02.02 | **属性主键与关系验证** | 验证必填属性、主键、枚举、关系端点和 ID 唯一性 | 已实现·限定环境 | [查看依据](../../ontoforge-core/src/main/java/io/ontoforge/core/compiler/DraftValidation.java) |
 | OF-F03.02.03 | **Native Schema 合同核验** | 从 editor 文档转 Native 候选并执行 V0.2 JSON Schema 校验 | 已实现·限定环境 | [查看依据](../../doc/design/schema/ontology-package-v0.2.schema.json) |
-| OF-F03.02.04 | **校验修订失效** | 编辑保存后旧 VALID 不可沿用，冻结前必须重新校验当前 revision | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeDraftService.java) |
+| OF-F03.02.04 | **校验修订失效** | 编辑保存后旧 VALID 不可沿用，冻结前必须重新校验当前 revision | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/model/NativeDraftService.java) |
 | OF-F03.02.05 | **跨模块完整业务规则验证** | 关联来源、发布消费者、规则与 Action 的联合治理校验尚未实现 | 规划中／未开发 | [查看依据](https://github.com/gitfortian/ontoforge/issues/49) |
 
 ## OF-F04 模型快照与版本历史
@@ -139,8 +141,8 @@
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
 | OF-F04.01.01 | **冻结已校验模型** | 当前修订 VALID 才可冻结 LOCAL_SNAPSHOT，只读历史与正式发行分离 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/NativeSnapshotController.java) |
-| OF-F04.01.02 | **快照内容摘要** | 以 RFC8785 JCS 规范化字节及 SHA-256 固定模型内容 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeSnapshotService.java) |
-| OF-F04.01.03 | **快照原子性与保护** | PG 事务、来源修订唯一约束、数据库触发器限制普通更新删除 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeSnapshotService.java) |
+| OF-F04.01.02 | **快照内容摘要** | 以 RFC8785 JCS 规范化字节及 SHA-256 固定模型内容 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/model/NativeSnapshotService.java) |
+| OF-F04.01.03 | **快照原子性与保护** | PG 事务、来源修订唯一约束、数据库触发器限制普通更新删除 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/model/NativeSnapshotService.java) |
 | OF-F04.01.04 | **幂等冻结与未知结果核对** | 同 idempotencyKey 返回同一结果，可按键或修订查回 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/NativeSnapshotController.java) |
 
 ### OF-F04.02 版本浏览与差异
@@ -148,10 +150,10 @@
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
 | OF-F04.02.01 | **快照历史列表** | 按模型包浏览并分页读取历史快照 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/NativeSnapshotController.java) |
-| OF-F04.02.02 | **快照只读详情** | 查询快照 ID、模型版本、摘要与结构内容 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/NativeSnapshotWorkspace.tsx) |
-| OF-F04.02.03 | **快照完整性重核验** | 读取时核对原始字节/JSON 镜像/摘要/Schema，异常拒绝 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeSnapshotService.java) |
-| OF-F04.02.04 | **两版本结构 Diff** | 同一包比较 ObjectType/Property/LinkType 增删及变更 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeSnapshotService.java) |
-| OF-F04.02.05 | **潜在破坏风险提示** | 提示主键、类型、关系基数等结构兼容风险；并非消费者兼容性证明 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/NativeSnapshotWorkspace.tsx) |
+| OF-F04.02.02 | **快照只读详情** | 查询快照 ID、模型版本、摘要与结构内容 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/design/releases/NativeSnapshotWorkspace.tsx) |
+| OF-F04.02.03 | **快照完整性重核验** | 读取时核对原始字节/JSON 镜像/摘要/Schema，异常拒绝 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/model/NativeSnapshotService.java) |
+| OF-F04.02.04 | **两版本结构 Diff** | 同一包比较 ObjectType/Property/LinkType 增删及变更 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/model/NativeSnapshotService.java) |
+| OF-F04.02.05 | **潜在破坏风险提示** | 提示主键、类型、关系基数等结构兼容风险；并非消费者兼容性证明 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/design/releases/NativeSnapshotWorkspace.tsx) |
 | OF-F04.02.06 | **正式发布与版本激活** | SchemaRelease、审批、Activation 与真实回退独立规划，当前无此闭环 | 规划中／未开发 | [查看依据](https://github.com/gitfortian/ontoforge/issues/49) |
 
 ## OF-F05 运行时类型目录（M4）
@@ -160,17 +162,17 @@
 
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
-| OF-F05.01.01 | **有效草稿类型解析** | 只允许当前已 VALID 且 revision 精确匹配的草稿作为类型来源 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/RuntimeTypeResolver.java) |
-| OF-F05.01.02 | **本地快照类型解析** | 从校验过完整性的 snapshotId 读取不可变类型合同 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/RuntimeTypeResolver.java) |
-| OF-F05.01.03 | **版本来源显式区分** | 草稿与快照类型来源不能静默替换；失效需重新选择 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/RuntimeTypeWorkspace.tsx) |
+| OF-F05.01.01 | **有效草稿类型解析** | 只允许当前已 VALID 且 revision 精确匹配的草稿作为类型来源 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/registry/RuntimeTypeResolver.java) |
+| OF-F05.01.02 | **本地快照类型解析** | 从校验过完整性的 snapshotId 读取不可变类型合同 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/registry/RuntimeTypeResolver.java) |
+| OF-F05.01.03 | **版本来源显式区分** | 草稿与快照类型来源不能静默替换；失效需重新选择 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/design/modeling/RuntimeTypeWorkspace.tsx) |
 
 ### OF-F05.02 类型合同与读取
 
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
 | OF-F05.02.01 | **对象类型列表** | 提供草稿/快照各自的类型列表与类型详情四个只读接口 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/RuntimeTypeController.java) |
-| OF-F05.02.02 | **属性合同展示** | 读取主键、类型、检索性、必填、枚举、分类等合同 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/RuntimeTypeWorkspace.tsx) |
-| OF-F05.02.03 | **类型目录作为下游依据** | M5/M6/M7 可使用解析结果；不表示正式 Release Registry 已完成 | 部分实现／待加固 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/RuntimeTypeResolver.java) |
+| OF-F05.02.02 | **属性合同展示** | 读取主键、类型、检索性、必填、枚举、分类等合同 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/design/modeling/RuntimeTypeWorkspace.tsx) |
+| OF-F05.02.03 | **类型目录作为下游依据** | M5/M6/M7 可使用解析结果；不表示正式 Release Registry 已完成 | 部分实现／待加固 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/registry/RuntimeTypeResolver.java) |
 
 ## OF-F06 通用 Data Binding（M5）
 
@@ -179,18 +181,18 @@
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
 | OF-F06.01.01 | **已登记来源发现** | 仅列出单个受控只读 PostgreSQL 来源的允许表与列、字段类型 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/DataBindingController.java) |
-| OF-F06.01.02 | **来源结构指纹** | 展示表/列 Schema Fingerprint 作为后续绑定与漂移核验依据 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DataBindingService.java) |
+| OF-F06.01.02 | **来源结构指纹** | 展示表/列 Schema Fingerprint 作为后续绑定与漂移核验依据 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/connection/DataBindingService.java) |
 | OF-F06.01.03 | **外部任意连接配置** | 任意 JDBC URL、跨库/跨系统 MES/ERP/QMS 连接器不开放 | 规划中／未开发 | [查看依据](https://github.com/gitfortian/ontoforge/issues/48) |
 
 ### OF-F06.02 类型到数据绑定
 
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
-| OF-F06.02.01 | **精确类型版本选择** | 使用有效类型快照与 ObjectType 作为持久 Binding 来源 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/DataBindingWorkspace.tsx) |
-| OF-F06.02.02 | **对象主键映射** | 把对象 identity/sourceKey 对应到受控表的列 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DataBindingService.java) |
-| OF-F06.02.03 | **属性列映射** | 为 ObjectType Property 选择来源列和 AUTHORITATIVE 语义 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/DataBindingWorkspace.tsx) |
+| OF-F06.02.01 | **精确类型版本选择** | 使用有效类型快照与 ObjectType 作为持久 Binding 来源 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/integration/bindings/DataBindingWorkspace.tsx) |
+| OF-F06.02.02 | **对象主键映射** | 把对象 identity/sourceKey 对应到受控表的列 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/connection/DataBindingService.java) |
+| OF-F06.02.03 | **属性列映射** | 为 ObjectType Property 选择来源列和 AUTHORITATIVE 语义 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/integration/bindings/DataBindingWorkspace.tsx) |
 | OF-F06.02.04 | **绑定前真实预览** | 以只读 SQL 展示有限原始样本和映射样本，不在预览时持久化 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/DataBindingController.java) |
-| OF-F06.02.05 | **绑定有效性校验** | 检查列类型/缺项/身份重复/结构指纹及有限数据质量 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DataBindingService.java) |
+| OF-F06.02.05 | **绑定有效性校验** | 检查列类型/缺项/身份重复/结构指纹及有限数据质量 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/connection/DataBindingService.java) |
 
 ### OF-F06.03 绑定生命期
 
@@ -198,8 +200,8 @@
 |---|---|---|---|---|
 | OF-F06.03.01 | **绑定创建与修订** | 创建 Binding 身份、CAS 更新 revision、保留源和模型引用 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/DataBindingController.java) |
 | OF-F06.03.02 | **绑定历史与重开** | 读取已有 Binding 及 revisions，页面刷新后重现真实记录 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/DataBindingController.java) |
-| OF-F06.03.03 | **绑定内容摘要** | 记录 digest、来源 fingerprint、绑定/模型修订与身份域 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/resources/db/migration/V7__generic_data_binding.sql) |
-| OF-F06.03.04 | **来源只读安全边界** | 不允许自由 SQL 和生产写入；验证读取角色/白名单 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DataBindingService.java) |
+| OF-F06.03.03 | **绑定内容摘要** | 记录 digest、来源 fingerprint、绑定/模型修订与身份域 | 已实现·限定环境 | [查看依据](../../ontoforge-dao/src/main/resources/db/migration/V7__generic_data_binding.sql) |
+| OF-F06.03.04 | **来源只读安全边界** | 不允许自由 SQL 和生产写入；验证读取角色/白名单 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/connection/DataBindingService.java) |
 | OF-F06.03.05 | **多连接器和批量同步** | 企业级连接器、CDC、投影物化、写回及分布式源管理尚未实现 | 规划中／未开发 | [查看依据](https://github.com/gitfortian/ontoforge/issues/48) |
 
 ## OF-F07 对象实例运行时（M6）
@@ -209,18 +211,18 @@
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
 | OF-F07.01.01 | **按对象键读取** | 根据 bindingId/revision、规范对象键和属性请求读取单个虚拟对象 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/ObjectRuntimeController.java) |
-| OF-F07.01.02 | **稳定 ObjectRef** | 返回 packageId、objectTypeId、identityDomainId、带类型主键 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectRuntimeService.java) |
-| OF-F07.01.03 | **身份域变更隔离** | 模型/绑定版本变化时明确身份边界，不把不同对象误并 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectRuntimeService.java) |
+| OF-F07.01.02 | **稳定 ObjectRef** | 返回 packageId、objectTypeId、identityDomainId、带类型主键 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/object/ObjectRuntimeService.java) |
+| OF-F07.01.03 | **身份域变更隔离** | 模型/绑定版本变化时明确身份边界，不把不同对象误并 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/object/ObjectRuntimeService.java) |
 
 ### OF-F07.02 属性值与数据证据
 
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
-| OF-F07.02.01 | **类型化属性值** | 按当前映射及 Property 合同返回已请求字段的值类型和内容 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectRuntimeService.java) |
-| OF-F07.02.02 | **空值与未映射区分** | 准确表达 PRESENT、NULL、MISSING，缺失不冒充空字符串/零 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectRuntimeService.java) |
-| OF-F07.02.03 | **物理重复折叠与冲突拒绝** | 相同 ObjectRef 一致重复行可折叠；冲突必须失败而非任取一行 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectRuntimeService.java) |
-| OF-F07.02.04 | **运行时来源证据** | 返回来源读引用、列级 provenance、Binding 版本与读取范围等证据 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectRuntimeService.java) |
-| OF-F07.02.05 | **失败与超预算恢复** | 区分无对象、权限撤销、结构漂移、类型冲突及查询/输出预算失败 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectRuntimeService.java) |
+| OF-F07.02.01 | **类型化属性值** | 按当前映射及 Property 合同返回已请求字段的值类型和内容 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/object/ObjectRuntimeService.java) |
+| OF-F07.02.02 | **空值与未映射区分** | 准确表达 PRESENT、NULL、MISSING，缺失不冒充空字符串/零 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/object/ObjectRuntimeService.java) |
+| OF-F07.02.03 | **物理重复折叠与冲突拒绝** | 相同 ObjectRef 一致重复行可折叠；冲突必须失败而非任取一行 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/object/ObjectRuntimeService.java) |
+| OF-F07.02.04 | **运行时来源证据** | 返回来源读引用、列级 provenance、Binding 版本与读取范围等证据 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/object/ObjectRuntimeService.java) |
+| OF-F07.02.05 | **失败与超预算恢复** | 区分无对象、权限撤销、结构漂移、类型冲突及查询/输出预算失败 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/object/ObjectRuntimeService.java) |
 | OF-F07.02.06 | **通用对象存储与编辑** | 没有永久 Object Store、对象修改/回写、跨源合并或完整分布式 Runtime | 规划中／未开发 | [查看依据](https://github.com/gitfortian/ontoforge/issues/51) |
 
 ## OF-F08 通用 ObjectSet 查询（M7）
@@ -230,30 +232,30 @@
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
 | OF-F08.01.01 | **版本化查询合同** | 使用 local-query-v1 AST，固定 rootTypeRef 与 Binding revision，拒绝额外字段 | 已实现·限定环境 | [查看依据](../../doc/design/schema/local-query-v1.schema.json) |
-| OF-F08.01.02 | **类型安全筛选** | 支持 EQ/IN/GT/GTE/LT/LTE/PREFIX/IS_NULL 的适用类型与可检索性校验 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
-| OF-F08.01.03 | **组合条件约束** | 支持有限 FILTER 条件（当前按 AND 组合）；不支持任意 OR/NOT 布尔表达式或自由 SQL | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
-| OF-F08.01.04 | **多字段稳定排序** | 至多三字段 ASC/DESC，主键稳定兜底，重复排序字段拒绝 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
-| OF-F08.01.05 | **结果字段投影** | 选择 1–100 个合法 Property；未映射值保持 MISSING | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
+| OF-F08.01.02 | **类型安全筛选** | 支持 EQ/IN/GT/GTE/LT/LTE/PREFIX/IS_NULL 的适用类型与可检索性校验 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
+| OF-F08.01.03 | **组合条件约束** | 支持有限 FILTER 条件（当前按 AND 组合）；不支持任意 OR/NOT 布尔表达式或自由 SQL | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
+| OF-F08.01.04 | **多字段稳定排序** | 至多三字段 ASC/DESC，主键稳定兜底，重复排序字段拒绝 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
+| OF-F08.01.05 | **结果字段投影** | 选择 1–100 个合法 Property；未映射值保持 MISSING | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
 
 ### OF-F08.02 集合执行与读取
 
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
 | OF-F08.02.01 | **通用集合查询入口** | POST /api/runtime/object-sets/query 对自定义类型读取多对象集合 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/ObjectSetQueryController.java) |
-| OF-F08.02.02 | **有界精确分页** | PAGE 大小 1–50，结果快照和不透明 nextCursor 接续 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
-| OF-F08.02.03 | **游标时效与复核** | 默认 TTL 最多 300 秒，每页重验包授权、绑定版本与来源权限/Schema | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
-| OF-F08.02.04 | **去重对象计数** | COUNT_DISTINCT 基于 ObjectRef 去重，不能把重复物理行算两次 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
-| OF-F08.02.05 | **精确数值求和** | SUM 仅 INTEGER/DECIMAL；NULL/MISSING 不得默认为零，失败不返回部分总和 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
-| OF-F08.02.06 | **空结果与失败区分** | 区分成功空集合、服务器已确认失败、请求响应未知、游标过期及来源故障；不虚构结果 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/ObjectSetWorkspace.tsx) |
+| OF-F08.02.02 | **有界精确分页** | PAGE 大小 1–50，结果快照和不透明 nextCursor 接续 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
+| OF-F08.02.03 | **游标时效与复核** | 默认 TTL 最多 300 秒，每页重验包授权、绑定版本与来源权限/Schema | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
+| OF-F08.02.04 | **去重对象计数** | COUNT_DISTINCT 基于 ObjectRef 去重，不能把重复物理行算两次 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
+| OF-F08.02.05 | **精确数值求和** | SUM 仅 INTEGER/DECIMAL；NULL/MISSING 不得默认为零，失败不返回部分总和 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
+| OF-F08.02.06 | **空结果与失败区分** | 区分成功空集合、服务器已确认失败、请求响应未知、游标过期及来源故障；不虚构结果 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/analysis/objectsets/ObjectSetWorkspace.tsx) |
 
 ### OF-F08.03 执行可信约束
 
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
-| OF-F08.03.01 | **单事务一致读取** | 对允许的单 PostgreSQL 来源执行有界只读 REPEATABLE READ | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
-| OF-F08.03.02 | **执行预算** | 最大 10000 物理行、8MiB 来源/结果及 3 秒查询上限，超限失败关闭 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
-| OF-F08.03.03 | **短时结果快照配额** | 内存快照最大 10 份/合计 80MiB；进程重启不承诺恢复旧游标 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
-| OF-F08.03.04 | **查询摘要与版本锁证据** | 返回 queryDigest、versionLock、sourceReadRef、质量范围及预算证据 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
+| OF-F08.03.01 | **单事务一致读取** | 对允许的单 PostgreSQL 来源执行有界只读 REPEATABLE READ | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
+| OF-F08.03.02 | **执行预算** | 最大 10000 物理行、8MiB 来源/结果及 3 秒查询上限，超限失败关闭 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
+| OF-F08.03.03 | **短时结果快照配额** | 内存快照最大 10 份/合计 80MiB；进程重启不承诺恢复旧游标 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
+| OF-F08.03.04 | **查询摘要与版本锁证据** | 返回 queryDigest、versionLock、sourceReadRef、质量范围及预算证据 | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
 | OF-F08.03.05 | **通用 Link 遍历与跨源 Join** | M7 不执行 LinkFact、多跳图遍历、跨源 JOIN 或持久化索引 | 规划中／未开发 | [查看依据](https://github.com/gitfortian/ontoforge/issues/47) |
 
 ## OF-F09 工业制造质量追溯（MVP 专用）
@@ -263,7 +265,7 @@
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
 | OF-F09.01.01 | **内置三对象建模** | 一键创建生产批次、工单和客户订单及两段 LinkType 的示例模型 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/QualityMvpController.java) |
-| OF-F09.01.02 | **测试表/字段选择** | 仅 public.demo_* 与 mvp_source_* 受控表；完成固定 10 项配置 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/QualityMvpWorkspace.tsx) |
+| OF-F09.01.02 | **测试表/字段选择** | 仅 public.demo_* 与 mvp_source_* 受控表；完成固定 10 项配置 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/analysis/impact/QualityMvpWorkspace.tsx) |
 | OF-F09.01.03 | **样本及关系预览** | 分别预览有限三表行与一条两跳关联示例 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/QualityMvpController.java) |
 | OF-F09.01.04 | **场景绑定持久化** | 绑定当前 VALID 示例模型的 revision，防止旧绑定误用 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/QualityMvpController.java) |
 
@@ -280,7 +282,7 @@
 
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
-| OF-F09.03.01 | **三类对象集合浏览** | 在固定示例类型中浏览批次、工单、订单集合 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/QualityMvpWorkspace.tsx) |
+| OF-F09.03.01 | **三类对象集合浏览** | 在固定示例类型中浏览批次、工单、订单集合 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/features/analysis/impact/QualityMvpWorkspace.tsx) |
 | OF-F09.03.02 | **标量字段查找** | 支持精确匹配与前缀查询，显示真实去重对象和来源 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/QualityMvpController.java) |
 | OF-F09.03.03 | **查询结果分页** | 专用 ObjectSet 限定页大小/游标与修订指纹 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/QualityMvpController.java) |
 | OF-F09.03.04 | **通用多领域关系建模** | 本模块不取代 M5–M8 的任意领域/通用关系链路 | 规划中／未开发 | [查看依据](https://github.com/gitfortian/ontoforge/issues/47) |
@@ -292,8 +294,8 @@
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
 | OF-F10.01.01 | **B0 JWT/OIDC 验证** | 非本地模式要求受信 issuer/JWKS/audience；代码已合并但企业环境未签收 | 部分实现／待加固 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/security/SecurityConfig.java) |
-| OF-F10.01.02 | **模型包授权** | B0 提供显式包授权与服务端操作校验，不能据此宣称完整多租户/企业 IAM | 部分实现／待加固 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/security/B0AuthorizationService.java) |
-| OF-F10.01.03 | **身份信息读取** | GET /api/me 返回当前受信主体的身份摘要 | 部分实现／待加固 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/security/B0AuthorizationService.java) |
+| OF-F10.01.02 | **模型包授权** | B0 提供显式包授权与服务端操作校验，不能据此宣称完整多租户/企业 IAM | 部分实现／待加固 | [查看依据](../../ontoforge-platform/src/main/java/io/ontoforge/platform/identity/B0AuthorizationService.java) |
+| OF-F10.01.03 | **身份信息读取** | GET /api/me 返回当前受信主体的身份摘要 | 部分实现／待加固 | [查看依据](../../ontoforge-platform/src/main/java/io/ontoforge/platform/identity/B0AuthorizationService.java) |
 | OF-F10.01.04 | **统一企业登录管理** | 正式会话/组织角色/权限管理页与 yak-ops HttpSession 复用尚未交付 | 规划中／未开发 | [查看依据](https://github.com/gitfortian/ontoforge/issues/49) |
 
 ### OF-F10.02 隔离开发安全
@@ -302,7 +304,7 @@
 |---|---|---|---|---|
 | OF-F10.02.01 | **mvp-local 显式本地模式** | 通过 Spring Profile 启用无登录本机体验，仅限 loopback/测试库 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/security/LocalMvpSecurityConfig.java) |
 | OF-F10.02.02 | **普通模式失败关闭** | 未配置可信 OIDC 的非本地安全端点不得默认为匿名开放 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/security/SecurityConfig.java) |
-| OF-F10.02.03 | **来源只读账户** | M5 使用限制来源权限的独立只读连接，而非应用任意执行 SQL | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DataBindingService.java) |
+| OF-F10.02.03 | **来源只读账户** | M5 使用限制来源权限的独立只读连接，而非应用任意执行 SQL | 已实现·限定环境 | [查看依据](../../ontoforge-business/src/main/java/io/ontoforge/business/connection/DataBindingService.java) |
 | OF-F10.02.04 | **企业策略与审计** | 对象行/列级策略、可信审批、访问审计、生产密钥治理尚未建立 | 规划中／未开发 | [查看依据](../../doc/proposals/OFIP-0005-P0B模型治理审核发布与激活MVP.md) |
 
 ## OF-F11 数据准备、诊断与交付质量
@@ -320,7 +322,7 @@
 
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
-| OF-F11.02.01 | **数据迁移与持久化** | Flyway V1–V7 等已提交迁移记录服务于本机 PG，而非生产数据库运维服务 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/resources/db/migration/V7__generic_data_binding.sql) |
+| OF-F11.02.01 | **数据迁移与持久化** | Flyway V1–V7 等已提交迁移记录服务于本机 PG，而非生产数据库运维服务 | 已实现·限定环境 | [查看依据](../../ontoforge-dao/src/main/resources/db/migration/V7__generic_data_binding.sql) |
 | OF-F11.02.02 | **后端与前端集成检查** | 仓库有 Maven/PG17/React/Chromium 实测工作流，结果以对应 head CI 为准 | 已实现·限定环境 | [查看依据](../../.github/workflows/quality-gate.yml) |
 | OF-F11.02.03 | **规范与文档治理** | OFIP、术语表、Schema 合同、PR Gate 和验收说明可追溯 | 已实现·限定环境 | [查看依据](../../.github/workflows/quality-gate.yml) |
 | OF-F11.02.04 | **Windows 用户实机验收** | 用户既有 Windows 11 + PG 环境的完整人工 UAT 未有可确认签收 | 规划中／未开发 | [查看依据](https://github.com/gitfortian/ontoforge/issues/53) |
@@ -374,13 +376,13 @@
 
 | 范围 | 真实限定及验收判断 | 证据 |
 |---|---|---|
-| 数据来源 | M5–M7 限单登记只读 PostgreSQL 来源及受控表；不允许任意 SQL、生产凭据、跨源 JOIN | [M5 实现](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DataBindingService.java) |
-| M6 对象读取 | 按需虚拟对象、不落全量 Object Store；重复一致行折叠，所请求属性存在冲突拒绝 | [M6 实现](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectRuntimeService.java) |
-| M7 过滤算子 | EQ/IN/GT/GTE/LT/LTE/PREFIX/IS_NULL 限类型适配；不支持任意复杂表达式 | [M7 实现](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
-| M7 预算 | 物理行最多 10000，单次来源/结果各 8MiB，超时最多 3s；页大小 1–50 | [M7 实现](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
-| M7 结果快照 | TTL 默认最多 300 秒，内存不超过 10 份和合计 80MiB；不保证跨服务重启继续分页 | [M7 实现](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) |
+| 数据来源 | M5–M7 限单登记只读 PostgreSQL 来源及受控表；不允许任意 SQL、生产凭据、跨源 JOIN | [M5 实现](../../ontoforge-business/src/main/java/io/ontoforge/business/connection/DataBindingService.java) |
+| M6 对象读取 | 按需虚拟对象、不落全量 Object Store；重复一致行折叠，所请求属性存在冲突拒绝 | [M6 实现](../../ontoforge-business/src/main/java/io/ontoforge/business/object/ObjectRuntimeService.java) |
+| M7 过滤算子 | EQ/IN/GT/GTE/LT/LTE/PREFIX/IS_NULL 限类型适配；不支持任意复杂表达式 | [M7 实现](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
+| M7 预算 | 物理行最多 10000，单次来源/结果各 8MiB，超时最多 3s；页大小 1–50 | [M7 实现](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
+| M7 结果快照 | TTL 默认最多 300 秒，内存不超过 10 份和合计 80MiB；不保证跨服务重启继续分页 | [M7 实现](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) |
 | 安全 | 独立 `mvp-local` 仅用于本机隔离开发；非本地 JWT/OIDC 实现不等于生产认证体系已经验收 | [安全配置](../../ontoforge-boot/src/main/java/io/ontoforge/boot/security/SecurityConfig.java) |
-| 模型版本 | Draft revision、Local Snapshot、Binding revision、Query result snapshot、SchemaRelease 是不同身份 | [版本历史](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeSnapshotService.java) |
+| 模型版本 | Draft revision、Local Snapshot、Binding revision、Query result snapshot、SchemaRelease 是不同身份 | [版本历史](../../ontoforge-business/src/main/java/io/ontoforge/business/model/NativeSnapshotService.java) |
 
 ## 6. 待完成能力与研发优先顺序
 
