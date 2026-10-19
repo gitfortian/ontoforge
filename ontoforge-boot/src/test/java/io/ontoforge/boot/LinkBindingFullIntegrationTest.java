@@ -441,6 +441,37 @@ class LinkBindingFullIntegrationTest {
         unapprovedField.put("clientSql", "SELECT * FROM pg_catalog.pg_roles");
         assertThat(traverse(unapprovedField).getStatusCode().value()).isEqualTo(422);
 
+        // Real large one-to-many fanout. The frozen first page must not
+        // evaluate 1,000 entire edge lists once PER page ObjectRef; the second
+        // page must remain immutable after the physical source rows disappear.
+        jdbc.execute("INSERT INTO public." + INSPECTION
+                + " SELECT 'FAN-' || lpad(g::text,5,'0'), 'EQ-001','PASS', 1.00"
+                + " FROM generate_series(1,1000) AS g");
+        try {
+            ObjectNode fanout = traverseRequest(pkg, snapshotId, equipment, lot, id,
+                    "equipment-inspections", "OUT", "EQ-001", 50);
+            ResponseEntity<String> fanoutResponse = traverse(fanout);
+            assertThat(fanoutResponse.getStatusCode().value()).as(fanoutResponse.getBody()).isEqualTo(200);
+            JsonNode fanFirst = mapper.readTree(fanoutResponse.getBody());
+            assertThat(fanFirst.path("quality").path("completeness").asText()).isEqualTo("COMPLETE");
+            assertThat(fanFirst.path("budget").path("distinctLinks").asInt()).isEqualTo(1002);
+            assertThat(fanFirst.path("objects").size()).isEqualTo(50);
+            assertThat(fanFirst.path("links").size()).isEqualTo(50);
+            String fanCursor = fanFirst.path("nextCursor").asText();
+            assertThat(fanCursor).startsWith("v2.");
+            jdbc.execute("DELETE FROM public." + INSPECTION + " WHERE lot_code LIKE 'FAN-%'");
+            ResponseEntity<String> fanoutSecond = traversePage(fanCursor);
+            assertThat(fanoutSecond.getStatusCode().value()).as(fanoutSecond.getBody()).isEqualTo(200);
+            JsonNode fanNext = mapper.readTree(fanoutSecond.getBody());
+            assertThat(fanNext.path("objects").size()).isEqualTo(50);
+            assertThat(fanNext.path("links").size()).isEqualTo(50);
+            assertThat(fanNext.path("resultSnapshotRef")).isEqualTo(fanFirst.path("resultSnapshotRef"));
+            assertThat(fanNext.path("objects").get(0).path("objectRef"))
+                    .isNotEqualTo(fanFirst.path("objects").get(0).path("objectRef"));
+        } finally {
+            jdbc.execute("DELETE FROM public." + INSPECTION + " WHERE lot_code LIKE 'FAN-%'");
+        }
+
         ObjectNode paged = traverseRequest(pkg, snapshotId, equipment, lot, id,
                 "equipment-inspections", "OUT", "EQ-001", 1);
         ResponseEntity<String> firstPage = traverse(paged);
