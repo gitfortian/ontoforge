@@ -163,6 +163,7 @@ class RealM8BrowserGoldenStory(unittest.TestCase):
         if evidence:
             Path(evidence).write_text(json.dumps({
                 "cursor": frozen["nextCursor"],
+                "expiresAt": frozen["expiresAt"],
                 "resultSnapshotRef": frozen["resultSnapshotRef"],
                 "packageId": self.package
             }), encoding="utf-8")
