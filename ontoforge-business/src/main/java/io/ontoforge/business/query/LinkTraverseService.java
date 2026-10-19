@@ -101,7 +101,8 @@ public class LinkTraverseService {
     }
 
     private record Fact(String key, String fk) {}
-    private record SourceRows(List<Fact> source, List<Fact> target, long bytes) {}
+    private record SourceRows(List<Fact> source, List<Fact> target, long bytes,
+            Instant startedAt, Instant completedAt) {}
     private record Requested(String packageId, String snapshotId, String rootTypeId,
             String rootBindingId, long rootBindingRevision, String rootDomain,
             String rootKeyType, String rootKey, String direction,
@@ -280,8 +281,10 @@ public class LinkTraverseService {
         versionLock.set("sourceSchemaFingerprints", fingerprints);
 
         ArrayNode sourceReadRefs = mapper.createArrayNode();
-        sourceRead(sourceReadRefs, readSourceId, sourceBinding, left, sourceFk, "SOURCE", now);
-        sourceRead(sourceReadRefs, readTargetId, targetBinding, right, targetFk, "TARGET", now);
+        sourceRead(sourceReadRefs, readSourceId, sourceBinding, left, sourceFk, "SOURCE",
+                rows.startedAt(), rows.completedAt());
+        sourceRead(sourceReadRefs, readTargetId, targetBinding, right, targetFk, "TARGET",
+                rows.startedAt(), rows.completedAt());
 
         ObjectNode result = mapper.createObjectNode();
         result.put("status", "SUCCESS");
@@ -337,16 +340,18 @@ public class LinkTraverseService {
             throw fail(409, "LINK_VERSION_UNAVAILABLE", "查询执行期间关系版本变化", "steps");
         }
         if (System.nanoTime() > deadline) throw fail(503, "QUERY_TIMEOUT", "来源执行整体超时", "limits");
-        frozen.entrySet().removeIf(e -> !e.getValue().expiresAt().isAfter(Instant.now()));
-        if (frozen.size() >= 10) throw fail(429, "RESULT_SNAPSHOT_BUDGET",
-                "当前冻结结果容量已满，请稍后重新执行", "limits");
         Frozen saved = new Frozen(frozenId, actorKey(auth), now.plusSeconds(300), result.deepCopy(),
                 request.pageSize(), request.direction(), request.packageId(), request.snapshotId(),
                 link.linkBindingId(), link.revision(), link.digest(),
                 sourceBinding.bindingId(), sourceBinding.revision(), sourceBinding.digest(),
                 targetBinding.bindingId(), targetBinding.revision(), targetBinding.digest(),
                 left.schemaFingerprint(), right.schemaFingerprint());
-        frozen.put(frozenId, saved);
+        synchronized (frozen) {
+            frozen.entrySet().removeIf(e -> !e.getValue().expiresAt().isAfter(Instant.now()));
+            if (frozen.size() >= 10) throw fail(429, "RESULT_SNAPSHOT_BUDGET",
+                    "当前冻结结果容量已满，请稍后重新执行", "limits");
+            frozen.put(frozenId, saved);
+        }
         try {
             return buildPage(saved, 0);
         } catch (RuntimeException ex) {
@@ -667,6 +672,7 @@ public class LinkTraverseService {
         if (configured == null || configured.getDataSource() == null) {
             throw fail(503, "SOURCE_UNAVAILABLE", "独立来源只读连接不存在", "rootBindingRef");
         }
+        Instant readStarted = Instant.now();
         try (Connection connection = configured.getDataSource().getConnection()) {
             connection.setReadOnly(true);
             connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
@@ -675,7 +681,7 @@ public class LinkTraverseService {
                 Budget budget = new Budget();
                 List<Fact> left = scan(connection, a.sourceTable(), a.sourceKey(), sourceFk, budget, r, deadline);
                 List<Fact> right = scan(connection, b.sourceTable(), b.sourceKey(), targetFk, budget, r, deadline);
-                return new SourceRows(left, right, budget.bytes);
+                return new SourceRows(left, right, budget.bytes, readStarted, Instant.now());
             } finally {
                 connection.rollback();
             }
@@ -758,7 +764,7 @@ public class LinkTraverseService {
     }
     private static void sourceRead(ArrayNode out, String readId,
             DataBindingService.BindingDetail binding, DataBindingService.SourceTable table,
-            String fk, String role, Instant timestamp) {
+            String fk, String role, Instant startedAt, Instant completedAt) {
         ObjectNode x=out.addObject();
         x.put("id",readId);x.put("role",role);x.put("sourceId",binding.sourceId());
         x.put("schema",binding.sourceSchema());x.put("table",binding.sourceTable());
@@ -768,7 +774,7 @@ public class LinkTraverseService {
         x.put("transactionIsolation","REPEATABLE_READ");
         ObjectNode check=x.putObject("checkpoint");
         check.put("status","UNKNOWN");check.put("reason","SOURCE_CURRENT_STATE_NOT_HISTORICALLY_ATTESTED");
-        x.put("startedAt",timestamp.toString());x.put("completedAt",timestamp.toString());
+        x.put("startedAt",startedAt.toString());x.put("completedAt",completedAt.toString());
     }
     private static ObjectNode responseTypeRef(String snapshotId,String pkg,String type) {
         ObjectNode result = new ObjectMapper().createObjectNode();
