@@ -115,7 +115,7 @@ class LinkBindingIntegrationTest {
         lot.put("primaryKeyRef","lot-code");
         ArrayNode lp=lot.putArray("properties");
         property(lp,"lot-code","lotCode","STRING");
-        property(lp,"lot-equipment","equipmentCode","STRING");
+        property(lp,"lot-equipment","equipmentCode","STRING").put("required",false);
         property(lp,"lot-status","lotStatus","STRING");
         ObjectNode link=editor.putArray("linkTypes").addObject();
         link.put("id","equipment-inspections");link.put("apiName","equipmentInspections");
