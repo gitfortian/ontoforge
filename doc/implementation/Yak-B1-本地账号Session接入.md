@@ -2,13 +2,17 @@
 
 设计依据：[OFIP-0017 / PR #94](https://github.com/gitfortian/ontoforge/pull/94)，[维护者 2026-10-19 明确接受](https://github.com/gitfortian/ontoforge/pull/94#issuecomment-6261109442)。B1/B2 是开发实现候选，尚未生产发布、安全签收或用户既有安装 UAT。
 
-## 默认本机启动（无需编辑配置）
+## IDEA 本机开发默认启动
 
-Windows 已安装并运行 PostgreSQL、Java 21 和 Maven 后，在仓库根运行 `.\scripts\run-local.ps1`。首次只输入已有 PostgreSQL 密码和新管理员密码（用户名默认 `admin`）；脚本自动发现 psql、检查连接、创建缺失的本机 OntoForge 数据库并生成随机签名密钥。第一次启动执行正常 Flyway 和受控管理员 bootstrap，成功后删除一次性初始化密码。已有账号不重建或重置。
+在 IDEA 选择仓库共享运行配置 **OntoForge (IDEA)** 并点击 Run。配置自动启用仅供本机开发的 `idea-local` Profile：PostgreSQL 默认连接 `127.0.0.1:5432/ontoforge`，用户 `postgres`，密码 `123456`；首次空账号库自动创建管理员 `admin`，初始登录密码为 `123456`。启动时自动生成随机签名密钥并保存到 Git 忽略的 `config/application.properties`，后续运行沿用同一密钥。服务器只绑定 `127.0.0.1`，OIDC 在本机 Session 模式下不参与启动。
 
-第二次及以后同一命令直接启动，已有 jar 可加 `-SkipBuild`。IDEA 先运行脚本完成首次初始化，此后直接启动主类，工作目录选择仓库根即可；不需要在每个 IDEA 运行配置里复制秘密。
+登录后应通过顶部「修改密码」把初始密码换成至少 12 个字符的个人密码。若本机 PostgreSQL 使用其他密码，只需修改 IDEA Run Configuration 中的 `DB_PASSWORD` 值；不需要编辑 YAML。数据库需先安装并运行，默认 `ontoforge` 数据库不存在时仍需创建一次。
 
-本机文件 `config/application.properties` 使用当前用户专属 Windows ACL，已加入 Git ignore。文件含数据库密码和稳定签名密钥，属于本机凭据配置，内容不是加密格式；不要移到受版本控制的文件中。名称/包归属等业务状态继续保存在 PostgreSQL。迁移版本、账号密码、授权和会话校验没有默认绕过。
+`idea-local` 为本机开发配置，不可用于部署或暴露到网络。生产/共享部署不启用该 Profile，仍要求外部数据库凭据、显式管理员初始化和专用签名密钥。
+
+命令行初始化工具仍可用于首次创建缺失的本机数据库：`.\scripts\run-local.ps1`。它会提示输入现有 PostgreSQL 密码和要设置的管理员密码；成功后同样保存本机配置。已有账号不重建或重置。
+
+本机文件 `config/application.properties` 已加入 Git ignore。命令行工具创建的文件使用当前用户专属 Windows ACL。IDEA 首次启动只向文件追加随机签名密钥，不保存管理员密码；管理员初始密码是本机开发 Profile 中公开的 `123456`，因此服务绑定 loopback 并应在登录后修改密码。名称/包归属等业务状态继续保存在 PostgreSQL。
 
 `-Reconfigure` 可重新输入数据库密码，不会重置已有账号。`-NonInteractive` 禁止提示，首次无人值守部署须明确提供外部参数；自动准备只适用于 loopback + 默认本地 Session。显式 mvp-local/JWT 保留原路径，不因初始化脚本自动切换。服务器远程部署仍使用下面的明确环境变量配置。自有 `config/application.properties` 若不是脚本生成，脚本拒绝覆盖。
 

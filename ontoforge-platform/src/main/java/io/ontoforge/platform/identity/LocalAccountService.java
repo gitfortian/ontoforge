@@ -36,11 +36,15 @@ public class LocalAccountService {
     }
     @Transactional
     public void bootstrap(boolean enabled,String rawUsername,String password) {
+        bootstrap(enabled,rawUsername,password,false);
+    }
+    @Transactional
+    public void bootstrap(boolean enabled,String rawUsername,String password,boolean allowDevelopmentDefaultPassword) {
         repository.lockAccounts();
         if(repository.count()>0) return;
         if(!enabled) throw new IllegalStateException("本地账号尚未初始化：请显式配置初始化管理员开关、用户名和外部密码");
         String username=username(rawUsername);
-        requirePassword(password);
+        if(!(allowDevelopmentDefaultPassword && "123456".equals(password))) requirePassword(password);
         repository.insert(UUID.randomUUID(),UUID.randomUUID(),username,username,passwords.encode(password),true);
     }
     public LocalAccountPrincipal authenticate(String rawUsername,String password,String clientIp) {
