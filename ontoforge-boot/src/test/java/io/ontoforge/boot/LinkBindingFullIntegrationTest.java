@@ -226,6 +226,30 @@ class LinkBindingFullIntegrationTest {
         assertThatThrownBy(() -> sourceJdbc.update(
                 "UPDATE public." + INSPECTION + " SET status=status WHERE lot_code='LOT-11'"))
                 .isInstanceOf(org.springframework.dao.DataAccessException.class);
+
+        // Demand >8MiB from a single source FK field; fail during streaming,
+        // never after holding a full, possibly unbounded source table in memory.
+        jdbc.execute("INSERT INTO public." + INSPECTION
+                + " (lot_code,equipment_code,status) VALUES ('LOT-HUGE',repeat('Z',8388609),'FAIL')");
+        try {
+            ResponseEntity<String> huge = post("/validate", request);
+            assertThat(huge.getStatusCode().value()).isEqualTo(429);
+            assertThat(huge.getBody()).contains("QUERY_BUDGET_EXCEEDED");
+        } finally {
+            jdbc.execute("DELETE FROM public." + INSPECTION + " WHERE lot_code='LOT-HUGE'");
+        }
+
+        // Unified budget: BOTH ends together <= 10k physical rows; do not use
+        // independent 10k caps or a truncated sample to claim FULL validation.
+        jdbc.execute("INSERT INTO public." + INSPECTION
+                + " SELECT 'BULK-' || lpad(g::text,5,'0'),NULL,'PASS' FROM generate_series(1,10001) AS g");
+        try {
+            ResponseEntity<String> overRows = post("/validate", request);
+            assertThat(overRows.getStatusCode().value()).isEqualTo(429);
+            assertThat(overRows.getBody()).contains("QUERY_BUDGET_EXCEEDED");
+        } finally {
+            jdbc.execute("DELETE FROM public." + INSPECTION + " WHERE lot_code LIKE 'BULK-%'");
+        }
     }
 
     private DataBindingService.BindingDetail createBinding(String snapshot, String type,
