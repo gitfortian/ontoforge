@@ -221,6 +221,10 @@ class M81LinkBindingUXHighBrowser(unittest.TestCase):
         self.page.locator("#nav-query").click()
         self.assertEqual("config", self.model()["view"])
         self.assertTrue(self.page.locator("#unsaved-modal").is_visible())
+        if os.environ.get("UX_SCREENSHOT_DIR"):
+            dest=Path(os.environ["UX_SCREENSHOT_DIR"])
+            dest.mkdir(parents=True, exist_ok=True)
+            self.page.screenshot(path=str(dest / "explicit_unsaved_modal.png"), full_page=False)
         self.page.locator("#discard-cancel").click()
         self.assertFalse(self.page.locator("#unsaved-modal").is_visible())
         self.assertTrue(self.model()["dirty"])
@@ -320,6 +324,25 @@ class M81LinkBindingUXHighBrowser(unittest.TestCase):
         self.page.locator("#tab-evidence").click()
         self.page.locator("#discard-confirm").click()
         self.assertIn("B-11:r1", self.page.locator("#ev-version").inner_text())
+
+    def test_mobile_jump_reaches_config_without_losing_workflow_context(self):
+        self.page.set_viewport_size({"width": 375, "height": 812})
+        self.assertTrue(self.page.locator("#jump-work").is_visible())
+        self.assertFalse(self.page.evaluate("document.documentElement.scrollWidth > window.innerWidth + 2"))
+        self.page.locator("#jump-work").click()
+        self.assertTrue(self.page.locator("#view-config").is_visible())
+        self.assertGreater(self.page.evaluate("window.scrollY"), 100)
+        self.assertTrue(self.page.locator("#config-validate").is_visible())
+
+    def test_mobile_query_retains_result_summary_and_no_horizontal_overflow(self):
+        self.save()
+        self.page.set_viewport_size({"width": 375, "height": 812})
+        self.query()
+        self.assertIn("SUCCESS", self.page.locator("#query-outcome").inner_text())
+        self.assertIn("COMPLETE", self.page.locator("#result-summary").inner_text())
+        self.assertFalse(self.page.evaluate("document.documentElement.scrollWidth > window.innerWidth + 2"))
+        self.page.locator("#jump-work").click()
+        self.assertGreater(self.page.evaluate("window.scrollY"), 100)
 
     def test_narrow_viewport_has_no_horizontal_overflow(self):
         self.page.set_viewport_size({"width": 375, "height": 812})
