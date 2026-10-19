@@ -19,7 +19,7 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($script in @('scripts/run-local.ps1', 'scripts/verify-s0.ps1', 'scripts/verify-objecttype.ps1', 'scripts/verify-snapshot.ps1', 'scripts/verify-linktype.ps1', 'scripts/configure-main-protection.ps1')) {
+          foreach ($script in @('scripts/run-local.ps1', 'scripts/local-environment.ps1', 'scripts/tests/Test-LocalStartup.ps1', 'scripts/verify-s0.ps1', 'scripts/verify-objecttype.ps1', 'scripts/verify-snapshot.ps1', 'scripts/verify-linktype.ps1', 'scripts/configure-main-protection.ps1')) {
             $tokens = $null
             $parseErrors = $null
             [void][System.Management.Automation.Language.Parser]::ParseFile(
@@ -30,6 +30,9 @@ jobs:
             Write-Host "[PASS] Windows PowerShell parser: $script"
           }
           Write-Host 'Syntax only: this job does NOT claim an actual Windows PostgreSQL runtime test.'
+      - name: Check local startup credentials using Java properties and Windows ACLs
+        shell: powershell
+        run: ./scripts/tests/Test-LocalStartup.ps1
   objecttype-browser:
     name: Real PG17 + API + React Chromium Golden Story
     runs-on: ubuntu-latest
