@@ -204,6 +204,65 @@ class LinkBindingFullIntegrationTest {
         assertThat(first.path("validationQuality").path("matchedLinks").asInt()).isEqualTo(2);
 
 
+        // L03 negative matrix: exact immutable endpoint evidence and package
+        // ownership are checked by the real HTTP service, not a mocked
+        // validator. None of the rejected CREATEs may create a Head, revision
+        // or durable idempotency receipt.
+        ObjectNode foreignPackage = request.deepCopy();
+        foreignPackage.put("packageId", "m8.foreign.spoof");
+        foreignPackage.put("idempotencyKey", UUID.randomUUID().toString());
+        ResponseEntity<String> foreign = post("", foreignPackage);
+        assertThat(foreign.getStatusCode().value()).as(foreign.getBody()).isEqualTo(409);
+        assertThat(foreign.getBody()).contains("LINK_SNAPSHOT_MISMATCH");
+        assertThat(foreign.getBody()).doesNotContain(equipment.digest(), lot.digest());
+
+        ObjectNode wrongDigest = request.deepCopy();
+        String alteredDigest = (lot.digest().startsWith("0") ? "1" : "0")
+                + lot.digest().substring(1);
+        ((ObjectNode) wrongDigest.path("targetBindingRef")).put("digest", alteredDigest);
+        wrongDigest.put("idempotencyKey", UUID.randomUUID().toString());
+        ResponseEntity<String> corrupt = post("", wrongDigest);
+        assertThat(corrupt.getStatusCode().value()).as(corrupt.getBody()).isEqualTo(409);
+        assertThat(corrupt.getBody()).contains("BINDING_VERSION_DRIFT");
+        assertThat(corrupt.getBody()).doesNotContain(lot.digest(), lot.identityDomainId());
+
+        ObjectNode missingRevision = request.deepCopy();
+        ((ObjectNode) missingRevision.path("targetBindingRef")).put("revision", 999999);
+        missingRevision.put("idempotencyKey", UUID.randomUUID().toString());
+        ResponseEntity<String> absentRevision = post("", missingRevision);
+        assertThat(absentRevision.getStatusCode().value()).as(absentRevision.getBody()).isEqualTo(404);
+        assertThat(absentRevision.getBody()).doesNotContain(lot.digest(), lot.identityDomainId());
+
+        ObjectNode reversedEndpoints = request.deepCopy();
+        reversedEndpoints.set("sourceBindingRef", request.path("targetBindingRef").deepCopy());
+        reversedEndpoints.set("targetBindingRef", request.path("sourceBindingRef").deepCopy());
+        reversedEndpoints.put("idempotencyKey", UUID.randomUUID().toString());
+        ResponseEntity<String> reversedIdentity = post("", reversedEndpoints);
+        assertThat(reversedIdentity.getStatusCode().value())
+                .as(reversedIdentity.getBody()).isEqualTo(409);
+        assertThat(reversedIdentity.getBody()).contains("LINK_ENDPOINT_VERSION_MISMATCH");
+
+        ObjectNode falseFingerprint = request.deepCopy();
+        ((ObjectNode) falseFingerprint.path("expectedSchemaFingerprints"))
+                .put("source", "0".repeat(64).equals(equipment.sourceSchemaFingerprint())
+                        ? "1".repeat(64) : "0".repeat(64));
+        falseFingerprint.put("idempotencyKey", UUID.randomUUID().toString());
+        ResponseEntity<String> drifted = post("", falseFingerprint);
+        assertThat(drifted.getStatusCode().value()).as(drifted.getBody()).isEqualTo(409);
+        assertThat(drifted.getBody()).contains("LINK_SOURCE_SCHEMA_DRIFT");
+
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM runtime_link_binding WHERE package_id=?
+                """, Integer.class, pkg)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM runtime_link_binding_revision
+                 WHERE link_binding_id=?::uuid
+                """, Integer.class, id)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM runtime_link_binding_operation
+                 WHERE package_id=?
+                """, Integer.class, pkg)).isEqualTo(1);
+
         // Real v2 ObjectRef → OUT and IN, without abusing local-query-v1.
         ObjectNode out = traverseRequest(pkg, snapshotId, equipment, lot, id, "equipment-inspections",
                 "OUT", "EQ-001", 50);
