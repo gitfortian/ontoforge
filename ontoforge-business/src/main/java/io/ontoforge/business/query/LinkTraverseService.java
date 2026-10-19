@@ -100,12 +100,15 @@ public class LinkTraverseService {
         }
     }
 
-    private record Fact(String key, String fk) {}
+    private record Fact(String key, String fk, Map<String, String> values) {}
+    private record Condition(String propertyRef, String operator, String valueType, List<String> values) {}
+    private static final int MAX_ROOTS = 50;
     private record SourceRows(List<Fact> source, List<Fact> target, long bytes,
             Instant startedAt, Instant completedAt) {}
     private record Requested(String packageId, String snapshotId, String rootTypeId,
             String rootBindingId, long rootBindingRevision, String rootDomain,
-            String rootKeyType, String rootKey, String direction,
+            String rootKeyType, String rootKey, String selectorKind,
+            List<Condition> rootConditions, List<Condition> targetConditions, String direction,
             String linkTypeId, String linkBindingId, long linkBindingRevision,
             int pageSize, int maxRows, int maxJoin, int maxLinks,
             long maxSourceBytes, long maxResultBytes, int timeout) {}
@@ -115,6 +118,7 @@ public class LinkTraverseService {
         void accept(Fact fact, Requested request, long deadline) {
             rows++;
             bytes += utf8(fact.key()) + utf8(fact.fk());
+            for (String value : fact.values().values()) bytes += utf8(value);
             if (rows > request.maxRows() || bytes > request.maxSourceBytes()
                     || System.nanoTime() > deadline) {
                 throw fail(System.nanoTime() > deadline ? 503 : 429,
@@ -164,14 +168,16 @@ public class LinkTraverseService {
         if (!root.bindingId().equals(request.rootBindingId())
                 || root.revision() != request.rootBindingRevision()
                 || !root.objectTypeId().equals(request.rootTypeId())
-                || !root.identityDomainId().equals(request.rootDomain())) {
+                || ("OBJECT_REF".equals(request.selectorKind())
+                && !root.identityDomainId().equals(request.rootDomain()))) {
             throw fail(409, "ROOT_BINDING_MISMATCH", "根 ObjectRef 与当前端点 Binding 身份不符", "rootBindingRef");
         }
         String keyType = primaryKeyType(snapshot.snapshotContent(), root.objectTypeId());
         String outputKeyType = primaryKeyType(snapshot.snapshotContent(), output.objectTypeId());
         String sourceKeyType = primaryKeyType(snapshot.snapshotContent(), sourceBinding.objectTypeId());
         String targetKeyType = primaryKeyType(snapshot.snapshotContent(), targetBinding.objectTypeId());
-        if (!keyType.equals(request.rootKeyType())) {
+        if ("OBJECT_REF".equals(request.selectorKind())
+                && !keyType.equals(request.rootKeyType())) {
             throw fail(422, "INVALID_ROOT_OBJECT_REF", "根键类型必须等于冻结 ObjectType 的主键类型", "rootSelector");
         }
 
@@ -207,12 +213,31 @@ public class LinkTraverseService {
             }
         }
 
-        SourceRows rows = readSource(request, sourceBinding, targetBinding, sourceFk, targetFk, deadline);
+        Map<String, String> rootColumns = mappedConditionColumns(root, snapshot.snapshotContent(),
+                request.rootConditions(), out ? left : right);
+        Map<String, String> targetColumns = mappedConditionColumns(output, snapshot.snapshotContent(),
+                request.targetConditions(), out ? right : left);
+        SourceRows rows = readSource(request, sourceBinding, targetBinding, sourceFk, targetFk,
+                out ? rootColumns : targetColumns, out ? targetColumns : rootColumns, deadline);
         Map<String, Fact> leftIndex = uniqueIndex(rows.source());
         Map<String, Fact> rightIndex = uniqueIndex(rows.target());
-        boolean rootExists = out ? leftIndex.containsKey(request.rootKey())
-                : rightIndex.containsKey(request.rootKey());
-        if (!rootExists) throw fail(404, "ROOT_OBJECT_NOT_FOUND", "当前来源中不存在指定根对象", "rootSelector");
+        Map<String, Fact> rootIndex = out ? leftIndex : rightIndex;
+        Set<String> selectedRoots = new HashSet<>();
+        if ("OBJECT_REF".equals(request.selectorKind())) {
+            if (!rootIndex.containsKey(request.rootKey())) {
+                throw fail(404, "ROOT_OBJECT_NOT_FOUND", "当前来源中不存在指定根对象", "rootSelector");
+            }
+            selectedRoots.add(request.rootKey());
+        } else {
+            for (Fact row : rootIndex.values()) {
+                if (matches(row, request.rootConditions())) {
+                    selectedRoots.add(row.key());
+                    if (selectedRoots.size() > MAX_ROOTS) {
+                        throw fail(429, "ROOT_SCOPE_BUDGET", "根筛选超过 50 个对象，请缩小条件", "rootSelector");
+                    }
+                }
+            }
+        }
 
         String readSourceId = UUID.randomUUID().toString();
         String readTargetId = UUID.randomUUID().toString();
@@ -231,12 +256,15 @@ public class LinkTraverseService {
                 if (source.fk() == null) continue;
                 Fact target = rightIndex.get(source.fk());
                 if (target == null) {
-                    if (rootOwner && source.key().equals(request.rootKey())) orphans++;
+                    if (rootOwner && selectedRoots.contains(source.key())) orphans++;
                     continue;
                 }
-                if ((out && source.key().equals(request.rootKey()))
-                        || (!out && target.key().equals(request.rootKey()))) {
+                if ((out && selectedRoots.contains(source.key()))
+                        || (!out && selectedRoots.contains(target.key()))) {
                     candidates++;
+                    if (candidates > request.maxJoin()) throw fail(429, "QUERY_BUDGET_EXCEEDED",
+                            "Join 候选超过本次上限", "limits");
+                    if (!matches(out ? target : source, request.targetConditions())) continue;
                     addEdge(request, link, sourceBinding, targetBinding, source, target,
                             outputKeyType, sourceKeyType, targetKeyType, out, readSourceId, readTargetId,
                             distinctOutput, distinctLink, resultObjects, resultLinks);
@@ -249,12 +277,15 @@ public class LinkTraverseService {
                 if (target.fk() == null) continue;
                 Fact source = leftIndex.get(target.fk());
                 if (source == null) {
-                    if (rootOwner && target.key().equals(request.rootKey())) orphans++;
+                    if (rootOwner && selectedRoots.contains(target.key())) orphans++;
                     continue;
                 }
-                if ((out && source.key().equals(request.rootKey()))
-                        || (!out && target.key().equals(request.rootKey()))) {
+                if ((out && selectedRoots.contains(source.key()))
+                        || (!out && selectedRoots.contains(target.key()))) {
                     candidates++;
+                    if (candidates > request.maxJoin()) throw fail(429, "QUERY_BUDGET_EXCEEDED",
+                            "Join 候选超过本次上限", "limits");
+                    if (!matches(out ? target : source, request.targetConditions())) continue;
                     addEdge(request, link, sourceBinding, targetBinding, source, target,
                             outputKeyType, sourceKeyType, targetKeyType, out, readSourceId, readTargetId,
                             distinctOutput, distinctLink, resultObjects, resultLinks);
