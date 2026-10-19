@@ -185,6 +185,64 @@ class LinkBindingFullIntegrationTest {
         assertThat(first.path("validationQuality").path("matchedLinks").asInt()).isEqualTo(2);
 
 
+        // Real v2 ObjectRef → OUT and IN, without abusing local-query-v1.
+        ObjectNode out = traverseRequest(pkg, snapshotId, equipment, lot, id, "equipment-inspections",
+                "OUT", "EQ-001", 50);
+        ResponseEntity<String> two = traverse(out);
+        assertThat(two.getStatusCode().value()).as(two.getBody()).isEqualTo(200);
+        JsonNode twoJson = mapper.readTree(two.getBody());
+        assertThat(twoJson.path("status").asText()).isEqualTo("SUCCESS");
+        assertThat(twoJson.path("queryVersion").asText()).isEqualTo("local-query-v2");
+        assertThat(twoJson.path("objects").size()).isEqualTo(2);
+        assertThat(twoJson.path("links").size()).isEqualTo(2);
+        assertThat(twoJson.path("sourceReadRefs").size()).isEqualTo(2);
+        assertThat(twoJson.path("bindingVersions").size()).isEqualTo(3);
+        assertThat(twoJson.path("quality").path("completeness").asText()).isEqualTo("COMPLETE");
+        assertThat(twoJson.path("objects").toString()).contains("LOT-11", "LOT-12");
+        assertThat(twoJson.path("links").get(0).path("source").path("objectTypeId").asText())
+                .isEqualTo("equipment");
+        assertThat(twoJson.path("links").get(0).path("target").path("objectTypeId").asText())
+                .isEqualTo("inspection-lot");
+
+        ObjectNode in = traverseRequest(pkg, snapshotId, lot, equipment, id, "equipment-inspections",
+                "IN", "LOT-11", 50);
+        ResponseEntity<String> one = traverse(in);
+        assertThat(one.getStatusCode().value()).as(one.getBody()).isEqualTo(200);
+        JsonNode oneJson = mapper.readTree(one.getBody());
+        assertThat(oneJson.path("objects").size()).isEqualTo(1);
+        assertThat(oneJson.path("objects").get(0).path("objectRef").path("key").path("value").asText())
+                .isEqualTo("EQ-001");
+        assertThat(oneJson.path("links").get(0).path("source").path("objectTypeId").asText())
+                .isEqualTo("equipment");
+
+        ObjectNode orphan = traverseRequest(pkg, snapshotId, lot, equipment, id, "equipment-inspections",
+                "IN", "LOT-14", 50);
+        JsonNode partial = mapper.readTree(traverse(orphan).getBody());
+        assertThat(partial.path("status").asText()).isEqualTo("SUCCESS");
+        assertThat(partial.path("links").size()).isZero();
+        assertThat(partial.path("quality").path("completeness").asText()).isEqualTo("PARTIAL");
+        assertThat(partial.path("quality").path("answerScope").asText()).isEqualTo("KNOWN_SUBSET");
+        assertThat(partial.path("quality").path("knownOrphanCount").asInt()).isEqualTo(1);
+
+        ObjectNode nullFk = traverseRequest(pkg, snapshotId, lot, equipment, id, "equipment-inspections",
+                "IN", "LOT-13", 50);
+        JsonNode completeZero = mapper.readTree(traverse(nullFk).getBody());
+        assertThat(completeZero.path("quality").path("completeness").asText()).isEqualTo("COMPLETE");
+        assertThat(completeZero.path("quality").path("knownOrphanCount").asInt()).isZero();
+        assertThat(completeZero.path("links").size()).isZero();
+        ObjectNode zeroOut = traverseRequest(pkg, snapshotId, equipment, lot, id, "equipment-inspections",
+                "OUT", "EQ-002", 50);
+        assertThat(mapper.readTree(traverse(zeroOut).getBody()).path("links").size()).isZero();
+
+        ObjectNode pageOverflow = traverseRequest(pkg, snapshotId, equipment, lot, id,
+                "equipment-inspections", "OUT", "EQ-001", 1);
+        ResponseEntity<String> refused = traverse(pageOverflow);
+        assertThat(refused.getStatusCode().value()).isEqualTo(422);
+        assertThat(refused.getBody()).contains("TRAVERSE_PAGING_NOT_READY");
+        ObjectNode extra = out.deepCopy();
+        extra.withArray("steps").addObject().put("kind", "PAGE").put("pageSize", 50);
+        assertThat(traverse(extra).getStatusCode().value()).isEqualTo(422);
+
         ResponseEntity<String> replay = post("", request);
         assertThat(replay.getStatusCode().value()).as(replay.getBody()).isEqualTo(201);
         assertThat(mapper.readTree(replay.getBody()).path("linkBindingId").asText()).isEqualTo(id);
@@ -331,6 +389,45 @@ class LinkBindingFullIntegrationTest {
         node.put("targetTypeRef", "inspection-lot");
         node.put("cardinality", cardinality);
         node.put("evidenceRequired", true);
+    }
+
+    private ObjectNode traverseRequest(String packageId, String snapshotId,
+            DataBindingService.BindingDetail root,
+            DataBindingService.BindingDetail opposite, String linkId,
+            String linkType, String direction, String key, int size) {
+        ObjectNode body = mapper.createObjectNode();
+        body.put("queryVersion", "local-query-v2");
+        ObjectNode type = body.putObject("rootTypeRef");
+        type.put("packageId", packageId);
+        type.put("objectTypeId", root.objectTypeId());
+        type.putObject("sourceRef").put("kind", "LOCAL_SNAPSHOT")
+                .put("snapshotId", snapshotId);
+        body.putObject("rootBindingRef").put("bindingId", root.bindingId())
+                .put("revision", root.revision());
+        ObjectNode selector = body.putObject("rootSelector");
+        selector.put("kind", "OBJECT_REF");
+        ObjectNode ref = selector.putObject("objectRef");
+        ref.put("packageId", packageId);
+        ref.put("objectTypeId", root.objectTypeId());
+        ref.put("identityDomainId", root.identityDomainId());
+        ref.putObject("key").put("valueType", "STRING").put("value", key);
+        ArrayNode steps = body.putArray("steps");
+        ObjectNode traverse = steps.addObject();
+        traverse.put("kind", "TRAVERSE");
+        traverse.put("linkTypeRef", linkType);
+        traverse.putObject("linkBindingRef").put("bindingId", linkId).put("revision", 1);
+        traverse.put("direction", direction);
+        traverse.put("maxDepth", 1);
+        steps.addObject().put("kind", "PAGE").put("pageSize", size);
+        return body;
+    }
+
+    private ResponseEntity<String> traverse(ObjectNode body) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return http.postForEntity(URI.create("http://127.0.0.1:" + port
+                        + "/api/runtime/object-sets/traverse"),
+                new HttpEntity<>(body.toString(), headers), String.class);
     }
 
     private String url(String path) {
