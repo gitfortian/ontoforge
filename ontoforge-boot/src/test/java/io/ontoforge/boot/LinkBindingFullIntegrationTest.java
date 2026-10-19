@@ -363,6 +363,7 @@ class LinkBindingFullIntegrationTest {
         ResponseEntity<String> summed = traverse(sumQuery);
         assertThat(summed.getStatusCode().value()).as(summed.getBody()).isEqualTo(200);
         JsonNode sumResult = mapper.readTree(summed.getBody());
+        assertExactJsonBudget(sumResult);
         assertThat(sumResult.path("aggregate").path("valueType").asText()).isEqualTo("DECIMAL");
         assertThat(new java.math.BigDecimal(sumResult.path("aggregate").path("value").asText()))
                 .isEqualByComparingTo("30");
@@ -481,6 +482,7 @@ class LinkBindingFullIntegrationTest {
         ResponseEntity<String> firstPage = traverse(paged);
         assertThat(firstPage.getStatusCode().value()).as(firstPage.getBody()).isEqualTo(200);
         JsonNode firstPageBody = mapper.readTree(firstPage.getBody());
+        assertExactJsonBudget(firstPageBody);
         assertThat(firstPageBody.path("objects").size()).isEqualTo(1);
         assertThat(firstPageBody.path("links").size()).isEqualTo(1);
         assertThat(firstPageBody.path("pageNumber").asInt()).isEqualTo(1);
@@ -489,6 +491,7 @@ class LinkBindingFullIntegrationTest {
         ResponseEntity<String> secondPage = traversePage(nextCursor);
         assertThat(secondPage.getStatusCode().value()).as(secondPage.getBody()).isEqualTo(200);
         JsonNode secondPageBody = mapper.readTree(secondPage.getBody());
+        assertExactJsonBudget(secondPageBody);
         assertThat(secondPageBody.path("objects").size()).isEqualTo(1);
         assertThat(secondPageBody.path("links").size()).isEqualTo(1);
         assertThat(secondPageBody.path("pageNumber").asInt()).isEqualTo(2);
@@ -625,6 +628,13 @@ class LinkBindingFullIntegrationTest {
         } finally {
             jdbc.execute("DELETE FROM public." + INSPECTION + " WHERE lot_code LIKE 'BULK-%'");
         }
+    }
+
+    private static void assertExactJsonBudget(JsonNode result) {
+        long actual = result.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        assertThat(result.path("budget").path("serializedResultBytes").asLong())
+                .as("UTF-8 bytes must include the final digit width of the budget field itself")
+                .isEqualTo(actual);
     }
 
     private DataBindingService.BindingDetail createBinding(String snapshot, String type,
