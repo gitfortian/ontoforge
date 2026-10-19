@@ -83,7 +83,7 @@ main{max-width:1470px;padding:27px 34px 54px}.crumb{font-size:11px;color:#8798a4
 <div class="foot"><button id="run-validation" class="primary">执行完整核验（模拟）</button><button id="back-config">返回修改映射</button></div>
 <div class="demo async-demo"><h3>延迟响应与安全失效演练</h3><p>模拟真实 API 的异步返回：发起核验后变更来源选项，旧响应必须失效。此功能仅属于静态设计模拟。</p><div class="foot"><button id="simulate-late-validation" type="button">模拟延迟核验（350ms）</button><span id="async-state" class="small" role="status" aria-live="polite">无等待中请求</span></div></div>
 <div id="validation-outcome" role="status" aria-live="polite" class="status"><strong>尚未核验</strong>本工作台不把抽样当 FULL，也不会先保存后补验证。</div>
-<div id="validation-evidence" hidden class="evidence" style="margin-top:12px"><div><b>验证范围</b><span id="validation-scope">—</span></div><div><b>受控来源</b><span>隔离 PostgreSQL 17 · equipment / inspection_lot</span></div><div><b>端点版本锁</b><span id="validation-versions">—</span></div><div><b>校验证据</b><span id="validation-evidence-id">—</span></div></div>
+<div id="validation-evidence" hidden class="evidence" style="margin-top:12px"><div><b>验证范围</b><span id="validation-scope">—</span></div><div><b>受控来源</b><span id="validation-source-description">隔离 PostgreSQL 17 · equipment / inspection_lot</span></div><div><b>端点版本锁</b><span id="validation-versions">—</span></div><div><b>校验证据</b><span id="validation-evidence-id">—</span></div></div>
 <div class="foot"><button class="primary" id="continue-save" disabled>核验通过，继续保存 →</button></div>
 </section>
 <section id="view-save" class="panel" hidden>
@@ -181,7 +181,7 @@ function navigate(view,guard=true){
 function runValidation(){
  verificationToken++;
  state.validated=false;state.validationQuality=null;$("#continue-save").disabled=true;$("#save-binding").disabled=true;
- const v=input(), scenario=$("#validation-scenario").value;state.validationId="validation-demo-"+Date.now().toString(36);
+ const v=input(), scenario=$("#validation-scenario").value;$("#validation-source-description").textContent=scenario==="source"?"当前无完整读取资格；受控来源信息已隐藏":"隔离 PostgreSQL 17 · equipment / inspection_lot";state.validationId="validation-demo-"+Date.now().toString(36);
  $("#validation-evidence").hidden=false;
  $("#validation-versions").textContent=v.source+" / "+v.target;
  $("#validation-evidence-id").textContent=state.validationId+" · 合成证据";
@@ -240,6 +240,11 @@ function recordEvidence(kind,msg){
  $("#ev-version").textContent=state.saved?"Snapshot S-021 · Equipment B-11 / InspectionLot B-15 · LinkBinding LB-DEMO-021 / r"+state.revision:"尚无有效 LinkBinding";
  $("#ev-sources").textContent="SOURCE equipment(equipment_code) · TARGET inspection_lot(equipment_code) · 受控 PG 概念证据";
  $("#ev-quality").textContent=state.lastResult?.quality||"UNKNOWN";
+ if(kind==="failure" && state.failure?.code?.startsWith("403")){
+  $("#ev-version").textContent="当前没有查看执行版本闭包的资格";
+  $("#ev-sources").textContent="来源与对象身份已隐藏 · 授权撤销";
+  $("#ev-quality").textContent="FAILED / ACCESS_REVOKED（安全摘要）";
+ }
  const el=$("#failure-evidence");
  el.hidden=kind!=="failure";
  if(kind==="failure")say(el,"error","旧结果已失效",msg);
