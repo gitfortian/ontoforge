@@ -355,6 +355,10 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
  const objCount=rows=>new Set(rows.map(x=>x.out)).size;
  function query(){
    if(!state.saved){clearVisibleResult("尚未配置 LinkBinding");return;}
+   if(state.saveUnknown){
+     clearVisibleResult("保存结果 UNKNOWN · 必须先用原幂等键查询操作回执");
+     return;
+   }
    state.failure=null;const dir=$("#query-direction").value,root=$("#query-root").value,bounded=$("#root-mode").value==="bounded";
    const fault=$("#query-fault").value;
    if(fault==="timeout"){fail("503 QUERY_TIMEOUT","执行超过 3s 逻辑预算，没有可分页结果");return;}
