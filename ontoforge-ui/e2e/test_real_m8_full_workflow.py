@@ -48,9 +48,14 @@ def build_source(package_id):
                             prop("event-status", "status"),
                             prop("event-amount", "amount", "DECIMAL")]}
         ],
-        "linkTypes": [{"id": "cell-quality", "apiName": "cellQuality",
-                       "sourceTypeRef": "factory-cell", "targetTypeRef": "quality-event",
-                       "cardinality": "ONE_TO_MANY", "evidenceRequired": True}]
+        "linkTypes": [
+            {"id": "cell-quality", "apiName": "cellQuality",
+             "sourceTypeRef": "factory-cell", "targetTypeRef": "quality-event",
+             "cardinality": "ONE_TO_MANY", "evidenceRequired": True},
+            {"id": "cell-quality-receipt", "apiName": "cellQualityReceipt",
+             "sourceTypeRef": "factory-cell", "targetTypeRef": "quality-event",
+             "cardinality": "ONE_TO_MANY", "evidenceRequired": True}
+        ]
     }
     saved = api("/model/drafts/" + draft["draftId"], "PUT",
                 {"expectedRevision": draft["revision"], "editingContent": content})
@@ -121,7 +126,7 @@ class RealM8BrowserGoldenStory(unittest.TestCase):
         page.get_by_role("heading", name="运行时类型目录").wait_for(timeout=18000)
         links = page.get_by_role("region", name="已冻结关系类型")
         links.get_by_text("cell-quality", exact=True).wait_for(timeout=20000)
-        links.get_by_role("button", name="配置实例关系").click()
+        links.locator("tbody tr").filter(has=page.get_by_text("cell-quality", exact=True)).get_by_role("button", name="配置实例关系").click()
         panel = page.get_by_role("region", name="关系与一跳遍历 M8.1")
         panel.get_by_label("M8 Local Snapshot").wait_for(timeout=20000)
         self.assertEqual(panel.get_by_label("M8 Local Snapshot").input_value(), snapshot)
@@ -263,14 +268,23 @@ class RealM8BrowserGoldenStory(unittest.TestCase):
                 "target": right["sourceSchemaFingerprint"]},
             "validationScope": {"kind": "VALIDATION_SCOPE", "coverage": "FULL"}
         }
-        written = api("/runtime/link-bindings/" + detail["linkBindingId"], "PUT", write_body)
+        # A second LinkType uses the same two trusted M5 bindings, but an
+        # independent Head. Mutating it must not invalidate the cursor above.
+        create_body = dict(write_body)
+        create_body["linkTypeId"] = "cell-quality-receipt"
+        create_body["expectedRevision"] = 0
+        create_body["idempotencyKey"] = str(uuid4())
+        receipt_link = api("/runtime/link-bindings", "POST", create_body)
+        self.assertEqual(receipt_link["revision"], 1)
+        write_body["linkTypeId"] = "cell-quality-receipt"
+        written = api("/runtime/link-bindings/" + receipt_link["linkBindingId"], "PUT", write_body)
         self.assertEqual(written["revision"], 2)
-        self.assertEqual(written["linkBindingId"], detail["linkBindingId"])
+        self.assertEqual(written["linkBindingId"], receipt_link["linkBindingId"])
         evidence_path = os.getenv("E2E_M8_LINK_RECEIPT_EVIDENCE")
         if evidence_path:
             Path(evidence_path).write_text(json.dumps({
                 "packageId": self.package,
-                "id": detail["linkBindingId"],
+                "id": receipt_link["linkBindingId"],
                 "request": write_body,
                 "revision": 2,
                 "digest": written["digest"]}, indent=2), encoding="utf-8")
