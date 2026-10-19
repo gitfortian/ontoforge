@@ -12,7 +12,7 @@
 
 **Related:** [OFIP-0001](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2 候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md) · [ObjectSet Query 候选 Schema](../design/schema/objectset-query-v0.2.schema.json) · [Result 候选 Schema](../design/schema/objectset-result-v0.2.schema.json) · [术语表](../砺元本体产品统一术语词汇表.md) · [本机核心优先决策](../implementation/MVP-核心优先与yak-ops认证复用决策-20261017.md)
 
-> 首切片选择只读版本化 REST API；MCP 是后续同一语义合同的薄适配，须单独可验收交付。没有 Action、自动编排、模型代替服务端授权或外部模型供应商依赖。
+> 原评审选择只读版本化 REST API。2026-10-19 用户要求增加可配置 `baseUrl / apiKey / model` 的 OpenAI 兼容模型调用；下列修订将受限只读问答纳入候选首切片，等待维护者明确决定。MCP 仍为后续独立适配，没有 Action 或模型代替服务端授权。
 
 ## Motivation
 
@@ -30,7 +30,24 @@
 Issue 的方向合理，但 API/MCP 同时首发会把协议生命周期、身份委托与语义查询一起扩成大切片。
 本提案选择 REST 先行，复用 M7–M9 查询/漂移/证据合同及 M11 可核验资源链接；M13 不依赖 M12，可与沙箱 Action 并行。
 正式对外访问额外依赖 M10 正式版本锁和独立身份/权限 Gate；本机只读开发不必等待企业登录或正式发行。
-非目标：LLM 平台、自然语言转任意 SQL、RAG 索引、向量库、自动模型变更、Action、通用工作流/自主 Agent 或外部模型调用。
+非目标：LLM 平台、自然语言转任意 SQL、RAG 索引、向量库、自动模型变更、Action、通用工作流/自主 Agent。外部模型调用仅限下述显式配置、固定资源范围的 OpenAI 兼容只读问答。
+
+### 2026-10-19 修订：OpenAI 兼容只读问答，待决定
+
+用户明确要求实际接入 OpenAI 兼容模型服务，而非仅导出 function/tool Schema；开发完成后提交 PR。本修订不回填为历史 Accepted，也不将开发请求伪造为 GitHub 投票。生产代码实施前仍按 [CONTRIBUTING](../../.github/CONTRIBUTING.md) 记录维护者对修订范围的显式决定；本文件继续 `Discussion / Decision Pending / Implementation Not Started / Not Released`。
+
+代码复核基线为 `5d189bc4704fcf51405f2eb5fe78947c198801b2`：
+
+| 依赖 | 已有实际能力 | 本切片处理 |
+| --- | --- | --- |
+| M4–M7 | `RuntimeTypeResolver`、`DataBindingService`、`ObjectRuntimeService`、`ObjectSetQueryService` 已有真实实现 | 直接复用服务、类型合同、身份校验与冻结分页，不复制 SQL 或创建空 Maven 模块 |
+| M8.1 | `LinkTraverseService` 已有一跳关系查询及冻结分页 | 只公布真实支持的一跳能力；未绑定的 LinkType 不宣称存在 LinkFact |
+| M9 | 已有内嵌来源/质量、TTL 和逐页复核；统一证据读取 API 尚缺失 | 在原冻结记录上补最小证据读取及同一复核路径；不等待完整 M9 漂移修复 UI |
+| M11 | 已有对象与查询工作台；没有按 evidenceRef 打开同一执行的页面 | 首切片用 REST/确定性调用脚本核验同一执行，不承诺不存在的 Studio 深链；完整工作台收口后续交付 |
+| M12 | Action 与只读问答独立 | 无依赖，不注册 Action 工具 |
+| M10 / 正式安全 | 正式 Release、对外委托及安全验收未完成 | 不阻塞本机合成数据开发；继续阻断正式对外服务 |
+
+本次黄金故事：开发者为服务端配置一个支持工具调用的模型，选择明确 Local Snapshot 和已保存 Binding 修订，提交自然语言问题；服务端发现类型、执行受限查询并返回解释与实际证据。切换第二个自定义领域时只更换资源引用，不增加领域专用代码。CLI/HTTP 是本切片的用户入口，不新增完整 Agent UI，也不把它宣称为 M11 UI 验收。
 
 ## Public Interfaces
 
@@ -43,7 +60,40 @@ Issue 的方向合理，但 API/MCP 同时首发会把协议生命周期、身�
 
 首切片开发 Profile 不允许通过请求参数选择正式模式、伪造主体、扩大数据库或改变监听地址。
 现有 `mvp-local` 默认 deny 未登记路径，增加本地 Context 读端点须显式列举并保留拒绝其他方法/路径测试，不能 permitAll `/api/**`。
-未来身份复用优先遵循 yak-ops HttpSession 评审方向；当前未实施，会话、CSRF 与 Agent 委托仍须独立设计，不能把浏览器会话 Cookie 直接转交模型。
+上述表格为原评审的边界。当前 [B1/B2 Session](../implementation/Yak-B1-本地账号Session接入.md) 及 [C1 空间授权](../implementation/Yak-C1-工作空间与模型包归属.md) 已有开发实现；修订允许在 loopback 本机 Session 模式下复用真实主体、CSRF 与存储的包权限。显式 `mvp-local` 仍无可信用户身份，不得冒充多用户隔离。模型供应商只收到专用 API Key 和受限消息，不能收到浏览器 Cookie、用户 JWT 或数据库凭据。正式对外委托仍未设计/验收。
+
+### OpenAI 兼容模型协议与问答 API（本次修订候选）
+
+本切片选择 **Chat Completions 非流式 function calling** 子集。协议依据为已核对的 [OpenAI Function calling](https://developers.openai.com/api/docs/guides/function-calling) 与 [Create chat completion](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)。配置的模型必须支持该子集；不承诺任意模型、Responses、SSE、旧 `function_call` 或供应商私有协议自动兼容。不预设模型名，不探测或替换用户配置的模型。
+
+| 服务端设置 | 合同 |
+| --- | --- |
+| `ontoforge.agent.enabled` / `ONTOFORGE_AGENT_ENABLED` | 默认 `false`，不影响原应用启动；启用时校验必要配置与本机边界 |
+| `ontoforge.agent.base-url` / `ONTOFORGE_AGENT_BASE_URL` | 明确包含 API 版本前缀，例如 `https://api.openai.com/v1`；只追加 `/chat/completions`，不自动重复 `/v1` |
+| `ontoforge.agent.api-key` / `ONTOFORGE_AGENT_API_KEY` | 外部注入；只用于供应商 Bearer Header，不落库、不回显、不写请求/异常日志 |
+| `ontoforge.agent.model` / `ONTOFORGE_AGENT_MODEL` | 外部指定的模型标识，原样发送；缺失时拒绝启用，不静默选默认模型 |
+
+`baseUrl / apiKey / model` 只由部署配置提供，不允许请求或模型修改。地址拒绝 userinfo、query 和 fragment；远端使用 HTTPS，仅显式本机开发允许 loopback HTTP。禁用重定向和自动重试，不根据来源文本抓取 URL，也不把上游错误正文/认证头返回客户端。用户配置的兼容服务需要单独实测，Stub 验证不等于真实供应商验收。
+
+候选入口为 `POST /api/agent/v1/runs`，请求固定为 `runVersion="local-agent-v1"`、`question`、`scope={snapshotId,bindingRefs:[{bindingId,revision}],linkBindingRefs:[{linkBindingId,revision}]}` 及可选的降低预算。`linkBindingRefs` 可省略或为空，此时不注册关系查询工具。Snapshot 所属包由服务端解析，逐一验证 Binding 的包、Snapshot、摘要及权限；LinkBinding 两端须匹配已锁定的对象 Binding 修订。一次运行锁定这些版本；模型不能扩展资源范围、选择 latest、伪造身份或替换用户选定修订。首切片为单次无持久历史问答，不接受调用方自带的 system/assistant/tool 消息、工具定义、模型参数透传或 AuthorizationContext。
+
+回复含 `runVersion`、`requestId`、`status`、`reasonCode`、`answer`、实际 `executionIds`、`evidenceRefs`、版本锁、原始质量与预算、模型 usage（上游缺失时标未知）。`status` 限定 `COMPLETE / INCOMPLETE / FAILED`：协议完整且正常结束为 COMPLETE；令牌/轮数预算耗尽、拒答或过滤为 INCOMPLETE；授权、来源、上游协议/传输失败为 FAILED，并提供稳定 reasonCode。这里的 COMPLETE 只表示问答流程结束，不能替代底层数据质量。`answer` 是模型解释而非经验证的事实；实际证据目录由服务端生成，不能把模型编造的引用加入其中。未查得证据可回答能力说明，但不得宣称完成事实验证。模型文本不能改变结构化查询的质量、状态或完整性。
+
+工具目录由服务端固定代码构造，仅包括范围内的类型发现、类型详情、绑定引用发现、M6 单对象读取、M7 ObjectSet/翻页、M8.1 一跳查询/翻页及证据读取。工具调用直接复用 Business 服务与当前可信身份，不经携带 Cookie 的内部 HTTP。工具名、参数字段、JSON 类型、版本和资源范围均在执行前校验；未知工具、rawSql、写操作、任意 URL 或客户端身份字段明确拒绝。工具描述来自代码，用户模型描述/源值只进入不可信数据区。
+
+模型交互按 `messages + tools` 请求，保留供应商 assistant 的 `tool_calls`，随后追加带相同 `tool_call_id` 的 `role=tool` 结果，再请求解释或下一步。发送 `n=1`、`stream=false`、`parallel_tool_calls=false` 和 `max_completion_tokens=2048`；服务端独立校验，每次响应最多允许一个工具调用，超出即在任何工具执行前失败，不静默降级到旧参数。合法但不支持的工具/参数返回结构化失败，不能换成空结果；不可安全恢复的授权、来源、超时或上游协议错误终止运行。只有 `stop` 且协议完整时才能标问答完成；`length`、`content_filter`、拒答、缺失 choices、损坏参数、未知 finish_reason 或工具轮数耗尽均有明确未完成状态。
+
+候选服务器上限：问题 8 KiB UTF-8；最多 6 次模型请求、5 次工具调用、同一时刻 1 次工具执行；每次模型响应最多 256 KiB；累计发给模型的请求体最多 1 MiB；单次模型请求最多 15 秒且整个 run 最多 60 秒。所有 HTTP/数据库调用使用剩余截止时间，不能仅在最后一轮检查超时。每次工具结果和最终完整信封各最多 64 KiB，按实际 UTF-8 序列化字节计数；超限明确失败，不裁剪事实后冒充完整。不以供应商 usage 代替本地预算检查。
+
+开启模型调用还须明确配置可发送的隔离合成模型包范围；每次运行同时满足该范围和当前主体实际权限。默认不外发任何包；不能将匿名 `mvp-local` 当作扩大可发送范围的许可。模型请求包括问题、必要类型元数据和选定的工具结果；不会发送整个本体、连接凭据或其他包数据。默认不持久化 Prompt、回答和工具结果，不记录业务值；只记录必要 requestId、版本、调用计数、耗时及错误码。模型服务与应用均只在显式开发配置下连接，不自动调用真实供应商进行收费验收。
+
+### 本切片证据读取的实现约束
+
+M7 的 `sourceReadRef.id` 当前只是内嵌来源标识，不是可解析证据 URL。本切片将 `evidenceRef` 绑定原 `resultSnapshotRef` 与 execution，从原冻结记录读取版本、来源、质量和预算，复用与翻页相同的主体/Binding/模型/来源结构与资格复核；查询只有一页或只有聚合时同样可读。不得通过重新运行查询重建旧证据，普通源 DML 不改变原执行事实。
+
+证据 TTL 不超过原结果的 5 分钟，进程重启失效；过期返回明确 `410`。复核失败终止旧句柄，恢复权限也不能复活已观察到拒绝的句柄。当前 `actorKey` 没有权限撤销代次，不能承诺检测两次请求之间未被观察到的“撤权再恢复”；正式服务前须补独立撤销合同。模型等待期间可能退出登录或被撤权，故每次工具读取、发给模型之前及最终交付前都重新核验当前账号/会话和包权限；不能只在最初 HTTP 过滤器中检查一次。
+
+M6 即时读取没有冻结证据存储，首切片将实际 sourceReadRef、Binding、版本与质量作为结构化内嵌证据包含在最终响应中，不只传给模型；不承诺可再次打开的长期句柄。M8.1 证据读取须复用其冻结记录与原复核路径，不能创建缺少来源复核的 Agent 缓存。遇到尚无安全证据读取实现的工具，保持未注册并如实公布能力，不用假链接填齐目录。
 
 ### 版本化只读 API
 
@@ -116,12 +166,13 @@ Binding 引用统一 `{kind,bindingId,revision,digest,sourceId}`；不使用含�
 Context 不执行来源提供的脚本、SQL、模板或网页链接，不做由输入 URL 驱动的外网抓取；对象页链接来自服务端受控路由。
 服务端拒绝业务写操作及 Action 工具名；即使 M12 已实施，也不自动出现在本只读能力目录中。
 Agent 可请求受限查询、解释和候选建议，不能把解释文本回写模型、批准发布或转换为执行授权。
-不要求安装某模型或联网调用 LLM 验收：确定性客户端足以检验服务合同，模型体验是额外独立证据。
+Context 合同与只读工具用确定性客户端验收；本次修订的模型交互必须另用真实 HTTP 协议 Stub 验证完整工具循环。真实供应商/模型体验仍是独立证据，未配置并实际执行时明确标记 `NOT RUN`。
 
 ### 4. 切片和协议演进
 
-首个实现 PR 交付本机只读 REST 的“发现→查询→证据”闭环及两领域复用，提供最小确定性调用示例和 M11 对应资源核验路径。
+修订获接受后，首个实现 PR 交付本机只读“问题→模型工具调用→发现→查询→证据→解释”闭环及两领域复用，提供确定性 HTTP/CLI 调用示例和同一执行证据核验；不依赖尚未实现的 M11 深链。
 不复制查询服务、不加空 SDK/MCP 模块，不在同一 PR 建完整 Agent UI。
+业务工具分派和预算属于 `ontoforge-business` 的实际 Agent 用例；模型 HTTP 与 REST/安全适配属于 `ontoforge-boot`，部署设置校验属于 `ontoforge-configuration`。若模型客户端需要接口，必须有本切片真实消费者与测试，不提前建立通用插件/工作流框架。Core 不依赖 HTTP 或模型 SDK；本切片默认无数据库迁移，不创建未被调用的 `ontoforge-agent` Maven 模块。
 正式对外服务作为下一独立切片，只有 M10 与身份/权限、委托和撤权负例通过后开放。
 MCP 适配在 REST 语义稳定后独立评审支持的传输、身份绑定、会话生命周期、工具发现及错误映射；MCP 会话不等于业务授权。
 适配器仅将同样的发现/查询/证据调用映射为受限工具，复用权限和预算；不新增旁路 SQL 或隐式自动执行。
@@ -132,12 +183,12 @@ MCP 适配在 REST 语义稳定后独立评审支持的传输、身份绑定、�
 - 保留现有 M2/M3 固定质量端点和原 UI；通用 Context 以 `/v1` 新合同发布，不静默改变旧响应语义。
 - Native V0.2 查询/结果 Schema、现有编辑格式和快照摘要不因本提案改写；本机运行时新版本与候选 Schema 的对应关系明确记录。
 - 正式 `SCHEMA_RELEASE` sourceRef、外部委托与新传输支持均需显式兼容决策，不能把本机句柄自动升级为对外身份或发布资产。
-- 首切片默认无新领域表，复用已有资源；若需持久执行摘要/短期句柄则说明保留期，用实施时下一个未占用的前向迁移，V1–V6 不改。
+- 首切片默认无新领域表，复用已有资源；若需持久执行摘要/短期句柄则说明保留期，用实施时下一个未占用的前向迁移，已应用 V1–V9 不改。
 - 短期 contextId/游标及 M9 详细证据共同为 5 分钟 TTL/重启失效，不承诺长期可引用；证据过期明确返回失效，不从当前来源重造历史依据。
 - 持久证据档案需要独立用户故事、留存/权限/容量合同与前向迁移，不在本提案范围。
 - 未知 contextVersion/queryVersion/recordVersion 明确拒绝，旧客户端不靠猜测兼容；新增字段遵循已声明的严格合同与版本策略。
 - 回滚先停止新上下文请求，保留已承诺的证据查询或明确不可用；不返回静态假数据维持“成功”。
-- JWT/本机 Profile 的隔离、签名负例与来源边界保留；未来 HttpSession/MCP 委托不在本提案实现范围。
+- JWT/本机 Profile 的隔离、签名负例与来源边界保留；本机 Session 复用现有 B1/C1，实现仅登记精确方法和路径并保留 CSRF；MCP/外部委托不在本次范围。
 
 ## Test Plan
 
@@ -150,12 +201,15 @@ MCP 适配在 REST 语义稳定后独立评审支持的传输、身份绑定、�
 | 分页/预算 | 同版本稳定遍历与有界输出 | 跨主体游标、预算抬高、文本超大、翻页期间来源变化 | 边界夹具、字节计数及实际响应 |
 | 权限/撤销 | 受信主体范围内发现/查询/证据 | 隐藏类型/统计泄漏、跨包、撤权缓存、证据直链、会话失效 | 真实授权及撤销中途请求测试 |
 | 内容与只读 | 恶意描述仍作为普通字符串输出 | 注入工具指令、外网 URL、SQL/写方法、Action 请求 | 确定性客户端与服务拒绝证据 |
-| 使用体验 | REST 调用结果可在 M11 复核同一版本 | UI 跳 latest、链接跨上下文、证据失效 | React/Chromium 合同联调/已有工作台 E2E |
+| 使用体验 | HTTP/CLI 读取原 execution 证据、核对同一版本 | 证据被当前执行替换、过期仍成功、跨 scope 引用 | 真实 HTTP/CLI；已有工作台回归另列，M11 深链后续独立验收 |
 | 协议适配（后续） | MCP 与 REST 语义一致 | 会话复用越权、限额/错误状态被抹平 | 独立适配器合同与客户端测试 |
+| OpenAI 协议 | 真实 HTTP Stub 收到配置模型、Bearer、messages/tools；发现→查询→tool_call_id 回传→解释，两个自定义领域共用代码 | 工具参数损坏/未知工具/ID 错配/多工具批次/未知 finish_reason、上游 401/429/5xx/超时/超大响应，禁止重定向/重试及错误正文泄漏 | Java 客户端/分派测试 + 真实 Spring HTTP + 隔离 PG17；Stub 结果单独列示 |
+| 模型调用边界 | 未启用时不连网；服务端批准的合成包内执行；等待模型时仍复核当前主体 | 请求改 URL/Key/model/身份、跨 scope/跨包、Prompt 注入写工具、退出登录/禁用账号/撤权后继续外发或最终交付、预算耗尽/伪造证据 | 实际请求计数、脱敏检查、可控 Stub 中途阻塞与授权变更测试 |
 
 本机验收不配置 IdP，必须证明 loopback、隔离测试库和未知路径/写操作拒绝；正式服务验收必须另测真实主体及撤权，二者分开报告。
 按变更选择 `mvn -pl ontoforge-boot -am verify`（独立 `TEST_DB_*`）、必要浏览器 E2E 与 Native 合同回归；记录 base/head SHA、suite、运行链接及两套领域夹具。
 本提案 PR 只检查文档与必要候选结构回归，实际 Context/PG/浏览器/MCP/LLM/生产发布分别标 `NOT RUN` 或 CI 的 `NOT SELECTED`，不能以文档绿灯写成产品可用。
+实施 PR 另列协议 Stub、真实供应商、真实 PG、HTTP/CLI、已有浏览器回归与用户本机 UAT 的结果；未新增 Agent UI 不等于已有 UI 回归已通过。代码 Review 须标记 base/head SHA，CI PASS 不代表功能发布。
 
 ## Rejected Alternatives
 
@@ -168,4 +222,4 @@ MCP 适配在 REST 语义稳定后独立评审支持的传输、身份绑定、�
 
 ---
 
-**Decision Gate:** 接受设计不等于开放对外服务；本机开发、正式版本/身份、MCP 适配各自有独立实现与验收证据。
+**Decision Gate:** 请维护者明确决定是否接受本次 OpenAI 兼容、固定合成资源范围、有限只读工具循环的首切片修订。接受设计不等于开放对外服务；本机开发、模型协议/真实供应商、正式版本/身份、MCP 适配各自有独立实现与验收证据。

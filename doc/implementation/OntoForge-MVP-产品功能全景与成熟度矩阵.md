@@ -109,7 +109,7 @@ P0 是**建模产品可用门槛**，P1 才是**工业业务价值开始成立�
 | M10 | [#49](https://github.com/gitfortian/ontoforge/issues/49) · [OFIP-0012](../proposals/OFIP-0012-M10-发行边界与运行时版本锁.md) | 复用 OFIP-0005；区分 M10-A 本地不可变版本锁/兼容检查与 M10-B 正式发行/激活/回退 | Core 是否必须包含 M10-B 仍需维护者明确决定；Local Snapshot 不能改名 Release，本机占位身份不能审批 |
 | M11 | [#50](https://github.com/gitfortian/ontoforge/issues/50) · [OFIP-0013](../proposals/OFIP-0013-M11-通用OntologyStudio.md) | 收口模型→Binding→对象/查询→来源证据的连续工作流与上下文一致性 | M5–M9 各自先交付真实前后端闭环；低保真→高保真原型签收不可跳过，M11 不新增第二套前端或空模块 |
 | M12 | [#51](https://github.com/gitfortian/ontoforge/issues/51) · [OFIP-0014](../proposals/OFIP-0014-M12-沙箱受控Action.md) | Extended：一个自定义对象的沙箱复核任务，独立审批、持久幂等、UNKNOWN 对账、业务结果核验 | 不接生产写接口/工业物理控制；本机只提供非执行资格预演，真实执行必须有可信主体与独立授权 |
-| M13 | [#52](https://github.com/gitfortian/ontoforge/issues/52) · [OFIP-0015](../proposals/OFIP-0015-M13-Agent只读上下文.md) | Extended：REST 先行的类型发现→受限查询→来源证据，MCP 后续独立薄适配 | M13 不依赖 M12；正式对外需 M10/可信身份与撤权 Gate，Agent 内容不能更改服务端权限或触发 Action |
+| M13 | [#52](https://github.com/gitfortian/ontoforge/issues/52) · [OFIP-0015](../proposals/OFIP-0015-M13-Agent只读上下文.md) | Extended：REST 类型发现→受限查询→来源证据；2026-10-19 补充可配置 OpenAI 兼容模型与只读工具循环候选，**Decision Pending / Implementation Not Started**；MCP 后续独立薄适配 | M13 不依赖 M12；可复用现有 M4–M8.1，首切片需补最小证据读取/复核，无需等待完整 M9/M11；正式对外仍需 M10/可信身份与撤权 Gate，模型内容不能更改权限或触发 Action |
 | M14 | [#53](https://github.com/gitfortian/ontoforge/issues/53) · [OFIP-0016](../proposals/OFIP-0016-M14-多领域验收与交付证据.md) | 作为 Core 与 Extended 共用验收出口；质量/采购共用引擎，并由独立测试者挑战第三个自定义领域 | M10/Core 范围决议未定前不得宣告 Core 完成；CI/自动化/Windows 人工 UAT/产品签收分别记账，不新建第二套总账 |
 
 **关键依赖关系**：M4 → M5 → M6 → M7；M8 消费 M5/M7，M9 收敛 M5–M8 的证据与漂移；M10 复用 OFIP-0005 治理并向运行时提供版本锁；M11 串联 Core 用户旅程；M12 和 M13 为互相独立的 Extended 分支；M14 对 Core 与 Extended 分别验收，不把 M12/M13 变成 Core 查询闭环的隐式前置。
