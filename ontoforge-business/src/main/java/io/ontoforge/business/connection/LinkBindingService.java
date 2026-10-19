@@ -104,7 +104,8 @@ public class LinkBindingService {
     private record CanonicalRequest(String packageId, String snapshotId, String linkTypeId,
             String sourceBindingId, long sourceRevision, String sourceDigest,
             String targetBindingId, long targetRevision, String targetDigest,
-            String fkOwner, String fkColumn, long expectedRevision) {}
+            String fkOwner, String fkColumn, String mode, String sourceFingerprint,
+            String targetFingerprint, String validationScope, long expectedRevision) {}
 
     public LinkValidation validate(LinkRequest request, Authentication auth) {
         Context context = context(request, auth);
@@ -199,7 +200,7 @@ public class LinkBindingService {
         // Successful write can be replayed after an HTTP response is lost, but not
         // by a principal who no longer has package read permission.
         authorization.requirePackage(auth, request.packageId(), B0AuthorizationService.Operation.READ_DRAFT);
-        return detail(existing.linkBindingId(), request.packageId(), existing.revision(), false);
+        return get(existing.linkBindingId(), request.packageId(), existing.revision(), auth);
     }
 
     private void persist(Context context, LinkValidation validation, UUID id,
@@ -464,7 +465,9 @@ public class LinkBindingService {
                 r.sourceBindingRef().bindingId().toString(), r.sourceBindingRef().revision(),
                 r.sourceBindingRef().digest(),
                 r.targetBindingRef().bindingId().toString(), r.targetBindingRef().revision(),
-                r.targetBindingRef().digest(), r.fkOwner(), r.fkSourceColumn(), r.expectedRevision());
+                r.targetBindingRef().digest(), r.fkOwner(), r.fkSourceColumn(), r.mode(),
+                r.expectedSchemaFingerprints().source(), r.expectedSchemaFingerprints().target(),
+                r.validationScope().coverage(), r.expectedRevision());
         return sha256(NativeSnapshotService.canonicalize(toJson(mapper.valueToTree(normalized))));
     }
 
