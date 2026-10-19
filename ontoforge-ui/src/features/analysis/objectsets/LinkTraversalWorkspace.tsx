@@ -4,10 +4,10 @@ import {authorizedFetch} from '../../../shared/api/auth';
 import './link-traverse.css';
 
 type LinkType={id:string;apiName:string;label?:string;sourceTypeRef:string;targetTypeRef:string;cardinality:string;evidenceRequired:boolean};
-type Property={id:string;apiName:string;valueType:string};
+type Property={id:string;apiName:string;valueType:string;searchable?:boolean};
 type ObjectType={id:string;primaryKeyRef:string;properties:Property[]};
 type Snapshot={snapshotId:string;packageId:string;payloadSha256:string;snapshotContent:{linkTypes:LinkType[];objectTypes:ObjectType[]}};
-type ObjectBinding={bindingId:string;revision:number;packageId:string;objectTypeId:string;snapshotId:string;digest:string;identityDomainId:string;sourceId:string;sourceSchema:string;sourceTable:string;sourceSchemaFingerprint:string;sourceKey:string;validationStatus:string;historical:boolean};
+type ObjectBinding={bindingId:string;revision:number;packageId:string;objectTypeId:string;snapshotId:string;digest:string;identityDomainId:string;sourceId:string;sourceSchema:string;sourceTable:string;sourceSchemaFingerprint:string;sourceKey:string;fieldMappings:Array<{propertyRef:string;sourceColumn:string}>;validationStatus:string;historical:boolean};
 type BindingSummary={bindingId:string;packageId:string;objectTypeId:string;currentRevision:number;validationStatus:string};
 type LinkHead={id:string;packageId:string;snapshotId:string;linkTypeId:string;revision:number};
 type LinkDetail={linkBindingId:string;revision:number;packageId:string;snapshotId:string;linkTypeId:string;digest:string;validationStatus:string;historical:boolean;fkOwner:'SOURCE'|'TARGET';fkSourceColumn:string;sourceBindingId:string;sourceBindingRevision:number;targetBindingId:string;targetBindingRevision:number;validationQuality:{status:string;coverage:string;checkedAt:string;scannedRows:number;matchedLinks:number;nullFkCount:number;orphanCount:number}};
@@ -52,6 +52,11 @@ export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
   const [opKey,setOpKey]=useState('');
   const [direction,setDirection]=useState<'OUT'|'IN'>('OUT');
   const [rootKey,setRootKey]=useState('');
+  const [selectorMode,setSelectorMode]=useState<'OBJECT_REF'|'BOUNDED_ROOT_FILTER'>('OBJECT_REF');
+  const [rootFilterField,setRootFilterField]=useState('');
+  const [rootFilterValue,setRootFilterValue]=useState('');
+  const [targetFilterField,setTargetFilterField]=useState('');
+  const [targetFilterValue,setTargetFilterValue]=useState('');
   const [pageSize,setPageSize]=useState(25);
   const [result,setResult]=useState<OneHopResult|null>(null);
   const generation=useRef(0);
@@ -64,6 +69,18 @@ export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
   const fkTable=tables.find(x=>x.table===(fkOwner==='SOURCE'?source:target)?.sourceTable);
   const chosenHead=linkHeads.find(x=>x.snapshotId===snapshotId&&x.linkTypeId===linkTypeId)||null;
   const root=direction==='OUT'?source:target;
+  const outputBinding=direction==='OUT'?target:source;
+  const mappedSearchable=(binding:ObjectBinding|null)=>(snapshot?.snapshotContent.objectTypes
+    .find(t=>t.id===binding?.objectTypeId)?.properties||[])
+    .filter(p=>p.searchable&&binding?.fieldMappings.some(m=>m.propertyRef===p.id)
+      &&['STRING','INTEGER','DECIMAL','BOOLEAN','ENUM'].includes(p.valueType));
+  const rootProperties=mappedSearchable(root);
+  const outputProperties=mappedSearchable(outputBinding);
+  const chosenRootProperty=rootProperties.find(p=>p.id===rootFilterField);
+  const chosenTargetProperty=outputProperties.find(p=>p.id===targetFilterField);
+  const queryReady=Boolean(currentLink&&root&&(
+    selectorMode==='OBJECT_REF'?rootKey.trim():(chosenRootProperty&&rootFilterValue.trim()))
+    &&(!targetFilterField||(chosenTargetProperty&&targetFilterValue.trim()))&&!busy);
 
   function clearExecution(){setResult(null);setError(null);}
   function invalidateDraft(){
@@ -167,25 +184,34 @@ export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
     finally{inFlight.current=false;setBusy(false);}
   }
   async function execute(){
-    if(!currentLink||!root||!rootKey.trim()||inFlight.current)return;
-    const output=snapshot?.snapshotContent.objectTypes.find(x=>x.id===root.objectTypeId);
-    const keyType=output?.properties.find(p=>p.id===output.primaryKeyRef)?.valueType;
+    if(!queryReady||!currentLink||!root||inFlight.current)return;
+    const rootType=snapshot?.snapshotContent.objectTypes.find(x=>x.id===root.objectTypeId);
+    const keyType=rootType?.properties.find(p=>p.id===rootType.primaryKeyRef)?.valueType;
     if(!keyType||!['STRING','INTEGER'].includes(keyType)){
       setError({code:'UNSUPPORTED_IDENTITY_TYPE',message:'当前端点主键类型不支持，请重新选择 ObjectType。'});return;
     }
     inFlight.current=true;setBusy(true);clearExecution();
     try{
+      const rootSelector=selectorMode==='OBJECT_REF'
+        ?{kind:'OBJECT_REF',objectRef:{
+          packageId,objectTypeId:root.objectTypeId,identityDomainId:root.identityDomainId,
+          key:{valueType:keyType,value:rootKey.trim()}
+        }}
+        :{kind:'BOUNDED_ROOT_FILTER',conditions:[{propertyRef:rootFilterField,operator:'EQ',
+          literal:{valueType:chosenRootProperty!.valueType,value:rootFilterValue.trim()}}]};
+      const steps:Array<Record<string,unknown>>=[{kind:'TRAVERSE',linkTypeRef:linkTypeId,
+        linkBindingRef:{bindingId:currentLink.linkBindingId,revision:currentLink.revision},
+        direction,maxDepth:1}];
+      if(targetFilterField&&chosenTargetProperty)steps.push({kind:'FILTER',scope:'TARGET',conditions:[
+        {propertyRef:targetFilterField,operator:'EQ',
+          literal:{valueType:chosenTargetProperty.valueType,value:targetFilterValue.trim()}}
+      ]});
+      steps.push({kind:'PAGE',pageSize});
       const query={
         queryVersion:'local-query-v2',
         rootTypeRef:{sourceRef:{kind:'LOCAL_SNAPSHOT',snapshotId},packageId,objectTypeId:root.objectTypeId},
         rootBindingRef:{bindingId:root.bindingId,revision:root.revision},
-        rootSelector:{kind:'OBJECT_REF',objectRef:{
-          packageId,objectTypeId:root.objectTypeId,identityDomainId:root.identityDomainId,
-          key:{valueType:keyType,value:rootKey.trim()}
-        }},
-        steps:[{kind:'TRAVERSE',linkTypeRef:linkTypeId,
-          linkBindingRef:{bindingId:currentLink.linkBindingId,revision:currentLink.revision},
-          direction,maxDepth:1},{kind:'PAGE',pageSize}]
+        rootSelector,steps
       };
       const output=await request<OneHopResult>('/api/runtime/object-sets/traverse',post(query));
       setResult(output);
@@ -250,12 +276,26 @@ export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
         <h3>03 · 已保存关系的一跳遍历</h3>
         {currentLink?<div className="m8-current"><CheckCircle2 size={16}/><strong>{currentLink.linkTypeId} · revision {currentLink.revision}</strong><span>{currentLink.validationStatus} · 来源检查来自不可变修订</span></div>
           :<p className="object-set-hint">先验证并保存 LinkBinding，或使用“重开已保存”。未保存的前端草稿不能参与遍历。</p>}
-        <div className="m8-query-controls"><label>方向<select aria-label="M8 Traverse Direction" value={direction} onChange={e=>{setDirection(e.target.value as 'OUT'|'IN');clearExecution();}}>
+        <div className="m8-query-controls"><label>方向<select aria-label="M8 Traverse Direction" value={direction} onChange={e=>{setDirection(e.target.value as 'OUT'|'IN');setRootFilterField('');setTargetFilterField('');clearExecution();}}>
           <option value="OUT">OUT · SOURCE → TARGET</option><option value="IN">IN · TARGET → SOURCE</option></select></label>
-          <label>根对象主键<input aria-label="M8 Root Object Key" placeholder={direction==='OUT'?'例如 EQ-001':'例如 LOT-11'} value={rootKey} onChange={e=>{setRootKey(e.target.value);clearExecution();}}/></label>
+          <label>根选择方式<select aria-label="M8 Root Selector" value={selectorMode} onChange={e=>{setSelectorMode(e.target.value as 'OBJECT_REF'|'BOUNDED_ROOT_FILTER');clearExecution();}}>
+            <option value="OBJECT_REF">指定根对象</option><option value="BOUNDED_ROOT_FILTER">有界根筛选（最多 50 个根）</option>
+          </select></label>
+          {selectorMode==='OBJECT_REF'
+            ?<label>根对象主键<input aria-label="M8 Root Object Key" placeholder={direction==='OUT'?'例如 EQ-001':'例如 LOT-11'} value={rootKey} onChange={e=>{setRootKey(e.target.value);clearExecution();}}/></label>
+            :<><label>根筛选属性<select aria-label="M8 Root Filter Field" value={rootFilterField} onChange={e=>{setRootFilterField(e.target.value);clearExecution();}}>
+              <option value="">选择已映射可检索属性</option>{rootProperties.map(p=><option key={p.id} value={p.id}>{p.apiName} · {p.valueType}</option>)}
+            </select></label><label>根筛选值（EQ）<input aria-label="M8 Root Filter Value" value={rootFilterValue} onChange={e=>{setRootFilterValue(e.target.value);clearExecution();}} placeholder="完全匹配值"/></label></>}
           <label>每页<select aria-label="M8 Traverse Page Size" value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));clearExecution();}}>
             <option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-          <button className="model-btn primary" type="button" disabled={!currentLink||!rootKey.trim()||busy} onClick={()=>void execute()}><GitBranch size={15}/> {busy?'执行中…':'执行一跳查询'}</button></div>
+          <button className="model-btn primary" type="button" disabled={!queryReady} onClick={()=>void execute()}><GitBranch size={15}/> {busy?'执行中…':'执行一跳查询'}</button></div>
+        <div className="m8-filter-controls">
+          <label>输出端条件（可选）<select aria-label="M8 Target Filter Field" value={targetFilterField} onChange={e=>{setTargetFilterField(e.target.value);clearExecution();}}>
+            <option value="">不过滤输出端</option>{outputProperties.map(p=><option key={p.id} value={p.id}>{p.apiName} · {p.valueType}</option>)}
+          </select></label>
+          {targetFilterField&&<label>目标属性匹配值（EQ）<input aria-label="M8 Target Filter Value" value={targetFilterValue}
+            placeholder="输出端可检索属性值" onChange={e=>{setTargetFilterValue(e.target.value);clearExecution();}}/></label>}
+        </div>
         {result&&<div className="m8-result">
           <div className="m8-result-stats"><div><span>结果质量</span><strong>{result.quality.completeness}</strong><small>{result.quality.answerScope} · Freshness {result.quality.freshness}</small></div>
             <div><span>本页 LinkFact</span><strong>{result.linkCount}</strong><small>第 {result.pageNumber} 页</small></div>
