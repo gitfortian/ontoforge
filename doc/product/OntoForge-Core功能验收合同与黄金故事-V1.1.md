@@ -56,7 +56,7 @@
 ### C05｜受控源发现与预览
 
 - **能力归属**：`F06.01–F06.03`；**使用者**：数据工程师。
-- **前置与输入**：测试 DB/独立只读账号/许可表；**用户动作**：选 schema/table/column、预览样本和指纹。
+- **前置与输入**：隔离 PostgreSQL、独立最小权限只读账号、已创建且授权的 `public` 允许表；默认来源仅登记 `m5_supplier_source`（可按部署配置受控调整允许表列表）；**用户动作**：从实际发现的表/列选择，预览样本及结构指纹。
 - **预期输出与证据**：只读返回有限来源表列/映射前样本，不暴露任意 SQL 入口。
 - **拒绝/异常/恢复场景**：无 SELECT/USAGE、对象被删除、非法 schema、跨库与生产凭证均拒绝。
 - **验证方式/完成证据**：PG 实测授权、SQL 只读测试、DataBinding 工作台。
@@ -64,9 +64,9 @@
 ### C06｜映射身份与绑定修订
 
 - **能力归属**：`F07.01–F07.04 / F08.01–F08.04`；**使用者**：数据工程师。
-- **前置与输入**：Supplier ObjectType 本地快照已锁定；**用户动作**：配置主键+属性映射、校验、保存、重开、修订。
+- **前置与输入**：Supplier ObjectType 本地快照已锁定、`public.m5_supplier_source` 等显式白名单表及可 SELECT 的只读账号均已准备；**用户动作**：选择单列 PRIMARY KEY 或 UNIQUE 身份键、映射属性、校验、保存、重开、修订。
 - **预期输出与证据**：返回 Binding ID/revision/sourceFingerprint/identityDomainId，并能按当前修订读取。
-- **拒绝/异常/恢复场景**：类型不匹配、重复键矛盾值、CAS 409、来源漂移和撤权。
+- **拒绝/异常/恢复场景**：类型不匹配、身份字段不是单列主键或唯一键、CAS 409、来源漂移和 SELECT 撤销；已登记有效单列唯一键的 PostgreSQL 普通表不能直接写入重复主键行，物理重复另需受控故障注入/服务层测试。
 - **验证方式/完成证据**：绑定 create/update/revisions API+只读数据库核验。
 
 ### C07｜单对象读取与值状态
@@ -88,7 +88,7 @@
 ### C09｜COUNT_DISTINCT/SUM 精度
 
 - **能力归属**：`F11.04`；**使用者**：业务分析员。
-- **前置与输入**：存在两条物理记录指向同一 ObjectRef 与不同数值情况；**用户动作**：分别执行 distinct 和 DECIMAL/INTEGER sum。
+- **前置与输入**：正常验收使用合规唯一 sourceKey 的受控来源表；物理行重复/同一 ObjectRef 值冲突需另用受控注入或服务层隔离夹具，因为 M5 对来源 identity key 要求单列 PRIMARY KEY/UNIQUE，常规 PG 绑定不会合法出现重复 sourceKey；**用户动作**：分别执行 distinct 和 DECIMAL/INTEGER sum。
 - **预期输出与证据**：以最终 ObjectRef 去重，总和精度不丢失，质量范围准确。
 - **拒绝/异常/恢复场景**：NULL/MISSING、冲突、预算超限必须明确失败，不得返回部分准确结果或静默置零。
 - **验证方式/完成证据**：PG 原始行、服务端聚合断言、UI 聚合值展示。
@@ -141,14 +141,21 @@
 - **拒绝/异常/恢复场景**：远程地址、生产 DB、伪造客户端身份、跨包授权、会话撤销。
 - **验证方式/完成证据**：配置、API 安全负例与本机 PG；企业 IAM 正式验收仍未完成。
 
+## 二-A、环境与数据可执行性审查（第二轮补充）
+
+- **基线登记**：当前 `DataBindingService` 来源 ID 为 `local-pg-sandbox`，限定 `public` 下的受控表；在 `application.yml` 和服务配置中，默认白名单为 `m5_supplier_source`，不是任意新建的 Supplier/PurchaseOrder 表自动可见。
+- **来源身份约束**：M5 建立 Mapping 前要求 `sourceKey` 是单列主键或单列 UNIQUE。普通 PG 约束下同一 sourceKey 的物理重复不能作为合法用户路径来复现；M6/M7 对重复 ObjectRef 的防御语义仍可在隔离异常夹具中验证，不应伪造“UAT 已通过”。
+- **创建两个 ObjectType 不等于两个实例源都可查询**：Core U01 可以把 PurchaseOrder/LinkType 作为 Native 定义验证，但通用外键 LinkBinding/LinkFact/双向路径属于 M8 尚未交付；现在只验证 Supplier 的合法 Binding、单对象与 ObjectSet。
+- **实验前置核查清单**：实际隔离 PG URL/DB 名、来源只读账号凭据、`public.m5_supplier_source` 表结构和 UNIQUE/PK、服务端白名单、账号权限、匹配主键的可检索属性、预期结果数据，以及同一提交/环境的响应或截图，全部记录后才判定通过。
+- **操作性验收不是自动测试的替代**：目前这些都是**待执行的验收步骤**；未在用户 Windows 11 既有安装实跑，因此自动 CI 通过不等于黄金故事已签收。
 ## 三、跨模块黄金故事（均以实际操作证明）
 
 | 编号 | 故事 | 时间范围 | 必须做什么 | 对应合同 | 严格完成标准 |
 |---|---|---|---|---|---|
-| **U01** | 全新采购域：从零建模到精确集合 | Core 当前能力 | 自定义 Supplier + PurchaseOrder（不使用 demo 专用三个类型），保存 WIP、VALID、快照、Type Catalog、PG Binding、对象读、ObjectSet 筛选/排序/投影/分页、SUM/COUNT；检查 URL 上下文与恢复 | C01–C09/C14 | 独立于代码中固定 manufacturing 逻辑；每一步操作截图或 Chromium trace + PG 同一来源检查 |
+| **U01** | 全新采购域：从零建模到精确集合 | Core 当前能力（受控来源） | 创建 Supplier + PurchaseOrder 两个 Native 类型及 LinkType 定义；实际 M5–M7 仅对准备好的 `public.m5_supplier_source` 合规来源执行 Supplier Binding、单对象读与 ObjectSet 筛选/分页/聚合；PurchaseOrder 实例关系留待 M8，不把 LinkType 当 LinkFact | C01–C09/C14 | 必须先核查允许表配置、唯一键、只读 SELECT、隔离 PG、可验证测试值；含浏览器 trace 和真实来源响应；没有自定义新来源表的配置不可宣称通用任意数据源 |
 | **U02** | 并发修改与未知保存结果 | Core 当前能力 | 两个窗口编辑同一草稿及 Binding，旧 revision 保存、网络断开、未知结果查回及再校验；冻结旧 VALID 拒绝 | C03/C04/C06 | 任何冲突不得丢本地草稿或展示虚假保存成功 |
 | **U03** | 来源漂移/撤权/游标恢复 | Core 当前能力 | 页一成功后撤权、列类型改变、禁用 SELECT、TTL 过期与重启，分别触发 M6/M7；恢复权限后重新执行新查询 | C05/C07/C08/C10/C14/C15 | 明确拒绝旧结果载荷，不能返回 0 代替失败；恢复后不自动续上具有争议的旧 cursor |
-| **U04** | 重复、冲突、NULL/MISSING 和金额精度 | Core 当前能力 | 源物理重复行、一致折叠与矛盾冲突；SUM 的 NULL/MISSING、DECIMAL 精度、去重 Order 对象 | C07/C09 | count 不把物理行或路径计成对象；未知/冲突不默默转成 0 |
+| **U04** | 唯一键、冲突、NULL/MISSING 和金额精度 | Core 当前能力＋隔离异常注入 | 常规有效单列 PK/UNIQUE 身份源核验 ObjectRef/COUNT_DISTINCT/SUM、NULL/MISSING/DECIMAL；如要测相同身份的物理重复/冲突，必须用不冒充正常 M5 配置的受控异常数据或服务层注入 | C06/C07/C09 | 禁止把有唯一约束的正常 PG 表误写成“可随意插入重复 sourceKey”；计数不能混淆物理行/关系路径/对象，异常结果不得悄悄变为 0 |
 | **U05** | 制造既有链路回归 | Core 当前能力 | 固定 batch→work order→customer order 质量追溯：单路径、多路径、断链、歧义与稳定分页 | C11 | M8 架构不能用旧固定 case 代替新通用场景，老功能亦不可倒退 |
 | **U06** | UI 接续、错误状态与访问性 | Core 产品体验 | 在真实 Chromium 执行刷新、后退、未保存离开、重新选择 Binding、异常返回、晚到请求、不同宽度 | C01/C02/C06/C08 | 不可只以 API 成功替代产品页面；有截图或视频/测试轨迹 |
 | **U07** | M8 自定义采购关系双向一跳 | 后续 M8.1 | Supplier→PurchaseOrder 自建 LinkType，FK、逆向一跳、孤儿与基数严格分离 | C12 | 前置 OFIP/UX-Low/UX-High 决策通过；不得在此文档批准生产研发 |
