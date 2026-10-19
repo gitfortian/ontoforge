@@ -465,6 +465,16 @@ public class LinkBindingService {
         return new FactSnapshot(d,r.source(),r.target(),facts.source(),facts.target(),facts.bytes(),Instant.now());
     }
 
+    /** Resolve explicit M5 endpoint revision under the current actor without implicit latest. */
+    public DataBindingService.BindingDetail endpointSource(Detail detail,Authentication auth) {
+        return bindings.getBinding(uuid(detail.sourceBindingId(),"sourceBindingId"),
+                detail.sourceBindingRevision(),auth);
+    }
+    public DataBindingService.BindingDetail endpointTarget(Detail detail,Authentication auth) {
+        return bindings.getBinding(uuid(detail.targetBindingId(),"targetBindingId"),
+                detail.targetBindingRevision(),auth);
+    }
+
     /** Rebuild authorization, snapshot identity and source fingerprint gates on execute/page. */
     public Detail revalidate(UUID id,long revision,Authentication auth) {
         Detail d=get(id,revision,auth);
