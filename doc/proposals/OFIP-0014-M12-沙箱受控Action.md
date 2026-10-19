@@ -22,8 +22,8 @@
 
 审阅基线 `6968ea0804f57b2b82f237e37f812bcadb32f343` 的证据：
 
-- [B0AuthorizationService.java](../../ontoforge-boot/src/main/java/io/ontoforge/boot/security/B0AuthorizationService.java) 只有草稿/校验/快照操作权限，不包含 Action 执行或审批权。
-- [LocalMvpAuthorizationService.java](../../ontoforge-boot/src/main/java/io/ontoforge/boot/security/LocalMvpAuthorizationService.java) 显式绕过身份检查，只适合本机隔离建模；`local-mvp` 不是可信审批人。
+- [B0AuthorizationService.java](../../ontoforge-platform/src/main/java/io/ontoforge/platform/identity/B0AuthorizationService.java) 只有草稿/校验/快照操作权限，不包含 Action 执行或审批权。
+- [LocalMvpAuthorizationService.java](../../ontoforge-platform/src/main/java/io/ontoforge/platform/identity/LocalMvpAuthorizationService.java) 显式绕过身份检查，只适合本机隔离建模；`local-mvp` 不是可信审批人。
 - 当前 Java 控制器没有 Action 运行端点；Native V0.2 已有 Action/Policy/执行记录候选合同及结构负例，不是运行时。
 - [test_native_v02.py](../design/tests/test_native_v02.py) 已拒绝缺业务状态证据的成功、待审批派发、DENY 后执行，以及 UNKNOWN 声称结果已确认；这些边界必须保留。
 

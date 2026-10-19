@@ -10,7 +10,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 OFIP = ROOT / "doc/proposals/OFIP-0005-P0B模型治理审核发布与激活MVP.md"
 GLOSSARY = ROOT / "doc/砺元本体产品统一术语词汇表.md"
-SOURCE = ROOT / "ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java"
+SOURCE = ROOT / "ontoforge-core/src/main/java/io/ontoforge/core/compiler/DraftValidation.java"
 
 
 class P0BContractDocumentTests(unittest.TestCase):

@@ -1,13 +1,14 @@
 package io.ontoforge.boot.controller;
 
+import io.ontoforge.core.compiler.DraftValidation;
+
 import com.fasterxml.jackson.databind.JsonNode;
-import io.ontoforge.boot.model.NativeDraftService;
-import io.ontoforge.boot.security.B0AuthorizationService;
+import io.ontoforge.business.model.NativeDraftService;
+import io.ontoforge.platform.identity.B0AuthorizationService;
 import org.springframework.security.core.Authentication;
-import io.ontoforge.boot.model.NativeDraftService.DraftFailure;
+import io.ontoforge.business.model.NativeDraftService.DraftFailure;
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
@@ -41,7 +42,9 @@ public class NativeDraftController {
     public NativeDraftService.DraftPage list(@RequestParam(defaultValue="20") int pageSize,
                                             @RequestParam(required=false) String cursor,
                                             Authentication authentication) {
-        return authorization.listDrafts(service,pageSize,cursor,authentication);
+        var scope = authorization.draftListingScope(authentication);
+        return scope.localOnly() ? service.list(pageSize, cursor)
+                : service.list(pageSize, cursor, scope.issuer(), scope.subject());
     }
     @PostMapping
     public ResponseEntity<NativeDraftService.DraftDetail> create(@RequestBody JsonNode body, Authentication authentication) {
@@ -98,7 +101,7 @@ public class NativeDraftController {
 /** Uniform safe errors; never expose SQL, passwords, stack traces or an artificial success. */
 @RestControllerAdvice(assignableTypes={NativeDraftController.class,NativeSnapshotController.class,QualityMvpController.class,RuntimeTypeController.class})
 class DraftErrorAdvice {
-    record ApiError(String code,String message,List<io.ontoforge.boot.model.DraftValidation.Issue> issues) {}
+    record ApiError(String code,String message,List<io.ontoforge.core.compiler.DraftValidation.Issue> issues) {}
     @ExceptionHandler(DraftFailure.class)
     ResponseEntity<ApiError> failure(DraftFailure e) {
         return ResponseEntity.status(e.http).body(new ApiError(e.code,e.getMessage(),e.issues));

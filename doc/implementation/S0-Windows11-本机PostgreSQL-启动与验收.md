@@ -52,7 +52,7 @@ $env:DB_PASSWORD = [System.Net.NetworkCredential]::new('', (Read-Host 'PostgreSQ
 **终端 A：在仓库根目录启动后端（保留上一步的环境变量）**
 
 ```powershell
-mvn -pl ontoforge-boot spring-boot:run
+.\scripts\run-local.ps1
 ```
 
 首次启动会执行当前 Flyway V1–V3；已有版本会正常复验，不会每次生成新安装 ID。启动失败时先读错误日志，不要通过删除数据库解决 Flyway 或密码错误。

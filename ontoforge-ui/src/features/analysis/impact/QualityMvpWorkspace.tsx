@@ -1,0 +1,359 @@
+import React, {useEffect,useState} from 'react';
+import {authorizedFetch} from '../../../shared/api/auth';
+import {ArrowRight, Blocks, Database, GitBranch, RefreshCw, Search} from 'lucide-react';
+import '../../design/modeling/model.css';
+
+type Status={packageId:string;draftId:string|null;revision:number|null;
+  validation:string;bound:boolean;sampleBatchId:string};
+type Mapping={
+  batchTable:string;batchId:string;batchStatus:string;batchWorkOrder:string;
+  workTable:string;workId:string;workOrder:string;
+  orderTable:string;orderId:string;orderName:string
+};
+type TableInfo={table:string;columns:string[]};
+type Binding={packageId:string;draftId:string;boundRevision:number;sourceMap:Mapping;sourceBatchCount:number};
+type SourceSample={id:string|null;attribute:string|null;relatedId:string|null};
+type SourcePreview={batches:SourceSample[];workOrders:SourceSample[];
+  orders:SourceSample[];linkedExample:{batchId:string;workOrderId:string;orderId:string}|null};
+const defaultMap:Mapping={
+  batchTable:'mvp_source_batches',batchId:'batch_id',batchStatus:'quality_status',batchWorkOrder:'work_order_id',
+  workTable:'mvp_source_work_orders',workId:'work_order_id',workOrder:'order_id',
+  orderTable:'mvp_source_orders',orderId:'order_id',orderName:'customer_name'
+};
+const groups=[
+ {title:'生产批次',table:'batchTable',fields:[['batchId','批次唯一 ID'],['batchStatus','质量状态'],['batchWorkOrder','关联工单 ID']]},
+ {title:'生产工单',table:'workTable',fields:[['workId','工单唯一 ID'],['workOrder','关联客户订单 ID']]},
+ {title:'客户订单',table:'orderTable',fields:[['orderId','客户订单唯一 ID'],['orderName','客户名称/显示字段']]}
+] as const;
+type TraceFact={objectTypeId:string;id:string;label:string;sourceTable:string};
+type TraceEdge={linkTypeId:string;from:string;to:string;sourceColumn:string};
+type ImpactPath={workOrderId:string;orderId:string;customerName:string;
+  objects:TraceFact[];links:TraceEdge[]};
+type TraceSet={batchId:string;qualityStatus:string;boundRevision:number;
+  sourceFingerprint:string;workOrderCount:number;orderCount:number;
+  pathCount:number;missingWorkRefs:number;missingOrderRefs:number;
+  paths:ImpactPath[];nextCursor:string|null;provenance:string};
+
+type ObjectSetItem={id:string;attributeName:string;attributeValue:string;sourceTable:string;
+  idSourceColumn:string;attributeSourceColumn:string;physicalRowCount:number};
+type ObjectSetPage={objectTypeId:string;filterField:string;operator:string;filterValue:string;
+  boundRevision:number;sourceFingerprint:string;totalCount:number;objects:ObjectSetItem[];
+  nextCursor:string|null};
+type ObjectKind='production-batch'|'work-order'|'customer-order';
+const objectKinds:{id:ObjectKind;label:string;field:string;fieldLabel:string}[]=[
+  {id:'production-batch',label:'生产批次',field:'qualityStatus',fieldLabel:'质量状态'},
+  {id:'work-order',label:'生产工单',field:'workOrderId',fieldLabel:'工单编号'},
+  {id:'customer-order',label:'客户订单',field:'customerName',fieldLabel:'客户名称'}
+];
+type ApiError={code?:string;message?:string};
+const api='/api/mvp/quality';
+async function invoke<T>(route:string,method='GET',body?:unknown):Promise<T>{
+  const response=await authorizedFetch(api+route,{method,cache:'no-store',
+    headers:body===undefined?undefined:{'Content-Type':'application/json'},
+    body:body===undefined?undefined:JSON.stringify(body)});
+  const result=await response.json() as T&ApiError;
+  if(!response.ok)throw new Error((result.code??'ERROR')+' · '+(result.message??'请求失败'));
+  return result;
+}
+
+/** S0 local experience: not an industrial connector, official ObjectSet or Agent. */
+export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=>void}){
+  const [status,setStatus]=useState<Status|null>(null);
+  const [binding,setBinding]=useState<Binding|null>(null);
+  const [sources,setSources]=useState<TableInfo[]>([]);
+  const [map,setMap]=useState<Mapping>(defaultMap);
+  const [savedMap,setSavedMap]=useState<Mapping|null>(null);
+  const [preview,setPreview]=useState<SourcePreview|null>(null);
+  const [previewMap,setPreviewMap]=useState('');
+  const [expandMapping,setExpandMapping]=useState(false);
+  const [trace,setTrace]=useState<TraceSet|null>(null);
+  const [pageIndex,setPageIndex]=useState(0);
+  const [pageStarts,setPageStarts]=useState<Array<string|null>>([null]);
+  const [batch,setBatch]=useState('B2026-001');
+  const [kind,setKind]=useState<ObjectKind>('production-batch');
+  const [objectField,setObjectField]=useState('id');
+  const [objectOperator,setObjectOperator]=useState('prefix');
+  const [objectValue,setObjectValue]=useState('');
+  const [objectResult,setObjectResult]=useState<ObjectSetPage|null>(null);
+  const [objectPage,setObjectPage]=useState(0);
+  const [objectCursors,setObjectCursors]=useState<Array<string|null>>([null]);
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState('');
+  const [loading,setLoading]=useState(true);
+  async function reload(){
+    const state=await invoke<Status>('/status');
+    setStatus(state);return state;
+  }
+  useEffect(()=>{let live=true;
+    void Promise.all([
+      invoke<Status>('/status'),
+      invoke<TableInfo[]>('/sources'),
+      invoke<Mapping>('/binding').catch(()=>null)
+    ]).then(([current,catalog,saved])=>{
+      if(!live)return;
+      setStatus(current);setSources(catalog);
+      if(saved){setMap(saved);setSavedMap(saved)}
+    }).catch(e=>{if(live)setError(String(e))}
+    ).finally(()=>{if(live)setLoading(false)});
+    return()=>{live=false};
+  },[]);
+  async function run<T>(request:()=>Promise<T>,finished:(value:T)=>void){
+    setBusy(true);setError('');
+    try{const value=await request();finished(value)}
+    catch(e){setError(e instanceof Error?e.message:String(e))}
+    finally{setBusy(false)}
+  }
+  function model(){
+    void run(()=>invoke<Status>('/model','POST'),value=>{
+      setStatus(value);setTrace(null);setBinding(null);setObjectResult(null);
+    });
+  }
+  function bind(){
+    void run(()=>invoke<Binding>('/bind','POST',map),value=>{
+      setBinding(value);setSavedMap(value.sourceMap);setTrace(null);setObjectResult(null);
+      void reload().catch(e=>setError(String(e)));
+    });
+  }
+  function inspect(){
+    const selected={...map};
+    void run(()=>invoke<SourcePreview>('/preview','POST',selected),value=>{
+      setPreview(value);setPreviewMap(JSON.stringify(selected));
+    });
+  }
+  function loadImpactPage(cursor:string|null, index:number){
+    const url='/trace-set?batchId='+encodeURIComponent(batch)
+      +'&pageSize=2'+(cursor?'&cursor='+encodeURIComponent(cursor):'');
+    void run(()=>invoke<TraceSet>(url),value=>{
+      setTrace(value);
+      setPageIndex(index);
+      setPageStarts(previous=>{
+        const pages=previous.slice(0,index+1);
+        pages[index]=cursor;
+        return pages;
+      });
+    });
+  }
+  function search(){loadImpactPage(null,0);}
+  function browseObjects(cursor:string|null,index:number){
+    const params=new URLSearchParams({objectTypeId:kind,filterField:objectField,
+      operator:objectOperator,filterValue:objectValue,pageSize:'2'});
+    if(cursor)params.set('cursor',cursor);
+    void run(()=>invoke<ObjectSetPage>('/object-set?'+params.toString()),value=>{
+      setObjectResult(value);setObjectPage(index);
+      setObjectCursors(previous=>{
+        const pages=previous.slice(0,index+1);pages[index]=cursor;return pages;
+      });
+    });
+  }
+  function clearObjectResult(){setObjectResult(null);setObjectPage(0);setObjectCursors([null]);}
+  const selectedKind=objectKinds.find(x=>x.id===kind)??objectKinds[0];
+  const modelReady=status?.validation==='VALID';
+  const mapChanged=Boolean(savedMap&&JSON.stringify(map)!==JSON.stringify(savedMap));
+  const validMapping=groups.every(group=>{
+    const table=map[group.table];
+    const columns=sources.find(x=>x.table===table)?.columns??[];
+    return Boolean(table)&&group.fields.every(([field])=>columns.includes(map[field]));
+  });
+  function setSourceField(field:keyof Mapping,value:string){
+    setMap(current=>{
+      const copy={...current,[field]:value};
+      for(const g of groups)if(g.table===field)
+        for(const [key] of g.fields)copy[key]='';
+      return copy;
+    });
+    setTrace(null);setObjectResult(null);setPreview(null);setPreviewMap('');
+  }
+  const currentPreview=previewMap===JSON.stringify(map)?preview:null;
+  return <div className="model-page">
+    <div className="model-head">
+      <div><div className="model-eyebrow">ONTOFORGE / ONE GOLDEN STORY</div>
+        <h1>工业质量追溯 · 精简 MVP</h1>
+        <p>真实 PostgreSQL 测试数据：定义本体 → 建立来源绑定 → 查询批次影响的工单与客户订单集合，逐页检查来源证据。</p>
+      </div>
+      <button className="model-btn" onClick={()=>void run(reload,()=>{})} disabled={busy}><RefreshCw size={15}/> 更新状态</button>
+    </div>
+    <div className="model-alert warning">本机 MVP 模式无需登录，但仅限隔离测试数据库；独立 B0/JWT 模式仍使用包授权。不是生产 MES/ERP、Agent 或 Action。</div>
+    {error&&<div role="alert" className="model-alert error">{error}</div>}
+    {loading&&<p>正在读取本地 PostgreSQL 状态…</p>}
+    <section className="model-panel">
+      <header className="model-panel-head"><div><h2>01 · 定义业务本体</h2>
+        <p>复用现有 Native Draft API，创建三个 ObjectType、属性和两条 LinkType，并通过真实模型校验。</p>
+      </div><Blocks size={20}/></header>
+      <p>生产批次 <ArrowRight size={13} style={{display:'inline'}}/> 生产工单 <ArrowRight size={13} style={{display:'inline'}}/> 客户订单</p>
+      <div className="model-actions">
+        <button className="model-btn model-primary" disabled={busy||Boolean(status?.draftId)}
+          onClick={model}>创建示例本体</button>
+        {status?.draftId&&<button className="model-btn" onClick={()=>navigate('#/model/drafts/'+status.draftId)}>
+          打开真实建模工作台 <ArrowRight size={15}/></button>}
+      </div>
+      <p className="model-help">模型包 {status?.packageId??'manufacturing.quality'} · {modelReady?'VALID 校验通过':status?.validation??'未创建'} · revision {status?.revision??'—'}。不修改或覆盖已有用户编辑。</p>
+    </section>
+    <section className="model-panel">
+      <header className="model-panel-head"><div><h2>02 · 绑定 PostgreSQL 来源</h2>
+        <p>选择当前 PostgreSQL 的测试表与关联字段；映射会保存，并绑定到当前模型 revision。</p>
+      </div><Database size={20}/></header>
+      <div className="model-metrics">{groups.map(group=><div key={group.table}>
+        <span>{group.title}</span><b>{map[group.table]||'未选表'}</b>
+      </div>)}</div>
+      <div className="model-actions">
+        <button className="model-btn" aria-expanded={expandMapping} aria-controls="mvp-source-editor"
+          onClick={()=>setExpandMapping(!expandMapping)}>{expandMapping?'收起字段映射':'选择 PostgreSQL 表与字段'}</button>
+        <span>{status?.bound&&!mapChanged?'当前修订已绑定':'尚未保存当前来源映射'}</span>
+      </div>
+      {expandMapping&&<div id="mvp-source-editor" className="model-panel" aria-label="PostgreSQL 来源映射">
+        <p className="model-help">仅显示当前本机 public 下 demo_ / mvp_source_ 测试表。不支持任意 SQL、生产源或远程数据源。</p>
+        {groups.map(group=><div key={group.table} className="model-form-grid">
+          <h3 className="model-form-wide">{group.title}</h3>
+          <div><label htmlFor={'source-'+group.table}>来源表</label>
+            <select id={'source-'+group.table} value={map[group.table]}
+              onChange={e=>setSourceField(group.table,e.target.value)}>
+              <option value="">请选择来源表</option>
+              {sources.map(table=><option key={table.table} value={table.table}>{table.table}</option>)}
+            </select></div>
+          {group.fields.map(([key,title])=><div key={key}>
+            <label htmlFor={'source-'+key}>{title}</label>
+            <select id={'source-'+key} value={map[key]}
+              onChange={e=>setSourceField(key,e.target.value)}>
+              <option value="">请选择字段</option>
+              {(sources.find(t=>t.table===map[group.table])?.columns??[])
+                .map(col=><option key={col} value={col}>{col}</option>)}
+            </select>
+          </div>)}
+        </div>)}
+      </div>}
+      <div className="model-actions">
+        <button className="model-btn" onClick={inspect} disabled={busy||!validMapping}>
+          <Search size={15}/> 预览真实样本与关联
+        </button>
+        <span className="model-help">只读检查当前选择，不会保存或改变已有绑定</span>
+      </div>
+      {currentPreview&&<div className="model-panel" aria-label="来源预览结果">
+        <h3>来源样本（每表最多三条）</h3>
+        <div className="model-metrics">
+          {[
+            {title:'生产批次',rows:currentPreview.batches},
+            {title:'生产工单',rows:currentPreview.workOrders},
+            {title:'客户订单',rows:currentPreview.orders}
+          ].map(group=><div key={group.title}>
+            <span>{group.title}</span>
+            {group.rows.length===0?<p>来源表暂无记录</p>:
+              <ul>{group.rows.map((row,i)=><li key={i}>
+                <b>{row.id??'空 ID'}</b>
+                <small> · {row.attribute??'空值'} · 关联值 {row.relatedId??'空值'}</small>
+              </li>)}</ul>}
+          </div>)}
+        </div>
+        {currentPreview.linkedExample?<p role="status">
+          找到一条可连通的真实来源路径：
+          <strong> {currentPreview.linkedExample.batchId} → {currentPreview.linkedExample.workOrderId} → {currentPreview.linkedExample.orderId}</strong>
+        </p>:<p role="status">当前三张来源表中没有找到可连通的两跳记录，请核对关联字段或测试数据。</p>}
+        <p className="model-help">这里只预览样本及一条关联证据，并不代表全部数据都能正确关联。确认后再保存来源绑定。</p>
+      </div>}
+      <div className="model-actions"><button className="model-btn model-primary"
+        disabled={busy||!modelReady||!validMapping} onClick={bind}>保存来源绑定</button>
+        <span>{mapChanged?'当前字段已修改，需重新保存':'映射与服务器一致或尚未建立'}</span></div>
+      {binding&&<p role="status">绑定已保存 PostgreSQL：revision {binding.boundRevision}，来源批次前 {binding.sourceBatchCount} 条。</p>}
+    </section>
+    <section className="model-panel">
+      <header className="model-panel-head"><div><h2>03 · 沿关系查找受影响订单</h2>
+        <p>输入批次 ID，汇总所有受影响的工单与订单；去重、两跳关联、来源证据及逐页结果均由 PostgreSQL 返回。</p>
+      </div><GitBranch size={20}/></header>
+      <label htmlFor="mvp-batch-id">生产批次 ID</label>
+      <div className="model-actions">
+        <input id="mvp-batch-id" value={batch} onChange={e=>{setBatch(e.target.value);setTrace(null);setPageIndex(0);setPageStarts([null]);}}
+          placeholder="B2026-001" style={{maxWidth:260,padding:9}}/>
+        <button className="model-btn model-primary" disabled={busy||!status?.bound||mapChanged||!batch.trim()}
+          onClick={search}><Search size={15}/> 查询影响订单</button>
+      </div>
+      {!status?.bound&&<p className="model-help">完成第 1、2 步后才能查询；模型修改后需重新校验并绑定。</p>}
+      {trace&&<div aria-label="真实关联查询结果" className="model-panel">
+        <h3>批次 {trace.batchId} 的业务影响集合</h3>
+        <p>质量状态：<strong>{trace.qualityStatus}</strong> · 来源：{trace.provenance==='LOCAL_TEST_POSTGRES'?'当前本机 PostgreSQL 测试表':'内置合成 PostgreSQL 数据'}</p>
+        <div className="model-metrics">
+          <div><span>受影响工单（去重）</span><b>{trace.workOrderCount}</b></div>
+          <div><span>受影响客户订单（去重）</span><b>{trace.orderCount}</b></div>
+          <div><span>关系路径总数</span><b>{trace.pathCount}</b></div>
+        </div>
+        {(trace.missingWorkRefs>0||trace.missingOrderRefs>0)&&
+          <p role="status" className="model-alert warning">
+            来源存在不完整关联：{trace.missingWorkRefs} 个工单引用无法匹配，
+            {trace.missingOrderRefs} 个订单引用无法匹配。这些断链不计入完整路径。
+          </p>}
+        {trace.pathCount===0&&<p role="status">找到批次但没有完整的两跳关联，请核对来源事实和绑定。</p>}
+        <h3>本体关系与来源证据 · 第 {pageIndex+1} 页</h3>
+        <ul>{trace.paths.map((path,index)=><li key={path.workOrderId+'|'+path.orderId+'|'+index}>
+          <div><strong>{trace.batchId} → {path.workOrderId} → <span>{path.orderId}</span></strong> · {path.customerName}</div>
+          <div className="model-help">{path.objects.map(object=><span key={object.objectTypeId}>
+            {object.objectTypeId}：{object.id}（{object.sourceTable}）　</span>)}</div>
+          <div className="model-help">{path.links.map(edge=><span key={edge.linkTypeId}>
+            {edge.linkTypeId} · 来源字段 {edge.sourceColumn}　</span>)}</div>
+        </li>)}</ul>
+        <div className="model-actions">
+          <button className="model-btn" disabled={busy||pageIndex===0}
+             onClick={()=>loadImpactPage(pageStarts[pageIndex-1]??null,pageIndex-1)}>上一页</button>
+          <span className="model-help">当前页 {trace.paths.length} 条路径；共 {trace.pathCount} 条，模型 revision {trace.boundRevision}</span>
+          <button className="model-btn" disabled={busy||!trace.nextCursor}
+             onClick={()=>loadImpactPage(trace.nextCursor,pageIndex+1)}>下一页</button>
+        </div>
+        <p className="model-help">按工单 ID / 客户订单 ID 稳定排序；分页期间测试表变化可能影响跨请求一致性。
+          仅为本机测试数据的有限 ObjectSet 查询，不代表通用执行引擎或生产数据源。</p>
+      </div>}
+    </section>
+    <section className="model-panel" aria-label="Native 对象集合浏览器">
+      <header className="model-panel-head"><div><h2>04 · 浏览本体对象集合</h2>
+        <p>选择本体对象类型，通过已保存的来源绑定查询实际 PostgreSQL 对象；属性筛选、去重和分页均由服务端处理。</p>
+      </div><Search size={20}/></header>
+      <div className="model-form-grid">
+        <div><label htmlFor="objectset-type">对象类型</label>
+          <select id="objectset-type" value={kind}
+            onChange={e=>{setKind(e.target.value as ObjectKind);setObjectField('id');setObjectValue('');clearObjectResult()}}>
+            {objectKinds.map(x=><option key={x.id} value={x.id}>{x.label}</option>)}
+          </select></div>
+        <div><label htmlFor="objectset-field">筛选字段</label>
+          <select id="objectset-field" value={objectField}
+            onChange={e=>{setObjectField(e.target.value);clearObjectResult()}}>
+            <option value="id">对象 ID</option>
+            <option value={selectedKind.field}>{selectedKind.fieldLabel}</option>
+          </select></div>
+        <div><label htmlFor="objectset-operator">筛选方式</label>
+          <select id="objectset-operator" value={objectOperator}
+            onChange={e=>{setObjectOperator(e.target.value);clearObjectResult()}}>
+            <option value="prefix">以文字开头</option>
+            <option value="eq">精确等于</option>
+          </select></div>
+        <div><label htmlFor="objectset-value">筛选值（留空查询全部）</label>
+          <input id="objectset-value" value={objectValue} maxLength={128}
+            onChange={e=>{setObjectValue(e.target.value);clearObjectResult()}}
+            placeholder={objectField==='id'?'例如 LOT-':'例如 BLOCKED'} />
+        </div>
+      </div>
+      <div className="model-actions">
+        <button className="model-btn model-primary" onClick={()=>browseObjects(null,0)}
+          disabled={busy||!status?.bound||mapChanged}>
+          <Search size={15}/> 查询对象集合</button>
+        <span className="model-help">仅限当前 Native 三类对象与本机安全白名单测试表；不执行任意 SQL。</span>
+      </div>
+      {objectResult&&<div className="model-panel" aria-label="对象集合查询结果">
+        <h3>{selectedKind.label} · 匹配对象 {objectResult.totalCount} 个</h3>
+        <p className="model-help">绑定 revision {objectResult.boundRevision} · 来源映射指纹 {objectResult.sourceFingerprint.slice(0,12)}…</p>
+        {objectResult.objects.length===0?<p role="status">没有符合条件的对象。</p>:
+          <div className="model-table-wrap"><table className="model-table">
+            <thead><tr><th>对象 ID</th><th>{selectedKind.fieldLabel}</th><th>来源表和字段证据</th><th>原始记录数</th></tr></thead>
+            <tbody>{objectResult.objects.map(item=><tr key={item.id}>
+              <td><strong>{item.id}</strong></td><td>{item.attributeValue}</td>
+              <td><small>{item.idSourceColumn} · {item.attributeSourceColumn}</small></td>
+              <td>{item.physicalRowCount}</td>
+            </tr>)}</tbody>
+          </table></div>}
+        <div className="model-actions">
+          <button className="model-btn" disabled={busy||objectPage===0}
+            onClick={()=>browseObjects(objectCursors[objectPage-1]??null,objectPage-1)}>对象上一页</button>
+          <span className="model-help">第 {objectPage+1} 页 · 当前 {objectResult.objects.length} 个 / 总 {objectResult.totalCount} 个</span>
+          <button className="model-btn" disabled={busy||!objectResult.nextCursor}
+            onClick={()=>browseObjects(objectResult.nextCursor,objectPage+1)}>对象下一页</button>
+        </div>
+        <p className="model-help">对象 ID 去重；多对多关系字段不作为单值属性。不同分页请求间来源数据变化不保证历史一致性。</p>
+      </div>}
+    </section>
+  </div>;
+}

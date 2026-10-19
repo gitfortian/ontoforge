@@ -5,6 +5,12 @@ on:
       - main
   pull_request:
     paths:
+      - "ontoforge-common/**"
+      - "ontoforge-configuration/**"
+      - "ontoforge-core/**"
+      - "ontoforge-dao/**"
+      - "ontoforge-platform/**"
+      - "ontoforge-business/**"
       - "ontoforge-boot/**"
       - "ontoforge-ui/**"
       - "pom.xml"
@@ -50,7 +56,7 @@ jobs:
           cache: maven
           cache-dependency-path: |
             pom.xml
-            ontoforge-boot/pom.xml
+            ontoforge-*/pom.xml
       - name: Verify OntoForge canonical project naming
         run: |
           test ! -d apps

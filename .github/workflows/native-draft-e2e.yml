@@ -19,7 +19,7 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($script in @('scripts/verify-s0.ps1', 'scripts/verify-objecttype.ps1', 'scripts/verify-snapshot.ps1', 'scripts/verify-linktype.ps1', 'scripts/configure-main-protection.ps1')) {
+          foreach ($script in @('scripts/run-local.ps1', 'scripts/verify-s0.ps1', 'scripts/verify-objecttype.ps1', 'scripts/verify-snapshot.ps1', 'scripts/verify-linktype.ps1', 'scripts/configure-main-protection.ps1')) {
             $tokens = $null
             $parseErrors = $null
             [void][System.Management.Automation.Language.Parser]::ParseFile(
@@ -79,7 +79,7 @@ jobs:
           python-version: '3.12'
       - name: Compile actual application and isolated test-classpath IdP
         run: |
-          mvn -B -pl ontoforge-boot -am -DskipTests package
+          mvn -B -pl ontoforge-boot -am -DskipTests install
           mvn -B -pl ontoforge-boot dependency:build-classpath -Dmdep.outputFile=target/e2e-classpath
           nohup java -cp "ontoforge-boot/target/test-classes:$(cat ontoforge-boot/target/e2e-classpath)" io.ontoforge.boot.B0BrowserFixture serve "$E2E_AUTH_FILE" > /tmp/ontoforge-idp.log 2>&1 &
           echo $! > /tmp/ontoforge-idp.pid

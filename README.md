@@ -24,6 +24,12 @@
 >
 > **S0-MVP-0.2/0.3/0.4 真实建模代码已合并 main（PR #7 / #11 / #13）**：可定义同包多个 ObjectType 与 LinkType、保存草稿、完整性检查、留存不可变本地历史及比较风险。当前环境证据统一见[产品进度总账](./doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)，区分 Windows 隔离自动化与用户既有安装人工验收。**未正式发布；没有身份权限、真实业务数据绑定、ObjectSet 生产查询或 Action**。
 
+## 工程模块化（2026-10-19）
+
+当前真实后端模块为 `core → common`、`configuration`、`platform → dao`、`business → core/platform/dao` 与 `boot` 组装；箭头表示编译依赖，准确关系见 [完整工程模块规划](./doc/implementation/S0-工程模块规划与命名规范.md)。七份历史 Flyway 迁移统一由 DAO 提供，API、模型/绑定格式、安装 UUID 和认证模式保持原合同。前端仍为单一 npm 工程，按 `app / features / shared` 组织。
+
+在仓库根执行 `.\scripts\run-local.ps1`，脚本先构建实际 Reactor，再启动可执行 Boot jar；已有构建可传 `-SkipBuild`。它沿用当前终端的 DB/Profile/OIDC/来源配置。若使用 `mvn -pl ontoforge-boot spring-boot:run`，须先 `mvn -pl ontoforge-boot -am -DskipTests install` 安装内部依赖。下列有日期的 AS-IS 材料保留其历史基线；最新工程归属以模块规划和代码为准。
+
 ## 当前精简 MVP：无需登录的本机隔离运行（需显式启用）
 
 **开发优先级已调整**：本体定义 → 测试数据绑定 → ObjectSet/多结果查询 → 工业业务追溯。登录、用户和角色不是 MVP 核心能力；未来优先复用 [yak-ops](https://github.com/weifuwan/yak-ops) 的 `HttpSession` 认证，而不是单独开发 OntoForge 身份产品。
@@ -37,7 +43,7 @@ $env:SPRING_PROFILES_ACTIVE = 'mvp-local'
 $env:DB_URL = 'jdbc:postgresql://127.0.0.1:5432/ontoforge_test_quality'
 $env:DB_USERNAME = 'postgres'
 $env:DB_PASSWORD = [System.Net.NetworkCredential]::new('', (Read-Host 'Local test PostgreSQL password' -AsSecureString)).Password
-mvn -pl ontoforge-boot spring-boot:run
+.\scripts\run-local.ps1
 # 第二终端：cd ontoforge-ui; npm ci; npm run dev
 # 浏览器访问 http://127.0.0.1:5173/#/model/packages
 ```
@@ -61,7 +67,7 @@ mvn -pl ontoforge-boot spring-boot:run
    $env:DB_URL = 'jdbc:postgresql://127.0.0.1:5432/ontoforge'
    $env:DB_USERNAME = 'postgres'
    $env:DB_PASSWORD = [System.Net.NetworkCredential]::new('', (Read-Host 'PostgreSQL password' -AsSecureString)).Password
-   mvn -pl ontoforge-boot spring-boot:run
+   .\scripts\run-local.ps1
    ```
 
 3. 另开 PowerShell 进入 `ontoforge-ui`，运行 `npm ci` 和 `npm run dev`；访问 [http://127.0.0.1:5173](http://127.0.0.1:5173)。
@@ -134,4 +140,4 @@ mvn -pl ontoforge-boot spring-boot:run
 
 **安全范围**：本版本没有认证与权限控制，仅适合隔离的本地开发环境；不在仓库中保存数据库密码，不得直接对外开放服务或接入生产数据。
 
-工程目录与长期模块命名规范：[S0 模块规划](./doc/implementation/S0-工程模块规划与命名规范.md)；品牌及兼容性说明：[OntoForge · 砺元命名约定](./doc/implementation/OntoForge-品牌与工程命名约定.md)。
+工程目录、实际模块与长期依赖规范：[完整模块结构规划](./doc/implementation/S0-工程模块规划与命名规范.md)；品牌及兼容性说明：[OntoForge · 砺元命名约定](./doc/implementation/OntoForge-品牌与工程命名约定.md)。

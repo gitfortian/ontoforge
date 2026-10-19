@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -15,6 +16,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 LANES = ("docs", "native", "backend", "frontend", "poc", "e2e")
+BACKEND_MODULES = ("ontoforge-common/", "ontoforge-configuration/", "ontoforge-core/",
+                   "ontoforge-dao/", "ontoforge-platform/", "ontoforge-business/", "ontoforge-boot/")
 RUNTIME_SCHEMA = "doc/design/schema/ontology-package-v0.2.schema.json"
 
 
@@ -34,7 +37,7 @@ def select_paths(paths: list[str]) -> dict[str, bool]:
             return full_scope()
         if p.startswith((".github/workflows/", "scripts/ci/")):
             return full_scope()
-        if p in {"pom.xml", "compose.yaml"} or p.startswith(("ontoforge-boot/", ".mvn/")):
+        if p in {"pom.xml", "compose.yaml"} or p.startswith(BACKEND_MODULES + (".mvn/",)):
             selected["backend"] = True
             selected["e2e"] = True
         elif p.startswith("scripts/verify-") and p.endswith(".ps1"):
@@ -132,11 +135,11 @@ def discover_scope() -> tuple[dict[str, bool], str, list[str]]:
 
 def require_foundation_reports(root: Path = ROOT) -> None:
     """Require actual non-skipped, nonempty S0 PostgreSQL/Flyway JUnit evidence."""
-    directory = root / "ontoforge-boot/target/surefire-reports"
-    files = list(directory.glob("TEST-*.xml"))
+    files = list(root.glob("ontoforge-*/target/surefire-reports/TEST-*.xml"))
     if not files:
         raise ValueError("FAIL: no fresh Surefire XML reports (not PASS)")
     found: set[str] = set()
+    executed_classes: set[str] = set()
     for file in files:
         doc = ET.parse(file).getroot()
         suites = [doc] if doc.tag == "testsuite" else doc.findall("testsuite")
@@ -150,15 +153,30 @@ def require_foundation_reports(root: Path = ROOT) -> None:
                 if any(test.find(kind) is not None for kind in ("failure", "error", "skipped")):
                     raise ValueError(f"FAIL: testcase failed or skipped in {file}")
                 classname = test.attrib.get("classname", "")
+                if classname:
+                    executed_classes.add(classname)
                 if classname.endswith(".FoundationTest"):
                     found.add(test.attrib.get("name", ""))
     required = {"realPostgresMigrationAndApiStatus", "migrationVersionOneExists"}
     if not required <= found:
         raise ValueError(f"FAIL: missing or skipped S0 tests: {sorted(required - found)}")
+    # A moved module-local suite must remain observable, not disappear from the
+    # evidence gate just because its XML no longer lives under boot/target.
+    for folder in root.glob("ontoforge-*/src/test/java"):
+        for source in folder.rglob("*Test.java"):
+            text = source.read_text(encoding="utf-8")
+            if not re.search(r"@(?:org\.junit\.[\w.]+\.)?(?:Test|ParameterizedTest|RepeatedTest|TestFactory)\b", text):
+                continue
+            package = re.search(r"(?m)^package\s+([\w.]+)\s*;", text)
+            if package is None:
+                continue
+            expected = package.group(1) + "." + source.stem
+            if not any(name == expected or name.startswith(expected + "$") for name in executed_classes):
+                raise ValueError(f"FAIL: missing executed module suite: {expected}")
     # Enforce NEW product evidence whenever its implementation is in this checkout.
     # Previously the gate only knew FoundationTest and could misreport a green
     # backend lane without executing any ObjectType PG/HTTP tests.
-    draft_source = root / "ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeDraftService.java"
+    draft_source = root / "ontoforge-business/src/main/java/io/ontoforge/business/model/NativeDraftService.java"
     if draft_source.exists():
         required_draft = {
             "nativeDraftRealPostgresCreateWipSaveReloadValidateAndInvalidate",
@@ -178,7 +196,7 @@ def require_foundation_reports(root: Path = ROOT) -> None:
             raise ValueError(f"FAIL: missing real PostgreSQL ObjectType tests: {sorted(required_draft - seen_draft)}")
 
 
-    snapshot_source = root / "ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeSnapshotService.java"
+    snapshot_source = root / "ontoforge-business/src/main/java/io/ontoforge/business/model/NativeSnapshotService.java"
     if snapshot_source.exists():
         must_run = {
             "snapshotRealPostgresFreezeIdempotentReloadAndIntegrity",
@@ -201,7 +219,7 @@ def require_foundation_reports(root: Path = ROOT) -> None:
             raise ValueError(f"FAIL: missing real PostgreSQL Snapshot tests: {sorted(must_run - seen)}")
 
 
-    runtime_type_source = root / "ontoforge-boot/src/main/java/io/ontoforge/boot/model/RuntimeTypeResolver.java"
+    runtime_type_source = root / "ontoforge-business/src/main/java/io/ontoforge/business/registry/RuntimeTypeResolver.java"
     if runtime_type_source.exists():
         required_runtime = {
             "validatedDraftCatalogIsDeterministicAndReturnsHonestPropertyContracts",

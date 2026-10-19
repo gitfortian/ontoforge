@@ -1,8 +1,9 @@
 package io.ontoforge.boot.controller;
 
-import io.ontoforge.boot.model.DataBindingService;
-import io.ontoforge.boot.model.DataBindingService.BindingFailure;
-import io.ontoforge.boot.model.NativeDraftService.DraftFailure;
+
+import io.ontoforge.business.connection.DataBindingService;
+import io.ontoforge.business.connection.DataBindingService.BindingFailure;
+import io.ontoforge.business.model.NativeDraftService.DraftFailure;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.dao.DataAccessException;

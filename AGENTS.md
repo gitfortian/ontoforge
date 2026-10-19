@@ -28,9 +28,10 @@ Authoritative design references:
 
 ## Ownership and dependency boundaries
 
-- `ontoforge-boot`: current Spring Boot entry, real Native Draft/Validation/Snapshot services and Flyway. Long term Boot is assembly/HTTP boundary; domain logic must not accumulate here as P0 grows.
+- `ontoforge-boot`: Spring Boot entry, HTTP/security adapters and explicit module assembly. `ontoforge-business` owns Draft/Snapshot/Binding/Object/quality use cases and their transactions; `ontoforge-platform` owns stored-identity authorization and platform status.
 - `ontoforge-ui`: current single Vite/React application. No fictitious `apps/web`, multi-app workspace or extra shared component library before there are real consumers.
-- `ontoforge-core`, `ontoforge-dao`, `ontoforge-platform`, `ontoforge-spi` etc. are **planned**; create a module only when a real story, owner, caller, dependency direction and tests justify it.
+- `ontoforge-core` owns existing Native editor/schema validation; `ontoforge-dao` owns SQL, bounded PostgreSQL source reads and the unchanged Flyway V1–V7 sequence. `ontoforge-configuration` owns local environment guards; `ontoforge-common` owns shared byte digests. For module changes, read the [module plan and current implementation](doc/implementation/S0-工程模块规划与命名规范.md), and run `scripts/ci/test_module_structure.py`.
+- SPI/plugins/task-execution/dist and other future modules remain planned; create them when a real owner, caller, dependency direction and tests justify them.
 - Domain core owns Native ObjectType/LinkType/AST/contracts, not database/HTTP/LLM implementation details. Persistence and integrations are adapters; no Core → Boot, Business → Boot or Core → Connector reverse dependency.
 - Native Schema/Typed AST, semantic facts, Data Binding, ObjectSet query/evidence, deterministic Function/Decision and policy-controlled Action are **different contracts**. Do not collapse states or let a client choose its own authorization context.
 - `source fact != derived projection`; `inference != authorization`; `Action requested != accepted != outcome verified`. UNKNOWN/PARTIAL/STALE/failure are not success, false or zero.
@@ -48,7 +49,7 @@ Authoritative design references:
 
 From repository root:
 - `java -version` (Java 21), `mvn -version`, `node -v` (Node 22).
-- Backend tests require an isolated loopback `ontoforge_test_*` database and `TEST_DB_URL` / `TEST_DB_USERNAME` / `TEST_DB_PASSWORD`; corruption tests additionally require `TEST_DB_ALLOW_FAULT_INJECTION=true`: `mvn -pl ontoforge-boot -am verify`. Startup uses separate development `DB_*`: `mvn -pl ontoforge-boot spring-boot:run`. Never reuse the development database for integration tests.
+- Backend tests require an isolated loopback `ontoforge_test_*` database and `TEST_DB_URL` / `TEST_DB_USERNAME` / `TEST_DB_PASSWORD`; corruption tests additionally require `TEST_DB_ALLOW_FAULT_INJECTION=true`: `mvn -pl ontoforge-boot -am verify`. Startup uses separate development `DB_*`: `./scripts/run-local.ps1` builds the reactor and runs the packaged Boot jar. Direct `spring-boot:run` requires reactor dependencies installed first. Never reuse the development database for integration tests.
 - Windows 11 native PostgreSQL setup and **read-only** smoke: [runbook](doc/implementation/S0-Windows11-本机PostgreSQL-启动与验收.md); `.\scripts\verify-s0.ps1` requires the same DB_* settings as the backend and a running backend.
 - Frontend: Node 22.12+, `cd ontoforge-ui`, `npm ci`, `npm run build` (TypeScript + Vite), `npm run audit:dependencies`; `npm run dev` and actual browser use are separate evidence.
 - Docs governance + links: `python -m unittest discover -s doc/tests -p 'test_*.py' -v`.
