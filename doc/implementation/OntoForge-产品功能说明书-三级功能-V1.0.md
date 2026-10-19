@@ -96,7 +96,7 @@
 | 三级编号 | 功能点 | 业务行为与最小验收 | 当前状态 | 代码或需求证据 |
 |---|---|---|---|---|
 | OF-F02.03.01 | **属性基础信息** | 定义稳定属性 ID、API 名、展示名、说明 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/NativeModelWorkspace.tsx) |
-| OF-F02.03.02 | **属性值类型** | 编辑 STRING、INTEGER、DECIMAL、BOOLEAN、DATETIME、ENUM、UUID 等当前编辑合同支持的类型 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java) |
+| OF-F02.03.02 | **属性值类型** | 前端支持 STRING、INTEGER、DECIMAL、BOOLEAN、DATETIME、ENUM；服务端校验合同另接受 UUID，但 UI 尚无 UUID 选项及 UUID 主键选择 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java) |
 | OF-F02.03.03 | **属性约束** | 设置 required、searchable、classification、枚举取值及主键引用 | 已实现·限定环境 | [查看依据](../../ontoforge-ui/src/NativeModelWorkspace.tsx) |
 | OF-F02.03.04 | **属性合法性校验** | 拒绝重复命名、错误枚举或无效主键引用，返回路径 | 已实现·限定环境 | [查看依据](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java) |
 | OF-F02.03.05 | **复杂业务语义类型** | 单位量纲、复杂约束、计算属性与完整规则语言尚未进入生产闭环 | 规划中／未开发 | [查看依据](../../doc/implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md) |
