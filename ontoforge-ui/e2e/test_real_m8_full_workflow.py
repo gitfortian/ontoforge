@@ -245,6 +245,38 @@ class RealM8BrowserGoldenStory(unittest.TestCase):
         self.assertIn("已知子集", result.inner_text())
         self.assertEqual(result.locator("tbody tr").count(), 0)
 
+        # Persist a successful UPDATE response as if its HTTP response was
+        # lost. GitHub CI must restart the real JVM and resend EXACT same
+        # operation UUID/body, receiving revision 2 without creating revision 3.
+        key = str(uuid4())
+        write_body = {
+            "contractVersion": "local-link-binding-v1",
+            "modelSourceRef": {"kind": "LOCAL_SNAPSHOT", "snapshotId": snapshot},
+            "packageId": self.package,
+            "linkTypeId": "cell-quality",
+            "sourceBindingRef": {"bindingId": left["bindingId"],
+                                 "revision": left["revision"], "digest": left["digest"]},
+            "targetBindingRef": {"bindingId": right["bindingId"],
+                                 "revision": right["revision"], "digest": right["digest"]},
+            "mode": "FOREIGN_KEY", "fkOwner": "TARGET", "fkSourceColumn": "cell_code",
+            "expectedRevision": 1, "idempotencyKey": key,
+            "expectedSchemaFingerprints": {
+                "source": left["sourceSchemaFingerprint"],
+                "target": right["sourceSchemaFingerprint"]},
+            "validationScope": {"kind": "VALIDATION_SCOPE", "coverage": "FULL"}
+        }
+        written = api("/runtime/link-bindings/" + detail["linkBindingId"], "PUT", write_body)
+        self.assertEqual(written["revision"], 2)
+        self.assertEqual(written["linkBindingId"], detail["linkBindingId"])
+        evidence_path = os.getenv("E2E_M8_LINK_RECEIPT_EVIDENCE")
+        if evidence_path:
+            Path(evidence_path).write_text(json.dumps({
+                "packageId": self.package,
+                "id": detail["linkBindingId"],
+                "request": write_body,
+                "revision": 2,
+                "digest": written["digest"]}, indent=2), encoding="utf-8")
+
 
 if __name__ == "__main__":
     unittest.main()
