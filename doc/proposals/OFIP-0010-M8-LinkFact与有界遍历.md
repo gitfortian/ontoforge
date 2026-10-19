@@ -162,3 +162,13 @@ M8 主 Issue 作为上述切片的验收汇总；M8.1 完成只能勾选首切�
 ---
 
 **Decision Gate:** 维护者须分别确认关系映射合同、三段交付范围、双端基数/断链语义、结果快照与预算策略。Discussion 不授予实施权限，合并/CI 不自动改变 Decision、Implementation 或 Release。
+
+---
+
+## 2026-10-19 治理进展：R1 正式签收、R2 进入评审（不构成 OFIP 决策）
+
+- **R1**：产品所有者在 ChatGPT 会话中明确“认可，进入 R2”，签收 [PR #77](https://github.com/gitfortian/ontoforge/pull/77) 中经纠错的 D1–D7 产品方向。R1 已 squash 合并 `58636a8f6264838826119e59d24646e892cd59e6`。
+- **R1 审核修正的规范依据**：不同查询 root 的孤儿不混算；M5 强制来源唯一键，外键端点不可构造重复主键作为合法去重正例；ONE_TO_ONE + TARGET FK 用于可达的真实基数冲突；历史 Binding revision 与当前授权资格分开判定。
+- **R2 正在审查**：[PR #79](https://github.com/gitfortian/ontoforge/pull/79) 的 [R2 领域/API/执行候选](../design/M8-LinkBinding-Traverse-R2-领域API与执行合同评审.md) 及三份 [候选 JSON Schema](../design/candidates/m8-r2/)；推荐 `local-link-binding-v1` + 独立 `local-query-v2/local-result-v2`，以免向后破坏 M7 的单来源 `local-query-v1`。R2-D1–D8 全部待正式技术/产品签收，**不自动升级为已经批准的生产合同**。
+- **差异处理**：本 OFIP 早期大范围的外键+桥表+二跳总体规划仅作为长期方向，首交付以已签收 R1 的 M8.1 外键双向一跳为准。R2 审核通过后，将正式对齐本 OFIP 的 API/预算/状态机内容，而不是保留两个相互冲突的权威方案。
+- **门禁未变**：`Status: Discussion`；`Decision: Pending`；`Implementation: Not Started`；`Release: Not Released`。当前没有记录针对 OFIP-0010 的维护者 `[VOTE] Accepted`；新 M8 UX-Low、UX-High 均未签收；未授权生产实现。
