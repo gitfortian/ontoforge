@@ -325,6 +325,23 @@ class M82BridgeTableUXLowBrowser(unittest.TestCase):
         self.assertEqual(1, self.model()["linkCount"])
         self.assertIn("MO-002 → E02", self.page.locator("#result-rows").inner_text())
 
+    def test_sum_uses_explicit_typed_output_property_for_each_direction(self):
+        self.save()
+        self.page.locator("#tab-query").click()
+        self.assertTrue(self.page.locator("#aggregate-property").is_disabled())
+        self.page.locator("#result-operation").select_option("SUM")
+        self.assertTrue(self.page.locator("#aggregate-property").is_enabled())
+        self.assertEqual("equipment-maintenance-cost", self.page.locator("#aggregate-property").input_value())
+        self.page.locator("#run-query").click()
+        self.assertIn("Equipment.maintenanceCost", self.page.locator("#aggregate-panel").inner_text())
+        self.assertIn("= 30", self.page.locator("#aggregate-panel").inner_text())
+        self.page.locator("#query-direction").select_option("IN")
+        self.assertEqual("order-labor-hours", self.page.locator("#aggregate-property").input_value())
+        self.page.locator("#query-root").select_option("E02")
+        self.page.locator("#run-query").click()
+        self.assertIn("MaintenanceOrder.laborHours", self.page.locator("#aggregate-panel").inner_text())
+        self.assertIn("= 300", self.page.locator("#aggregate-panel").inner_text())
+
     def test_true_zero_does_not_look_like_failure_or_partial(self):
         self.save()
         self.query("OUT", "MO-003")
