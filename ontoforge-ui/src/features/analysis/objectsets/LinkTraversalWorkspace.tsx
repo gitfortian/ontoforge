@@ -33,7 +33,7 @@ const post=(body:unknown):RequestInit=>({method:'POST',headers:{'Content-Type':'
 const put=(body:unknown):RequestInit=>({...post(body),method:'PUT'});
 const message=(e:ApiError)=>[e.code,e.message||'执行失败，未显示任何结果载荷。'].filter(Boolean).join(' · ');
 
-export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
+export default function LinkTraversalWorkspace({packageId,initialSnapshotId='',initialLinkTypeId='',navigate}:{packageId:string;initialSnapshotId?:string;initialLinkTypeId?:string;navigate:(hash:string)=>void}){
   const [expanded,setExpanded]=useState(false);
   const [busy,setBusy]=useState(false);
   const [notice,setNotice]=useState('');
@@ -109,7 +109,13 @@ export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
     setNotice('');reqKey.current='';setOpKey('');
   },[packageId]);
 
-  async function refresh(){
+  useEffect(()=>{
+    if(!packageId.trim()||!initialSnapshotId||!initialLinkTypeId)return;
+    setExpanded(true);
+    void refresh(initialSnapshotId,initialLinkTypeId);
+  },[packageId,initialSnapshotId,initialLinkTypeId]);
+
+  async function refresh(preferredSnapshotId='',preferredLinkTypeId=''){ 
     if(!packageId.trim())return;
     const g=++generation.current;
     setBusy(true);setError(null);setNotice('');setValidation(null);setCurrentLink(null);setResult(null);
@@ -125,13 +131,21 @@ export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
       if(g!==generation.current)return;
       const ids=Array.from(new Set(details.map(d=>d.snapshotId)));
       setBindings(details);setLinkHeads(heads);setTables(available);setSnapshots(ids);
-      const selected=ids.includes(snapshotId)?snapshotId:ids[0]||'';
-      if(!selected){setSnapshot(null);setSnapshotId('');setNotice('尚无已保存且通过 FULL 校验的 Object Binding，请先完成 M5。');return;}
-      await loadSnapshot(selected,g);
+      const selected=preferredSnapshotId
+        ?(ids.includes(preferredSnapshotId)?preferredSnapshotId:'')
+        :(ids.includes(snapshotId)?snapshotId:ids[0]||'');
+      if(!selected){
+        setSnapshot(null);setSnapshotId('');
+        setNotice(preferredSnapshotId
+          ?'该冻结 LinkType 尚未具备两端已保存且通过校验的 M5 Binding。请先完成两端绑定，再返回此来源。'
+          :'尚无已保存且通过 FULL 校验的 Object Binding，请先完成 M5。');
+        return;
+      }
+      await loadSnapshot(selected,g,preferredLinkTypeId);
     }catch(e){if(g===generation.current)setError(e as ApiError);}
     finally{if(g===generation.current)setBusy(false);}
   }
-  async function loadSnapshot(id:string,g=++generation.current){
+  async function loadSnapshot(id:string,g=++generation.current,preferredLinkTypeId=''){
     setSnapshotId(id);setSnapshot(null);setLinkTypeId('');setFkColumn('');invalidateDraft();
     try{
       const source=await request<Snapshot>('/api/model/snapshots/'+encodeURIComponent(id));
@@ -139,8 +153,12 @@ export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
       if(source.packageId!==packageId)throw {code:'SNAPSHOT_PACKAGE_MISMATCH',message:'快照不属于当前模型包。'} as ApiError;
       setSnapshot(source);
       const candidates=source.snapshotContent.linkTypes.filter(t=>t.cardinality!=='MANY_TO_MANY');
-      if(candidates[0])setLinkTypeId(candidates[0].id);
-      if(candidates.length===0)setNotice('该不可变快照暂无可供 M8.1 使用的单列外键 LinkType；请先在 Native 模型中定义并冻结。');
+      const chosen=preferredLinkTypeId
+        ?candidates.find(t=>t.id===preferredLinkTypeId)
+        :candidates[0];
+      if(chosen)setLinkTypeId(chosen.id);
+      if(preferredLinkTypeId&&!chosen)setNotice('指定 LinkType 不存在或尚未获准使用单列 FK；不会自动切换到其他关系。');
+      else if(candidates.length===0)setNotice('该不可变快照暂无可供 M8.1 使用的单列外键 LinkType；请先在 Native 模型中定义并冻结。');
     }catch(e){if(g===generation.current)setError(e as ApiError);}
   }
   const requestBody=(key:string)=>({
@@ -253,7 +271,13 @@ export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
   return <section className="model-panel m8-workspace" aria-label="关系与一跳遍历 M8.1">
     <header className="model-panel-head"><div><span className="model-eyebrow">M8.1 / LINK BINDING → ONE-HOP TRAVERSE</span>
       <h2>关系配置与一跳遍历</h2><p>基于已冻结的 Native LinkType 与双端 Object Binding，在真实受控来源上验证关系并执行 OUT / IN 查询。</p></div>
-      <button className="model-btn" type="button" onClick={()=>setExpanded(x=>!x)} aria-expanded={expanded}>{expanded?'收起工作台':'展开关系工作台'} <ChevronRight size={14}/></button></header>
+      <div className="model-actions">
+        {initialSnapshotId&&<button className="model-btn" type="button"
+          onClick={()=>navigate('#/model/runtime-types/snapshots/'+encodeURIComponent(initialSnapshotId))}>
+          返回 Native 关系定义
+        </button>}
+        <button className="model-btn" type="button" onClick={()=>setExpanded(x=>!x)} aria-expanded={expanded}>{expanded?'收起工作台':'展开关系工作台'} <ChevronRight size={14}/></button>
+      </div></header>
     {expanded&&<>
       <div className="m8-steps"><span>1 选择关系与端点</span><span>2 FULL 验证</span><span>3 保存版本</span><span>4 一跳查询</span></div>
       <div className="m8-identity"><span>模型包</span><b>{packageId||'尚未选择'}</b><button className="model-btn" type="button" onClick={()=>void refresh()} disabled={busy||!packageId.trim()}><RefreshCw size={14}/> {busy?'处理中…':'读取当前配置'}</button></div>
