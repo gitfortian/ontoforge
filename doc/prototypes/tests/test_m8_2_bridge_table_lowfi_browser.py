@@ -311,6 +311,20 @@ class M82BridgeTableUXLowBrowser(unittest.TestCase):
         self.assertIn("= 30", self.page.locator("#aggregate-panel").inner_text())
         self.assertTrue(self.page.locator("#next-page").is_disabled())
 
+    def test_direction_switch_resets_target_filter_to_correct_object_type(self):
+        self.save()
+        self.query(direction="OUT", root="MO-001", filter="E02")
+        self.assertEqual("E02", self.page.locator("#target-filter").input_value())
+        self.page.locator("#query-direction").select_option("IN")
+        self.assertEqual("all", self.page.locator("#target-filter").input_value())
+        self.assertEqual("MO-002", self.page.locator("#target-filter option").last.get_attribute("value"))
+        self.page.locator("#query-root").select_option("E02")
+        self.page.locator("#target-filter").select_option("MO-002")
+        self.page.locator("#run-query").click()
+        self.assertEqual(1, self.model()["objectCount"])
+        self.assertEqual(1, self.model()["linkCount"])
+        self.assertIn("MO-002 → E02", self.page.locator("#result-rows").inner_text())
+
     def test_true_zero_does_not_look_like_failure_or_partial(self):
         self.save()
         self.query("OUT", "MO-003")
@@ -355,6 +369,26 @@ class M82BridgeTableUXLowBrowser(unittest.TestCase):
         self.page.locator("#tab-evidence").click()
         self.assertTrue(self.page.locator("#three-read-roles").is_hidden())
         self.assertNotIn(previous, self.page.locator("#evidence-summary").inner_text())
+
+    def test_failed_execution_purges_old_results_from_client_dom(self):
+        self.save()
+        self.query()
+        self.assertIn("MO-001 → E01", self.page.locator("#result-rows").text_content())
+        self.page.locator("#query-fault").select_option("revoke-bridge")
+        self.page.locator("#next-page").click()
+        self.assertEqual("", self.page.locator("#result-rows").text_content())
+        self.assertEqual("", self.page.locator("#result-snapshot").text_content())
+        self.assertEqual("", self.page.locator("#aggregate-panel").text_content())
+        self.assertTrue(self.page.locator("#result-panel").is_hidden())
+
+    def test_authorization_failed_full_hides_previous_source_ledger(self):
+        self.validate("clean")
+        self.assertTrue(self.page.locator("#validation-ledger").is_visible())
+        self.page.locator("#validation-scenario").select_option("revoke")
+        self.page.locator("#run-validation").click()
+        self.assertIn("403 SOURCE_NOT_ALLOWED", self.page.locator("#validation-outcome").inner_text())
+        self.assertTrue(self.page.locator("#validation-ledger").is_hidden())
+        self.assertFalse(self.model()["validated"])
 
     def test_bridge_drift_invalidates_old_page_after_source_changes(self):
         self.save()
