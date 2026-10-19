@@ -13,6 +13,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class OntoForgeApplication {
 
     public static void main(String[] args) {
+        LocalDevelopmentDefaults.ensureForIdeaProfile(args);
         SpringApplication.run(OntoForgeApplication.class, args);
     }
 }

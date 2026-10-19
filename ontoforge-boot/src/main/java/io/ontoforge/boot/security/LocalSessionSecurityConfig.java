@@ -29,8 +29,9 @@ public class LocalSessionSecurityConfig {
     @Bean ApplicationRunner bootstrapLocalAccounts(LocalAccountService accounts,
             @Value("${ontoforge.security.bootstrap.enabled:false}") boolean enabled,
             @Value("${ontoforge.security.bootstrap.username:}") String username,
-            @Value("${ontoforge.security.bootstrap.password:}") String password) {
-        return args->accounts.bootstrap(enabled,username,password);
+            @Value("${ontoforge.security.bootstrap.password:}") String password,
+            @Value("${ontoforge.security.bootstrap.allow-development-default-password:false}") boolean allowDevelopmentDefaultPassword) {
+        return args->accounts.bootstrap(enabled,username,password,allowDevelopmentDefaultPassword);
     }
     @Bean SecurityFilterChain localSessionSecurity(HttpSecurity http,LocalAccountService accounts,HttpSessionAccounts sessions,
                                                   SecurityContextRepository contexts)
