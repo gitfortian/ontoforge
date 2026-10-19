@@ -59,12 +59,15 @@ class LinkBindingIntegrationTest {
                 BEGIN
                   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='ontoforge_binding_login') THEN
                     CREATE ROLE ontoforge_binding_login LOGIN PASSWORD 'm5_test_reader_only'
-                      NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+                      NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT;
                   END IF;
                 END $$;
                 """);
-        jdbc.execute("ALTER ROLE ontoforge_binding_login WITH LOGIN PASSWORD 'm5_test_reader_only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT");
+        jdbc.execute("ALTER ROLE ontoforge_binding_login WITH LOGIN PASSWORD 'm5_test_reader_only' NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT");
         jdbc.execute("GRANT ontoforge_binding_reader TO ontoforge_binding_login");
+        // PG17 role-membership INHERIT is captured when membership is granted. 
+        // Never provision this fixture login as NOINHERIT: it would revoke the 
+        // effective SELECT grants expected by the existing M5–M7 source suite.
     }
     private ResponseEntity<String> post(String path,ObjectNode body){
         var headers=new HttpHeaders();headers.setContentType(MediaType.APPLICATION_JSON);
