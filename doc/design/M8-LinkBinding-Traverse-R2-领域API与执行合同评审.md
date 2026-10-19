@@ -122,6 +122,22 @@
 - TraverseRequest：queryVersion=local-query-v2、rootTypeRef、rootBindingRef、rootSelector (one ObjectRef | bounded RootFilter of same ObjectType)，steps=[RootFilter* → TRAVERSE {linkTypeRef,linkBindingRef,direction,maxDepth:1} → TargetFilter* → terminal(SORT?,PROJECT?,PAGE or AGGREGATE)]、limits。**禁止**从旧 M7 cursor 直接解析为 root 授权，除非经独立合同确保根集合来源与当前主体/版本闭包。
 - 响应：executionId、queryDigest、resultSnapshotRef、expiresAt、rootTypeRef、outputTypeRef、bindingVersions [{kind:OBJECT|LINK,...}]、versionLock、sourceReadRefs[]、objects[]、links[]、linkCount、pathCount、quality、budget。M8.1 单步的 pathCount 可等于逻辑 linkCount，但字段必须独立命名，为 M8.3 保留路径维度。
 
+### 4.3A 可独立审查的结构化合同候选
+
+为了使第二轮审核不只停留在口头 DTO，随本设计 PR 同时提交三份**非生产** Draft 2020-12 JSON Schema 候选和负例测试：
+
+- [local-link-binding-v1.candidate.schema.json](candidates/m8-r2/local-link-binding-v1.candidate.schema.json)：仅 M8.1 FOREIGN_KEY，包含同 Snapshot 引用、双端明确 revision、FK owner/column、expectedRevision、create idempotencyKey 和 FULL validation scope。
+- [local-query-v2.candidate.schema.json](candidates/m8-r2/local-query-v2.candidate.schema.json)：ObjectRef/有界根筛选、显式 root binding、一段 TRAVERSE、M7 算子子集、只能下调的预算限制。
+- [local-result-v2.candidate.schema.json](candidates/m8-r2/local-result-v2.candidate.schema.json)：两端 Object Binding + LinkBinding 版本、多个 SourceReadRef、对象与 LinkFact 结果、COMPLETE/PARTIAL、来源 freshness UNKNOWN 和严格 FAILED 无载荷。
+- [R2 候选合同测试](tests/test_m8_r2_candidate_contract.py)：覆盖候选 Schema 有效性、假 SQL / Release、错误类型、两段 Traverse、预算升级、伪造部分结果及 v1 非兼容输入。
+
+**明确的可信边界**：
+
+1. `referencedIdentityColumn` **不能由客户端自由指定**。它必须由服务端从已锁定的“被引用端 M5 Binding revision.sourceKey”解析，校验 FKOwner 相反端、identityDomain、来源列类型与 PG 一致性。候选 LinkBinding 请求因此只允许明确 FK 所在端及其真实来源列。
+2. 结构 Schema 的 `contains` 最多只能检查**恰好一个** TRAVERSE / 终结步骤；运行时还必须检查步骤先后、FILTER ROOT/TARGET 与真实端点类型、字段映射、M8.1 FK×基数约束、对象身份和授权，不可把 Schema PASS 误称为可执行验证。
+3. 两端 current source/database grants、跨服务元数据版本一致性、关联源权限与 FULL 质量验证均无法由静态 Schema 保证；在生产实现前必须配对真实 PG17 + API E2E 负例。
+4. 这些候选文件在 `doc/design/candidates`，**并非**当前运行时解析/发布的 `doc/design/schema` 正式合同，也不授权把 v2 接口提前纳入生产服务。R2 经过产品/架构批准后才可定稿并回填 OFIP-0010。
+
 ### 4.3 API 强校验
 
 - 必填/额外字段：schema 的 additionalProperties:false；所有端点引用均精确 UUID/枚举/整数范围验证。未知操作符、超过一步 Traverse、根/输出类型不匹配、无主根、混用两端属性、跨 snapshot、未绑定 FK 来源列均 422。
