@@ -89,10 +89,10 @@ class NativeSnapshotRealE2ETest(unittest.TestCase):
         self.prepare()
         p=self.page
         p.locator("#prop-0-valueType").select_option("UUID")
-        self.assertEqual(p.locator("#obj-pk").input_value(), "",
-                         "Changing an existing PK type must invalidate its prior selection")
+        # STRING -> UUID stays a legal required PK: preserve the chosen key,
+        # rather than clearing a still-valid reference.
+        self.assertEqual(p.locator("#obj-pk").input_value(), "batch-id")
         self.assertIn("UUID", p.locator("#obj-pk").inner_text())
-        p.locator("#obj-pk").select_option("batch-id")
         self.save_validate()
         stored=api("/drafts/"+self.draft)[1]
         obj=stored["editingContent"]["objectTypes"][0]
