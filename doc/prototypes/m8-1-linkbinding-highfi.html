@@ -36,8 +36,8 @@ main{max-width:1470px;padding:27px 34px 54px}.crumb{font-size:11px;color:#8798a4
 <div class="stateboard" aria-label="设计态、修订态与执行资格"><div class="stateitem"><span>工作草稿</span><strong id="draft-pill">未修改</strong><small>未保存的编辑不会覆盖历史</small></div><div class="stateitem"><span>已保存修订</span><strong id="persist-pill">尚无 LinkBinding</strong><small>CAS · Immutable Revision</small></div><div class="stateitem"><span>当前核验资格</span><strong id="eligible-pill">待 FULL 核验</strong><small>VALID / 孤儿 / 失效单独呈现</small></div></div>
 <div class="summary" aria-label="当前模型与版本证据">
 <div><b>LinkType</b><span>设备 → 检验批次 · ONE_TO_MANY</span></div>
-<div><b>来源端点</b><span>Equipment · Binding #B-11 / r2</span></div>
-<div><b>目标端点</b><span>InspectionLot · Binding #B-15 / r3</span></div>
+<div><b>来源端点</b><span id="source-version-summary">Equipment · Binding #B-11 / r2</span></div>
+<div><b>目标端点</b><span id="target-version-summary">InspectionLot · Binding #B-15 / r3</span></div>
 <div><b>模型来源</b><span>LOCAL_SNAPSHOT #S-021 · 锁定</span></div>
 </div>
 <div class="stage-caption"><span>工作流程</span><span>按顺序完成 · 不自动触发生产查询</span></div><div class="tabs" role="tablist" aria-label="M8.1 操作阶段">
@@ -237,7 +237,7 @@ function recordEvidence(kind,msg){
  $("#evidence-empty").hidden=true;$("#evidence-details").hidden=false;
  $("#ev-exec").textContent=state.lastResult?.executionId||"execution-demo-"+state.execute;
  $("#ev-snapshot").textContent=state.lastResult?.snapshot||"—";
- $("#ev-version").textContent=state.saved?"Snapshot S-021 · Equipment B-11 / InspectionLot B-15 · LinkBinding LB-DEMO-021 / r"+state.revision:"尚无有效 LinkBinding";
+ $("#ev-version").textContent=state.saved?"Snapshot S-021 · Equipment "+state.saved.source+" / InspectionLot "+state.saved.target+" · LinkBinding LB-DEMO-021 / r"+state.revision:"尚无有效 LinkBinding";
  $("#ev-sources").textContent="SOURCE equipment(equipment_code) · TARGET inspection_lot(equipment_code) · 受控 PG 概念证据";
  $("#ev-quality").textContent=state.lastResult?.quality||"UNKNOWN";
  if(kind==="failure" && state.failure?.code?.startsWith("403")){
@@ -326,6 +326,8 @@ $("#query-repair").onclick=()=>navigate("config");
 $("#retry-query").onclick=()=>{navigate("query");$("#query-fault").value="none";runQuery()};
 $("#repair-evidence").onclick=()=>navigate("config");
 function syncStateCards(){
+ $("#source-version-summary").textContent="Equipment · "+$("#source-binding").value+"（当前工作选择）";
+ $("#target-version-summary").textContent="InspectionLot · "+$("#target-binding").value+"（当前工作选择）";
  $("#draft-pill").textContent=state.dirty?"编辑中 · 未保存":"无未保存修改";
  $("#persist-pill").textContent=state.saved?"LB-DEMO-021 · r"+state.revision:"尚无 LinkBinding";
  $("#eligible-pill").textContent=state.validated?state.validationQuality+" · FULL":state.saved?"已存历史 · 执行时须复核":"待 FULL 核验";
