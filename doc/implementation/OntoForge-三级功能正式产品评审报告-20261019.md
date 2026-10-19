@@ -168,11 +168,11 @@
 
 ## 9. 2026-10-19 整改落实记录（本轮不提前变更签收结论）
 
-- **P1-01 全局覆盖**：新增 [V1.1 完整产品三级功能树](../product/OntoForge-产品完整功能树-三级-V1.1.md)：8 大功能域、原 F01–F29 29 个模块与 209 条**正向产品能力**。此前缺失的 F10/F13/F14/F17/F24/F26/F27/F29 均有独立 L3，完成了本项的**目录结构整改**；209 条语义正确性尚待复核。
-- **P1-02 混合计数**：在 V1.1 全产品视图中分离边界、质量门和研发 PR；保留原 125 项作为 AS-IS 静态账，不直接合并计数。详细重复性审查及 ID 迁移记录尚待完成。
+- **P1-01 全局覆盖**：新增 [V1.1 完整产品三级功能树](../product/OntoForge-产品完整功能树-三级-V1.1.md)：8 大功能域、原 F01–F29 29 个模块与 216 条**正向产品能力**。此前缺失的 F10/F13/F14/F17/F24/F26/F27/F29 均有独立 L3，完成了本项的**目录结构整改**；216 条语义正确性尚待复核。
+- **P1-02 混合计数**：在 V1.1 全产品视图中分离边界、质量门和研发 PR；保留原 125 项作为 AS-IS 静态账，不直接合并计数。新增[125→216 追溯账](../product/OntoForge-ASIS到全产品功能树-追溯与分类-V1.1.md)，75 条直接、24 条合并细节、16 条未来规划、6 条边界、4 条质量活动全部有归档。**分类已完成初稿，正式审核和功能归属签收仍待进行**。
 - **P1-03 核心合同**：新增 [15 项 Core 功能验收合同与 8 个黄金故事](../product/OntoForge-Core功能验收合同与黄金故事-V1.1.md)；其余长期功能仍为低粒度合同，Core 测试证据尚未实测。
 - **P1-04 工作流程**：已定义 U01–U08 验收路径和跨模块身份追溯；**未实际完成 Windows Chromium/PG UAT**。静默漏掉筛选的问题已经建立 [#80](https://github.com/gitfortian/ontoforge/issues/80)。
-- **P1-05 四轴状态**：已定义实现/CI/UAT/Release 四轴模板；**尚未对全部 209 点取得具体 CI 和 Windows 实测**，禁止提升为 Signed。
+- **P1-05 四轴状态**：已定义实现/CI/UAT/Release 四轴模板；**尚未对全部 216 点取得具体 CI 和 Windows 实测**，禁止提升为 Signed。
 - **P1-06 入口与 Issue 状态同步**：README/doc/README 链接 V1.1 与旧 AS-IS 的真实职责；M5–M14 计划建立当前状态头，保留历史记录。
 - **P1-07 全产品价值链**：F14 Rule/Function/Decision、F17 Registry、F18 Action、F16 Agent、F19 Policy、F20 Evidence 各有独立三级分解；它们属于明确规划，**不是当前可执行产品功能**。
 - **产品研发问题**：[M7 条件误放大 #80](https://github.com/gitfortian/ontoforge/issues/80)、[Native UUID 合同不一 #81](https://github.com/gitfortian/ontoforge/issues/81)；[全域产品签收与证据治理 #82](https://github.com/gitfortian/ontoforge/issues/82)。
