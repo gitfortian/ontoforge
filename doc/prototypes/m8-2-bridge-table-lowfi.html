@@ -161,6 +161,10 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
       <div class="field"><label for="root-mode">根范围</label><select id="root-mode"><option value="single">单个对象 Ref</option><option value="bounded">有界根集合（≤50）</option></select></div>
       <div class="field"><label for="query-root">起点对象（冻结身份）</label><select id="query-root"><option>MO-001</option><option>MO-002</option><option>MO-003</option></select></div>
       <div class="field"><label for="result-operation">结果处理</label><select id="result-operation"><option value="PAGE">对象与 LinkFact 列表</option><option value="COUNT_DISTINCT">COUNT_DISTINCT · 输出对象</option><option value="SUM">SUM · 输出对象数值属性（示意）</option></select></div>
+      <div class="field"><label for="aggregate-property">SUM 输出对象数值字段</label>
+        <select id="aggregate-property" disabled><option value="equipment-maintenance-cost">Equipment.maintenanceCost（10 / 20，模拟）</option></select>
+        <div class="field-note">仅 SUM 可用；切换 OUT/IN 后字段类型必须与新的输出对象一致。</div>
+      </div>
       <div class="field"><label for="target-filter">输出端筛选（当前端点类型）</label><select id="target-filter"><option value="all">不筛选</option><option value="E02">设备 E02 / 工单 MO-002（按方向）</option></select></div>
       <div class="field"><label for="query-fault">本次查询 / 分页故障注入</label><select id="query-fault"><option value="none">无故障</option><option value="timeout">执行超时 503</option><option value="budget">预算耗尽 429</option><option value="revoke-bridge">翻页时 BRIDGE SELECT 撤销</option><option value="drift-bridge">翻页时 BRIDGE 指纹漂移</option><option value="expired">冻结结果 TTL 到期 / 重启</option></select></div>
     </div>
@@ -348,6 +352,10 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
    const targetOption=$("#target-filter").options[1];
    targetOption.textContent=direction==="OUT"?"仅设备 E02":"仅工单 MO-002";
    targetOption.value=direction==="OUT"?"E02":"MO-002";
+   const property=$("#aggregate-property").options[0];
+   property.value=direction==="OUT"?"equipment-maintenance-cost":"order-labor-hours";
+   property.textContent=direction==="OUT"?"Equipment.maintenanceCost（E01=10 / E02=20）":
+     "MaintenanceOrder.laborHours（MO-001=100 / MO-002=200）";
    // A TARGET FILTER is typed against the current output ObjectType.
    // Never carry a device predicate into an order query after direction flips.
    $("#target-filter").value="all";
@@ -356,6 +364,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
  function updateRoot(){
    const dir=$("#query-direction").value,bounded=$("#root-mode").value==="bounded";
    $("#query-root").disabled=bounded;
+   $("#aggregate-property").disabled=$("#result-operation").value!=="SUM";
    $("#root-scope").textContent=bounded?
       (dir==="OUT"?"有界根集合 MO-001、MO-002（冻结两条工单 ObjectRef）":"有界根集合 E01、E02（冻结两条设备 ObjectRef）"):
       "当前 "+(dir==="OUT"?"SOURCE 工单":"TARGET 设备")+" 根："+$("#query-root").value+"（绑定身份域固定）";
@@ -456,7 +465,8 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
    if(r.op!=="PAGE"){
      const count=r.objects.length,sum=r.objects.reduce((v,x)=>v+(x==="E01"?10:x==="E02"?20:x==="MO-001"?100:200),0);
      $("#aggregate-panel").textContent=r.op==="COUNT_DISTINCT"?"COUNT_DISTINCT(输出 ObjectRef) = "+count+"，不重复计算桥表同 pair 或共享设备":
-       "SUM(输出对象示例数值属性) = "+sum+"，按唯一 ObjectRef 求和而非 bridge 行数";
+       "SUM("+$("#aggregate-property").options[0].textContent.split("（")[0]+") = "+sum+
+         "，按唯一输出 ObjectRef 求和而非 Bridge 物理行";
    }
    $("#page-number").textContent=r.op!=="PAGE"?"聚合结果不分页":"第 "+r.page+" / "+Math.max(1,r.objects.length)+" 页 · 同一冻结成员";
    $("#next-page").disabled=r.op!=="PAGE"||r.page>=r.objects.length;
@@ -518,7 +528,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
  $("#reopen-revision").onclick=reopen;
  $("#to-query").onclick=()=>navigate("query",false);
  $("#query-direction").onchange=refreshRoots;
- ["query-root","root-mode","result-operation","target-filter"].forEach(id=>$("#"+id).addEventListener("change",updateRoot));
+ ["query-root","root-mode","result-operation","target-filter","aggregate-property"].forEach(id=>$("#"+id).addEventListener("change",updateRoot));
  $("#run-query").onclick=query;
  $("#next-page").onclick=next;
  $("#open-evidence").onclick=()=>navigate("evidence",false);
