@@ -68,7 +68,7 @@
 
 **发现**：侧边栏分别平铺 Native 建模、质量追溯、M5 Binding、M6 对象读取、M7 ObjectSet；代码 `main.tsx` 仍有禁用的“通用数据连接与 ObjectSet”规划项，与已存在的 M7 导航语义冲突。M4 类型页能带参数进入绑定，绑定又能跳到对象页，**但有深链接 ≠ 已完成连续业务向导**。
 
-**新增代码核查（M7 前端查询意图）**：[ObjectSetWorkspace.tsx](../../ontoforge-ui/src/ObjectSetWorkspace.tsx) 的 `buildSteps()` 使用 `filters.filter(f => f.operator==='IS_NULL' || f.value.trim()!=='')`；已在界面添加但尚未填写值的筛选条件会**被静默丢弃**，导致用户以为带筛选执行，实际发出更宽的查询。该行为需明确拒绝执行或在提交前要求补齐，不能将未填写条件直接当作无条件查询。属于正确性/误解风险，建议在 M7 后续修复优先处理，并补 Chromium 负例。
+**新增代码核查（M7 前端查询意图）**：[ObjectSetWorkspace.tsx](../../ontoforge-ui/src/features/analysis/objectsets/ObjectSetWorkspace.tsx) 的 `buildSteps()` 使用 `filters.filter(f => f.operator==='IS_NULL' || f.value.trim()!=='')`；已在界面添加但尚未填写值的筛选条件会**被静默丢弃**，导致用户以为带筛选执行，实际发出更宽的查询。该行为需明确拒绝执行或在提交前要求补齐，不能将未填写条件直接当作无条件查询。属于正确性/误解风险，建议在 M7 后续修复优先处理，并补 Chromium 负例。
 
 **整改**：把一级产品信息架构改回 V1.3“工作台、本体设计、连接与映射、业务对象、查询与分析、决策与行动、语义协同、平台管理”或评审后的同等级任务组织。近期 M11 的统一 Studio 不应等于重复造一套页面；先定义当前 M4–M7 的上下文保留/返回/错误接续验收矩阵，优先修复 M7 未完成筛选静默忽略。
 
@@ -119,14 +119,14 @@
 
 | 核对对象 | 当前代码级事实 | 对产品评审的约束 |
 |---|---|---|
-| Native 建模与关系 | [NativeModelWorkspace](../../ontoforge-ui/src/NativeModelWorkspace.tsx) 支持删除对象时保留悬空 Link 引用，由校验阻止冻结；[DraftValidation](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java) 服务端允许 `UUID` 与 UUID 主键，但 NativeModelWorkspace 的属性下拉只暴露六类（无 UUID），主键候选逻辑也仅放行 STRING/INTEGER | 产品合同与表单能力存在落差：不能把后台允许 UUID 写成用户已可配置 UUID；后续应补前端 UI 与跨层用例 |
-| 本地快照 | [NativeSnapshotService](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeSnapshotService.java) 提供真实事务、不可变快照、摘要和 Diff | 明确非 SchemaRelease |
-| M5 Binding | [DataBindingController](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/DataBindingController.java) 具备 source tables、list、preview、validate、create、update、revisions、detail；[DataBindingService](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DataBindingService.java) 限受控只读 PG | 可计为主线已实现的纵向有限闭环，不计为企业连接器 |
+| Native 建模与关系 | [NativeModelWorkspace](../../ontoforge-ui/src/features/design/modeling/NativeModelWorkspace.tsx) 支持删除对象时保留悬空 Link 引用，由校验阻止冻结；[DraftValidation](../../ontoforge-core/src/main/java/io/ontoforge/core/compiler/DraftValidation.java) 服务端允许 `UUID` 与 UUID 主键，但 NativeModelWorkspace 的属性下拉只暴露六类（无 UUID），主键候选逻辑也仅放行 STRING/INTEGER | 产品合同与表单能力存在落差：不能把后台允许 UUID 写成用户已可配置 UUID；后续应补前端 UI 与跨层用例 |
+| 本地快照 | [NativeSnapshotService](../../ontoforge-business/src/main/java/io/ontoforge/business/model/NativeSnapshotService.java) 提供真实事务、不可变快照、摘要和 Diff | 明确非 SchemaRelease |
+| M5 Binding | [DataBindingController](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/DataBindingController.java) 具备 source tables、list、preview、validate、create、update、revisions、detail；[DataBindingService](../../ontoforge-business/src/main/java/io/ontoforge/business/connection/DataBindingService.java) 限受控只读 PG | 可计为主线已实现的纵向有限闭环，不计为企业连接器 |
 | M6 Object | [ObjectRuntimeController](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/ObjectRuntimeController.java) 有 `POST /api/runtime/objects/read`，返回单次读取证据和类型化值 | 不存在全量对象写存储/多源统一身份 |
-| M7 ObjectSet | [ObjectSetQueryController](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/ObjectSetQueryController.java) 有 `query/pages`；[ObjectSetQueryService](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/ObjectSetQueryService.java) 对 FILTER/SORT/PROJECT/PAGE/AGGREGATE、TTL/预算/凭据复核设显式约束 | 不把通用 Link Traverse 或永久 Index 记为已开发；短期查询完成不等于生产规模可用 |
+| M7 ObjectSet | [ObjectSetQueryController](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/ObjectSetQueryController.java) 有 `query/pages`；[ObjectSetQueryService](../../ontoforge-business/src/main/java/io/ontoforge/business/query/ObjectSetQueryService.java) 对 FILTER/SORT/PROJECT/PAGE/AGGREGATE、TTL/预算/凭据复核设显式约束 | 不把通用 Link Traverse 或永久 Index 记为已开发；短期查询完成不等于生产规模可用 |
 | 固定质量追溯 | [QualityMvpController](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/QualityMvpController.java) 实现 `trace`、`trace-set`、`object-set` | 属于固定模型+限定本机数据子域，不等于 M8 通用关联 |
-| 当前导航 | [main.tsx](../../ontoforge-ui/src/main.tsx) 既有 M7 可点击菜单，同时保留禁用“通用数据连接与 ObjectSet”规划项 | 同一概念的已实现/规划冲突应纳入 M11 UI 修订 |
-| 安全边界 | [LocalMvpSecurityConfig](../../ontoforge-boot/src/main/java/io/ontoforge/boot/security/LocalMvpSecurityConfig.java) 显式限制本地地址/数据库；[B0AuthorizationService](../../ontoforge-boot/src/main/java/io/ontoforge/boot/security/B0AuthorizationService.java) 实施包授权 | 企业 IAM / 全域行列策略 / 审计未验收 |
+| 当前导航 | [main.tsx](../../ontoforge-ui/src/app/App.tsx) 既有 M7 可点击菜单，同时保留禁用“通用数据连接与 ObjectSet”规划项 | 同一概念的已实现/规划冲突应纳入 M11 UI 修订 |
+| 安全边界 | [LocalMvpSecurityConfig](../../ontoforge-boot/src/main/java/io/ontoforge/boot/security/LocalMvpSecurityConfig.java) 显式限制本地地址/数据库；[B0AuthorizationService](../../ontoforge-platform/src/main/java/io/ontoforge/platform/identity/B0AuthorizationService.java) 实施包授权 | 企业 IAM / 全域行列策略 / 审计未验收 |
 
 ## 6. 用户故事黄金验收矩阵（建议正式签收前执行）
 
@@ -178,6 +178,8 @@
 - **产品研发问题**：[M7 条件误放大 #80](https://github.com/gitfortian/ontoforge/issues/80)、[Native UUID 合同不一 #81](https://github.com/gitfortian/ontoforge/issues/81)；[全域产品签收与证据治理 #82](https://github.com/gitfortian/ontoforge/issues/82)。
 
 **本轮状态**：P1-01 的结构性缺口已整改，其他项部分推进；PR #78 仍为 Draft / **REVISE**，不得写成全部整改关闭或正式产品签收。
+
+> **源码路径同步**：2026-10-19 主线工程经历 yak-ops 风格模块化重组（至 `main=c157d228`）；早期 `ontoforge-boot/.../model`、`ontoforge-ui/src/*Workspace` 位置已经变更。本文相应代码链接更新为当前 `ontoforge-business`/`ontoforge-core`/`ontoforge-ui/src/features` 路径。第一轮静态功能判断仍以当时 `c9de0336` 为研究基准，**文件迁移本身不证明最新代码回归通过**。
 
 ## 10. 第二轮独立复核的最新判定（2026-10-19）
 
