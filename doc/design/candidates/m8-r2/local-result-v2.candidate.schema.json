@@ -1,0 +1,762 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ontoforge.local/schema/candidates/m8/local-result-v2.candidate.schema.json",
+  "title": "M8 R2 Candidate - multi-binding one-hop Traverse result",
+  "description": "Review-only: no production parser, index snapshot, or trusted freshness claim; PAGE/AGGREGATE and FAILED must be discriminated. Native V0.2 and M7 result v1 remain unchanged.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/success"
+    },
+    {
+      "$ref": "#/$defs/failure"
+    }
+  ],
+  "$defs": {
+    "objectRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageId",
+        "objectTypeId",
+        "identityDomainId",
+        "key"
+      ],
+      "properties": {
+        "packageId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objectTypeId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        },
+        "identityDomainId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "key": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "valueType",
+            "value"
+          ],
+          "properties": {
+            "valueType": {
+              "enum": [
+                "STRING",
+                "INTEGER"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        }
+      }
+    },
+    "bindingVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "bindingId",
+        "revision",
+        "digest",
+        "sourceId"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "OBJECT",
+            "LINK"
+          ]
+        },
+        "bindingId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "sourceId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "typeRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "snapshotId",
+        "packageId",
+        "objectTypeId"
+      ],
+      "properties": {
+        "kind": {
+          "const": "LOCAL_SNAPSHOT"
+        },
+        "snapshotId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "packageId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objectTypeId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        }
+      }
+    },
+    "schemaFp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceId",
+        "schema",
+        "table",
+        "schemaFingerprint"
+      ],
+      "properties": {
+        "sourceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "table": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schemaFingerprint": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "sourceRead": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "role",
+        "sourceId",
+        "schema",
+        "table",
+        "columns",
+        "schemaFingerprint",
+        "transactionIsolation",
+        "checkpoint",
+        "startedAt",
+        "completedAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "role": {
+          "enum": [
+            "SOURCE",
+            "TARGET"
+          ]
+        },
+        "sourceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "table": {
+          "type": "string",
+          "minLength": 1
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "schemaFingerprint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transactionIsolation": {
+          "const": "REPEATABLE_READ"
+        },
+        "checkpoint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "reason"
+          ],
+          "properties": {
+            "status": {
+              "const": "UNKNOWN"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "propertyRef",
+        "valueType",
+        "status"
+      ],
+      "properties": {
+        "propertyRef": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        },
+        "valueType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "PRESENT",
+            "NULL",
+            "MISSING"
+          ]
+        },
+        "value": {},
+        "sourceReadRef": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "objectRef",
+        "properties"
+      ],
+      "properties": {
+        "objectRef": {
+          "$ref": "#/$defs/objectRef"
+        },
+        "properties": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/value"
+          }
+        }
+      }
+    },
+    "link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "linkTypeId",
+        "linkBindingId",
+        "linkBindingRevision",
+        "source",
+        "target",
+        "sourceReadRefs"
+      ],
+      "properties": {
+        "linkTypeId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        },
+        "linkBindingId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "linkBindingRevision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source": {
+          "$ref": "#/$defs/objectRef"
+        },
+        "target": {
+          "$ref": "#/$defs/objectRef"
+        },
+        "sourceReadRefs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accuracy",
+        "completeness",
+        "freshness",
+        "answerScope",
+        "scopeKind",
+        "knownOrphanCount"
+      ],
+      "properties": {
+        "accuracy": {
+          "const": "EXACT"
+        },
+        "completeness": {
+          "enum": [
+            "COMPLETE",
+            "PARTIAL"
+          ]
+        },
+        "freshness": {
+          "const": "UNKNOWN"
+        },
+        "answerScope": {
+          "enum": [
+            "REQUESTED_SCOPE",
+            "KNOWN_SUBSET"
+          ]
+        },
+        "scopeKind": {
+          "const": "TRAVERSAL_SCOPE"
+        },
+        "knownOrphanCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "completeness": {
+                "const": "PARTIAL"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "answerScope": {
+                "const": "KNOWN_SUBSET"
+              },
+              "knownOrphanCount": {
+                "minimum": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "completeness": {
+                "const": "COMPLETE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "answerScope": {
+                "const": "REQUESTED_SCOPE"
+              },
+              "knownOrphanCount": {
+                "const": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "physicalRows",
+        "joinCandidates",
+        "distinctObjects",
+        "distinctLinks",
+        "sourceBytes",
+        "serializedResultBytes",
+        "maxPhysicalRows",
+        "maxJoinCandidates",
+        "maxSourceBytes",
+        "maxSerializedResultBytes",
+        "queryTimeoutSeconds"
+      ],
+      "properties": {
+        "physicalRows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "joinCandidates": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "distinctObjects": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "distinctLinks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sourceBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serializedResultBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxPhysicalRows": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "maxJoinCandidates": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "maxSourceBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8388608
+        },
+        "maxSerializedResultBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8388608
+        },
+        "queryTimeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        }
+      }
+    },
+    "versionLock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshotId",
+        "payloadSha256",
+        "bindingVersions",
+        "sourceSchemaFingerprints"
+      ],
+      "properties": {
+        "snapshotId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "payloadSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "bindingVersions": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/bindingVersion"
+          }
+        },
+        "sourceSchemaFingerprints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/schemaFp"
+          }
+        }
+      }
+    },
+    "common": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "resultKind",
+        "executionId",
+        "executedAt",
+        "queryVersion",
+        "rootTypeRef",
+        "outputTypeRef",
+        "versionLock",
+        "bindingVersions",
+        "sourceReadRefs",
+        "queryDigest",
+        "resultSnapshotRef",
+        "expiresAt",
+        "quality",
+        "budget",
+        "objects",
+        "links",
+        "objectCount",
+        "linkCount",
+        "pathCount"
+      ],
+      "properties": {
+        "status": {
+          "const": "SUCCESS"
+        },
+        "resultKind": {
+          "enum": [
+            "PAGE",
+            "AGGREGATE"
+          ]
+        },
+        "executionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "executedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "queryVersion": {
+          "const": "local-query-v2"
+        },
+        "rootTypeRef": {
+          "$ref": "#/$defs/typeRef"
+        },
+        "outputTypeRef": {
+          "$ref": "#/$defs/typeRef"
+        },
+        "versionLock": {
+          "$ref": "#/$defs/versionLock"
+        },
+        "bindingVersions": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/bindingVersion"
+          }
+        },
+        "sourceReadRefs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/sourceRead"
+          }
+        },
+        "queryDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "resultSnapshotRef": {
+          "type": "string",
+          "pattern": "^local-result:[0-9a-f-]{36}$"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "quality": {
+          "$ref": "#/$defs/quality"
+        },
+        "budget": {
+          "$ref": "#/$defs/budget"
+        },
+        "objects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/item"
+          }
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/link"
+          }
+        },
+        "objectCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "linkCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pathCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pageSize": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "pageNumber": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "nextCursor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "aggregate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "operation",
+            "valueType",
+            "value",
+            "matchedObjects"
+          ],
+          "properties": {
+            "operation": {
+              "enum": [
+                "COUNT_DISTINCT",
+                "SUM"
+              ]
+            },
+            "propertyRef": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{1,63}$"
+            },
+            "valueType": {
+              "enum": [
+                "INTEGER",
+                "DECIMAL"
+              ]
+            },
+            "value": {
+              "type": "string"
+            },
+            "matchedObjects": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "success": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "if": {
+            "properties": {
+              "resultKind": {
+                "const": "PAGE"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "pageSize",
+              "pageNumber"
+            ],
+            "not": {
+              "required": [
+                "aggregate"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "resultKind": {
+                "const": "AGGREGATE"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "aggregate"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "pageSize"
+                  ]
+                },
+                {
+                  "required": [
+                    "pageNumber"
+                  ]
+                },
+                {
+                  "required": [
+                    "nextCursor"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "executionId",
+        "queryVersion",
+        "code",
+        "message"
+      ],
+      "properties": {
+        "status": {
+          "const": "FAILED"
+        },
+        "queryVersion": {
+          "const": "local-query-v2"
+        },
+        "executionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fieldPath": {
+          "type": "string"
+        },
+        "resultSnapshotRef": {
+          "type": "string",
+          "pattern": "^local-result:[0-9a-f-]{36}$"
+        }
+      }
+    }
+  }
+}
