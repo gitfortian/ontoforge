@@ -118,6 +118,13 @@ class LinkBindingFullIntegrationTest {
         ArrayNode links = editor.putArray("linkTypes");
         link(links, "equipment-inspections", "equipmentInspections", "ONE_TO_MANY");
         link(links, "equipment-single-inspection", "equipmentSingleInspection", "ONE_TO_ONE");
+        ObjectNode reversed = links.addObject();
+        reversed.put("id", "inspection-equipment");
+        reversed.put("apiName", "inspectionEquipment");
+        reversed.put("sourceTypeRef", "inspection-lot");
+        reversed.put("targetTypeRef", "equipment");
+        reversed.put("cardinality", "MANY_TO_ONE");
+        reversed.put("evidenceRequired", true);
 
         NativeDraftService.DraftDetail saved = drafts.save(
                 UUID.fromString(draft.draftId()), draft.revision(), editor);
@@ -287,6 +294,39 @@ class LinkBindingFullIntegrationTest {
         JsonNode excluded = mapper.readTree(traverse(filteredTargets).getBody());
         assertThat(excluded.path("links").size()).isZero();
         assertThat(excluded.path("quality").path("completeness").asText()).isEqualTo("COMPLETE");
+
+        // Separate FK-on-SOURCE case: reverse cardinality but DO NOT reverse
+        // LinkFact definition based on traversal direction.
+        ObjectNode reversedRequest = request.deepCopy();
+        reversedRequest.put("linkTypeId", "inspection-equipment");
+        reversedRequest.set("sourceBindingRef", request.path("targetBindingRef").deepCopy());
+        reversedRequest.set("targetBindingRef", request.path("sourceBindingRef").deepCopy());
+        reversedRequest.put("fkOwner", "SOURCE");
+        reversedRequest.put("idempotencyKey", UUID.randomUUID().toString());
+        reversedRequest.putObject("expectedSchemaFingerprints")
+                .put("source", lot.sourceSchemaFingerprint())
+                .put("target", equipment.sourceSchemaFingerprint());
+        ResponseEntity<String> reverseSave = post("", reversedRequest);
+        assertThat(reverseSave.getStatusCode().value()).as(reverseSave.getBody()).isEqualTo(201);
+        String reverseId = mapper.readTree(reverseSave.getBody()).path("linkBindingId").asText();
+        ObjectNode reverseOut = traverseRequest(pkg, snapshotId, lot, equipment, reverseId,
+                "inspection-equipment", "OUT", "LOT-11", 50);
+        ResponseEntity<String> reverseOne = traverse(reverseOut);
+        assertThat(reverseOne.getStatusCode().value()).as(reverseOne.getBody()).isEqualTo(200);
+        assertThat(mapper.readTree(reverseOne.getBody()).path("links").size()).isEqualTo(1);
+        JsonNode reverseFact = mapper.readTree(reverseOne.getBody()).path("links").get(0);
+        assertThat(reverseFact.path("source").path("objectTypeId").asText()).isEqualTo("inspection-lot");
+        assertThat(reverseFact.path("target").path("objectTypeId").asText()).isEqualTo("equipment");
+        ObjectNode reverseIn = traverseRequest(pkg, snapshotId, equipment, lot, reverseId,
+                "inspection-equipment", "IN", "EQ-001", 50);
+        JsonNode reverseMany = mapper.readTree(traverse(reverseIn).getBody());
+        assertThat(reverseMany.path("links").size()).isEqualTo(2);
+        assertThat(reverseMany.path("quality").path("completeness").asText()).isEqualTo("COMPLETE");
+        ObjectNode reverseOrphan = traverseRequest(pkg, snapshotId, lot, equipment, reverseId,
+                "inspection-equipment", "OUT", "LOT-14", 50);
+        JsonNode reversedPartial = mapper.readTree(traverse(reverseOrphan).getBody());
+        assertThat(reversedPartial.path("quality").path("completeness").asText()).isEqualTo("PARTIAL");
+        assertThat(reversedPartial.path("quality").path("knownOrphanCount").asInt()).isEqualTo(1);
 
         ObjectNode paged = traverseRequest(pkg, snapshotId, equipment, lot, id,
                 "equipment-inspections", "OUT", "EQ-001", 1);
