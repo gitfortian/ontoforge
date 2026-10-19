@@ -360,6 +360,7 @@ public class LinkBindingService {
     public Detail update(UUID id,Request request,Authentication auth) {
         if(request==null||request.expectedRevision()<1)
             throw fail(400,"MALFORMED_REQUEST","更新必须提交正整数 expectedRevision","expectedRevision");
+        requireOperationKey(request);
         authorization.requirePackage(auth,nonblank(request.packageId(),"packageId"),
                 B0AuthorizationService.Operation.WRITE_DRAFT);
         String requestDigest=digest(request);
