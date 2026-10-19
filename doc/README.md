@@ -1,5 +1,11 @@
 # OntoForge · 砺元｜本体产品设计与架构文档
 
+> **产品完整功能范围入口（V1.1，待签收）**：[八大功能域 F01–F29，216 个三级产品能力](./product/OntoForge-产品完整功能树-三级-V1.1.md)；[Core 15 项验收合同与 8 条黄金故事](./product/OntoForge-Core功能验收合同与黄金故事-V1.1.md)；[正式签收跟踪 Issue #82](https://github.com/gitfortian/ontoforge/issues/82)。与 V1.3 的职责不同：V1.3 仍为**唯一总体架构权威**，V1.1 为产品功能分解视图。  
+> **编号迁移追溯**：[原 125 条 AS-IS 完整分类表](./product/OntoForge-ASIS到全产品功能树-追溯与分类-V1.1.md)，明确保留已实现事实、移出范围排除与验收门禁。
+> **第二轮复核（最新状态）**：[V1.1 产品功能第二轮独立复核报告](./product/OntoForge-V1.1-第二轮独立产品功能复核-20261019.md)：216 三级产品能力，现阶段 **57 已实现限定 / 5 部分 / 154 规划**，审查明确只允许**范围候选**，不可据此宣称 UAT/Release 已完成；[编号迁移](./product/OntoForge-ASIS到全产品功能树-追溯与分类-V1.1.md)已修正为 71/26/16/6/6。  
+> **当前产品三级功能盘点入口（待全域签收，2026-10-19）**：[OntoForge V1.0 实施能力盘点（12 个交付模块 / 30 个实现组 / 125 个条目）](./implementation/OntoForge-产品功能说明书-三级功能-V1.0.md)。按 `main=c9de0336` 审核 M4–M7 的当前实现和未交付边界；下方旧 OFIP 阶段状态、2026-10-17 AS-IS 是历史记录，不能覆盖最新基准。本页 V1.3 总体架构入口继续是唯一架构权威。
+> **正式功能评审**：[评审报告（REVISE / 暂不签收）](./implementation/OntoForge-三级功能正式产品评审报告-20261019.md)：本次识别 V1.3 八域、F01–F29 覆盖缺项和质量门混计等 P1；并未把当前 PR 自动批准为完整产品功能基线。  
+
 **产品品牌：OntoForge（砺元）；工程 Maven / Java / 前端命名统一使用 ontoforge。**
 
 **唯一现行总体架构入口：[本体产品总体功能与技术架构设计 V1.3](./本体产品总体功能与技术架构设计_v1.3.md)**
@@ -54,7 +60,7 @@
 | [OFIP-0007：M5 通用 Data Binding 与只读来源映射](./proposals/OFIP-0007-M5-通用DataBinding.md) | **Accepted（[PR #58 正式投票](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6244833403)）/ UX-Low Accepted / UX-High Accepted / Implementation In Progress（[PR #63 Draft](https://github.com/gitfortian/ontoforge/pull/63)）/ Not Released**；Issue [#44](https://github.com/gitfortian/ontoforge/issues/44)；[低保真原型](./prototypes/m5-data-binding-lowfi.html)、[高保真原型](./prototypes/m5-data-binding-highfi.html) 与[实施前高保证审查](./implementation/M5-实施前高保证审查与实施切片.md) 已完成；当前 PR 包含 V7、只读来源角色、通用绑定 API/React 工作台与真实 PG17/HTTP 测试，CI/评审待完成 |
 | [OFIP-0008：M6 通用 Object Runtime](./proposals/OFIP-0008-M6-通用ObjectRuntime.md) | **Discussion / Decision Pending / Implementation Not Started / Not Released**；Issue [#45](https://github.com/gitfortian/ontoforge/issues/45) 已完成需求 Review；ObjectRef 身份域、PropertyValue PRESENT/NULL/MISSING、冲突拒绝及来源证据合同；待维护者显式决定 |
 | [OFIP-0009：M7 通用 ObjectSet AST 与有界查询](./proposals/OFIP-0009-M7-通用ObjectSet查询.md) | **Discussion / Decision Pending / Implementation Not Started / Not Released**；Issue [#46](https://github.com/gitfortian/ontoforge/issues/46) 已完成需求 Review；local-query-v1、类型化 AST、有界结果快照/游标、精确聚合与权限复核；待维护者显式决定 |
-| [OFIP-0010：M8 LinkFact 来源映射与有界遍历](./proposals/OFIP-0010-M8-LinkFact与有界遍历.md) | **Discussion / Decision Pending / Implementation Not Started / Not Released**；Issue [#47](https://github.com/gitfortian/ontoforge/issues/47) 已完成需求 Review；M8.1 外键双向一跳先行，桥表与二跳分别后续切片；待维护者显式决定 |
+| [OFIP-0010：M8 LinkFact 来源映射与有界遍历](./proposals/OFIP-0010-M8-LinkFact与有界遍历.md) | **Accepted（仅 M8.1） / [Owner 受托正式决策](https://github.com/gitfortian/ontoforge/pull/88#issuecomment-6259511734) / Implementation Not Started / Not Released**；M8.1 已签收 UX-Low #84、UX-High #87 并明确批准单列 FK 双向一跳生产研发准入；M8.2 桥表与 M8.3 两跳仍待独立决策 |
 | [OFIP-0011：M9 来源证据、漂移复核与查询一致性](./proposals/OFIP-0011-M9-来源证据漂移与一致性.md) | **Discussion / Decision Pending / Implementation Not Started / Not Released**；Issue [#48](https://github.com/gitfortian/ontoforge/issues/48) 已完成需求 Review；四维质量、UNKNOWN checkpoint、结果快照与源历史区分、漂移修复闭环；待维护者显式决定 |
 | [OFIP-0012：M10 发行边界与运行时版本锁](./proposals/OFIP-0012-M10-发行边界与运行时版本锁.md) | **Discussion / Decision Pending / Implementation Not Started / Not Released**；Issue [#49](https://github.com/gitfortian/ontoforge/issues/49) 已完成需求 Review；复用 OFIP-0005，区分 M10-A 本地版本锁与 M10-B 正式发行/激活，Core 范围待决 |
 | [OFIP-0013：M11 通用 Ontology Studio](./proposals/OFIP-0013-M11-通用OntologyStudio.md) | **Discussion / Decision Pending / Implementation Not Started / Not Released**；Issue [#50](https://github.com/gitfortian/ontoforge/issues/50) 已完成需求 Review；连续工作流/上下文一致性收口，M5–M9 各自仍须先交付 UI；原型 Gate 保留 |

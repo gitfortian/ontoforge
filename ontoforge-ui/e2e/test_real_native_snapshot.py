@@ -84,6 +84,51 @@ class NativeSnapshotRealE2ETest(unittest.TestCase):
         self.page.get_by_role("button",name="回到当前草稿").click()
         self.page.locator("#obj-desc").wait_for()
 
+    def test_native_uuid_attribute_pk_persist_freeze_and_invalidate(self):
+        # #81: real React/PG path must allow UUID attributes and required UUID PK.
+        self.prepare()
+        p=self.page
+        p.locator("#prop-0-valueType").select_option("UUID")
+        # STRING -> UUID stays a legal required PK: preserve the chosen key,
+        # rather than clearing a still-valid reference.
+        self.assertEqual(p.locator("#obj-pk").input_value(), "batch-id")
+        self.assertIn("UUID", p.locator("#obj-pk").inner_text())
+        self.save_validate()
+        stored=api("/drafts/"+self.draft)[1]
+        obj=stored["editingContent"]["objectTypes"][0]
+        self.assertEqual(obj["properties"][0]["valueType"], "UUID")
+        self.assertEqual(obj["primaryKeyRef"], "batch-id")
+
+        sid=self.freeze()
+        frozen=api("/snapshots/"+sid)[1]
+        original_digest=frozen["payloadSha256"]
+        self.assertEqual(frozen["snapshotContent"]["objectTypes"][0]["properties"][0]["valueType"], "UUID")
+        descriptor=api("/type-sources/snapshots/"+sid+"/types/production-batch")[1]
+        self.assertEqual(descriptor["primaryKeyRef"], "batch-id")
+        self.assertEqual(descriptor["properties"][0]["valueType"], "UUID")
+
+        self.back_editor()
+        p.reload()
+        p.locator("#prop-0-valueType").wait_for(timeout=15000)
+        self.assertEqual(p.locator("#prop-0-valueType").input_value(), "UUID")
+        self.assertEqual(p.locator("#obj-pk").input_value(), "batch-id")
+
+        # Removing requiredness or changing to a prohibited PK type clears PK;
+        # restoring UUID does not secretly restore the stale PK selection.
+        p.locator("#prop-0-required").uncheck()
+        self.assertEqual(p.locator("#obj-pk").input_value(), "")
+        p.locator("#prop-0-required").check()
+        self.assertEqual(p.locator("#obj-pk").input_value(), "")
+        p.locator("#obj-pk").select_option("batch-id")
+        p.locator("#prop-0-valueType").select_option("DECIMAL")
+        self.assertEqual(p.locator("#obj-pk").input_value(), "")
+        self.assertNotIn("batch-id", p.locator("#obj-pk").inner_text())
+        p.locator("#prop-0-valueType").select_option("UUID")
+        p.locator("#obj-pk").select_option("batch-id")
+        self.save_validate()
+        self.assertEqual(api("/snapshots/"+sid)[1]["payloadSha256"], original_digest,
+                         "Editing current WIP must not mutate frozen UUID snapshot")
+
     def test_freeze_dialog_traps_keyboard_focus_and_restores_trigger(self):
         self.prepare()
         self.page.locator("#snapshot-freeze").click()
