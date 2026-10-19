@@ -390,6 +390,45 @@ class M82BridgeTableUXLowBrowser(unittest.TestCase):
         self.assertTrue(self.page.locator("#validation-ledger").is_hidden())
         self.assertFalse(self.model()["validated"])
 
+    def test_new_full_revocation_invalidates_previously_successful_execution(self):
+        self.save()
+        self.query()
+        frozen = self.model()["snapshot"]
+        self.page.locator("#tab-config").click()
+        self.page.locator("#to-validate").click()
+        self.page.locator("#validation-scenario").select_option("revoke")
+        self.page.locator("#run-validation").click()
+        self.assertIn(frozen, self.model()["retired"])
+        self.page.locator("#tab-query").click()
+        self.assertTrue(self.page.locator("#result-panel").is_hidden())
+        self.assertEqual("", self.page.locator("#result-rows").text_content())
+        self.page.locator("#tab-evidence").click()
+        self.assertTrue(self.page.locator("#three-read-roles").is_hidden())
+        self.assertTrue(self.page.locator("#execution-lock").is_hidden())
+
+    def test_new_full_bridge_drift_invalidates_prior_result_and_cursor(self):
+        self.save()
+        self.query()
+        frozen = self.model()["snapshot"]
+        self.page.locator("#tab-config").click()
+        self.page.locator("#to-validate").click()
+        self.page.locator("#validation-scenario").select_option("drift")
+        self.page.locator("#run-validation").click()
+        self.assertIn(frozen, self.model()["retired"])
+        self.assertIn("LINK_SOURCE_SCHEMA_DRIFT", self.model()["failure"]["code"])
+        self.assertIsNone(self.model()["snapshot"])
+
+    def test_success_provenance_identifies_all_three_role_reads_and_selected_revision(self):
+        self.page.locator("#target-binding").select_option("B-EQ:r2")
+        self.save()
+        self.query()
+        self.page.locator("#open-evidence").click()
+        self.assertTrue(self.page.locator("#execution-lock").is_visible())
+        self.assertIn("LinkBinding r1", self.page.locator("#lock-link").inner_text())
+        self.assertIn("BRG-DEMO-", self.page.locator("#lock-reads").inner_text())
+        self.assertIn("FP-BRG-DEMO", self.page.locator("#lock-fp").inner_text())
+        self.assertIn("B-EQ:r2", self.page.locator("#evidence-target-version").inner_text())
+
     def test_bridge_drift_invalidates_old_page_after_source_changes(self):
         self.save()
         self.query()
