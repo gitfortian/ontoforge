@@ -59,6 +59,14 @@ class LinkTraverseRealBrowserTest(unittest.TestCase):
         panel.get_by_text("尚无已保存且通过 FULL 校验的 Object Binding").wait_for(timeout=15000)
         self.assertTrue(panel.get_by_role("button", name="执行 FULL 验证").is_disabled())
         self.assertTrue(panel.get_by_role("button", name="执行一跳查询").is_disabled())
+        # Product UI exposes the new bounded selector without pretending that a
+        # missing M5 endpoint permits a real SQL filter or query.
+        panel.get_by_label("M8 Root Selector").select_option("BOUNDED_ROOT_FILTER")
+        self.assertTrue(panel.get_by_label("M8 Root Filter Field").is_visible())
+        self.assertTrue(panel.get_by_label("M8 Root Filter Value").is_visible())
+        self.assertTrue(panel.get_by_label("M8 Target Filter Field").is_visible())
+        self.assertTrue(panel.get_by_role("button", name="执行一跳查询").is_disabled())
+        panel.get_by_label("M8 Root Selector").select_option("OBJECT_REF")
         self.assertEqual(panel.locator(".m8-links tr").count(), 0)
         self.assertNotIn("SUCCESS", panel.locator(".m8-result").all_text_contents())
 
