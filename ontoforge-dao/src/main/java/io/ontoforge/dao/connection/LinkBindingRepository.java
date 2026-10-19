@@ -39,6 +39,27 @@ public class LinkBindingRepository {
             rs.getString("request_digest"),
             rs.getString("operation_type"));
 
+    /**
+     * Serialize writes carrying the same operation UUID BEFORE looking for its receipt.
+     * Both locks are transaction-scoped and use the metadata PostgreSQL connection.
+     * Hash collisions only cause harmless extra waiting; database uniqueness remains
+     * the final safety constraint.
+     */
+    public void lockOperationKey(String packageId, UUID idempotencyKey) {
+        jdbc.query("SELECT pg_advisory_xact_lock(hashtext(?), hashtext(?))",
+                rs -> {}, "M8_OP:" + packageId, idempotencyKey.toString());
+    }
+
+    /**
+     * Serialize CREATEs targeting the same (package, immutable snapshot, LinkType)
+     * even if callers supplied different operation UUIDs. Acquire operation lock
+     * first, then this identity lock; UPDATE acquires operation lock before Head.
+     */
+    public void lockLinkIdentity(String packageId, UUID snapshotId, String linkTypeId) {
+        jdbc.query("SELECT pg_advisory_xact_lock(hashtext(?), hashtext(?))",
+                rs -> {}, "M8_LINK:" + packageId, snapshotId + ":" + linkTypeId);
+    }
+
     public void createHead(UUID id, String packageId, UUID snapshotId, String linkTypeId) {
         jdbc.update("""
                 INSERT INTO runtime_link_binding
