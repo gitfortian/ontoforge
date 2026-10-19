@@ -6,6 +6,7 @@ import QualityMvpWorkspace from '../features/analysis/impact/QualityMvpWorkspace
 import DataBindingWorkspace from '../features/integration/bindings/DataBindingWorkspace';
 import ObjectRuntimeWorkspace from '../features/objects/explorer/ObjectRuntimeWorkspace';
 import ObjectSetWorkspace from '../features/analysis/objectsets/ObjectSetWorkspace';
+import LinkBindingWorkspace from '../features/integration/linkbindings/LinkBindingWorkspace';
 import {beginSignIn,initializeIdentity,oidcConfigured,signOut,WorkspaceIdentity} from '../shared/api/auth';
 import '../style.css';
 
@@ -51,7 +52,8 @@ export default function App() {
   const quality=location.startsWith('#/mvp/quality');
   const objectRuntime=location.startsWith('#/mvp/objects');
   const objectSet=location.startsWith('#/mvp/object-sets');
-  const mvp=binding||quality||objectRuntime||objectSet;
+  const linkBinding=location.startsWith('#/mvp/link-bindings');
+  const mvp=binding||quality||objectRuntime||objectSet||linkBinding;
   async function reload() {
     setStatus({kind:'loading'});
     try {
@@ -99,9 +101,9 @@ export default function App() {
       <div className="sidebar-bottom">S0 · 本体与质量追溯 MVP<br/><small>本机 MVP 无认证；生产安全需另行集成</small></div>
     </aside>
     <main className="main">
-      <div className="topline"><span>{binding?'通用数据绑定 / M5':quality?'工业质量追溯 / 精简 MVP':objectSet?'对象集合查询 / M7':objectRuntime?'对象读取 / M6':model?'本体设计 / ObjectType':'平台基座 / 系统概览'}</span><span className="env-chip">{auth.kind==='ready'?(auth.identity?.issuer==='local-mvp'?'本机隔离 MVP · 无登录': '已验证身份：'+auth.identity?.displayName):'身份模式待初始化'}</span>{auth.kind==='ready'&&auth.identity?.issuer!=='local-mvp'&&<button type="button" onClick={logout}>退出会话</button>}</div>
+      <div className="topline"><span>{binding?'通用数据绑定 / M5':linkBinding?'实例关系绑定 / M8.1':quality?'工业质量追溯 / 精简 MVP':objectSet?'对象集合查询 / M7':objectRuntime?'对象读取 / M6':model?'本体设计 / ObjectType':'平台基座 / 系统概览'}</span><span className="env-chip">{auth.kind==='ready'?(auth.identity?.issuer==='local-mvp'?'本机隔离 MVP · 无登录': '已验证身份：'+auth.identity?.displayName):'身份模式待初始化'}</span>{auth.kind==='ready'&&auth.identity?.issuer!=='local-mvp'&&<button type="button" onClick={logout}>退出会话</button>}</div>
       {(model||mvp)?(auth.kind==='ready'
-        ? (binding?<DataBindingWorkspace route={location} navigate={navigate} onDirtyChange={onDirtyChange}/>:quality?<QualityMvpWorkspace navigate={navigate}/>:objectSet?<ObjectSetWorkspace route={location} navigate={navigate}/>:objectRuntime?<ObjectRuntimeWorkspace route={location} navigate={navigate}/>:location.startsWith('#/model/runtime-types/')
+        ? (binding?<DataBindingWorkspace route={location} navigate={navigate} onDirtyChange={onDirtyChange}/>:quality?<QualityMvpWorkspace navigate={navigate}/>:linkBinding?<LinkBindingWorkspace route={location} navigate={navigate} onDirtyChange={onDirtyChange}/>:objectSet?<ObjectSetWorkspace route={location} navigate={navigate}/>:objectRuntime?<ObjectRuntimeWorkspace route={location} navigate={navigate}/>:location.startsWith('#/model/runtime-types/')
           ? <RuntimeTypeWorkspace route={location} navigate={navigate}/>
           : <NativeModelWorkspace identity={auth.identity!} onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>)
         : <section className="panel" aria-live="polite">
