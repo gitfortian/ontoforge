@@ -12,7 +12,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 from b0_fixture import CONFIG, assigned_package, headers
 
 BASE = "http://127.0.0.1:5173"
@@ -128,9 +128,14 @@ class RealM8BrowserGoldenStory(unittest.TestCase):
         links.get_by_text("cell-quality", exact=True).wait_for(timeout=20000)
         links.locator("tbody tr").filter(has=page.get_by_text("cell-quality", exact=True)).get_by_role("button", name="配置实例关系").click()
         panel = page.get_by_role("region", name="关系与一跳遍历 M8.1")
-        panel.get_by_label("M8 Local Snapshot").wait_for(timeout=20000)
-        self.assertEqual(panel.get_by_label("M8 Local Snapshot").input_value(), snapshot)
-        self.assertEqual(panel.get_by_label("M8 LinkType").input_value(), "cell-quality")
+        # The select mounts while the real HTTP M5/LinkBinding catalog is still
+        # loading. Assert the resolved values, not merely that the form exists.
+        # Playwright retries until the service completes or the gate times out;
+        # do not use fixed sleeps or silently pick another LinkType.
+        expect(panel.get_by_label("M8 Local Snapshot")).to_have_value(
+            snapshot, timeout=20000)
+        expect(panel.get_by_label("M8 LinkType")).to_have_value(
+            "cell-quality", timeout=20000)
         panel.get_by_role("button", name="返回 Native 关系定义").click()
         page.get_by_role("heading", name="运行时类型目录").wait_for(timeout=18000)
         self.assertIn(snapshot, page.url)
