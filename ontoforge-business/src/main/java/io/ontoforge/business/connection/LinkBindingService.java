@@ -67,7 +67,7 @@ public class LinkBindingService {
         public final int http;
         public final String code;
         public final String fieldPath;
-        LinkFailure(int http, String code, String message, String fieldPath) {
+        public LinkFailure(int http, String code, String message, String fieldPath) {
             super(message);
             this.http = http;
             this.code = code;
