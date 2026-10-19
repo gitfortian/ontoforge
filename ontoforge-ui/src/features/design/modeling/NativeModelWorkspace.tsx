@@ -1,3 +1,8 @@
+import { Input } from '../../../shared/ui/yak/input';
+import { Empty } from '../../../shared/ui/yak/empty';
+import { Spinner } from '../../../shared/ui/yak/spinner';
+import { Table, type TableColumns } from '../../../shared/ui/yak/table';
+import { Button } from '../../../shared/ui/yak/button';
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, FilePlus2, Layers3, LoaderCircle, Plus, RefreshCw, Save, ShieldAlert, Trash2, Eye } from 'lucide-react';
 import './model.css';
@@ -278,7 +283,7 @@ export default function NativeModelWorkspace({identity,onDirtyChange,route,navig
   if(!opened) return <div className="model-page">
     <div className="model-head"><div><div className="model-eyebrow">ONTOLOGY DESIGN / NATIVE MODEL</div><h1>模型包</h1>
       <p>从业务概念出发定义本体。这里展示真实 PostgreSQL 草稿；保存进度、校验与发布是不同操作。</p></div>
-      {canCreate&&<button className="model-btn model-primary" onClick={()=>{setPackageId(localMvp?'':writablePackages[0]);setCreating(true)}}><FilePlus2 size={16}/> 创建模型包</button>}</div>
+      {canCreate&&<Button className="model-btn model-primary" onClick={()=>{setPackageId(localMvp?'':writablePackages[0]);setCreating(true)}}><FilePlus2 size={16}/> 创建模型包</Button>}</div>
     <section className="model-panel" aria-label="当前身份和模型包授权">
       <h2>{localMvp?'本机隔离 MVP':'当前工作空间与模型包授权'}</h2>
       <p>{localMvp?'当前是明确启用的本机开发模式，无登录和模型包 ACL；仅可连接本机独立测试数据库，不可公网部署。创建模型包并继续本体核心流程。':'登录身份：'+identity.displayName+' · 已加入 '+identity.workspaces.length+' 个工作空间。创建草稿前必须先由管理员分配模型包，服务端仍逐请求核验权限。'}</p>
@@ -297,18 +302,26 @@ export default function NativeModelWorkspace({identity,onDirtyChange,route,navig
         {writablePackages.map(id=><option key={id} value={id}>{id}</option>)}
       </select></>}
       <label htmlFor="create-package-id">{localMvp?'模型包 ID':'模型包 ID（须与授权清单一致）'}</label>
-      <input id="create-package-id" value={packageId} onChange={e=>setPackageId(e.target.value)}
+      <Input id="create-package-id" value={packageId} onChange={e=>setPackageId(e.target.value)}
         aria-describedby="package-permission-help"/>
       <p id="package-permission-help" className="model-help">{localMvp?'本机隔离模式允许自定义业务域式包 ID，例如 manufacturing.production；不代表企业权限。':'只有管理员预先分配的 packageId 才能创建草稿，不会自动授予权限。'}</p>
-      <div className="model-actions"><button className="model-btn model-primary" disabled={busy||(localMvp?!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/.test(packageId.trim()):!writablePackages.includes(packageId.trim()))} onClick={()=>void createPackage()}>创建并继续 <ChevronRight size={16}/></button><button className="model-btn" onClick={()=>setCreating(false)}>取消</button></div></section>}
+      <div className="model-actions"><Button className="model-btn model-primary" disabled={busy||(localMvp?!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/.test(packageId.trim()):!writablePackages.includes(packageId.trim()))} onClick={()=>void createPackage()}>创建并继续 <ChevronRight size={16}/></Button><Button className="model-btn" onClick={()=>setCreating(false)}>取消</Button></div></section>}
     <section className="model-panel"><header className="model-panel-head"><div><h2>当前可访问的模型草稿</h2><p>每个模型包包含多个对象类型和 LinkType；使用同一个保存和校验流程。</p></div>
-      <button className="model-btn" onClick={()=>void loadList()} disabled={listLoading}><RefreshCw size={15}/> 刷新</button></header>
-      {listLoading?<div className="model-empty"><LoaderCircle size={24}/> 正在读取模型包…</div>:
-      items.length===0?<div className="model-empty"><Layers3 size={30}/><strong>还没有模型包草稿</strong><span>{canCreate?(localMvp?'创建第一个模型包草稿，再定义业务概念。':'从已授权模型包创建第一个草稿，再定义业务概念。'):'当前没有可访问的草稿。如需建模，请联系管理员授权。'}</span>{canCreate&&<button className="model-btn" onClick={()=>{setPackageId(localMvp?'':writablePackages[0]);setCreating(true)}}>新建第一个模型包</button>}</div>:
-      <div className="model-table-wrap"><table className="model-table"><thead><tr><th>模型包</th><th>对象类型</th><th>验证</th><th>Revision</th><th>最后修改</th><th></th></tr></thead><tbody>
-        {items.map(x=><tr key={x.draftId}><td><b>{x.packageId}</b><small>草稿 · 未发布</small></td><td>{x.objectTypeCount}</td><td><span className={'model-status '+x.validationStatus.toLowerCase()}>{statusLabel[x.validationStatus]??x.validationStatus}</span></td><td>{x.revision}</td><td>{new Date(x.updatedAt).toLocaleString('zh-CN')}</td><td><button className="model-link" onClick={()=>navigateView('#/model/drafts/'+x.draftId)}>{localMvp||writablePackages.includes(x.packageId)?'进入建模':'只读查看'} <ChevronRight size={14}/></button></td></tr>)}
-      </tbody></table></div>}
-      {cursor&&<div className="model-pager"><span>第 {listPage} 页</span><button className="model-btn" onClick={()=>void loadList(cursor,listPage+1)}>下一页</button></div>}
+      <Button className="model-btn" onClick={()=>void loadList()} disabled={listLoading}><RefreshCw size={15}/> 刷新</Button></header>
+      {listLoading?<div className="model-empty"><Spinner size="xlarge" label="正在读取模型包"/> 正在读取模型包…</div>:
+      items.length===0?<Empty className="model-empty" icon={<Layers3 size={30}/>} title="还没有模型包草稿"
+        description={canCreate?(localMvp?'创建第一个模型包草稿，再定义业务概念。':'从已授权模型包创建第一个草稿，再定义业务概念。'):'当前没有可访问的草稿。如需建模，请联系管理员授权。'}
+        action={canCreate?<Button className="model-btn" onClick={()=>{setPackageId(localMvp?'':writablePackages[0]);setCreating(true)}}>新建第一个模型包</Button>:undefined}/>:
+      <Table<Summary> rowKey="draftId" dataSource={items} pagination={false} scroll={{x:600}} className="model-table-wrap"
+        columns={[
+          {key:'package',title:'模型包',render:(_,x)=><><b>{x.packageId}</b><small>{x.draftId}</small></>},
+          {key:'objects',title:'对象类型',dataIndex:'objectTypeCount'},
+          {key:'validation',title:'验证',render:(_,x)=><span className={'model-status '+x.validationStatus.toLowerCase()}>{statusLabel[x.validationStatus]??x.validationStatus}</span>},
+          {key:'revision',title:'Revision',dataIndex:'revision'},
+          {key:'updated',title:'最后修改',render:(_,x)=>new Date(x.updatedAt).toLocaleString('zh-CN')},
+          {key:'actions',title:'操作',render:(_,x)=><Button className="model-link" onClick={()=>navigateView('#/model/drafts/'+x.draftId)}>{localMvp||writablePackages.includes(x.packageId)?'进入建模':'只读查看'} <ChevronRight size={14}/></Button>}
+        ] satisfies TableColumns<Summary>}/>}
+      {cursor&&<div className="model-pager"><span>第 {listPage} 页</span><Button className="model-btn" onClick={()=>void loadList(cursor,listPage+1)}>下一页</Button></div>}
     </section>
     <div className="model-footnote"><ShieldAlert size={15}/> {localMvp?'仅本机测试模式，无账号或工作空间隔离；严禁公开网络部署。':'当前使用独立 B0/JWT 身份模式。'}正式审核、SchemaRelease、Activation 和工业 Action 尚未提供。</div>
   </div>;
@@ -320,52 +333,52 @@ export default function NativeModelWorkspace({identity,onDirtyChange,route,navig
   }
 
   return <div className="model-page">
-    <div className="model-head"><div><div className="model-eyebrow"><button className="model-breadcrumb" onClick={()=>navigateView('#/model/packages')}><ArrowLeft size={14}/> 模型包</button> / {opened.packageId}</div>
+    <div className="model-head"><div><div className="model-eyebrow"><Button className="model-breadcrumb" onClick={()=>navigateView('#/model/packages')}><ArrowLeft size={14}/> 模型包</Button> / {opened.packageId}</div>
       <h1>本体建模工作台 <span className="model-status neutral">DRAFT</span></h1><p>先保存编辑进度，再校验当前修订。这个页面使用真实 API，不执行发布或业务动作。</p></div>
       <div className="model-actions">{!dirty&&validated?.status==='VALID'&&validated.validatedRevision===opened.revision&&
-        <button className="model-btn model-primary" onClick={()=>navigate('#/model/runtime-types/drafts/'+opened.draftId+'?revision='+opened.revision)}><Eye size={15}/> 查看运行时类型</button>}</div>
+        <Button className="model-btn model-primary" onClick={()=>navigate('#/model/runtime-types/drafts/'+opened.draftId+'?revision='+opened.revision)}><Eye size={15}/> 查看运行时类型</Button>}</div>
     </div>
     {message&&<div role="alert" className={'model-alert '+message.kind}>{message.text}</div>}
     {readOnly&&<div className="model-alert warning">编辑文档包含暂不支持的定义，已限制保存以防资产损坏。</div>}
     {busy&&<div className="model-busy"><LoaderCircle size={15}/> 正在处理请求…</div>}
     <div className="model-steps"><span>01　定义对象</span><span className="selected">02　建立关系</span><span>03　保存并校验</span><span>04　留存本地历史</span></div>
     <div className="model-section-tabs" role="tablist" aria-label="模型包内建模">
-      <button role="tab" aria-selected={section==='objects'} className={'model-btn '+(section==='objects'?'model-primary':'')} onClick={()=>setSection('objects')}>对象类型（{editorDoc.objectTypes.length}）</button>
-      <button role="tab" aria-selected={section==='links'} className={'model-btn '+(section==='links'?'model-primary':'')} onClick={()=>setSection('links')}>关系类型（{editorDoc.linkTypes.length}）</button>
+      <Button role="tab" aria-selected={section==='objects'} className={'model-btn '+(section==='objects'?'model-primary':'')} onClick={()=>setSection('objects')}>对象类型（{editorDoc.objectTypes.length}）</Button>
+      <Button role="tab" aria-selected={section==='links'} className={'model-btn '+(section==='links'?'model-primary':'')} onClick={()=>setSection('links')}>关系类型（{editorDoc.linkTypes.length}）</Button>
       <span className="model-help">所有对象和关系属于同一草稿修订；保存只提交完整模型包。</span>
     </div>
     <div className="model-layout">
       <div className="model-main-column">
         {section==='objects'?<>
-        <section className="model-panel"><header className="model-panel-head"><div><h2>对象类型（{editorDoc.objectTypes.length}）</h2><p>从对象选择器切换，不影响本地其他对象或关系的编辑进度。</p></div><button className="model-btn" onClick={addObject} disabled={busy}><Plus size={15}/> 新增对象</button></header>
-          <div className="model-type-choices">{editorDoc.objectTypes.map((t,i)=><button key={i} className={'model-btn '+(selectedObject===i?'model-primary':'')} onClick={()=>selectObject(i)} disabled={busy}>{t.label||t.apiName||'新对象 '+(i+1)}</button>)}</div>
-          {editorDoc.objectTypes.length>0&&<div className="model-actions"><button className="model-btn" onClick={removeObject} disabled={busy}><Trash2 size={14}/> 删除当前对象（保留已有关系）</button><span className="model-help">被 {editorDoc.linkTypes.filter(l=>l.sourceTypeRef===editor.id||l.targetTypeRef===editor.id).length} 条关系引用</span></div>}
+        <section className="model-panel"><header className="model-panel-head"><div><h2>对象类型（{editorDoc.objectTypes.length}）</h2><p>从对象选择器切换，不影响本地其他对象或关系的编辑进度。</p></div><Button className="model-btn" onClick={addObject} disabled={busy}><Plus size={15}/> 新增对象</Button></header>
+          <div className="model-type-choices">{editorDoc.objectTypes.map((t,i)=><Button key={i} className={'model-btn '+(selectedObject===i?'model-primary':'')} onClick={()=>selectObject(i)} disabled={busy}>{t.label||t.apiName||'新对象 '+(i+1)}</Button>)}</div>
+          {editorDoc.objectTypes.length>0&&<div className="model-actions"><Button className="model-btn" onClick={removeObject} disabled={busy}><Trash2 size={14}/> 删除当前对象（保留已有关系）</Button><span className="model-help">被 {editorDoc.linkTypes.filter(l=>l.sourceTypeRef===editor.id||l.targetTypeRef===editor.id).length} 条关系引用</span></div>}
         </section>
         <section className="model-panel"><header className="model-panel-head"><div><h2>对象类型定义</h2><p>定义在业务中有独立身份的对象，例如生产批次。</p></div><span className="model-status neutral">{dirty?'● 本地未保存':'草稿已同步'}</span></header>
           <div className="model-form-grid">
-            <div><label htmlFor="obj-id">类型 ID</label><input id="obj-id" placeholder="production-batch" value={editor.id} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/id')} onChange={e=>change('id',e.target.value)}/>{renderIssues('/objectTypes/'+selectedObject+'/id')}</div>
-            <div><label htmlFor="obj-api">API 名称</label><input id="obj-api" placeholder="ProductionBatch" value={editor.apiName} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/apiName')} onChange={e=>change('apiName',e.target.value)}/>{renderIssues('/objectTypes/'+selectedObject+'/apiName')}</div>
-            <div><label htmlFor="obj-label">显示名称</label><input id="obj-label" placeholder="生产批次" value={editor.label??''} disabled={readOnly||busy} onChange={e=>change('label',e.target.value)}/></div>
+            <div><label htmlFor="obj-id">类型 ID</label><Input id="obj-id" placeholder="production-batch" value={editor.id} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/id')} onChange={e=>change('id',e.target.value)}/>{renderIssues('/objectTypes/'+selectedObject+'/id')}</div>
+            <div><label htmlFor="obj-api">API 名称</label><Input id="obj-api" placeholder="ProductionBatch" value={editor.apiName} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/apiName')} onChange={e=>change('apiName',e.target.value)}/>{renderIssues('/objectTypes/'+selectedObject+'/apiName')}</div>
+            <div><label htmlFor="obj-label">显示名称</label><Input id="obj-label" placeholder="生产批次" value={editor.label??''} disabled={readOnly||busy} onChange={e=>change('label',e.target.value)}/></div>
             <div><label htmlFor="obj-pk">主键属性</label><select id="obj-pk" value={editor.primaryKeyRef??''} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/primaryKeyRef')} onChange={e=>change('primaryKeyRef',e.target.value||null)}><option value="">尚未选择主键</option>{validPk.map((p,i)=><option key={p.id+i} value={p.id}>{p.id} · {p.valueType}</option>)}</select>{renderIssues('/objectTypes/'+selectedObject+'/primaryKeyRef')}<p className="model-help">只允许选择本类型必填的 STRING / INTEGER / UUID 属性。</p></div>
             <div className="model-form-wide"><label htmlFor="obj-desc">业务语义定义</label><textarea id="obj-desc" placeholder="解释该对象在制造业务中的含义" rows={3} value={editor.description??''} disabled={readOnly||busy} onChange={e=>change('description',e.target.value)}/></div>
           </div>
         </section>
         <section className="model-panel"><header className="model-panel-head"><div><h2>属性配置 <span className="model-count">{editor.properties.length}</span></h2><p>逐项声明属性、类型、数据分类及必填性。</p></div>
-          <button id="add-property" className="model-btn" disabled={readOnly||busy} onClick={()=>mutate({...editor,properties:[...editor.properties,newProperty()]})}><Plus size={15}/> 新增属性</button></header>
-          {editor.properties.length===0?<div className="model-empty compact"><strong>还没有定义属性</strong><span>可以先暂存 WIP，再补充字段并设置主键。</span><button className="model-btn" disabled={readOnly||busy} onClick={()=>mutate({...editor,properties:[newProperty()]})}>添加第一个属性</button></div>:editor.properties.map((p,i)=><article className="model-property" key={i}>
-            <div className="model-property-head"><strong>Property #{i+1}</strong><button className="model-btn subtle" disabled={readOnly||busy} onClick={()=>{
+          <Button id="add-property" className="model-btn" disabled={readOnly||busy} onClick={()=>mutate({...editor,properties:[...editor.properties,newProperty()]})}><Plus size={15}/> 新增属性</Button></header>
+          {editor.properties.length===0?<div className="model-empty compact"><strong>还没有定义属性</strong><span>可以先暂存 WIP，再补充字段并设置主键。</span><Button className="model-btn" disabled={readOnly||busy} onClick={()=>mutate({...editor,properties:[newProperty()]})}>添加第一个属性</Button></div>:editor.properties.map((p,i)=><article className="model-property" key={i}>
+            <div className="model-property-head"><strong>Property #{i+1}</strong><Button className="model-btn subtle" disabled={readOnly||busy} onClick={()=>{
               const next=editor.properties.filter((_,index)=>index!==i);
               setEnumTexts(Object.fromEntries(next.map((p,index)=>[index,(p.enumValues??[]).join(', ')])));
               mutate({...editor,properties:next,primaryKeyRef:p.id===editor.primaryKeyRef?null:editor.primaryKeyRef});
-            }}><Trash2 size={14}/> 删除</button></div>
+            }}><Trash2 size={14}/> 删除</Button></div>
             <div className="model-prop-grid">
-              <div><label htmlFor={'prop-'+i+'-id'}>属性 ID</label><input id={'prop-'+i+'-id'} value={p.id} disabled={readOnly||busy} placeholder="batch-id" {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/id')} onChange={e=>property(i,{id:e.target.value})}/>{renderIssues('/objectTypes/'+selectedObject+'/properties/'+i+'/id')}</div>
-              <div><label htmlFor={'prop-'+i+'-apiName'}>API 名称</label><input id={'prop-'+i+'-apiName'} value={p.apiName} disabled={readOnly||busy} placeholder="batchId" {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/apiName')} onChange={e=>property(i,{apiName:e.target.value})}/>{renderIssues('/objectTypes/'+selectedObject+'/properties/'+i+'/apiName')}</div>
-              <div><label htmlFor={'prop-'+i+'-label'}>显示名称</label><input id={'prop-'+i+'-label'} value={p.label??''} disabled={readOnly||busy} placeholder="批次编号" onChange={e=>property(i,{label:e.target.value})}/></div>
+              <div><label htmlFor={'prop-'+i+'-id'}>属性 ID</label><Input id={'prop-'+i+'-id'} value={p.id} disabled={readOnly||busy} placeholder="batch-id" {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/id')} onChange={e=>property(i,{id:e.target.value})}/>{renderIssues('/objectTypes/'+selectedObject+'/properties/'+i+'/id')}</div>
+              <div><label htmlFor={'prop-'+i+'-apiName'}>API 名称</label><Input id={'prop-'+i+'-apiName'} value={p.apiName} disabled={readOnly||busy} placeholder="batchId" {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/apiName')} onChange={e=>property(i,{apiName:e.target.value})}/>{renderIssues('/objectTypes/'+selectedObject+'/properties/'+i+'/apiName')}</div>
+              <div><label htmlFor={'prop-'+i+'-label'}>显示名称</label><Input id={'prop-'+i+'-label'} value={p.label??''} disabled={readOnly||busy} placeholder="批次编号" onChange={e=>property(i,{label:e.target.value})}/></div>
               <div><label htmlFor={'prop-'+i+'-valueType'}>数据类型</label><select id={'prop-'+i+'-valueType'} value={p.valueType} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/valueType')} onChange={e=>{setEnumTexts(prev=>({...prev,[i]:''}));property(i,{valueType:e.target.value,enumValues:[]})}}>{['STRING','INTEGER','DECIMAL','BOOLEAN','DATETIME','ENUM','UUID'].map(v=><option key={v}>{v}</option>)}</select>{renderIssues('/objectTypes/'+selectedObject+'/properties/'+i+'/valueType')}</div>
               <div><label htmlFor={'prop-'+i+'-classification'}>数据分类</label><select id={'prop-'+i+'-classification'} disabled={readOnly||busy} value={p.classification} onChange={e=>property(i,{classification:e.target.value})}>{['PUBLIC','INTERNAL','CONFIDENTIAL','RESTRICTED'].map(v=><option key={v}>{v}</option>)}</select></div>
               <div><label>字段配置</label><div className="model-checks"><label htmlFor={'prop-'+i+'-required'}><input id={'prop-'+i+'-required'} type="checkbox" checked={p.required} disabled={readOnly||busy} onChange={e=>property(i,{required:e.target.checked})}/> 必填</label><label htmlFor={'prop-'+i+'-searchable'}><input id={'prop-'+i+'-searchable'} type="checkbox" checked={p.searchable} disabled={readOnly||busy} onChange={e=>property(i,{searchable:e.target.checked})}/> 可搜索</label></div></div>
-              {p.valueType==='ENUM'&&<div className="model-form-wide"><label htmlFor={'prop-'+i+'-enumValues'}>ENUM 值（英文逗号分隔）</label><input id={'prop-'+i+'-enumValues'} value={enumTexts[i]??(p.enumValues??[]).join(', ')} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/enumValues')} placeholder="PLANNED, RUNNING, COMPLETED" onChange={e=>{
+              {p.valueType==='ENUM'&&<div className="model-form-wide"><label htmlFor={'prop-'+i+'-enumValues'}>ENUM 值（英文逗号分隔）</label><Input id={'prop-'+i+'-enumValues'} value={enumTexts[i]??(p.enumValues??[]).join(', ')} disabled={readOnly||busy} {...issueAttr('/objectTypes/'+selectedObject+'/properties/'+i+'/enumValues')} placeholder="PLANNED, RUNNING, COMPLETED" onChange={e=>{
                 const raw=e.target.value;
                 setEnumTexts(prev=>({...prev,[i]:raw}));
                 property(i,{enumValues:raw.split(',').map(x=>x.trim()).filter(Boolean)});
@@ -373,12 +386,12 @@ export default function NativeModelWorkspace({identity,onDirtyChange,route,navig
             </div>
           </article>)}
         </section>
-        </>:<section className="model-panel"><header className="model-panel-head"><div><h2>LinkType 关系类型（{editorDoc.linkTypes.length}）</h2><p>定义来源对象 → 目标对象的关系语义；不代表已经存在工单、批次或订单实例。</p></div><button className="model-btn" onClick={addLink} disabled={busy}><Plus size={15}/> 新增关系</button></header>
-          <div className="model-type-choices">{editorDoc.linkTypes.map((l,i)=><button key={i} className={'model-btn '+(selectedLink===i?'model-primary':'')} disabled={busy} onClick={()=>setSelectedLink(i)}>{l.label||l.apiName||'新关系 '+(i+1)}</button>)}</div>
+        </>:<section className="model-panel"><header className="model-panel-head"><div><h2>LinkType 关系类型（{editorDoc.linkTypes.length}）</h2><p>定义来源对象 → 目标对象的关系语义；不代表已经存在工单、批次或订单实例。</p></div><Button className="model-btn" onClick={addLink} disabled={busy}><Plus size={15}/> 新增关系</Button></header>
+          <div className="model-type-choices">{editorDoc.linkTypes.map((l,i)=><Button key={i} className={'model-btn '+(selectedLink===i?'model-primary':'')} disabled={busy} onClick={()=>setSelectedLink(i)}>{l.label||l.apiName||'新关系 '+(i+1)}</Button>)}</div>
           {activeLink?<><div className="model-form-grid">
-            <div><label htmlFor="link-id">关系 ID</label><input id="link-id" value={activeLink.id} disabled={busy} onChange={e=>updateLink({...activeLink,id:e.target.value})}/>{renderIssues('/linkTypes/'+selectedLink+'/id')}</div>
-            <div><label htmlFor="link-api">API 名称</label><input id="link-api" value={activeLink.apiName} disabled={busy} onChange={e=>updateLink({...activeLink,apiName:e.target.value})}/>{renderIssues('/linkTypes/'+selectedLink+'/apiName')}</div>
-            <div className="model-form-wide"><label htmlFor="link-label">业务显示名称</label><input id="link-label" value={activeLink.label??''} disabled={busy} onChange={e=>updateLink({...activeLink,label:e.target.value})}/></div>
+            <div><label htmlFor="link-id">关系 ID</label><Input id="link-id" value={activeLink.id} disabled={busy} onChange={e=>updateLink({...activeLink,id:e.target.value})}/>{renderIssues('/linkTypes/'+selectedLink+'/id')}</div>
+            <div><label htmlFor="link-api">API 名称</label><Input id="link-api" value={activeLink.apiName} disabled={busy} onChange={e=>updateLink({...activeLink,apiName:e.target.value})}/>{renderIssues('/linkTypes/'+selectedLink+'/apiName')}</div>
+            <div className="model-form-wide"><label htmlFor="link-label">业务显示名称</label><Input id="link-label" value={activeLink.label??''} disabled={busy} onChange={e=>updateLink({...activeLink,label:e.target.value})}/></div>
             <div><label htmlFor="link-source">来源对象类型</label><select id="link-source" value={activeLink.sourceTypeRef} disabled={busy} onChange={e=>updateLink({...activeLink,sourceTypeRef:e.target.value})}><option value="">请选择来源对象</option>{activeLink.sourceTypeRef&&!editorDoc.objectTypes.some(t=>t.id===activeLink.sourceTypeRef)&&<option value={activeLink.sourceTypeRef}>⚠ 已不存在：{activeLink.sourceTypeRef}（请修复）</option>}{editorDoc.objectTypes.map((t,i)=><option key={i} value={t.id}>{t.label||t.apiName||t.id}</option>)}</select>{renderIssues('/linkTypes/'+selectedLink+'/sourceTypeRef')}</div>
             <div><label htmlFor="link-target">目标对象类型</label><select id="link-target" value={activeLink.targetTypeRef} disabled={busy} onChange={e=>updateLink({...activeLink,targetTypeRef:e.target.value})}><option value="">请选择目标对象</option>{activeLink.targetTypeRef&&!editorDoc.objectTypes.some(t=>t.id===activeLink.targetTypeRef)&&<option value={activeLink.targetTypeRef}>⚠ 已不存在：{activeLink.targetTypeRef}（请修复）</option>}{editorDoc.objectTypes.map((t,i)=><option key={i} value={t.id}>{t.label||t.apiName||t.id}</option>)}</select>{renderIssues('/linkTypes/'+selectedLink+'/targetTypeRef')}</div>
             <div><label htmlFor="link-cardinality">关联基数（来源 → 目标）</label><select id="link-cardinality" value={activeLink.cardinality} disabled={busy} onChange={e=>updateLink({...activeLink,cardinality:e.target.value})}><option value="">请选择关联基数</option>{cardinalities.map(([code,label])=><option key={code} value={code}>{label}</option>)}</select>{renderIssues('/linkTypes/'+selectedLink+'/cardinality')}</div>
@@ -386,29 +399,29 @@ export default function NativeModelWorkspace({identity,onDirtyChange,route,navig
           </div>{[activeLink.sourceTypeRef,activeLink.targetTypeRef].some(ref=>ref&&!editorDoc.objectTypes.some(t=>t.id===ref))&&
             <div className="model-alert warning" role="alert">此关系仍引用已删除或改名的对象，原始引用未被自动改写。可以保存修订进度，但不能通过完整校验或冻结历史；请选择正确的对象修复。</div>}
             <div className="model-info">仅定义关系类型。关联基数不表示已存在关系记录；尚无 Data Binding、LinkFact 或查询能力。</div>
-            <div className="model-actions"><button className="model-btn" onClick={removeLink} disabled={busy}><Trash2 size={14}/> 删除当前关系</button></div></>:<div className="model-empty compact">暂无关系类型；可先保存零关系的合法模型包。</div>}
+            <div className="model-actions"><Button className="model-btn" onClick={removeLink} disabled={busy}><Trash2 size={14}/> 删除当前关系</Button></div></>:<div className="model-empty compact">暂无关系类型；可先保存零关系的合法模型包。</div>}
         </section>}
       </div>
       <div className="model-aside-column">
         <section className="model-panel"><header className="model-panel-head"><div><h2>草稿与校验</h2><p>状态来自 PostgreSQL，校验绑定修订号。</p></div></header>
           <div className="model-metrics"><div><span>服务器 revision</span><b>{opened.revision}</b></div><div><span>当前编辑</span><b>{dirty?'未保存':'已同步'}</b></div><div><span>校验结果</span><strong className={'model-status '+(!dirty?(validated?.status??'NOT_RUN'):'NOT_RUN').toLowerCase()}>{dirty?'编辑待保存':statusLabel[validated?.status??'NOT_RUN']}</strong></div><div><span>受检 revision</span><b>{dirty?'—':(validated?.validatedRevision??'—')}</b></div></div>
           <div className="model-info"><CheckCircle2 size={16}/> 先完成保存，再校验确切的 revision。校验通过不等于审核、发布或激活。</div>
-          <button className="model-btn model-primary model-full" disabled={busy||dirty||readOnly} onClick={()=>void validate()}><CheckCircle2 size={16}/> 检查模型完整性</button>
-          <div className="model-issues">{dirty?<p>当前有未保存修改，旧校验结果不适用于本地表单。</p>:(validated?.issues?.length??0)>0?<><b>发现 {validated!.issues.length} 个问题</b>{validated!.issues.map((x,i)=><button className="model-issue-link" key={i} onClick={()=>highlight(x.path)}><span>{x.message}</span><small>{x.path}</small></button>)}</>:<p>{validated?.status==='VALID'?'当前修订已通过本阶段模型校验。':'尚无待修复问题；未校验不等于通过。'}</p>}</div>
+          <Button className="model-btn model-primary model-full" disabled={busy||dirty||readOnly} onClick={()=>void validate()}><CheckCircle2 size={16}/> 检查模型完整性</Button>
+          <div className="model-issues">{dirty?<p>当前有未保存修改，旧校验结果不适用于本地表单。</p>:(validated?.issues?.length??0)>0?<><b>发现 {validated!.issues.length} 个问题</b>{validated!.issues.map((x,i)=><Button className="model-issue-link" key={i} onClick={()=>highlight(x.path)}><span>{x.message}</span><small>{x.path}</small></Button>)}</>:<p>{validated?.status==='VALID'?'当前修订已通过本阶段模型校验。':'尚无待修复问题；未校验不等于通过。'}</p>}</div>
         </section>
         <SnapshotActions key={opened.draftId} draft={opened} validation={validated}
                          dirty={dirty} locked={readOnly||busy} navigate={navigate}/>
         <section className="model-panel"><header className="model-panel-head"><div><h2>异常恢复</h2><p>当保存结果未知或发生并发更新时</p></div></header>
-          <button className="model-btn model-full" disabled={busy} onClick={()=>void inspect()}><RefreshCw size={15}/> 核对服务器最新版</button>
+          <Button className="model-btn model-full" disabled={busy} onClick={()=>void inspect()}><RefreshCw size={15}/> 核对服务器最新版</Button>
           {compare&&<div className="model-conflict"><div className="model-alert warning"><AlertCircle size={15}/> 注意：本地与服务器版本可能不同。下面仅供对照，不会自动覆盖。</div><div><b>本地 · 基于 revision {opened.revision}</b><pre>{JSON.stringify(editorDoc,null,2)}</pre></div><div><b>服务器 · revision {serverLatest.revision}</b><pre>{JSON.stringify(serverLatest.editingContent,null,2)}</pre></div>
-            <button className="model-btn model-full" onClick={()=>{
+            <Button className="model-btn model-full" onClick={()=>{
               if(!window.confirm('确认放弃当前所有未保存编辑，并载入服务器最新版？此操作不可撤销。'))return;
               applyOpened(serverLatest,true);
-            }}>确认放弃本地更改并载入最新版</button></div>}
+            }}>确认放弃本地更改并载入最新版</Button></div>}
         </section>
       </div>
     </div>
-    <div className="model-sticky"><span>{dirty?'● 有未保存的本地编辑':'✓ 当前编辑已与服务器同步'}　 ·　草稿 revision {opened.revision}</span><div><button className="model-btn" onClick={()=>navigate('#/model/packages')}><ArrowLeft size={15}/> 返回模型包</button><button className="model-btn model-primary" disabled={busy||readOnly||!dirty} onClick={()=>void save()}><Save size={16}/> 保存编辑进度</button></div></div>
+    <div className="model-sticky"><span>{dirty?'● 有未保存的本地编辑':'✓ 当前编辑已与服务器同步'}　 ·　草稿 revision {opened.revision}</span><div><Button className="model-btn" onClick={()=>navigate('#/model/packages')}><ArrowLeft size={15}/> 返回模型包</Button><Button className="model-btn model-primary" disabled={busy||readOnly||!dirty} onClick={()=>void save()}><Save size={16}/> 保存编辑进度</Button></div></div>
   </div>;
 }
 
@@ -424,8 +437,8 @@ function ReadOnlyDraftView({draft,navigate}:{draft:Draft;navigate:(hash:string)=
       <h1>受限模型草稿 · 只读</h1>
       <p>模型包：{draft.packageId}。当前身份只有受限草稿阅读权限，无法保存、校验、冻结本地快照或批准正式版本。</p>
     </div><div className="model-actions">
-      {runtimeTypesReady&&<button className="model-btn model-primary" onClick={()=>navigate('#/model/runtime-types/drafts/'+draft.draftId+'?revision='+draft.revision)}><Eye size={15}/> 查看运行时类型</button>}
-      <button className="model-btn" onClick={()=>navigate('#/model/packages')}><ArrowLeft size={15}/> 返回模型包</button>
+      {runtimeTypesReady&&<Button className="model-btn model-primary" onClick={()=>navigate('#/model/runtime-types/drafts/'+draft.draftId+'?revision='+draft.revision)}><Eye size={15}/> 查看运行时类型</Button>}
+      <Button className="model-btn" onClick={()=>navigate('#/model/packages')}><ArrowLeft size={15}/> 返回模型包</Button>
     </div></div>
     <section className="model-panel" aria-label="已授权只读模型信息">
       <header className="model-panel-head"><div><h2>模型信息与验证证据</h2>
@@ -455,7 +468,7 @@ function ReadOnlyDraftView({draft,navigate}:{draft:Draft;navigate:(hash:string)=
     </section>
     <section className="model-panel"><h2>不可变本地历史</h2>
       <p>可以按现有包权限只读浏览历史快照、结构差异；本地快照不等于正式审核通过。</p>
-      <button className="model-btn" onClick={()=>navigate(historyRoute)}><RefreshCw size={15}/> 查看历史快照与差异</button>
+      <Button className="model-btn" onClick={()=>navigate(historyRoute)}><RefreshCw size={15}/> 查看历史快照与差异</Button>
     </section>
   </div>;
 }

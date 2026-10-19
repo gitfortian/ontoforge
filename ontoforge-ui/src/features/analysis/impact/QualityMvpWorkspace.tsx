@@ -1,3 +1,5 @@
+import { Input } from '../../../shared/ui/yak/input';
+import { Button } from '../../../shared/ui/yak/button';
 import React, {useEffect,useState} from 'react';
 import {authorizedFetch} from '../../../shared/api/auth';
 import {ArrowRight, Blocks, Database, GitBranch, RefreshCw, Search} from 'lucide-react';
@@ -170,7 +172,7 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
         <h1>工业质量追溯 · 精简 MVP</h1>
         <p>真实 PostgreSQL 测试数据：定义本体 → 建立来源绑定 → 查询批次影响的工单与客户订单集合，逐页检查来源证据。</p>
       </div>
-      <button className="model-btn" onClick={()=>void run(reload,()=>{})} disabled={busy}><RefreshCw size={15}/> 更新状态</button>
+      <Button className="model-btn" onClick={()=>void run(reload,()=>{})} disabled={busy}><RefreshCw size={15}/> 更新状态</Button>
     </div>
     <div className="model-alert warning">本机 MVP 模式无需登录，但仅限隔离测试数据库；独立 B0/JWT 模式仍使用包授权。不是生产 MES/ERP、Agent 或 Action。</div>
     {error&&<div role="alert" className="model-alert error">{error}</div>}
@@ -181,10 +183,10 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
       </div><Blocks size={20}/></header>
       <p>生产批次 <ArrowRight size={13} style={{display:'inline'}}/> 生产工单 <ArrowRight size={13} style={{display:'inline'}}/> 客户订单</p>
       <div className="model-actions">
-        <button className="model-btn model-primary" disabled={busy||Boolean(status?.draftId)}
-          onClick={model}>创建示例本体</button>
-        {status?.draftId&&<button className="model-btn" onClick={()=>navigate('#/model/drafts/'+status.draftId)}>
-          打开真实建模工作台 <ArrowRight size={15}/></button>}
+        <Button className="model-btn model-primary" disabled={busy||Boolean(status?.draftId)}
+          onClick={model}>创建示例本体</Button>
+        {status?.draftId&&<Button className="model-btn" onClick={()=>navigate('#/model/drafts/'+status.draftId)}>
+          打开真实建模工作台 <ArrowRight size={15}/></Button>}
       </div>
       <p className="model-help">模型包 {status?.packageId??'manufacturing.quality'} · {modelReady?'VALID 校验通过':status?.validation??'未创建'} · revision {status?.revision??'—'}。不修改或覆盖已有用户编辑。</p>
     </section>
@@ -196,8 +198,8 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
         <span>{group.title}</span><b>{map[group.table]||'未选表'}</b>
       </div>)}</div>
       <div className="model-actions">
-        <button className="model-btn" aria-expanded={expandMapping} aria-controls="mvp-source-editor"
-          onClick={()=>setExpandMapping(!expandMapping)}>{expandMapping?'收起字段映射':'选择 PostgreSQL 表与字段'}</button>
+        <Button className="model-btn" aria-expanded={expandMapping} aria-controls="mvp-source-editor"
+          onClick={()=>setExpandMapping(!expandMapping)}>{expandMapping?'收起字段映射':'选择 PostgreSQL 表与字段'}</Button>
         <span>{status?.bound&&!mapChanged?'当前修订已绑定':'尚未保存当前来源映射'}</span>
       </div>
       {expandMapping&&<div id="mvp-source-editor" className="model-panel" aria-label="PostgreSQL 来源映射">
@@ -222,9 +224,9 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
         </div>)}
       </div>}
       <div className="model-actions">
-        <button className="model-btn" onClick={inspect} disabled={busy||!validMapping}>
+        <Button className="model-btn" onClick={inspect} disabled={busy||!validMapping}>
           <Search size={15}/> 预览真实样本与关联
-        </button>
+        </Button>
         <span className="model-help">只读检查当前选择，不会保存或改变已有绑定</span>
       </div>
       {currentPreview&&<div className="model-panel" aria-label="来源预览结果">
@@ -249,8 +251,8 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
         </p>:<p role="status">当前三张来源表中没有找到可连通的两跳记录，请核对关联字段或测试数据。</p>}
         <p className="model-help">这里只预览样本及一条关联证据，并不代表全部数据都能正确关联。确认后再保存来源绑定。</p>
       </div>}
-      <div className="model-actions"><button className="model-btn model-primary"
-        disabled={busy||!modelReady||!validMapping} onClick={bind}>保存来源绑定</button>
+      <div className="model-actions"><Button className="model-btn model-primary"
+        disabled={busy||!modelReady||!validMapping} onClick={bind}>保存来源绑定</Button>
         <span>{mapChanged?'当前字段已修改，需重新保存':'映射与服务器一致或尚未建立'}</span></div>
       {binding&&<p role="status">绑定已保存 PostgreSQL：revision {binding.boundRevision}，来源批次前 {binding.sourceBatchCount} 条。</p>}
     </section>
@@ -260,10 +262,10 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
       </div><GitBranch size={20}/></header>
       <label htmlFor="mvp-batch-id">生产批次 ID</label>
       <div className="model-actions">
-        <input id="mvp-batch-id" value={batch} onChange={e=>{setBatch(e.target.value);setTrace(null);setPageIndex(0);setPageStarts([null]);}}
+        <Input id="mvp-batch-id" value={batch} onChange={e=>{setBatch(e.target.value);setTrace(null);setPageIndex(0);setPageStarts([null]);}}
           placeholder="B2026-001" style={{maxWidth:260,padding:9}}/>
-        <button className="model-btn model-primary" disabled={busy||!status?.bound||mapChanged||!batch.trim()}
-          onClick={search}><Search size={15}/> 查询影响订单</button>
+        <Button className="model-btn model-primary" disabled={busy||!status?.bound||mapChanged||!batch.trim()}
+          onClick={search}><Search size={15}/> 查询影响订单</Button>
       </div>
       {!status?.bound&&<p className="model-help">完成第 1、2 步后才能查询；模型修改后需重新校验并绑定。</p>}
       {trace&&<div aria-label="真实关联查询结果" className="model-panel">
@@ -289,11 +291,11 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
             {edge.linkTypeId} · 来源字段 {edge.sourceColumn}　</span>)}</div>
         </li>)}</ul>
         <div className="model-actions">
-          <button className="model-btn" disabled={busy||pageIndex===0}
-             onClick={()=>loadImpactPage(pageStarts[pageIndex-1]??null,pageIndex-1)}>上一页</button>
+          <Button className="model-btn" disabled={busy||pageIndex===0}
+             onClick={()=>loadImpactPage(pageStarts[pageIndex-1]??null,pageIndex-1)}>上一页</Button>
           <span className="model-help">当前页 {trace.paths.length} 条路径；共 {trace.pathCount} 条，模型 revision {trace.boundRevision}</span>
-          <button className="model-btn" disabled={busy||!trace.nextCursor}
-             onClick={()=>loadImpactPage(trace.nextCursor,pageIndex+1)}>下一页</button>
+          <Button className="model-btn" disabled={busy||!trace.nextCursor}
+             onClick={()=>loadImpactPage(trace.nextCursor,pageIndex+1)}>下一页</Button>
         </div>
         <p className="model-help">按工单 ID / 客户订单 ID 稳定排序；分页期间测试表变化可能影响跨请求一致性。
           仅为本机测试数据的有限 ObjectSet 查询，不代表通用执行引擎或生产数据源。</p>
@@ -322,15 +324,15 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
             <option value="eq">精确等于</option>
           </select></div>
         <div><label htmlFor="objectset-value">筛选值（留空查询全部）</label>
-          <input id="objectset-value" value={objectValue} maxLength={128}
+          <Input id="objectset-value" value={objectValue} maxLength={128}
             onChange={e=>{setObjectValue(e.target.value);clearObjectResult()}}
             placeholder={objectField==='id'?'例如 LOT-':'例如 BLOCKED'} />
         </div>
       </div>
       <div className="model-actions">
-        <button className="model-btn model-primary" onClick={()=>browseObjects(null,0)}
+        <Button className="model-btn model-primary" onClick={()=>browseObjects(null,0)}
           disabled={busy||!status?.bound||mapChanged}>
-          <Search size={15}/> 查询对象集合</button>
+          <Search size={15}/> 查询对象集合</Button>
         <span className="model-help">仅限当前 Native 三类对象与本机安全白名单测试表；不执行任意 SQL。</span>
       </div>
       {objectResult&&<div className="model-panel" aria-label="对象集合查询结果">
@@ -346,11 +348,11 @@ export default function QualityMvpWorkspace({navigate}:{navigate:(route:string)=
             </tr>)}</tbody>
           </table></div>}
         <div className="model-actions">
-          <button className="model-btn" disabled={busy||objectPage===0}
-            onClick={()=>browseObjects(objectCursors[objectPage-1]??null,objectPage-1)}>对象上一页</button>
+          <Button className="model-btn" disabled={busy||objectPage===0}
+            onClick={()=>browseObjects(objectCursors[objectPage-1]??null,objectPage-1)}>对象上一页</Button>
           <span className="model-help">第 {objectPage+1} 页 · 当前 {objectResult.objects.length} 个 / 总 {objectResult.totalCount} 个</span>
-          <button className="model-btn" disabled={busy||!objectResult.nextCursor}
-            onClick={()=>browseObjects(objectResult.nextCursor,objectPage+1)}>对象下一页</button>
+          <Button className="model-btn" disabled={busy||!objectResult.nextCursor}
+            onClick={()=>browseObjects(objectResult.nextCursor,objectPage+1)}>对象下一页</Button>
         </div>
         <p className="model-help">对象 ID 去重；多对多关系字段不作为单值属性。不同分页请求间来源数据变化不保证历史一致性。</p>
       </div>}

@@ -1,3 +1,11 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>OntoForge · 砺元 | S0 MVP</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>
+<script>
+try {
+  const saved = localStorage.getItem('ontoforge.ui.theme');
+  const mode = saved === 'dark' || saved === 'system' ? saved : 'light';
+  const dark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+} catch { document.documentElement.dataset.theme = 'light'; }
+</script><title>OntoForge · 砺元 | S0 MVP</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>

@@ -1,3 +1,5 @@
+import { Input } from '../../../shared/ui/yak/input';
+import { Button } from '../../../shared/ui/yak/button';
 import React, {useEffect, useState} from 'react';
 import {ArrowLeft, CheckCircle2, Database, FileClock, Plus, RefreshCw, Save, ShieldAlert} from 'lucide-react';
 import {authorizedFetch} from '../../../shared/api/auth';
@@ -188,7 +190,7 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
     <div className="model-head">
       <div><div className="model-eyebrow">M5 / GENERIC DATA BINDING</div><h1>数据绑定</h1>
         <p>将已冻结的 Native ObjectType 映射到受控 PostgreSQL 来源。每次保存产生不可变 revision；本模块只读来源，不执行业务写回。</p></div>
-      <div className="model-actions"><span className="model-status valid">M5 · 生产实现</span><button className="model-btn" onClick={()=>void loadBindings()} disabled={busy}><RefreshCw size={14}/> 刷新目录</button></div>
+      <div className="model-actions"><span className="model-status valid">M5 · 生产实现</span><Button className="model-btn" onClick={()=>void loadBindings()} disabled={busy}><RefreshCw size={14}/> 刷新目录</Button></div>
     </div>
 
     {error&&<div className="model-alert error" role="alert"><strong>{error}</strong></div>}
@@ -201,7 +203,7 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
       </div>
       <section className="model-panel binding-editor">
         <header className="model-panel-head"><div><h2>{bindingId?'编辑绑定 · 新建 revision':'创建通用绑定'}</h2><p>{descriptor.label||descriptor.apiName} · {descriptor.objectTypeId} · {descriptor.packageId}</p></div>
-          <button className="model-btn" onClick={discardEditor} disabled={busy}><ArrowLeft size={14}/> 返回目录</button></header>
+          <Button className="model-btn" onClick={discardEditor} disabled={busy}><ArrowLeft size={14}/> 返回目录</Button></header>
         <div className="binding-contract">
           <div><span>Local Snapshot</span><code>{snapshotInput}</code></div>
           <div><span>模型摘要</span><code>{descriptor.payloadSha256}</code></div>
@@ -225,9 +227,9 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
           </tr>)}
         </tbody></table></div>
         <div className="binding-actions">
-          <button className="model-btn" onClick={()=>void runPreview()} disabled={busy||!sourceKey||mappings.length<3}><Database size={14}/> 预览映射</button>
-          <button className="model-btn" onClick={()=>void runValidation()} disabled={busy||!preview||!fingerprint}><CheckCircle2 size={14}/> 运行有界校验</button>
-          <button className="model-btn primary" onClick={()=>void saveBinding()} disabled={busy||validation?.status!=='VALID'}><Save size={14}/> 保存 Binding revision</button>
+          <Button className="model-btn" onClick={()=>void runPreview()} disabled={busy||!sourceKey||mappings.length<3}><Database size={14}/> 预览映射</Button>
+          <Button className="model-btn" onClick={()=>void runValidation()} disabled={busy||!preview||!fingerprint}><CheckCircle2 size={14}/> 运行有界校验</Button>
+          <Button className="model-btn primary" onClick={()=>void saveBinding()} disabled={busy||validation?.status!=='VALID'}><Save size={14}/> 保存 Binding revision</Button>
         </div>
         {preview&&<section className="binding-preview"><div className="binding-preview-head"><div><h3>来源样本与映射结果</h3><p>最多读取 20 行；当前源结构指纹 {preview.source.schemaFingerprint.slice(0,16)}…</p></div><span className="binding-chip">{preview.sourceRows.length} 行样本</span></div>
           <div className="binding-preview-grid"><div><h4>来源原始值</h4><pre>{JSON.stringify(preview.sourceRows.slice(0,5),null,2)}</pre></div><div><h4>映射后的对象属性</h4><pre>{JSON.stringify(preview.mappedRows.slice(0,5),null,2)}</pre></div></div></section>}
@@ -238,9 +240,9 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
     </>:detail?<>
       <section className="model-panel">
         <header className="model-panel-head"><div><h2>绑定详情</h2><p>{detail.objectTypeId} · revision {detail.revision}{detail.historical?' · 历史只读版本':''}</p></div>
-          <div className="model-actions"><button className="model-btn" onClick={()=>{setDetail(null);setRevisions([]);}}><ArrowLeft size={14}/> 返回目录</button>
-            {!detail.historical&&<button className="model-btn" onClick={()=>navigate('#/mvp/objects?packageId='+encodeURIComponent(detail.packageId)+'&bindingId='+encodeURIComponent(detail.bindingId)+'&bindingRevision='+detail.revision)}><Database size={14}/> 读取对象</button>}
-            {!detail.historical&&<button className="model-btn primary" onClick={()=>void beginEditor(detail.snapshotId,detail.objectTypeId,detail)}><Plus size={14}/> 创建新 revision</button>}</div></header>
+          <div className="model-actions"><Button className="model-btn" onClick={()=>{setDetail(null);setRevisions([]);}}><ArrowLeft size={14}/> 返回目录</Button>
+            {!detail.historical&&<Button className="model-btn" onClick={()=>navigate('#/mvp/objects?packageId='+encodeURIComponent(detail.packageId)+'&bindingId='+encodeURIComponent(detail.bindingId)+'&bindingRevision='+detail.revision)}><Database size={14}/> 读取对象</Button>}
+            {!detail.historical&&<Button className="model-btn primary" onClick={()=>void beginEditor(detail.snapshotId,detail.objectTypeId,detail)}><Plus size={14}/> 创建新 revision</Button>}</div></header>
         <div className="binding-contract"><div><span>绑定 ID</span><code>{detail.bindingId}</code></div><div><span>模型快照</span><code>{detail.snapshotId}</code></div>
           <div><span>来源</span><b>{detail.sourceSchema}.{detail.sourceTable}</b></div><div><span>身份域</span><code>{detail.identityDomainId}</code></div>
           <div><span>校验</span><b>{detail.validationStatus} · {detail.checkedRows} 行</b></div><div><span>Revision 摘要</span><code>{detail.digest}</code></div></div>
@@ -248,24 +250,24 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
         <div className="binding-map-table"><table className="model-table"><thead><tr><th>PropertyRef</th><th>来源列</th><th>权威性</th></tr></thead><tbody>{detail.fieldMappings.map(m=><tr key={m.propertyRef}><td>{m.propertyRef}</td><td>{m.sourceColumn}</td><td>{m.authority}</td></tr>)}</tbody></table></div>
         <h3 className="binding-section-title">不可变版本历史</h3>
         <div className="binding-history">{revisions.map(r=><div key={r.revision} className="binding-history-row"><div><b>revision {r.revision}</b><small>{r.validationStatus} · {r.checkedRows} 行 · {new Date(r.createdAt).toLocaleString()}</small><code>{r.digest}</code></div>
-          <button className="model-btn" onClick={()=>void openBinding(detail.bindingId,r.revision)}><FileClock size={14}/> {r.revision===detail.revision?'当前版本':'重开历史版'}</button></div>)}</div>
+          <Button className="model-btn" onClick={()=>void openBinding(detail.bindingId,r.revision)}><FileClock size={14}/> {r.revision===detail.revision?'当前版本':'重开历史版'}</Button></div>)}</div>
       </section>
     </>:<>
       <section className="model-panel">
         <header className="model-panel-head"><div><h2>绑定目录</h2><p>按模型包查看每个 ObjectType 的当前 Binding head；历史版本在详情中查看。</p></div><span className="model-count">{bindings.length}</span></header>
-        <div className="binding-package-search"><label>模型包 ID<input value={packageId} onChange={e=>setPackageId(e.target.value)} placeholder="例如 manufacturing.production"/></label>
-          <button className="model-btn" onClick={()=>void loadBindings()} disabled={busy}>查询绑定</button></div>
+        <div className="binding-package-search"><label>模型包 ID<Input value={packageId} onChange={e=>setPackageId(e.target.value)} placeholder="例如 manufacturing.production"/></label>
+          <Button className="model-btn" onClick={()=>void loadBindings()} disabled={busy}>查询绑定</Button></div>
         {bindings.length===0?<div className="model-empty compact"><strong>暂无可显示的绑定</strong><span>输入有权访问的模型包 ID，或从 M4 的 Local Snapshot 类型详情点击“创建绑定”。</span></div>
         :<div className="binding-map-table"><table className="model-table"><thead><tr><th>ObjectType</th><th>来源</th><th>当前 revision</th><th>校验</th><th>操作</th></tr></thead><tbody>
           {bindings.map(b=><tr key={b.bindingId}><td><b>{b.objectTypeId}</b><small>{b.packageId}</small></td><td>{b.sourceSchema}.{b.sourceTable}</td><td>revision {b.currentRevision}</td><td><span className={'binding-chip '+(b.validationStatus==='VALID'?'valid':'required')}>{b.validationStatus}</span><small>{b.checkedRows} 行</small></td>
-            <td><button className="model-btn" onClick={()=>void openBinding(b.bindingId)}>查看 / 历史</button></td></tr>)}
+            <td><Button className="model-btn" onClick={()=>void openBinding(b.bindingId)}>查看 / 历史</Button></td></tr>)}
         </tbody></table></div>}
       </section>
       <section className="model-panel binding-start">
         <header className="model-panel-head"><div><h2>从 Local Snapshot 创建绑定</h2><p>只接受已冻结快照。Validated Draft 需要先冻结，不会被静默转换。</p></div></header>
-        <div className="binding-package-search"><label>Local Snapshot ID<input value={snapshotInput} onChange={e=>setSnapshotInput(e.target.value)} placeholder="UUID"/></label>
-          <label>ObjectType ID<input value={typeInput} onChange={e=>setTypeInput(e.target.value)} placeholder="例如 supplier"/></label>
-          <button className="model-btn primary" disabled={busy||!snapshotInput.trim()||!typeInput.trim()} onClick={()=>void beginEditor(snapshotInput.trim(),typeInput.trim())}><Plus size={14}/> 读取类型并创建绑定</button></div>
+        <div className="binding-package-search"><label>Local Snapshot ID<Input value={snapshotInput} onChange={e=>setSnapshotInput(e.target.value)} placeholder="UUID"/></label>
+          <label>ObjectType ID<Input value={typeInput} onChange={e=>setTypeInput(e.target.value)} placeholder="例如 supplier"/></label>
+          <Button className="model-btn primary" disabled={busy||!snapshotInput.trim()||!typeInput.trim()} onClick={()=>void beginEditor(snapshotInput.trim(),typeInput.trim())}><Plus size={14}/> 读取类型并创建绑定</Button></div>
       </section>
     </>}
   </div>;

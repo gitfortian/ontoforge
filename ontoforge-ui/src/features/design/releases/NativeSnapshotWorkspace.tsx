@@ -1,3 +1,4 @@
+import { Button } from '../../../shared/ui/yak/button';
 import React,{useEffect,useRef,useState} from 'react';
 import {ArrowLeft,CheckCircle2,GitCompareArrows,History,LockKeyhole,RefreshCw,ShieldAlert,Eye} from 'lucide-react';
 import '../modeling/model.css';
@@ -141,14 +142,14 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
    {!supported&&<div className="model-alert warning">本地历史要求至少一个有效对象类型，以及受控的关系类型列表；不支持的资产不能裁剪。</div>}
    {error&&<div className="model-alert error" role="alert">{error}</div>}
    {pendingKey&&<div className="model-alert warning" role="status">RESULT_UNKNOWN · 保留请求键 {pendingKey}<br/>
-     <button id="snapshot-reconcile" className="model-btn" disabled={busy} onClick={()=>void reconcile()}>按原幂等键核对冻结结果</button>
-     {pendingRevision!==null&&<button className="model-btn" disabled={busy}
-       onClick={()=>void freeze(pendingKey,pendingRevision)}>使用原键重试 revision {pendingRevision}</button>}
+     <Button id="snapshot-reconcile" className="model-btn" disabled={busy} onClick={()=>void reconcile()}>按原幂等键核对冻结结果</Button>
+     {pendingRevision!==null&&<Button className="model-btn" disabled={busy}
+       onClick={()=>void freeze(pendingKey,pendingRevision)}>使用原键重试 revision {pendingRevision}</Button>}
    </div>}
-   <button ref={freezeButtonRef} id="snapshot-freeze" className="model-btn model-primary model-full"
-     disabled={!eligible} onClick={()=>setConfirm(true)}><LockKeyhole size={15}/> 冻结本地只读快照</button>
-   <button id="snapshot-history" className="model-btn model-full" onClick={()=>navigate(historyPath)}
-     disabled={busy}><History size={15}/> 查看历史快照</button>
+   <Button ref={freezeButtonRef} id="snapshot-freeze" className="model-btn model-primary model-full"
+     disabled={!eligible} onClick={()=>setConfirm(true)}><LockKeyhole size={15}/> 冻结本地只读快照</Button>
+   <Button id="snapshot-history" className="model-btn model-full" onClick={()=>navigate(historyPath)}
+     disabled={busy}><History size={15}/> 查看历史快照</Button>
    <p className="model-help">冻结资格由服务端事务复核。当前未提供审批、发行号、生产激活或 Agent 接口。</p>
    {confirm&&<dialog ref={dialogRef} aria-labelledby="snapshot-confirm-title"
           className="snapshot-modal" onCancel={e=>{e.preventDefault();setConfirm(false)}}
@@ -166,9 +167,9 @@ export function SnapshotActions({draft,validation,dirty,locked,navigate}:{
          <span>完整校验</span><b>{validation?.status}</b>
          <span>版本状态</span><b>LOCAL_SNAPSHOT_ONLY</b></div>
        <div className="model-actions">
-         <button className="model-btn" onClick={()=>setConfirm(false)}>取消，返回编辑</button>
-         <button ref={confirmRef} id="snapshot-confirm" className="model-btn model-primary" disabled={busy}
-                 onClick={complete}>确认冻结当前修订</button>
+         <Button className="model-btn" onClick={()=>setConfirm(false)}>取消，返回编辑</Button>
+         <Button ref={confirmRef} id="snapshot-confirm" className="model-btn model-primary" disabled={busy}
+                 onClick={complete}>确认冻结当前修订</Button>
        </div>
    </dialog>}
  </section>;
@@ -226,11 +227,11 @@ export default function NativeSnapshotWorkspace({route,navigate}:{route:string;n
    </div></div>
    {loading&&<section className="model-panel"><p>正在从 PostgreSQL 核验快照与摘要…</p></section>}
    {error&&<section className="model-panel"><div className="model-alert error" role="alert">{error}</div>
-     <button className="model-btn" onClick={()=>navigate('#/model/packages')}>返回模型包</button></section>}
+     <Button className="model-btn" onClick={()=>navigate('#/model/packages')}>返回模型包</Button></section>}
    {snapshot&&<><div className="model-actions">
-       <button className="model-btn" onClick={()=>navigate(historyLink(snapshot.packageId))}><ArrowLeft size={15}/> 历史快照</button>
-       <button className="model-btn model-primary" onClick={()=>navigate('#/model/runtime-types/snapshots/'+snapshot.snapshotId)}><Eye size={15}/> 查看运行时类型</button>
-       <button className="model-btn" onClick={()=>navigate('#/model/drafts/'+snapshot.sourceDraftId)}>回到当前草稿</button>
+       <Button className="model-btn" onClick={()=>navigate(historyLink(snapshot.packageId))}><ArrowLeft size={15}/> 历史快照</Button>
+       <Button className="model-btn model-primary" onClick={()=>navigate('#/model/runtime-types/snapshots/'+snapshot.snapshotId)}><Eye size={15}/> 查看运行时类型</Button>
+       <Button className="model-btn" onClick={()=>navigate('#/model/drafts/'+snapshot.sourceDraftId)}>回到当前草稿</Button>
      </div>
      <section className="model-panel">
        <header className="model-panel-head"><div><h2>快照 {snapshot.snapshotId}</h2>
@@ -252,7 +253,7 @@ export default function NativeSnapshotWorkspace({route,navigate}:{route:string;n
      </section>
    </>}
    {pkg&&page&&<><div className="model-actions">
-       <button className="model-btn" onClick={()=>navigate('#/model/packages')}><ArrowLeft size={15}/> 模型包列表</button>
+       <Button className="model-btn" onClick={()=>navigate('#/model/packages')}><ArrowLeft size={15}/> 模型包列表</Button>
      </div>
      <section className="model-panel"><header className="model-panel-head"><div><h2>{pkg}</h2>
         <p>历史快照只读；摘要是内容指纹，不是审批或发布证明。</p></div>
@@ -263,9 +264,9 @@ export default function NativeSnapshotWorkspace({route,navigate}:{route:string;n
          <tbody>{page.items.map(x=><tr key={x.snapshotId}><td>revision {x.sourceRevision}</td>
            <td><code>{x.snapshotId}</code></td><td><code>{x.payloadSha256.slice(0,16)}…</code></td>
            <td>{new Date(x.createdAt).toLocaleString('zh-CN')}</td>
-           <td><button className="model-link" onClick={()=>navigate('#/model/snapshots/'+x.snapshotId)}>只读查看</button></td></tr>)}</tbody>
+           <td><Button className="model-link" onClick={()=>navigate('#/model/snapshots/'+x.snapshotId)}>只读查看</Button></td></tr>)}</tbody>
          </table></div>}
-       {page.nextCursor&&<button className="model-btn" onClick={()=>setCursor(page.nextCursor)}>加载更多历史快照</button>}
+       {page.nextCursor&&<Button className="model-btn" onClick={()=>setCursor(page.nextCursor)}>加载更多历史快照</Button>}
      </section>
      {page.items.length>=2&&<section className="model-panel"><h2>对照两份快照</h2>
        <p>按对象类型与属性身份比较；风险标签不等于下游兼容性认证。</p>
@@ -278,13 +279,13 @@ export default function NativeSnapshotWorkspace({route,navigate}:{route:string;n
                  onChange={e=>setTo(e.target.value)}>
              {page.items.map(x=><option key={x.snapshotId} value={x.snapshotId}>revision {x.sourceRevision} · {x.snapshotId.slice(0,8)}</option>)}
            </select></div></div>
-       <button id="snapshot-compare" className="model-btn model-primary snapshot-compare-btn"
+       <Button id="snapshot-compare" className="model-btn model-primary snapshot-compare-btn"
          disabled={!from||!to||from===to}
-         onClick={()=>navigate('#/model/snapshot-diffs?from='+encode(from)+'&to='+encode(to))}><GitCompareArrows size={15}/> 比较结构差异</button>
+         onClick={()=>navigate('#/model/snapshot-diffs?from='+encode(from)+'&to='+encode(to))}><GitCompareArrows size={15}/> 比较结构差异</Button>
      </section>}
    </>}
    {diff&&<><div className="model-actions">
-      <button className="model-btn" onClick={()=>navigate(historyLink(diff.packageId))}><ArrowLeft size={15}/> 返回历史</button>
+      <Button className="model-btn" onClick={()=>navigate(historyLink(diff.packageId))}><ArrowLeft size={15}/> 返回历史</Button>
      </div>
      <section className="model-panel"><header className="model-panel-head"><div>
         <h2>结构差异（{diff.changes.length} 项）</h2>

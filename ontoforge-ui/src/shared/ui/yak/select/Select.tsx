@@ -1,0 +1,329 @@
+import { createContext, useContext, type HTMLAttributes, type ReactNode } from "react";
+import { Select as BaseSelect } from "@base-ui/react/select";
+import { cva, type VariantProps } from "class-variance-authority";
+
+import { cn } from "../cn";
+import { Input, type InputProps } from "../input";
+
+type SelectSize = "small" | "medium" | "large";
+
+const SelectSizeContext = createContext<SelectSize>("medium");
+
+const selectFontSizeClasses: Record<SelectSize, string> = {
+  small: "text-[length:var(--yak-font-size-control-small)]",
+  medium: "text-[length:var(--yak-font-size-control-medium)]",
+  large: "text-[length:var(--yak-font-size-control-large)]",
+};
+
+export type SelectProps<Value, Multiple extends boolean | undefined = false> = Omit<
+  BaseSelect.Root.Props<Value, Multiple>,
+  "size"
+> & {
+  size?: SelectSize;
+};
+
+export function Select<Value, Multiple extends boolean | undefined = false>({
+  size = "medium",
+  ...props
+}: SelectProps<Value, Multiple>) {
+  return (
+    <SelectSizeContext.Provider value={size}>
+      <BaseSelect.Root {...props} />
+    </SelectSizeContext.Provider>
+  );
+}
+
+const selectTriggerVariants = cva(
+  [
+    "group/select-trigger flex w-full cursor-pointer items-center border text-left text-[var(--yak-components-input-text)] outline-none",
+    "transition-[background-color,border-color,color] duration-150",
+    "focus-visible:border-[var(--yak-components-input-border-focus)] focus-visible:bg-[var(--yak-components-input-bg-focus)]",
+    "data-popup-open:border-[var(--yak-components-input-border-focus)] data-popup-open:bg-[var(--yak-components-input-bg-focus)]",
+    "data-placeholder:text-[var(--yak-components-input-placeholder)]",
+    "data-disabled:cursor-not-allowed data-disabled:bg-[var(--yak-components-input-bg-disabled)] data-disabled:text-[var(--yak-components-input-text-disabled)]",
+    "motion-reduce:transition-none",
+  ],
+  {
+    variants: {
+      variant: {
+        filled:
+          "border-transparent bg-[var(--yak-components-input-bg)] hover:border-[var(--yak-components-input-border-hover)] hover:bg-[var(--yak-components-input-bg-hover)] data-disabled:border-transparent",
+        outlined:
+          "border-[var(--yak-components-input-border)] bg-[var(--yak-components-input-bg-focus)] hover:border-[var(--yak-components-input-border-focus)] hover:bg-[var(--yak-components-input-bg-focus)] data-disabled:border-[var(--yak-components-input-border)]",
+      },
+      size: {
+        small:
+          "h-7 gap-1.5 rounded-[var(--yak-radius-control-small)] px-2.5 text-[length:var(--yak-font-size-control-small)]",
+        medium:
+          "h-9 gap-2 rounded-[var(--yak-radius-control-medium)] px-3 text-[length:var(--yak-font-size-control-medium)]",
+        large:
+          "h-10 gap-2 rounded-[var(--yak-radius-control-large)] px-3.5 text-[length:var(--yak-font-size-control-large)]",
+      },
+    },
+    defaultVariants: {
+      variant: "filled",
+      size: "medium",
+    },
+  },
+);
+
+export type SelectTriggerProps = Omit<BaseSelect.Trigger.Props, "className"> &
+  VariantProps<typeof selectTriggerVariants> & {
+    className?: string;
+  };
+
+export function SelectTrigger({
+  children,
+  className,
+  size,
+  variant,
+  ...props
+}: SelectTriggerProps) {
+  const contextSize = useContext(SelectSizeContext);
+  const resolvedSize = size ?? contextSize;
+
+  return (
+    <BaseSelect.Trigger
+      {...props}
+      className={cn(selectTriggerVariants({ size: resolvedSize, variant }), className)}
+    >
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <BaseSelect.Icon className="shrink-0 rotate-0 text-[var(--yak-components-input-icon)] transition-[rotate] duration-[220ms] ease-[cubic-bezier(0.2,0,0,1)] group-data-popup-open/select-trigger:rotate-180 group-data-popup-open/select-trigger:duration-[360ms] group-data-popup-open/select-trigger:ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none">
+        <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4" fill="none">
+          <path
+            d="m6 8 4 4 4-4"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.5"
+          />
+        </svg>
+      </BaseSelect.Icon>
+    </BaseSelect.Trigger>
+  );
+}
+
+export type SelectValueProps = Omit<BaseSelect.Value.Props, "className"> & {
+  className?: string;
+};
+
+export function SelectValue({ className, ...props }: SelectValueProps) {
+  return <BaseSelect.Value {...props} className={cn("min-w-0 truncate", className)} />;
+}
+
+export type SelectContentProps = Omit<BaseSelect.Popup.Props, "children" | "className"> & {
+  children: ReactNode;
+  className?: string;
+  header?: ReactNode;
+  footer?: ReactNode;
+  emptyContent?: ReactNode;
+  listClassName?: string;
+  positionerClassName?: string;
+  side?: BaseSelect.Positioner.Props["side"];
+  align?: BaseSelect.Positioner.Props["align"];
+  sideOffset?: BaseSelect.Positioner.Props["sideOffset"];
+  alignOffset?: BaseSelect.Positioner.Props["alignOffset"];
+};
+
+export function SelectContent({
+  align = "start",
+  alignOffset = 0,
+  children,
+  className,
+  emptyContent,
+  footer,
+  header,
+  listClassName,
+  positionerClassName,
+  side = "bottom",
+  sideOffset = 4,
+  ...props
+}: SelectContentProps) {
+  const size = useContext(SelectSizeContext);
+
+  return (
+    <BaseSelect.Portal>
+      <BaseSelect.Positioner
+        side={side}
+        align={align}
+        sideOffset={sideOffset}
+        alignOffset={alignOffset}
+        alignItemWithTrigger={false}
+        className={cn("z-50 outline-none", positionerClassName)}
+      >
+        <BaseSelect.Popup
+          {...props}
+          className={cn(
+            "min-w-[var(--anchor-width)] max-w-80 overflow-hidden rounded-[var(--yak-radius-control-medium)] border border-[var(--yak-components-select-border)] bg-[var(--yak-components-select-bg)] shadow-[var(--yak-components-select-shadow)] outline-none",
+            // Reveal the surface without changing positioning geometry or scaling its contents.
+            // Negative insets preserve the existing 0 10px 30px shadow at rest.
+            "[clip-path:inset(-64px)] [--yak-select-closed-clip:inset(0_-64px_100%_-64px)]",
+            "data-[side=top]:[--yak-select-closed-clip:inset(100%_-64px_0_-64px)] data-[side=left]:[--yak-select-closed-clip:inset(-64px_0_-64px_100%)] data-[side=right]:[--yak-select-closed-clip:inset(-64px_100%_-64px_0)]",
+            "transition-[clip-path,opacity] [transition-duration:360ms,160ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
+            "data-starting-style:[clip-path:var(--yak-select-closed-clip)] data-starting-style:opacity-0 data-ending-style:[clip-path:var(--yak-select-closed-clip)] data-ending-style:opacity-0",
+            "data-ending-style:[transition-duration:220ms,180ms] data-ending-style:ease-[cubic-bezier(0.2,0,0,1)] data-ending-style:pointer-events-none motion-reduce:transition-none",
+            selectFontSizeClasses[size],
+            className,
+          )}
+        >
+          {header}
+          <BaseSelect.List
+            className={cn(
+              "max-h-80 overflow-y-auto p-1 outline-none empty:p-0",
+              emptyContent != null && "max-h-0 p-0",
+              listClassName,
+            )}
+          >
+            {emptyContent == null ? children : null}
+          </BaseSelect.List>
+          {emptyContent != null ? <SelectEmpty>{emptyContent}</SelectEmpty> : null}
+          {footer}
+        </BaseSelect.Popup>
+      </BaseSelect.Positioner>
+    </BaseSelect.Portal>
+  );
+}
+
+export type SelectSearchProps = Omit<InputProps, "size"> & {
+  extra?: ReactNode;
+  size?: SelectSize;
+};
+
+export function SelectSearch({
+  className,
+  extra,
+  onKeyDown,
+  size,
+  variant = "outlined",
+  ...props
+}: SelectSearchProps) {
+  const contextSize = useContext(SelectSizeContext);
+  const resolvedSize = size ?? contextSize;
+
+  return (
+    <div className="flex items-center gap-2 border-b border-[var(--yak-components-select-border)] p-2">
+      <div className="relative min-w-0 flex-1">
+        <span className="pointer-events-none absolute inset-y-0 left-2.5 flex items-center text-[var(--yak-components-input-icon)]">
+          <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4" fill="none">
+            <circle cx="8.5" cy="8.5" r="4.5" stroke="currentColor" strokeWidth="1.5" />
+            <path
+              d="m12 12 3.5 3.5"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeWidth="1.5"
+            />
+          </svg>
+        </span>
+        <Input
+          {...props}
+          size={resolvedSize}
+          variant={variant}
+          className={cn("!pl-8", className)}
+          onKeyDown={(event) => {
+            onKeyDown?.(event);
+            if (!event.defaultPrevented && event.key !== "Escape" && event.key !== "Tab") {
+              event.stopPropagation();
+            }
+          }}
+        />
+      </div>
+      {extra ? <div className="shrink-0">{extra}</div> : null}
+    </div>
+  );
+}
+
+export type SelectFooterProps = HTMLAttributes<HTMLDivElement>;
+
+export function SelectFooter({ className, onKeyDown, ...props }: SelectFooterProps) {
+  return (
+    <div
+      {...props}
+      className={cn(
+        "flex min-h-10 items-center gap-2 border-t border-[var(--yak-components-select-border)] px-3 py-2",
+        className,
+      )}
+      onKeyDown={(event) => {
+        onKeyDown?.(event);
+        if (!event.defaultPrevented && event.key !== "Escape" && event.key !== "Tab") {
+          event.stopPropagation();
+        }
+      }}
+    />
+  );
+}
+
+export type SelectEmptyProps = HTMLAttributes<HTMLDivElement>;
+
+export function SelectEmpty({ className, ...props }: SelectEmptyProps) {
+  return (
+    <div
+      {...props}
+      className={cn(
+        "px-3 py-6 text-center text-[length:var(--yak-font-size-control-small)] text-[var(--yak-components-muted-text)]",
+        className,
+      )}
+    />
+  );
+}
+
+export type SelectItemProps<Value = unknown> = Omit<
+  BaseSelect.Item.Props,
+  "className" | "value"
+> & {
+  className?: string;
+  value?: Value;
+};
+
+export function SelectItem<Value = unknown>({ className, ...props }: SelectItemProps<Value>) {
+  return (
+    <BaseSelect.Item
+      {...props}
+      className={cn(
+        "flex min-h-8 cursor-pointer items-center gap-2 rounded-[var(--yak-radius-control-small)] px-2.5 py-1.5 text-[var(--yak-components-select-item-text)] outline-none",
+        "transition-[background-color] duration-150 motion-reduce:transition-none",
+        "data-highlighted:bg-[var(--yak-components-select-item-bg-hover)] data-selected:font-medium",
+        "data-disabled:cursor-not-allowed data-disabled:opacity-45",
+        className,
+      )}
+    />
+  );
+}
+
+export type SelectItemTextProps = Omit<BaseSelect.ItemText.Props, "className"> & {
+  className?: string;
+};
+
+export function SelectItemText({ className, ...props }: SelectItemTextProps) {
+  return <BaseSelect.ItemText {...props} className={cn("min-w-0 flex-1 truncate", className)} />;
+}
+
+export type SelectItemIndicatorProps = Omit<
+  BaseSelect.ItemIndicator.Props,
+  "children" | "className"
+> & {
+  className?: string;
+};
+
+export function SelectItemIndicator({ className, ...props }: SelectItemIndicatorProps) {
+  return (
+    <BaseSelect.ItemIndicator
+      {...props}
+      className={cn(
+        "ml-auto flex size-4 shrink-0 items-center justify-center text-[var(--yak-components-select-indicator)]",
+        className,
+      )}
+    >
+      <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4" fill="none">
+        <path
+          d="m5.5 10 3 3 6-6"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.6"
+        />
+      </svg>
+    </BaseSelect.ItemIndicator>
+  );
+}
+
+export { selectTriggerVariants };
