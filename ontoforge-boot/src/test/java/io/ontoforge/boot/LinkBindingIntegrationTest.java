@@ -35,13 +35,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"mvp-local","integration-test"})
 @ContextConfiguration(initializers=IsolatedPostgresTestDatabase.class)
+@org.springframework.test.annotation.DirtiesContext(classMode=org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 class LinkBindingIntegrationTest {
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry reg) {
         reg.add("ontoforge.binding.source.url",()->System.getenv("TEST_DB_URL"));
         reg.add("ontoforge.binding.source.username",()->"ontoforge_binding_login");
         reg.add("ontoforge.binding.source.password",()->"m5_test_reader_only");
-        reg.add("ontoforge.binding.source.allowed-tables",()->"m8_equipment_source,m8_inspection_lot_source");
+        reg.add("ontoforge.binding.source.allowed-tables",()->"m5_supplier_source,m8_equipment_source,m8_inspection_lot_source");
     }
     @LocalServerPort int port;
     @Autowired TestRestTemplate http;
