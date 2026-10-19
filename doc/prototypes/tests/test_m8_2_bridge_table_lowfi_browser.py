@@ -152,6 +152,21 @@ class M82BridgeTableUXLowBrowser(unittest.TestCase):
         self.assertEqual(1, self.model()["duplicates"])
         self.assertIn("Bridge 重复物理行 1", self.page.locator("#result-summary").inner_text())
 
+    def test_duplicate_pair_evidence_respects_output_filter_scope(self):
+        self.save("duplicate")
+        self.query("OUT", "MO-001", filter="E02")
+        self.assertEqual(1, self.model()["objectCount"])
+        self.assertEqual(1, self.model()["linkCount"])
+        self.assertEqual(0, self.model()["duplicates"], "Filtered-out E01 repeats cannot count as E02 evidence")
+
+    def test_selected_historical_endpoint_revision_is_visible_in_three_source_evidence(self):
+        self.page.locator("#source-binding").select_option("B-MO:r1")
+        self.save()
+        self.query()
+        self.page.locator("#open-evidence").click()
+        self.assertIn("B-MO:r1", self.page.locator("#evidence-source-version").inner_text())
+        self.assertIn("B-EQ:r3", self.page.locator("#evidence-target-version").inner_text())
+
     def test_null_fk_not_an_orphan_or_failure(self):
         self.save("null")
         self.assertEqual("VALID", self.model()["validationQuality"])
