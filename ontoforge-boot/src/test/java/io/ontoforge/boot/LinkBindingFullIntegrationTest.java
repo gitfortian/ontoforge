@@ -782,7 +782,7 @@ class LinkBindingFullIntegrationTest {
                     .put("revision", 4);
             java.util.Set<String> acceptedSnapshotRefs = new java.util.HashSet<>();
             String survivingCursor = null;
-            int accepted = 0;
+            int admittedFrozen = 0;
             int refused = 0;
             int timedOut = 0;
             try (var callers = Executors.newFixedThreadPool(6)) {
@@ -806,7 +806,7 @@ class LinkBindingFullIntegrationTest {
                         assertThat(body.path("nextCursor").asText()).startsWith("v2.");
                         assertThat(acceptedSnapshotRefs.add(body.path("resultSnapshotRef").asText()))
                                 .as("Each accepted query freezes a unique result identity").isTrue();
-                        accepted++;
+                        admittedFrozen++;
                         survivingCursor = body.path("nextCursor").asText();
                     } else {
                         assertThat(reply.getStatusCode().value())
@@ -821,11 +821,11 @@ class LinkBindingFullIntegrationTest {
                     }
                 }
             }
-            assertThat(accepted).as("No more than 32 service-wide frozen snapshots")
+            assertThat(admittedFrozen).as("No more than 32 service-wide frozen snapshots")
                     .isBetween(1, 32);
             assertThat(refused).as("Concurrent cache admission must reject overflow")
                     .isGreaterThan(0);
-            assertThat(accepted + refused + timedOut).isEqualTo(40);
+            assertThat(admittedFrozen + refused + timedOut).isEqualTo(40);
             assertThat(survivingCursor).isNotNull();
             ResponseEntity<String> stillValid = traversePage(survivingCursor);
             assertThat(stillValid.getStatusCode().value()).as(stillValid.getBody()).isEqualTo(200);
