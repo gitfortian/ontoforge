@@ -395,8 +395,47 @@ public class LinkTraverseService {
         result.put("objectCount", distinctOutput.size());
         result.put("linkCount", distinctLink.size());
         result.put("pathCount", distinctLink.size());
-        result.put("pageSize", request.pageSize());
-        result.put("pageNumber", 1);
+        if (request.aggregateOperation() == null) {
+            result.put("pageSize", request.pageSize());
+            result.put("pageNumber", 1);
+        } else {
+            result.put("resultKind", "AGGREGATE");
+            String operation = request.aggregateOperation();
+            ObjectNode aggregate = result.putObject("aggregate");
+            aggregate.put("operation", operation);
+            aggregate.put("matchedObjects", resultObjects.size());
+            if ("COUNT_DISTINCT".equals(operation)) {
+                aggregate.put("valueType", "INTEGER");
+                aggregate.put("value", Integer.toString(resultObjects.size()));
+            } else {
+                String property = request.aggregateProperty();
+                String type = outputTypes.get(property);
+                if (!Set.of("INTEGER", "DECIMAL").contains(type)) {
+                    throw fail(422,"INVALID_AGGREGATE_TYPE","SUM 必须引用冻结目标端数值类型","steps");
+                }
+                BigDecimal sum = BigDecimal.ZERO;
+                for (JsonNode object : resultObjects) {
+                    String key = object.path("objectRef").path("key").path("value").asText();
+                    String value = outputIndex.get(key).values().get(property);
+                    if (value == null) continue; // SQL SUM: NULL contributes nothing.
+                    try {
+                        sum = sum.add(new BigDecimal(value));
+                    } catch (NumberFormatException ex) {
+                        throw fail(409, "AGGREGATE_SOURCE_TYPE_CONFLICT",
+                                "来源数值与冻结属性类型不符，不能给出确定 SUM", "steps");
+                    }
+                }
+                aggregate.put("propertyRef",property);
+                aggregate.put("valueType","DECIMAL");
+                aggregate.put("value",sum.stripTrailingZeros().toPlainString());
+            }
+            // AGGREGATE response is a scalar, not an unbounded hidden page.
+            result.set("objects",mapper.createArrayNode());
+            result.set("links",mapper.createArrayNode());
+            result.put("objectCount",0);
+            result.put("linkCount",0);
+            result.put("pathCount",0);
+        }
         long resultBytes = result.toString().getBytes(StandardCharsets.UTF_8).length;
         budget.put("serializedResultBytes", resultBytes);
         if (result.toString().getBytes(StandardCharsets.UTF_8).length > request.maxResultBytes()) {
@@ -409,6 +448,7 @@ public class LinkTraverseService {
             throw fail(409, "LINK_VERSION_UNAVAILABLE", "查询执行期间关系版本变化", "steps");
         }
         if (System.nanoTime() > deadline) throw fail(503, "QUERY_TIMEOUT", "来源执行整体超时", "limits");
+        if (request.aggregateOperation() != null) return result;
         Frozen saved = new Frozen(frozenId, actorKey(auth), now.plusSeconds(300), result.deepCopy(),
                 request.pageSize(), request.direction(), request.packageId(), request.snapshotId(),
                 link.linkBindingId(), link.revision(), link.digest(),
