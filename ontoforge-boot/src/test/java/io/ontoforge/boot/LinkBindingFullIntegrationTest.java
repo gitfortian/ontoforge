@@ -772,7 +772,7 @@ class LinkBindingFullIntegrationTest {
                 + " FROM generate_series(1,1000) AS g");
         try {
             // L15-L16: concurrent real HTTP queries compete for ONE service-wide
-            // frozen-result cache (32 slots, <=16 MiB retained JSON), not
+            // frozen-result cache (32 slots, <=16 MiB retained JSON) and 4 active\n            // builders, not
             // isolated per-thread mock caches. Accepted queries retain signed
             // snapshot identity; rejected queries expose no partial payload.
             ObjectNode concurrentPage = traverseRequest(pkg, snapshotId, equipment, lot, id,
@@ -812,7 +812,7 @@ class LinkBindingFullIntegrationTest {
                         assertThat(reply.getStatusCode().value())
                                 .as(reply.getBody()).isIn(429, 503);
                         assertThat(body.path("code").asText())
-                                .isIn("RESULT_SNAPSHOT_BUDGET", "QUERY_TIMEOUT");
+                                .isIn("RESULT_SNAPSHOT_BUDGET", "QUERY_CONCURRENCY_BUDGET", "QUERY_TIMEOUT");
                         assertThat(body.has("objects")).isFalse();
                         assertThat(body.has("links")).isFalse();
                         assertThat(body.has("nextCursor")).isFalse();
@@ -823,7 +823,7 @@ class LinkBindingFullIntegrationTest {
             }
             assertThat(admittedFrozen).as("No more than 32 service-wide frozen snapshots")
                     .isBetween(1, 32);
-            assertThat(refused).as("Concurrent cache admission must reject overflow")
+            assertThat(refused).as("Concurrent execution/cache admission must refuse overflow")
                     .isGreaterThan(0);
             assertThat(admittedFrozen + refused + timedOut).isEqualTo(40);
             assertThat(survivingCursor).isNotNull();
