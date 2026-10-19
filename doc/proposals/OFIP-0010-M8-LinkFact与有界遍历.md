@@ -165,10 +165,24 @@ M8 主 Issue 作为上述切片的验收汇总；M8.1 完成只能勾选首切�
 
 ---
 
-## 2026-10-19 治理进展：R1 正式签收、R2 进入评审（不构成 OFIP 决策）
+## 2026-10-19 治理进展：R1 / R2 产品设计均已签收（不构成 OFIP Accepted）
 
 - **R1**：产品所有者在 ChatGPT 会话中明确“认可，进入 R2”，签收 [PR #77](https://github.com/gitfortian/ontoforge/pull/77) 中经纠错的 D1–D7 产品方向。R1 已 squash 合并 `58636a8f6264838826119e59d24646e892cd59e6`。
 - **R1 审核修正的规范依据**：不同查询 root 的孤儿不混算；M5 强制来源唯一键，外键端点不可构造重复主键作为合法去重正例；ONE_TO_ONE + TARGET FK 用于可达的真实基数冲突；历史 Binding revision 与当前授权资格分开判定。
-- **R2 正在审查**：[PR #79](https://github.com/gitfortian/ontoforge/pull/79) 的 [R2 领域/API/执行候选](../design/M8-LinkBinding-Traverse-R2-领域API与执行合同评审.md) 及三份 [候选 JSON Schema](../design/candidates/m8-r2/)；推荐 `local-link-binding-v1` + 独立 `local-query-v2/local-result-v2`，以免向后破坏 M7 的单来源 `local-query-v1`。R2-D1–D8 全部待正式技术/产品签收，**不自动升级为已经批准的生产合同**。
-- **差异处理**：本 OFIP 早期大范围的外键+桥表+二跳总体规划仅作为长期方向，首交付以已签收 R1 的 M8.1 外键双向一跳为准。R2 审核通过后，将正式对齐本 OFIP 的 API/预算/状态机内容，而不是保留两个相互冲突的权威方案。
-- **门禁未变**：`Status: Discussion`；`Decision: Pending`；`Implementation: Not Started`；`Release: Not Released`。当前没有记录针对 OFIP-0010 的维护者 `[VOTE] Accepted`；新 M8 UX-Low、UX-High 均未签收；未授权生产实现。
+- **R2 产品设计已正式审定**：产品所有者明确要求“正式审定”，批准 [PR #79](https://github.com/gitfortian/ontoforge/pull/79) 的 [R2-D1–D8 设计基线](../design/M8-LinkBinding-Traverse-R2-领域API与执行合同评审.md)（见“10.2 R2 产品正式审定记录”）。包括 LinkBinding 不可变修订与 CAS、双 scope 孤儿处理、FULL 验证资格、单 PG 双端一致性、全端预算/权限/游标、现有 UX 入口，以及**独立 `local-link-binding-v1` + `local-query-v2/local-result-v2`**。三份 [候选 JSON Schema](../design/candidates/m8-r2/) 尚未由生产服务消费；合并设计 PR 不等于维护者对 OFIP 的 Accepted。
+- **差异处理**：本 OFIP 早期外键+桥表+两跳总体规划保留为路线图；产品已确认首交付仅 M8.1 外键双向一跳（M8.2 桥表、M8.3 显式两跳单独评审/验收）。本文如存在与已审定 R2 关于 scope、历史版本资格、FULL 校验、FK 方向/基数、query v2、双端授权/快照/预算不一致的早期草案文字，**以后附产品审定的 R2 合同为设计基线**；在获得维护者正式决策前，该基线仍不是已生效生产规范。
+- **门禁未变**：`Status: Discussion`；`Decision: Pending`；`Implementation: Not Started`；`Release: Not Released`。**产品 R2 签收只是设计授权**，当前没有任何因此而自动成立的维护者 `[VOTE] Accepted`；新 M8 UX-Low、UX-High 均未签收；未授权生产实现。
+
+### R2 产品审定的正式合同摘要（OFIP 决策仍 Pending）
+
+| 部分 | 2026-10-19 已批准的 M8.1 设计基线 | 后续证据门槛 |
+| --- | --- | --- |
+| 身份/版本 | 同 LOCAL_SNAPSHOT 的 LinkType + 双端 Object Binding 不可变修订；LinkBinding Head、Revision、CAS 与幂等；历史修订仅在当前完整可核验时执行 | 历史重开、保存重试、版本漂移与 CAS 冲突 |
+| FK / 基数 | FK 只能指向对端 M5 身份列；SOURCE FK→MANY_TO_ONE，TARGET FK→ONE_TO_MANY，可额外校验 ONE_TO_ONE；M:N 留待 M8.2 | PG 外键方向、NULL/空字符串、基数/身份冲突 |
+| 验证 / 质量 | ValidationScope 与 TraversalScope 分离；只接受在预算内 FULL 核验后保存 VALID 或 VALID_WITH_ORPHANS；只让受影响 root 显示 PARTIAL/KNOWN_SUBSET | 不能用抽样冒充完整；无关 root 不被孤儿污染 |
+| 查询合同 | local-link-binding-v1，独立 local-query-v2 / local-result-v2；rootSelector 唯一根条件、一段 TRAVERSE、Target Filter 与终结查询 | M7 v1 原样兼容，严格 Schema / AST 安全负例 |
+| 多端事务 / 证据 | 同隔离 PG 的一次只读 REPEATABLE_READ；应用元数据 CAS 非跨库原子；两端 SourceReadRef、两条 OBJECT 和一条 LINK 版本及来源指纹 | 结构漂移与权限撤销、执行前后资格复核 |
+| 预算 / 游标 | 双端扫描合计 10k、中间 Join ≤10k、LinkFact ≤10k、来源/结果各 ≤8 MiB、来源执行 3s、page ≤50、TTL ≤300s | 禁止先无界 Join 再截断；撤权恢复旧 cursor 仍 410 |
+| UX | Native“关系类型”→配置/核验/CAS 保存→ObjectSet 一跳 OUT/IN→证据/异常恢复 | **全新** UX-Low、UX-High 必须分别签收 |
+
+以上是经产品审定但**尚待 OFIP-0010 维护者决议**的权威设计基线。候选 REST 资源路径、迁移号、物理表名和 JSON Schema 不意味着已开发。正式生产实现仍需 UX 双阶段签收 + 维护者明确的 `[VOTE] Accepted`（理由、日期与 permalink）。
