@@ -1,0 +1,520 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ontoforge.local/schema/candidates/m8/local-query-v2.candidate.schema.json",
+  "title": "M8 R2 Candidate - single-hop typed local Traverse query",
+  "description": "Review-only candidate, not the approved M7 local-query-v1 or Native DSL contract. Runtime must additionally enforce step ordering, correct side type, version and source locks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "queryVersion",
+    "rootTypeRef",
+    "rootBindingRef",
+    "rootSelector",
+    "steps"
+  ],
+  "properties": {
+    "queryVersion": {
+      "const": "local-query-v2"
+    },
+    "rootTypeRef": {
+      "$ref": "#/$defs/typeRef"
+    },
+    "rootBindingRef": {
+      "$ref": "#/$defs/bindingRef"
+    },
+    "rootSelector": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "objectRef"
+          ],
+          "properties": {
+            "kind": {
+              "const": "OBJECT_REF"
+            },
+            "objectRef": {
+              "$ref": "#/$defs/objectRef"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "conditions"
+          ],
+          "properties": {
+            "kind": {
+              "const": "BOUNDED_ROOT_FILTER"
+            },
+            "conditions": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "items": {
+                "$ref": "#/$defs/condition"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "maxPhysicalRows": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "maxJoinCandidates": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "maxLinks": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "maxSourceBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8388608
+        },
+        "maxSerializedResultBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8388608
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 16,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/filterStep"
+          },
+          {
+            "$ref": "#/$defs/traverseStep"
+          },
+          {
+            "$ref": "#/$defs/sortStep"
+          },
+          {
+            "$ref": "#/$defs/projectStep"
+          },
+          {
+            "$ref": "#/$defs/pageStep"
+          },
+          {
+            "$ref": "#/$defs/aggregateStep"
+          }
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "$ref": "#/$defs/traverseStep"
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/pageStep"
+              },
+              {
+                "$ref": "#/$defs/aggregateStep"
+              }
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "typeRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceRef",
+        "packageId",
+        "objectTypeId"
+      ],
+      "properties": {
+        "sourceRef": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "snapshotId"
+          ],
+          "properties": {
+            "kind": {
+              "const": "LOCAL_SNAPSHOT"
+            },
+            "snapshotId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "packageId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "objectTypeId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        }
+      }
+    },
+    "bindingRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bindingId",
+        "revision"
+      ],
+      "properties": {
+        "bindingId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "objectRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageId",
+        "objectTypeId",
+        "identityDomainId",
+        "key"
+      ],
+      "properties": {
+        "packageId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objectTypeId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        },
+        "identityDomainId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "key": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "valueType",
+            "value"
+          ],
+          "properties": {
+            "valueType": {
+              "enum": [
+                "STRING",
+                "INTEGER"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        }
+      }
+    },
+    "literal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valueType",
+        "value"
+      ],
+      "properties": {
+        "valueType": {
+          "enum": [
+            "STRING",
+            "INTEGER",
+            "DECIMAL",
+            "BOOLEAN",
+            "ENUM",
+            "DATETIME",
+            "DATE",
+            "UUID"
+          ]
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": "string",
+              "maxLength": 4096
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "propertyRef",
+        "operator"
+      ],
+      "properties": {
+        "propertyRef": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        },
+        "operator": {
+          "enum": [
+            "EQ",
+            "IN",
+            "GT",
+            "GTE",
+            "LT",
+            "LTE",
+            "PREFIX",
+            "IS_NULL"
+          ]
+        },
+        "literal": {
+          "$ref": "#/$defs/literal"
+        },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/literal"
+          }
+        }
+      }
+    },
+    "filterStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "scope",
+        "conditions"
+      ],
+      "properties": {
+        "kind": {
+          "const": "FILTER"
+        },
+        "scope": {
+          "enum": [
+            "ROOT",
+            "TARGET"
+          ]
+        },
+        "conditions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/condition"
+          }
+        }
+      }
+    },
+    "traverseStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "linkTypeRef",
+        "linkBindingRef",
+        "direction",
+        "maxDepth"
+      ],
+      "properties": {
+        "kind": {
+          "const": "TRAVERSE"
+        },
+        "linkTypeRef": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        },
+        "linkBindingRef": {
+          "$ref": "#/$defs/bindingRef"
+        },
+        "direction": {
+          "enum": [
+            "OUT",
+            "IN"
+          ]
+        },
+        "maxDepth": {
+          "const": 1
+        }
+      }
+    },
+    "sortStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "fields"
+      ],
+      "properties": {
+        "kind": {
+          "const": "SORT"
+        },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "propertyRef",
+              "direction"
+            ],
+            "properties": {
+              "propertyRef": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{1,63}$"
+              },
+              "direction": {
+                "enum": [
+                  "ASC",
+                  "DESC"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "projectStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "propertyRefs"
+      ],
+      "properties": {
+        "kind": {
+          "const": "PROJECT"
+        },
+        "propertyRefs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{1,63}$"
+          }
+        }
+      }
+    },
+    "pageStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "pageSize"
+      ],
+      "properties": {
+        "kind": {
+          "const": "PAGE"
+        },
+        "pageSize": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        }
+      }
+    },
+    "aggregateStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "operation"
+      ],
+      "properties": {
+        "kind": {
+          "const": "AGGREGATE"
+        },
+        "operation": {
+          "enum": [
+            "COUNT_DISTINCT",
+            "SUM"
+          ]
+        },
+        "propertyRef": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "SUM"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "propertyRef"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "COUNT_DISTINCT"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "propertyRef"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
