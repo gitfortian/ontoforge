@@ -68,8 +68,8 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
   const filterableProperties=properties.filter(p=>p.searchable&&mappedRefs.has(p.id));
   const sortableProperties=properties.filter(p=>mappedRefs.has(p.id)&&['STRING','INTEGER','DECIMAL','BOOLEAN','ENUM','DATETIME','DATE','UUID'].includes(canonicalType(p.valueType)));
   const propertyLabel=(ref:string)=>{const p=propertyById.get(ref);return p?(p.label||p.apiName)+' · '+p.id:ref;};
-  const activeFilterSummary=filters.filter(f=>f.propertyRef&&(f.operator==='IS_NULL'||f.value.trim()!==''))
-    .map(f=>propertyLabel(f.propertyRef)+' '+labelOperator(f.operator)+(f.operator==='IS_NULL'?' SQL NULL':' '+f.value.trim())).join(' AND ')||'无';
+  const activeFilterSummary=filters.map(f=>propertyLabel(f.propertyRef)+' '+labelOperator(f.operator)
+    +(f.operator==='IS_NULL'?' SQL NULL':!f.value.trim()?' [待填写]':' '+f.value.trim())).join(' AND ')||'无';
   const sortSummary=sorts.map(s=>propertyLabel(s.propertyRef)+' '+s.direction).join(' → ')||'ObjectRef 稳定顺序';
   const projectSummary=project.map(propertyLabel).join('、')||'未选择';
   const outputSummary=mode==='PAGE'?'列表 · 每页 '+pageSize+' 条':aggregateOperation==='COUNT_DISTINCT'
@@ -150,7 +150,7 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
   }
   function buildSteps(){
     const steps:Array<Record<string,unknown>>=[];
-    const active=filters.filter(f=>f.propertyRef&&(f.operator==='IS_NULL'||f.value.trim()!==''));
+    const active=filters;
     if(active.length){
       const conditions=active.map(f=>{
         const property=propertyById.get(f.propertyRef)!;
@@ -175,6 +175,18 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
   }
   async function executeQuery(){
     if(!binding||!descriptor)return;
+    // An explicitly added condition is never optional: silently dropping it
+    // would broaden the query and could disclose more objects than intended.
+    const incompleteIndex=filters.findIndex(f=>!f.propertyRef||!propertyById.has(f.propertyRef)
+      ||(f.operator!=='IS_NULL'&&(!f.value.trim()
+        ||(f.operator==='IN'&&f.value.split(',').some(part=>!part.trim())))));
+    if(incompleteIndex!==-1){
+      clearResultState();
+      setError({code:'FILTER_INCOMPLETE',
+        message:'第 '+(incompleteIndex+1)+' 条筛选条件未完整填写；请补全值或明确删除该条件后再查询。',
+        fieldPath:'filters['+incompleteIndex+']'});
+      return;
+    }
     if(mode==='PAGE'&&project.length===0){setError({code:'PROJECT_REQUIRED',message:'至少选择一个结果属性。'});return;}
     if(mode==='AGGREGATE'&&aggregateOperation==='SUM'&&!aggregateProperty){setError({code:'AGGREGATE_PROPERTY_REQUIRED',message:'请选择用于 SUM 的数值属性。'});return;}
     const generation=++operationGeneration.current;
@@ -243,10 +255,10 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
           <div className="object-set-mode"><Button className={mode==='PAGE'?'active':''} onClick={()=>{setMode('PAGE');clearResultState();setError(null);}}>对象列表</Button><Button className={mode==='AGGREGATE'?'active':''} onClick={()=>{setMode('AGGREGATE');clearResultState();setError(null);}}><Sigma size={14}/> 聚合统计</Button></div>
           <div className="object-set-step"><div className="object-set-step-head"><strong>01 · 筛选</strong><span>AND · 最多 8 条</span></div>
             {filterableProperties.length===0&&<p className="object-set-hint">当前 Binding 没有同时满足“可搜索”且“已映射”的属性。请返回本体建模启用可搜索，并在 M5 完成字段映射、校验和保存后重新进入。</p>}
-            {filters.map((filter,index)=>{const property=propertyById.get(filter.propertyRef);const options=property?operatorsFor(property.valueType):['EQ'];return <div className="object-set-filter-row" key={filter.id}>
+            {filters.map((filter,index)=>{const property=propertyById.get(filter.propertyRef);const options=property?operatorsFor(property.valueType):['EQ'];return <div className="object-set-filter-row" key={filter.id} data-incomplete={error?.code==='FILTER_INCOMPLETE'&&error.fieldPath==='filters['+index+']'?'true':undefined}>
               <label><span>属性</span><select value={filter.propertyRef} onChange={e=>{const p=propertyById.get(e.target.value);updateFilter(filter.id,{propertyRef:e.target.value,operator:p?operatorsFor(p.valueType)[0]:'EQ',value:''});}}>{filterableProperties.map(p=><option key={p.id} value={p.id}>{propertyLabel(p.id)}</option>)}</select></label>
               <label><span>操作</span><select value={filter.operator} onChange={e=>updateFilter(filter.id,{operator:e.target.value,value:''})}>{options.map(op=><option key={op} value={op}>{labelOperator(op)}</option>)}</select></label>
-              {filter.operator!=='IS_NULL'&&<label className="object-set-filter-value"><span>{filter.operator==='IN'?'值（逗号分隔）':'值'}</span>{property&&canonicalType(property.valueType)==='BOOLEAN'?<select value={filter.value} onChange={e=>updateFilter(filter.id,{value:e.target.value})}><option value="">请选择</option><option value="true">true</option><option value="false">false</option></select>:<Input value={filter.value} onChange={e=>updateFilter(filter.id,{value:e.target.value})} placeholder={filter.operator==='IN'?'A,B,C':'输入规范值'}/>}</label>}
+              {filter.operator!=='IS_NULL'&&<label className="object-set-filter-value"><span>{filter.operator==='IN'?'值（逗号分隔）':'值'}</span>{property&&canonicalType(property.valueType)==='BOOLEAN'?<select value={filter.value} aria-invalid={error?.code==='FILTER_INCOMPLETE'&&error.fieldPath==='filters['+index+']'||undefined} onChange={e=>updateFilter(filter.id,{value:e.target.value})}><option value="">请选择</option><option value="true">true</option><option value="false">false</option></select>:<Input value={filter.value} aria-invalid={error?.code==='FILTER_INCOMPLETE'&&error.fieldPath==='filters['+index+']'||undefined} onChange={e=>updateFilter(filter.id,{value:e.target.value})} placeholder={filter.operator==='IN'?'A,B,C':'输入规范值'}/>}</label>}
               <Button className="object-set-icon-button" aria-label={'删除筛选条件 '+(index+1)} onClick={()=>{setFilters(old=>old.filter(f=>f.id!==filter.id));clearResultState();}}>×</Button>
             </div>;})}
             <Button className="model-btn object-set-add" onClick={addFilter} disabled={filters.length>=8||filterableProperties.length===0}>＋ 添加筛选条件</Button>

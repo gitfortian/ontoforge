@@ -95,7 +95,7 @@ P0 是**建模产品可用门槛**，P1 才是**工业业务价值开始成立�
 
 ## 3.3 M5–M14 需求 Review 与设计提案状态（2026-10-18）
 
-> 本轮已完成 M5–M14 的逐项 Issue Review。维护者已在 [PR #58](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6244833403) 接受 OFIP-0007；M5 已通过 [PR #63](https://github.com/gitfortian/ontoforge/pull/63) 合并。M6 的 UX-Low（PR #64）与 UX-High（PR #65）已获产品所有者签收并归档；维护者于 2026-10-18 在 [PR #58](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6246406521) 正式接受 OFIP-0008。M6 纵向代码已通过 [PR #68](https://github.com/gitfortian/ontoforge/pull/68) 合并，来源权限故障语义硬化已通过 [PR #71](https://github.com/gitfortian/ontoforge/pull/71) 合并；两条 PR 的当前 head CI 与真实 PG17 + API + React/Chromium 黄金故事均 PASS。OFIP-0009–OFIP-0016 仍保持 Discussion / Decision Pending / Implementation Not Started / Not Released。提案 Accepted、代码实现、自动化验收、Windows UAT 与产品发布分别记账。
+> 本轮已完成 M5–M14 的逐项 Issue Review。维护者已在 [PR #58](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6244833403) 接受 OFIP-0007；M5 已通过 [PR #63](https://github.com/gitfortian/ontoforge/pull/63) 合并。M6 的 UX-Low（PR #64）与 UX-High（PR #65）已获产品所有者签收并归档；维护者于 2026-10-18 在 [PR #58](https://github.com/gitfortian/ontoforge/pull/58#issuecomment-6246406521) 正式接受 OFIP-0008。M6 纵向代码已通过 [PR #68](https://github.com/gitfortian/ontoforge/pull/68) 合并，来源权限故障语义硬化已通过 [PR #71](https://github.com/gitfortian/ontoforge/pull/71) 合并；两条 PR 的当前 head CI 与真实 PG17 + API + React/Chromium 黄金故事均 PASS。OFIP-0009 及 OFIP-0011–0016 的具体决策应逐项核对其当前文件；**OFIP-0010 的 M8.1 首阶段于 2026-10-19 获 [Owner 受托正式 Accepted 决策](https://github.com/gitfortian/ontoforge/pull/88#issuecomment-6259511734)，只批准生产研发启动，Implementation Not Started / Release Not Released，M8.2/M8.3 未批准**。提案 Accepted、代码实现、自动化验收、Windows UAT 与产品发布分别记账。
 
 | M | Issue / 设计提案 | 设计收敛结果 | 当前边界与实施门槛 |
 | --- | --- | --- | --- |

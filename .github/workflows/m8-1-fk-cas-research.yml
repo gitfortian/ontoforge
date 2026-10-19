@@ -1,0 +1,55 @@
+name: M8.1 Experimental FK and CAS PostgreSQL 17 Preflight
+
+# NON-PRODUCTION research only. This is not M8.1 Java/API/React E2E, and does
+# not approve OFIP-0010 or authorize a runtime implementation.
+on:
+  pull_request:
+    paths:
+      - "experiments/pg-runtime/run_m81_fk_cas_preflight.py"
+      - ".github/workflows/m8-1-fk-cas-research.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  disposable-m81-pg17:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ontopoc
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ontopoc"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      POC_PG_DSN: postgresql://postgres:postgres@127.0.0.1:5432/ontopoc
+      M81_DISPOSABLE_PG17: "1"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install pinned psycopg research dependency
+        run: python -m pip install "psycopg[binary]==3.2.10"
+      - name: Syntax-check research experiment
+        run: python -m py_compile experiments/pg-runtime/run_m81_fk_cas_preflight.py
+      - name: Exercise disposable PG17 FK/identity and CAS/idempotency evidence
+        run: python experiments/pg-runtime/run_m81_fk_cas_preflight.py
+      - name: Upload research facts and negative-case outcomes
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: m81-fk-cas-pg17-research
+          path: experiments/pg-runtime/artifacts/m81_fk_preflight.json
+          if-no-files-found: warn
+          retention-days: 14

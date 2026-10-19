@@ -77,3 +77,11 @@ python experiments/pg-runtime/run_final_gates.py
 **安全与可靠性边界**：本实验仅模拟业务接受回执，并不验证真实 ERP 业务效果；连接以超级用户身份建模并使用 SET ROLE 的 RLS 用例不是生产权限架构；不保证任意高扇出查询的 SLA，也不能据此声称跨 ERP 的 Exactly Once。
 
 阅读 [统一架构 V1.3](../../doc/本体产品总体功能与技术架构设计_v1.3.md) 第6、8、13、14章，了解 POC 证据、可采用的 P0 基线和仍不可冻结的生产能力。
+
+## M8.1 · FK/身份域与 CAS 幂等研究前置验证（2026-10-19）
+
+这一实验单独针对 M8.1 的**设计风险**，不读写 OntoForge 产品数据表、不创建 LinkBinding 生产 API，不向 OFIP-0010 提供维护者投票。入口：[run_m81_fk_cas_preflight.py](run_m81_fk_cas_preflight.py) / [专用 PG17 研究 CI](../../.github/workflows/m8-1-fk-cas-research.yml)。
+
+实验范围：在一次性 `ontopoc` 库建立临时专属 `m81_fk_preflight` schema，真实 `READ ONLY REPEATABLE READ` 中读取两端 PK/FK、正确 OUT/IN、NULL 与空字符串、单根孤儿、ONE_TO_ONE 基数冲突；验证不同对象身份域仍允许基于受控 FK→PK 值匹配产生 LinkFact。再在独立**实验元数据表**运行 UPDATE 保存结果未知后的幂等恢复（同键同 digest 返回原 revision、同键不同 digest 冲突、不同键同 expectedRevision 并发 CAS 只允许一个成功），以及 >10k 物理行的 Join 前拒绝条件。
+
+**独立运行前提（严格安全守卫）**：只允许 loopback `postgresql://postgres:...@127.0.0.1:5432/ontopoc`、显式 `M81_DISPOSABLE_PG17=1`，并要求实验 schema 不存在；运行结束删除**仅自身创建的** schema。不得连接业务库或共享数据库。推荐使用 CI 自带的 PostgreSQL 17 service container。代码即使 PASS，也**不证明生产**：应用身份/授权、M5 双端指纹、精确 ObjectSet v2 AST/HTTP、真正 Java transaction boundary、签名 cursor/JWT、React UX 及 Spring Boot E2E 均 **NOT RUN**。该研究不能替代以后 M8.1 纵向生产 PR 的 L01–L18 验收。
