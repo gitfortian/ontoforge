@@ -303,6 +303,24 @@ class M81LinkBindingUXHighBrowser(unittest.TestCase):
         self.assertIn("没有查看", self.page.locator("#ev-version").inner_text())
         self.assertTrue(self.page.locator("#result-box").is_hidden())
 
+    def test_draft_context_and_frozen_execution_versions_must_not_be_mixed(self):
+        self.page.locator("#source-binding").select_option("B-11:r1")
+        self.assertIn("B-11:r1", self.page.locator("#source-version-summary").inner_text())
+        self.assertIn("尚无 LinkBinding", self.page.locator("#persist-pill").inner_text())
+        self.page.locator("#config-validate").click()
+        self.page.locator("#continue-save").click()
+        self.page.locator("#save-binding").click()
+        self.query()
+        self.page.locator("#tab-evidence").click()
+        self.assertIn("B-11:r1", self.page.locator("#ev-version").inner_text())
+        self.page.locator("#tab-config").click()
+        self.page.locator("#source-binding").select_option("B-11:r2")
+        self.assertIn("B-11:r2", self.page.locator("#source-version-summary").inner_text())
+        self.assertIn("LB-DEMO-021 · r1", self.page.locator("#persist-pill").inner_text())
+        self.page.locator("#tab-evidence").click()
+        self.page.locator("#discard-confirm").click()
+        self.assertIn("B-11:r1", self.page.locator("#ev-version").inner_text())
+
     def test_narrow_viewport_has_no_horizontal_overflow(self):
         self.page.set_viewport_size({"width": 375, "height": 812})
         self.assertTrue(self.page.locator("#view-config").is_visible())
