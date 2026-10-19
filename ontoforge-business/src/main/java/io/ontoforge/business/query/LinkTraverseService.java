@@ -593,19 +593,26 @@ public class LinkTraverseService {
         ArrayNode links = mapper.createArrayNode();
         int end = Math.min(offset + saved.pageSize(), allObjects.size());
         // O(pageSize + frozenLinkFacts), NOT O(pageSize * frozenLinkFacts).
-        // A single endpoint may be reachable through many distinct roots; all
-        // of those LinkFacts belong to its page. Never assume one edge/object.
+        // Index page-relevant edges once; emit their groups in the exact SORT
+        // order of output ObjectRefs. Scanning all edges and appending directly
+        // would restore physical scan order and contradict the sorted UI table.
         Set<String> pageRefs = new HashSet<>();
         for (int i = offset; i < end; i++) {
             JsonNode object = allObjects.get(i);
             objects.add(object.deepCopy());
             pageRefs.add(object.path("objectRef").toString());
         }
-        // OUT/IN is frozen in the query, never inferred from endpoint type names:
-        // self-relationships have the same type on both sides.
+        // OUT/IN is frozen with the query; self-links cannot use type equality.
         boolean out = "OUT".equals(saved.direction());
+        Map<String, List<JsonNode>> pageEdges = new HashMap<>();
         for (JsonNode edge : allLinks) {
-            if (pageRefs.contains((out ? edge.path("target") : edge.path("source")).toString())) {
+            String endpoint = (out ? edge.path("target") : edge.path("source")).toString();
+            if (pageRefs.contains(endpoint)) {
+                pageEdges.computeIfAbsent(endpoint, k -> new ArrayList<>()).add(edge);
+            }
+        }
+        for (JsonNode object : objects) {
+            for (JsonNode edge : pageEdges.getOrDefault(object.path("objectRef").toString(), List.of())) {
                 links.add(edge.deepCopy());
             }
         }
