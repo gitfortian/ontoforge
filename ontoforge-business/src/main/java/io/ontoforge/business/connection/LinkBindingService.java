@@ -93,7 +93,11 @@ public class LinkBindingService {
             String snapshotId, String linkTypeId, String digest, boolean historical,
             String validationStatus, String fkOwner, String fkSourceColumn,
             String referencedIdentityColumn, String sourceBindingId, long sourceBindingRevision,
-            String targetBindingId, long targetBindingRevision) {}
+            String sourceBindingDigest, String targetBindingId, long targetBindingRevision,
+            String targetBindingDigest, String modelPayloadSha256, String linkTypeHash,
+            String sourceSchemaFingerprint, String targetSchemaFingerprint,
+            JsonNode validationScope, JsonNode validationQuality,
+            Instant checkedAt) {}
 
     private record Context(LinkRequest request, NativeSnapshotService.Snapshot snapshot,
             JsonNode linkType, String linkTypeHash, DataBindingService.BindingDetail source,
@@ -242,11 +246,24 @@ public class LinkBindingService {
                     rs.getString("content_digest"), historical, rs.getString("validation_status"),
                     rs.getString("fk_owner"), rs.getString("fk_source_column"),
                     rs.getString("referenced_identity_column"), rs.getObject("source_binding_id", UUID.class).toString(),
-                    rs.getLong("source_binding_revision"),
+                    rs.getLong("source_binding_revision"), rs.getString("source_binding_digest"),
                     rs.getObject("target_binding_id", UUID.class).toString(),
-                    rs.getLong("target_binding_revision")), id, packageId, revision);
+                    rs.getLong("target_binding_revision"), rs.getString("target_binding_digest"),
+                    rs.getString("model_payload_sha256"), rs.getString("link_type_hash"),
+                    rs.getString("source_schema_fingerprint"), rs.getString("target_schema_fingerprint"),
+                    parseEvidence(rs.getString("validation_scope")),
+                    parseEvidence(rs.getString("validation_quality")),
+                    rs.getTimestamp("checked_at").toInstant()), id, packageId, revision);
         } catch (org.springframework.dao.EmptyResultDataAccessException ex) {
             throw fail(404, "LINK_REVISION_NOT_FOUND", "版本不可见或不存在", "revision");
+        }
+    }
+
+    private JsonNode parseEvidence(String json) {
+        try {
+            return mapper.readTree(json);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+            throw fail(500, "LINK_STORAGE_INVALID", "已保存的关系证据无法验证", "revision");
         }
     }
 
