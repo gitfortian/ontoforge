@@ -78,21 +78,23 @@ class LinkBindingFullIntegrationTest {
         jdbc.execute("DROP TABLE IF EXISTS public." + EQUIPMENT);
         jdbc.execute("""
                 CREATE TABLE public.m8_equipment_source (
-                    equipment_code TEXT PRIMARY KEY, label TEXT NOT NULL, site TEXT NOT NULL)
+                    equipment_code TEXT PRIMARY KEY, label TEXT NOT NULL, site TEXT NOT NULL,
+                    cost NUMERIC(12,2) NOT NULL)
                 """);
         jdbc.execute("""
                 CREATE TABLE public.m8_inspection_source (
-                    lot_code TEXT PRIMARY KEY, equipment_code TEXT NULL, status TEXT NOT NULL)
+                    lot_code TEXT PRIMARY KEY, equipment_code TEXT NULL, status TEXT NOT NULL,
+                    amount NUMERIC(12,2) NULL)
                 """);
         jdbc.update("""
-                INSERT INTO public.m8_equipment_source(equipment_code,label,site)
-                VALUES ('EQ-001','Lathe 1','A'),('EQ-002','Lathe 2','B')
+                INSERT INTO public.m8_equipment_source(equipment_code,label,site,cost)
+                VALUES ('EQ-001','Lathe 1','A',100.00),('EQ-002','Lathe 2','B',200.00)
                 """);
         jdbc.update("""
-                INSERT INTO public.m8_inspection_source(lot_code,equipment_code,status)
-                VALUES ('LOT-11','EQ-001','PASS'),('LOT-12','EQ-001','PASS'),
-                       ('LOT-13',NULL,'HOLD'),('LOT-14','EQ-NO','FAIL'),
-                       ('LOT-15','','FAIL')
+                INSERT INTO public.m8_inspection_source(lot_code,equipment_code,status,amount)
+                VALUES ('LOT-11','EQ-001','PASS',10.00),('LOT-12','EQ-001','PASS',20.00),
+                       ('LOT-13',NULL,'HOLD',NULL),('LOT-14','EQ-NO','FAIL',40.00),
+                       ('LOT-15','','FAIL',50.00)
                 """);
         jdbc.execute("GRANT SELECT ON public." + EQUIPMENT + " TO ontoforge_binding_reader");
         jdbc.execute("GRANT SELECT ON public." + INSPECTION + " TO ontoforge_binding_reader");
@@ -115,6 +117,10 @@ class LinkBindingFullIntegrationTest {
                 "equipment-label", "label", "equipment-site", "site");
         addType(types, "inspection-lot", "InspectionLot", "lot-code", "lotCode",
                 "equipment-ref", "equipmentRef", "inspection-status", "status");
+        decimalProperty(((ObjectNode) types.get(0)).withArray("properties"),
+                "equipment-cost", "equipmentCost");
+        decimalProperty(((ObjectNode) types.get(1)).withArray("properties"),
+                "inspection-amount", "amount");
         ArrayNode links = editor.putArray("linkTypes");
         link(links, "equipment-inspections", "equipmentInspections", "ONE_TO_MANY");
         link(links, "equipment-single-inspection", "equipmentSingleInspection", "ONE_TO_ONE");
@@ -136,11 +142,12 @@ class LinkBindingFullIntegrationTest {
         DataBindingService.BindingDetail equipment = createBinding(snapshotId, "equipment",
                 EQUIPMENT, "equipment_code",
                 new String[][]{{"equipment-code", "equipment_code"},
-                        {"equipment-label", "label"}, {"equipment-site", "site"}});
+                        {"equipment-label", "label"}, {"equipment-site", "site"},
+                        {"equipment-cost","cost"}});
         DataBindingService.BindingDetail lot = createBinding(snapshotId, "inspection-lot",
                 INSPECTION, "lot_code",
                 new String[][]{{"lot-code", "lot_code"}, {"equipment-ref", "equipment_code"},
-                        {"inspection-status", "status"}});
+                        {"inspection-status", "status"}, {"inspection-amount","amount"}});
         assertThat(equipment.identityDomainId()).isNotEqualTo(lot.identityDomainId());
 
         ObjectNode request = mapper.createObjectNode();
@@ -457,7 +464,7 @@ class LinkBindingFullIntegrationTest {
         // Demand >8MiB from a single source FK field; fail during streaming,
         // never after holding a full, possibly unbounded source table in memory.
         jdbc.execute("INSERT INTO public." + INSPECTION
-                + " (lot_code,equipment_code,status) VALUES ('LOT-HUGE',repeat('Z',8388609),'FAIL')");
+                + " (lot_code,equipment_code,status,amount) VALUES ('LOT-HUGE',repeat('Z',8388609),'FAIL',0)");
         try {
             ResponseEntity<String> huge = post("/validate", request);
             assertThat(huge.getStatusCode().value()).isEqualTo(429);
@@ -517,6 +524,13 @@ class LinkBindingFullIntegrationTest {
         p.put("id", id); p.put("apiName", name); p.put("valueType", "STRING");
         p.put("required", required); p.put("searchable", true);
         p.put("classification", "INTERNAL");
+    }
+
+    private void decimalProperty(ArrayNode props, String id, String name) {
+        ObjectNode property = props.addObject();
+        property.put("id",id);property.put("apiName",name);property.put("valueType","DECIMAL");
+        property.put("required",false);property.put("searchable",true);
+        property.put("classification","INTERNAL");
     }
 
     private void link(ArrayNode links, String id, String apiName, String cardinality) {
