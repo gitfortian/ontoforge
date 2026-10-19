@@ -8,11 +8,12 @@ import os
 import unittest
 from pathlib import Path
 from urllib.parse import quote
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from playwright.sync_api import sync_playwright
-from b0_fixture import assigned_package, headers
+from b0_fixture import CONFIG, assigned_package, headers
 
 BASE = "http://127.0.0.1:5173"
 API = "http://127.0.0.1:8080/api"
@@ -159,6 +160,25 @@ class RealM8BrowserGoldenStory(unittest.TestCase):
         }
         frozen = api("/runtime/object-sets/traverse", "POST", cursor_query)
         assert frozen["nextCursor"].startswith("v2.")
+        # The real outside JWT has no assignment to this package. Neither a
+        # fresh object query nor a copied signed cursor may reveal identities or
+        # source evidence across workspaces.
+        for endpoint, request_body in (
+            ("/runtime/object-sets/traverse", cursor_query),
+            ("/runtime/object-sets/traverse/pages", {"cursor": frozen["nextCursor"]}),
+        ):
+            outsider = Request(API + endpoint, data=json.dumps(request_body).encode("utf-8"),
+                method="POST", headers={
+                    "Authorization": "Bearer " + CONFIG["outsiderToken"],
+                    "Content-Type": "application/json"})
+            try:
+                with urlopen(outsider, timeout=15):
+                    raise AssertionError("Outside JWT unexpectedly received M8 protected object data")
+            except HTTPError as denied:
+                assert denied.code == 403, f"Expected JWT 403 on {endpoint}: {denied.code}"
+                redacted = json.loads(denied.read())
+                assert "objects" not in redacted and "links" not in redacted, redacted
+                assert "sourceReadRefs" not in redacted and "CELL-01" not in str(redacted), redacted
         evidence = os.getenv("E2E_M8_CURSOR_EVIDENCE")
         if evidence:
             Path(evidence).write_text(json.dumps({
