@@ -112,12 +112,13 @@
 | P2-10 | 状态/编号治理 | 当前 `OF-Fxx.xx.xx` 编码已与老 F01–F29 区分，是改进；但必须有跨历史编号/Issue/PR 的一对多映射和改号记录 |
 | P2-11 | 安全路线 | B0 已合并 OIDC/JWT，未来优先复用 yak-ops HttpSession；复用决定不意味着已迁移代码或可以绕过撤权、来源查询的服务端 PEP |
 | P2-12 | 页面视觉一致性 | 当前代码能证实导航和业务交互入口，**未做浏览器截图/人工实测**，不能把“交互体验达商业标准”写入正式签收；M11 仍要走低保真→高保真→实现门禁 |
+| P2-13 | UI/API 类型合同不一致 | [DraftValidation.java](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java) 接受 UUID（包括必填主键），但 [NativeModelWorkspace.tsx](../../ontoforge-ui/src/NativeModelWorkspace.tsx) 属性下拉无 UUID、主键候选限定 STRING/INTEGER。应补 UI、主键类型提示与同一版本合同测试；现阶段只可宣传六类类型的表单编辑 |
 
 ## 5. 代码与产品事实抽查
 
 | 核对对象 | 当前代码级事实 | 对产品评审的约束 |
 |---|---|---|
-| Native 建模与关系 | [NativeModelWorkspace](../../ontoforge-ui/src/NativeModelWorkspace.tsx) 支持删除对象时保留悬空 Link 引用，由校验阻止冻结；[DraftValidation](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java) 支持 `UUID` 属性类型与主键类型限制 | 功能说明不得宣称删除对象自动清理全部关系；类型说明补齐 UUID，不把所有类型当允许主键 |
+| Native 建模与关系 | [NativeModelWorkspace](../../ontoforge-ui/src/NativeModelWorkspace.tsx) 支持删除对象时保留悬空 Link 引用，由校验阻止冻结；[DraftValidation](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java) 服务端允许 `UUID` 与 UUID 主键，但 NativeModelWorkspace 的属性下拉只暴露六类（无 UUID），主键候选逻辑也仅放行 STRING/INTEGER | 产品合同与表单能力存在落差：不能把后台允许 UUID 写成用户已可配置 UUID；后续应补前端 UI 与跨层用例 |
 | 本地快照 | [NativeSnapshotService](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeSnapshotService.java) 提供真实事务、不可变快照、摘要和 Diff | 明确非 SchemaRelease |
 | M5 Binding | [DataBindingController](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/DataBindingController.java) 具备 source tables、list、preview、validate、create、update、revisions、detail；[DataBindingService](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DataBindingService.java) 限受控只读 PG | 可计为主线已实现的纵向有限闭环，不计为企业连接器 |
 | M6 Object | [ObjectRuntimeController](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/ObjectRuntimeController.java) 有 `POST /api/runtime/objects/read`，返回单次读取证据和类型化值 | 不存在全量对象写存储/多源统一身份 |
