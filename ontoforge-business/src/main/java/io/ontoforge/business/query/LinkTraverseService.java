@@ -312,10 +312,10 @@ public class LinkTraverseService {
         versionLock.set("sourceSchemaFingerprints", fingerprints);
 
         ArrayNode sourceReadRefs = mapper.createArrayNode();
-        sourceRead(sourceReadRefs, readSourceId, sourceBinding, left, sourceFk, "SOURCE",
-                rows.startedAt(), rows.completedAt());
-        sourceRead(sourceReadRefs, readTargetId, targetBinding, right, targetFk, "TARGET",
-                rows.startedAt(), rows.completedAt());
+        sourceRead(sourceReadRefs, readSourceId, sourceBinding, left, sourceFk,
+                out ? rootColumns : targetColumns, "SOURCE", rows.startedAt(), rows.completedAt());
+        sourceRead(sourceReadRefs, readTargetId, targetBinding, right, targetFk,
+                out ? targetColumns : rootColumns, "TARGET", rows.startedAt(), rows.completedAt());
 
         ObjectNode result = mapper.createObjectNode();
         result.put("status", "SUCCESS");
@@ -783,7 +783,7 @@ public class LinkTraverseService {
 
     private SourceRows readSource(Requested r, DataBindingService.BindingDetail a,
             DataBindingService.BindingDetail b, String sourceFk, String targetFk,
-            long deadline) {
+            Map<String, String> sourceColumns, Map<String, String> targetColumns, long deadline) {
         JdbcTemplate configured = sourceProvider.getIfAvailable();
         if (configured == null || configured.getDataSource() == null) {
             throw fail(503, "SOURCE_UNAVAILABLE", "独立来源只读连接不存在", "rootBindingRef");
@@ -795,8 +795,8 @@ public class LinkTraverseService {
             connection.setAutoCommit(false);
             try {
                 Budget budget = new Budget();
-                List<Fact> left = scan(connection, a.sourceTable(), a.sourceKey(), sourceFk, budget, r, deadline);
-                List<Fact> right = scan(connection, b.sourceTable(), b.sourceKey(), targetFk, budget, r, deadline);
+                List<Fact> left = scan(connection, a.sourceTable(), a.sourceKey(), sourceFk, sourceColumns, budget, r, deadline);
+                List<Fact> right = scan(connection, b.sourceTable(), b.sourceKey(), targetFk, targetColumns, budget, r, deadline);
                 return new SourceRows(left, right, budget.bytes, readStarted, Instant.now());
             } finally {
                 connection.rollback();
@@ -807,22 +807,38 @@ public class LinkTraverseService {
     }
 
     private static List<Fact> scan(Connection c, String table, String key, String fk,
-            Budget budget, Requested request, long deadline) throws SQLException {
+            Map<String, String> selected, Budget budget, Requested request, long deadline) throws SQLException {
         if (!IDENT.matcher(table).matches() || !IDENT.matcher(key).matches()
                 || fk != null && !IDENT.matcher(fk).matches()) {
             throw fail(403, "SOURCE_NOT_ALLOWED", "来源名称无效", "rootBindingRef");
         }
-        String sql = "SELECT \"" + key + "\"" + (fk == null ? "" : ",\"" + fk + "\"")
-                + " FROM public.\"" + table + "\" ORDER BY \"" + key + "\" LIMIT ?";
+        List<Map.Entry<String, String>> extra = selected.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey()).toList();
+        StringBuilder sql = new StringBuilder("SELECT \\"").append(key).append("\\"");
+        if (fk != null) sql.append(",\\"").append(fk).append("\\"");
+        for (Map.Entry<String, String> column : extra) {
+            if (!IDENT.matcher(column.getValue()).matches()) {
+                throw fail(422, "UNSUPPORTED_FILTER_FIELD", "来源列不满足受控数据库标识符约束", "conditions");
+            }
+            sql.append(",\\"").append(column.getValue()).append("\\"");
+        }
+        sql.append(" FROM public.\\"").append(table).append("\\" ORDER BY \\"")
+                .append(key).append("\\" LIMIT ?");
         List<Fact> data = new ArrayList<>();
-        try (PreparedStatement statement = c.prepareStatement(sql)) {
+        try (PreparedStatement statement = c.prepareStatement(sql.toString())) {
             statement.setQueryTimeout(Math.max(1, request.timeout()));
             statement.setFetchSize(10);
             statement.setInt(1, request.maxRows() + 1);
             try (ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
                     if (rs.getObject(1) == null) throw fail(409, "IDENTITY_CONFLICT", "来源对象主键为空", "rootBindingRef");
-                    Fact fact = new Fact(value(rs.getObject(1)), fk == null ? null : value(rs.getObject(2)));
+                    Map<String, String> props = new HashMap<>();
+                    int base = fk == null ? 2 : 3;
+                    for (int n = 0; n < extra.size(); n++) {
+                        props.put(extra.get(n).getKey(), value(rs.getObject(base + n)));
+                    }
+                    Fact fact = new Fact(value(rs.getObject(1)),
+                            fk == null ? null : value(rs.getObject(2)), props);
                     budget.accept(fact, request, deadline);
                     data.add(fact);
                 }
@@ -881,12 +897,16 @@ public class LinkTraverseService {
     }
     private static void sourceRead(ArrayNode out, String readId,
             DataBindingService.BindingDetail binding, DataBindingService.SourceTable table,
-            String fk, String role, Instant startedAt, Instant completedAt) {
+            String fk, Map<String, String> extras, String role,
+            Instant startedAt, Instant completedAt) {
         ObjectNode x=out.addObject();
         x.put("id",readId);x.put("role",role);x.put("sourceId",binding.sourceId());
         x.put("schema",binding.sourceSchema());x.put("table",binding.sourceTable());
         ArrayNode cols=x.putArray("columns");cols.add(binding.sourceKey());
         if (fk != null && !binding.sourceKey().equals(fk)) cols.add(fk);
+        for (String col : new java.util.TreeSet<>(extras.values())) {
+            if (!col.equals(fk) && !col.equals(binding.sourceKey())) cols.add(col);
+        }
         x.put("schemaFingerprint",table.schemaFingerprint());
         x.put("transactionIsolation","REPEATABLE_READ");
         ObjectNode check=x.putObject("checkpoint");
