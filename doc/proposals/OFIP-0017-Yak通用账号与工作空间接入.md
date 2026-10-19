@@ -6,7 +6,7 @@
 
 **Decision:** [VOTE] Accepted — 2026-10-19，维护者明确接受本合同并授权 B1 → B2 → C1 实施；[永久决定记录](https://github.com/gitfortian/ontoforge/pull/94#issuecomment-6261109442)。
 
-**Implementation:** In Progress — B1 工作分支正在实现；本提案 PR 不包含生产代码。已有 B0 JWT/包授权及公共 UI 不属于本提案的新实现。
+**Implementation:** In Progress — [B1 Session / PR #96](https://github.com/gitfortian/ontoforge/pull/96)、[B2 账号管理 / PR #97](https://github.com/gitfortian/ontoforge/pull/97)、[C1 空间与成员 / PR #98](https://github.com/gitfortian/ontoforge/pull/98) 已分别提交开发实现与独立验证证据；尚待审阅、合并和用户既有安装验收。本提案 PR 不包含生产代码，不据 CI 推定生产签收或发布。
 
 **Release:** Not Released
 
