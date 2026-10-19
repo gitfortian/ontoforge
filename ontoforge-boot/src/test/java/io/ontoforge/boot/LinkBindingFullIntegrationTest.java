@@ -318,6 +318,8 @@ class LinkBindingFullIntegrationTest {
         JsonNode sortedFirst = mapper.readTree(sortedResponse.getBody());
         assertThat(sortedFirst.path("objects").get(0).path("objectRef").path("key").path("value").asText())
                 .isEqualTo("LOT-12");
+        assertThat(sortedFirst.path("links").get(0).path("target").path("key").path("value").asText())
+                .isEqualTo("LOT-12");
         JsonNode amount = sortedFirst.path("objects").get(0).path("properties").get(0);
         assertThat(amount.path("propertyRef").asText()).isEqualTo("inspection-amount");
         assertThat(amount.path("valueType").asText()).isEqualTo("DECIMAL");
@@ -326,6 +328,8 @@ class LinkBindingFullIntegrationTest {
         assertThat(sortedFirst.path("sourceReadRefs").toString()).contains("amount");
         JsonNode sortedSecond = mapper.readTree(traversePage(sortedFirst.path("nextCursor").asText()).getBody());
         assertThat(sortedSecond.path("objects").get(0).path("objectRef").path("key").path("value").asText())
+                .isEqualTo("LOT-11");
+        assertThat(sortedSecond.path("links").get(0).path("target").path("key").path("value").asText())
                 .isEqualTo("LOT-11");
         assertThat(sortedSecond.path("resultSnapshotRef")).isEqualTo(sortedFirst.path("resultSnapshotRef"));
 
