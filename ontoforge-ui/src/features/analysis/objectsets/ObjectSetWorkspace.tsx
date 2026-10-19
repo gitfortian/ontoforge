@@ -1,4 +1,5 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
+import LinkTraversalWorkspace from './LinkTraversalWorkspace';
 import {ArrowLeft, CheckCircle2, ChevronRight, Database, Filter, RefreshCw, ShieldAlert, Sigma} from 'lucide-react';
 import {authorizedFetch} from '../../../shared/api/auth';
 import '../../design/modeling/model.css';
@@ -301,5 +302,6 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
         </section>
       </div>
     </>}
+    <LinkTraversalWorkspace packageId={binding?.packageId||packageInput.trim()}/>
   </div>;
 }
