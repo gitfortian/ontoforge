@@ -283,7 +283,56 @@
             }
           ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "valueType": {
+                "const": "BOOLEAN"
+              }
+            },
+            "required": [
+              "valueType"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "valueType": {
+                "enum": [
+                  "STRING",
+                  "INTEGER",
+                  "DECIMAL",
+                  "ENUM",
+                  "DATETIME",
+                  "DATE",
+                  "UUID"
+                ]
+              }
+            },
+            "required": [
+              "valueType"
+            ]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "string",
+                "maxLength": 4096
+              }
+            }
+          }
+        }
+      ]
     },
     "condition": {
       "type": "object",
@@ -320,7 +369,88 @@
             "$ref": "#/$defs/literal"
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operator": {
+                "const": "IS_NULL"
+              }
+            },
+            "required": [
+              "operator"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "literal"
+                  ]
+                },
+                {
+                  "required": [
+                    "values"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operator": {
+                "const": "IN"
+              }
+            },
+            "required": [
+              "operator"
+            ]
+          },
+          "then": {
+            "required": [
+              "values"
+            ],
+            "not": {
+              "required": [
+                "literal"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operator": {
+                "enum": [
+                  "EQ",
+                  "GT",
+                  "GTE",
+                  "LT",
+                  "LTE",
+                  "PREFIX"
+                ]
+              }
+            },
+            "required": [
+              "operator"
+            ]
+          },
+          "then": {
+            "required": [
+              "literal"
+            ],
+            "not": {
+              "required": [
+                "values"
+              ]
+            }
+          }
+        }
+      ]
     },
     "filterStep": {
       "type": "object",
