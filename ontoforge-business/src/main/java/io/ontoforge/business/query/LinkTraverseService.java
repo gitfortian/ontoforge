@@ -24,6 +24,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -102,13 +103,16 @@ public class LinkTraverseService {
 
     private record Fact(String key, String fk, Map<String, String> values) {}
     private record Condition(String propertyRef, String operator, String valueType, List<String> values) {}
+    private record SortField(String propertyRef, String direction) {}
     private static final int MAX_ROOTS = 50;
     private record SourceRows(List<Fact> source, List<Fact> target, long bytes,
             Instant startedAt, Instant completedAt) {}
     private record Requested(String packageId, String snapshotId, String rootTypeId,
             String rootBindingId, long rootBindingRevision, String rootDomain,
             String rootKeyType, String rootKey, String selectorKind,
-            List<Condition> rootConditions, List<Condition> targetConditions, String direction,
+            List<Condition> rootConditions, List<Condition> targetConditions,
+            List<SortField> sort, List<String> project,
+            String aggregateOperation, String aggregateProperty, String direction,
             String linkTypeId, String linkBindingId, long linkBindingRevision,
             int pageSize, int maxRows, int maxJoin, int maxLinks,
             long maxSourceBytes, long maxResultBytes, int timeout) {}
@@ -217,6 +221,11 @@ public class LinkTraverseService {
                 request.rootConditions(), out ? left : right);
         Map<String, String> targetColumns = mappedConditionColumns(output, snapshot.snapshotContent(),
                 request.targetConditions(), out ? right : left);
+        Set<String> outputFields = new HashSet<>(request.project());
+        for (SortField sort : request.sort()) outputFields.add(sort.propertyRef());
+        if (request.aggregateProperty() != null) outputFields.add(request.aggregateProperty());
+        targetColumns.putAll(mappedResultColumns(output, snapshot.snapshotContent(),
+                outputFields, out ? right : left));
         SourceRows rows = readSource(request, sourceBinding, targetBinding, sourceFk, targetFk,
                 out ? rootColumns : targetColumns, out ? targetColumns : rootColumns, deadline);
         Map<String, Fact> leftIndex = uniqueIndex(rows.source());
@@ -294,6 +303,35 @@ public class LinkTraverseService {
         }
         if (candidates > request.maxJoin() || distinctLink.size() > request.maxLinks()) {
             throw fail(429, "QUERY_BUDGET_EXCEEDED", "一跳候选或 LinkFact 超过预算", "limits");
+        }
+        // Post-join output is deduplicated by full endpoint identity. Sort is
+        // stable with ObjectRef primary-key tie-break, before frozen pagination.
+        Map<String, Fact> outputIndex = out ? rightIndex : leftIndex;
+        Map<String, String> outputTypes = fieldTypes(snapshot.snapshotContent(), output.objectTypeId());
+        for (JsonNode item : resultObjects) {
+            String key = item.path("objectRef").path("key").path("value").asText();
+            Fact fact = outputIndex.get(key);
+            if (fact == null) throw fail(409, "LINK_RESULT_CONFLICT", "结果源对象不存在", "steps");
+            ArrayNode props = (ArrayNode) item.path("properties");
+            for (String property : request.project()) {
+                ObjectNode value = props.addObject();
+                String raw = fact.values().get(property);
+                value.put("propertyRef", property);
+                value.put("valueType", outputTypes.get(property));
+                value.put("status", raw == null ? "NULL" : "PRESENT");
+                if (raw != null) value.put("value", raw);
+                value.put("sourceReadRef", out ? readTargetId : readSourceId);
+            }
+        }
+        if (!request.sort().isEmpty()) {
+            List<JsonNode> ordered = new ArrayList<>();
+            resultObjects.forEach(ordered::add);
+            ordered.sort((a, b) -> sortCompare(
+                    outputIndex.get(a.path("objectRef").path("key").path("value").asText()),
+                    outputIndex.get(b.path("objectRef").path("key").path("value").asText()),
+                    request.sort(), outputTypes));
+            resultObjects.removeAll();
+            ordered.forEach(resultObjects::add);
         }
         Instant now = Instant.now();
         ArrayNode bindingVersions = mapper.createArrayNode();
