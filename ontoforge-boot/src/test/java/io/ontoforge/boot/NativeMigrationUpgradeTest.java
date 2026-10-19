@@ -6,7 +6,7 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Exercises an existing V2 installation -> V7, in a new owned test schema only. */
+/** Exercises an existing V2 installation -> V8, in a new owned test schema only. */
 class NativeMigrationUpgradeTest {
     @Test void upgradePreservesExistingInstallationAndDraft() throws Exception {
         String url=System.getenv("TEST_DB_URL");
@@ -43,7 +43,7 @@ class NativeMigrationUpgradeTest {
                 }
                 assertThat(current.migrate().migrationsExecuted).isZero();
                 try(var row=sql.executeQuery("SELECT count(*) FROM flyway_schema_history WHERE success")) {
-                    row.next();assertThat(row.getInt(1)).isEqualTo(7);
+                    row.next();assertThat(row.getInt(1)).isEqualTo(8);
                 }
                 try(var row=sql.executeQuery("SELECT count(*) FROM mvp_source_batches")) {
                     row.next();assertThat(row.getInt(1)).isEqualTo(2);

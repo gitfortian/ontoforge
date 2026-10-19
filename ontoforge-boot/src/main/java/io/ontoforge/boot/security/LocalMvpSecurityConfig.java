@@ -25,7 +25,7 @@ public class LocalMvpSecurityConfig {
         LocalMvpSettings.requireIsolatedEnvironment(bindAddress,jdbcUrl);
         http.csrf(csrf->csrf.disable())
             .authorizeHttpRequests(authorize->authorize
-                .requestMatchers("/api/system/status","/api/me","/api/model/**",
+                .requestMatchers("/api/system/status","/api/auth/context","/api/me","/api/model/**",
                                  "/api/mvp/quality/**", "/api/runtime/sources/**",
                                  "/api/runtime/bindings", "/api/runtime/bindings/**", "/api/runtime/objects/**", "/api/runtime/object-sets/**").permitAll()
                 .anyRequest().denyAll());

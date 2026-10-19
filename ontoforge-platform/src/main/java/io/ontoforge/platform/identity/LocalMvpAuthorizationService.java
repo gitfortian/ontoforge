@@ -38,5 +38,14 @@ public final class LocalMvpAuthorizationService extends B0AuthorizationService {
     @Override public void requireSnapshot(Authentication ignored,UUID snapshotId,Operation operation) {
         // This is deliberately not a production authorization check.
     }
+    @Override public String actorKey(Authentication authentication) {
+        return localRequest(authentication)?"LOCAL_ISOLATED":super.actorKey(authentication);
+    }
+    @Override public String accessMode(Authentication authentication) {
+        return localRequest(authentication)?"LOCAL_ISOLATED":super.accessMode(authentication);
+    }
+    private static boolean localRequest(Authentication authentication) {
+        return authentication==null || authentication instanceof org.springframework.security.authentication.AnonymousAuthenticationToken;
+    }
     @Override public Set<String> readablePackageIds(Authentication ignored) { return Set.of(); }
 }

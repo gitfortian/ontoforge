@@ -871,7 +871,7 @@ class DataBindingIntegrationTest {
         Jwt otherJwt = Jwt.withTokenValue("m7-cursor-other-subject").header("alg", "none")
                 .issuer("https://cursor-test.invalid").subject("other-subject").build();
         assertThatThrownBy(() -> objectSetQueries.nextPage(mapper.createObjectNode().put("cursor", cursor),
-                new JwtAuthenticationToken(otherJwt)))
+                new JwtAuthenticationToken(otherJwt, List.of())))
                 .isInstanceOfSatisfying(ObjectSetQueryService.QueryException.class,
                         exception -> assertThat(exception.http()).isEqualTo(403));
 

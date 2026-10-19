@@ -19,6 +19,7 @@ public class PlatformStatusService {
         return new PlatformStatus("ontoforge","S0-MVP-0.3","CONNECTED",installations.installationId(),
                 "DRAFT_AVAILABLE","LOCAL_SNAPSHOT_AVAILABLE",
                 Arrays.asList(environment.getActiveProfiles()).contains("mvp-local")
-                    ? "LOCAL_MVP_ONLY" : "JWT_PACKAGE_AUTHORIZATION");
+                    ? "LOCAL_MVP_ONLY" : environment.getProperty("ontoforge.security.authentication-mode","local-session").equals("local-session")
+                        ? "SESSION_PACKAGE_AUTHORIZATION" : "JWT_PACKAGE_AUTHORIZATION");
     }
 }

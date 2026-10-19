@@ -1,6 +1,15 @@
 server:
   address: ${S0_HOST:127.0.0.1}
   port: ${PORT:8080}
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        name: ONTOFORGE_SESSION
+        path: /api
+        http-only: true
+        same-site: lax
+        secure: ${ONTOFORGE_SESSION_COOKIE_SECURE:false}
 spring:
   application:
     name: ontoforge
@@ -24,6 +33,11 @@ ontoforge:
       # URL and credentials are intentionally not defaulted: M5 fails closed until a dedicated reader is provisioned.
       allowed-tables: ${ONTOFORGE_BINDING_SOURCE_ALLOWED_TABLES:m5_supplier_source}
   security:
+    authentication-mode: ${ONTOFORGE_SECURITY_AUTHENTICATION_MODE:local-session}
+    bootstrap:
+      enabled: ${ONTOFORGE_BOOTSTRAP_ADMIN_ENABLED:false}
+      username: ${ONTOFORGE_BOOTSTRAP_ADMIN_USERNAME:}
+      password: ${ONTOFORGE_BOOTSTRAP_ADMIN_PASSWORD:}
     oidc:
       # Production must provide all three values. Missing values fail application startup.
       issuer: ${OIDC_ISSUER_URI:}

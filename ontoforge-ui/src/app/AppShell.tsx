@@ -22,9 +22,10 @@ type AppShellProps = {
   identity?: WorkspaceIdentity;
   dirty: boolean;
   logout: () => void;
+  signIn: () => void;
 };
 
-export default function AppShell({ children, location, navigate, identity, dirty, logout }: AppShellProps) {
+export default function AppShell({ children, location, navigate, identity, dirty, logout, signIn }: AppShellProps) {
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const { theme, resolvedTheme, persistent, setTheme } = useTheme();
   const active = navigation.find(item => location.startsWith(item.prefix)) ?? navigation[0];
@@ -41,6 +42,7 @@ export default function AppShell({ children, location, navigate, identity, dirty
         <span className="app-identity">{identity ? (local ? '本机隔离 MVP · 无登录' : identity.displayName) : '身份待验证'}</span>
         <Button variant="ghost" className="app-topbar-button" aria-label="界面设置" onClick={() => setAppearanceOpen(true)}><Palette size={16}/><span>外观</span></Button>
         {identity && !local && <Button variant="ghost" className="app-topbar-button" onClick={logout}><LogOut size={15}/>退出会话</Button>}
+        {!identity && <Button variant="ghost" className="app-topbar-button" onClick={signIn}>登录</Button>}
       </div>
     </header>
     <div className="app-body">

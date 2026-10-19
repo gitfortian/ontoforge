@@ -51,7 +51,6 @@ import org.springframework.dao.QueryTimeoutException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -309,7 +308,7 @@ public class ObjectSetQueryService {
                 query.limits().maxSerializedResultBytes(), query.limits().timeoutSeconds());
         Instant now = Instant.now();
         String id = UUID.randomUUID().toString();
-        String accessMode = authentication instanceof JwtAuthenticationToken ? "JWT_AUTHENTICATED" : "LOCAL_ISOLATED";
+        String accessMode = authorization.accessMode(authentication);
         StoredSnapshot stored = new StoredSnapshot(id, actorKey(authentication), executionId, digest,
                 "local-result:" + id, now, now.plusSeconds(ttlSeconds), binding, type,
                 sourceTable.schemaFingerprint(), query.pageSize() == null ? 1 : query.pageSize(),
@@ -1257,14 +1256,7 @@ public class ObjectSetQueryService {
         cursors.entrySet().removeIf(entry -> id.equals(entry.getValue().snapshotId()));
     }
 
-    private String actorKey(Authentication authentication) {
-        if (authentication instanceof JwtAuthenticationToken token) {
-            String issuer = token.getToken().getIssuer() == null ? "" : token.getToken().getIssuer().toString();
-            String subject = token.getToken().getSubject() == null ? "" : token.getToken().getSubject();
-            return "jwt:" + issuer + ":" + subject;
-        }
-        return "LOCAL_ISOLATED";
-    }
+    private String actorKey(Authentication authentication) { return authorization.actorKey(authentication); }
 
     private static String canonicalType(String type) {
         if (type == null) return "";
