@@ -234,11 +234,44 @@ class LinkBindingFullIntegrationTest {
                 "OUT", "EQ-002", 50);
         assertThat(mapper.readTree(traverse(zeroOut).getBody()).path("links").size()).isZero();
 
-        ObjectNode pageOverflow = traverseRequest(pkg, snapshotId, equipment, lot, id,
+        ObjectNode paged = traverseRequest(pkg, snapshotId, equipment, lot, id,
                 "equipment-inspections", "OUT", "EQ-001", 1);
-        ResponseEntity<String> refused = traverse(pageOverflow);
-        assertThat(refused.getStatusCode().value()).isEqualTo(422);
-        assertThat(refused.getBody()).contains("TRAVERSE_PAGING_NOT_READY");
+        ResponseEntity<String> firstPage = traverse(paged);
+        assertThat(firstPage.getStatusCode().value()).as(firstPage.getBody()).isEqualTo(200);
+        JsonNode firstPageBody = mapper.readTree(firstPage.getBody());
+        assertThat(firstPageBody.path("objects").size()).isEqualTo(1);
+        assertThat(firstPageBody.path("links").size()).isEqualTo(1);
+        assertThat(firstPageBody.path("pageNumber").asInt()).isEqualTo(1);
+        String nextCursor = firstPageBody.path("nextCursor").asText();
+        assertThat(nextCursor).startsWith("v2.");
+        ResponseEntity<String> secondPage = traversePage(nextCursor);
+        assertThat(secondPage.getStatusCode().value()).as(secondPage.getBody()).isEqualTo(200);
+        JsonNode secondPageBody = mapper.readTree(secondPage.getBody());
+        assertThat(secondPageBody.path("objects").size()).isEqualTo(1);
+        assertThat(secondPageBody.path("links").size()).isEqualTo(1);
+        assertThat(secondPageBody.path("pageNumber").asInt()).isEqualTo(2);
+        assertThat(secondPageBody.path("nextCursor").isMissingNode()).isTrue();
+        assertThat(secondPageBody.path("resultSnapshotRef"))
+                .isEqualTo(firstPageBody.path("resultSnapshotRef"));
+        assertThat(secondPageBody.path("objects").get(0).path("objectRef").path("key").path("value"))
+                .isNotEqualTo(firstPageBody.path("objects").get(0).path("objectRef").path("key").path("value"));
+        ResponseEntity<String> tampered = traversePage(nextCursor.substring(0, nextCursor.length() - 1) + "X");
+        assertThat(tampered.getStatusCode().value()).isEqualTo(400);
+        assertThat(tampered.getBody()).contains("INVALID_CURSOR");
+
+        // Source permission revocation kills a previously issued cursor forever.
+        jdbc.execute("REVOKE SELECT ON public." + INSPECTION + " FROM ontoforge_binding_reader");
+        try {
+            ResponseEntity<String> deniedPage = traversePage(nextCursor);
+            assertThat(deniedPage.getStatusCode().value()).isEqualTo(403);
+            assertThat(deniedPage.getBody()).doesNotContain("LOT-12");
+        } finally {
+            jdbc.execute("GRANT SELECT ON public." + INSPECTION + " TO ontoforge_binding_reader");
+        }
+        ResponseEntity<String> cannotResurrect = traversePage(nextCursor);
+        assertThat(cannotResurrect.getStatusCode().value()).isEqualTo(410);
+        assertThat(cannotResurrect.getBody()).contains("RESULT_EXPIRED");
+
         ObjectNode extra = out.deepCopy();
         extra.withArray("steps").addObject().put("kind", "PAGE").put("pageSize", 50);
         assertThat(traverse(extra).getStatusCode().value()).isEqualTo(422);
@@ -420,6 +453,15 @@ class LinkBindingFullIntegrationTest {
         traverse.put("maxDepth", 1);
         steps.addObject().put("kind", "PAGE").put("pageSize", size);
         return body;
+    }
+
+    private ResponseEntity<String> traversePage(String cursor) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        ObjectNode body = mapper.createObjectNode().put("cursor", cursor);
+        return http.postForEntity(URI.create("http://127.0.0.1:" + port
+                        + "/api/runtime/object-sets/traverse/pages"),
+                new HttpEntity<>(body.toString(), headers), String.class);
     }
 
     private ResponseEntity<String> traverse(ObjectNode body) {
