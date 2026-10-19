@@ -112,7 +112,9 @@ public class LinkTraverseService {
                 request.packageId(), request.linkBindingRevision(), auth);
         if (link.historical() || !link.snapshotId().equals(request.snapshotId())
                 || !link.linkTypeId().equals(request.linkTypeId())
-                || !link.modelPayloadSha256().equals(snapshot.payloadSha256())) {
+                || !link.modelPayloadSha256().equals(snapshot.payloadSha256())
+                || !"FULL".equals(link.validationScope().path("coverage").asText())
+                || !Set.of("VALID", "VALID_WITH_ORPHANS").contains(link.validationStatus())) {
             throw fail(409, "LINK_VERSION_UNAVAILABLE",
                     "关系版本历史/快照不一致；请刷新当前 LinkBinding", "steps");
         }
@@ -141,6 +143,8 @@ public class LinkTraverseService {
         }
         String keyType = primaryKeyType(snapshot.snapshotContent(), root.objectTypeId());
         String outputKeyType = primaryKeyType(snapshot.snapshotContent(), output.objectTypeId());
+        String sourceKeyType = primaryKeyType(snapshot.snapshotContent(), sourceBinding.objectTypeId());
+        String targetKeyType = primaryKeyType(snapshot.snapshotContent(), targetBinding.objectTypeId());
         if (!keyType.equals(request.rootKeyType())) {
             throw fail(422, "INVALID_ROOT_OBJECT_REF", "根键类型必须等于冻结 ObjectType 的主键类型", "rootSelector");
         }
@@ -208,7 +212,7 @@ public class LinkTraverseService {
                         || (!out && target.key().equals(request.rootKey()))) {
                     candidates++;
                     addEdge(request, link, sourceBinding, targetBinding, source, target,
-                            outputKeyType, out, readSourceId, readTargetId,
+                            outputKeyType, sourceKeyType, targetKeyType, out, readSourceId, readTargetId,
                             distinctOutput, distinctLink, resultObjects, resultLinks);
                 }
             }
@@ -226,7 +230,7 @@ public class LinkTraverseService {
                         || (!out && target.key().equals(request.rootKey()))) {
                     candidates++;
                     addEdge(request, link, sourceBinding, targetBinding, source, target,
-                            outputKeyType, out, readSourceId, readTargetId,
+                            outputKeyType, sourceKeyType, targetKeyType, out, readSourceId, readTargetId,
                             distinctOutput, distinctLink, resultObjects, resultLinks);
                 }
             }
@@ -318,7 +322,8 @@ public class LinkTraverseService {
 
     private void addEdge(Requested r, LinkBindingService.LinkDetail link,
             DataBindingService.BindingDetail sourceBinding, DataBindingService.BindingDetail targetBinding,
-            Fact source, Fact target, String outputKeyType, boolean out,
+            Fact source, Fact target, String outputKeyType,
+            String sourceKeyType, String targetKeyType, boolean out,
             String sourceReadId, String targetReadId, Set<String> objects, Set<String> links,
             ArrayNode resultObjects, ArrayNode resultLinks) {
         String key = source.key() + "\u0000" + target.key();
@@ -334,18 +339,11 @@ public class LinkTraverseService {
         fact.put("linkTypeId", link.linkTypeId());
         fact.put("linkBindingId", link.linkBindingId());
         fact.put("linkBindingRevision", link.revision());
-        fact.set("source", objectRef(sourceBinding, source.key(),
-                primaryKeyTypeCached(sourceBinding)));
-        fact.set("target", objectRef(targetBinding, target.key(),
-                primaryKeyTypeCached(targetBinding)));
+        fact.set("source", objectRef(sourceBinding, source.key(), sourceKeyType));
+        fact.set("target", objectRef(targetBinding, target.key(), targetKeyType));
         ArrayNode refs = fact.putArray("sourceReadRefs");
         refs.add(sourceReadId);
         refs.add(targetReadId);
-    }
-
-    private static String primaryKeyTypeCached(DataBindingService.BindingDetail binding) {
-        return binding.fieldMappings().stream().filter(x -> x.sourceColumn().equals(binding.sourceKey()))
-                .findFirst().map(x -> "STRING").orElse("STRING");
     }
 
     private static ObjectNode objectRef(DataBindingService.BindingDetail binding, String key, String type) {
@@ -486,7 +484,7 @@ public class LinkTraverseService {
             throw fail(403, "SOURCE_NOT_ALLOWED", "来源名称无效", "rootBindingRef");
         }
         String sql = "SELECT \"" + key + "\"" + (fk == null ? "" : ",\"" + fk + "\"")
-                + " FROM public.\"" + table + "\" LIMIT ?";
+                + " FROM public.\"" + table + "\" ORDER BY \"" + key + "\" LIMIT ?";
         List<Fact> data = new ArrayList<>();
         try (PreparedStatement statement = c.prepareStatement(sql)) {
             statement.setQueryTimeout(Math.max(1, request.timeout()));
