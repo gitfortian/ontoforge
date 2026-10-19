@@ -10,7 +10,7 @@
 
 **Out of Scope / Pending Decisions:** M8.2 桥表 M:N、M8.3 显式两跳、跨来源/无界图遍历，**未经本次 Accepted 授权**；须未来独立产品及治理门禁。
 
-**Implementation:** Not Started
+**Implementation:** In Progress — [M8.1 真实前后端纵向 Draft PR #92](https://github.com/gitfortian/ontoforge/pull/92)；尚未生产签收。
 
 **Release:** Not Released
 
