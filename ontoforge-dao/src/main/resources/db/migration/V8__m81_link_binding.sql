@@ -92,13 +92,13 @@ CREATE TABLE m8_inspection_lot_source (
 );
 INSERT INTO m8_equipment_source VALUES
 ('EQ-001','Mill A','PLANT-A'),
-('EQ-002','Lathe B','PLANT-B'),('','Empty key fixture','PLANT-A');
+('EQ-002','Lathe B','PLANT-B'),('EQ-003','Press C','PLANT-A');
 INSERT INTO m8_inspection_lot_source VALUES
 ('LOT-11','EQ-001','PASSED','2026-09-03T01:00:00Z'),
 ('LOT-12','EQ-001','FAILED','2026-09-03T02:00:00Z'),
 ('LOT-13',NULL,'PASSED','2026-09-03T03:00:00Z'),
 ('LOT-14','EQ-UNKNOWN','FAILED','2026-09-03T04:00:00Z'),
-('LOT-15','','PASSED','2026-09-03T05:00:00Z');
+('LOT-15','EQ-003','PASSED','2026-09-03T05:00:00Z');
 
 -- Reader privileges remain strictly SELECT-only; app metadata is never granted.
 DO $$
