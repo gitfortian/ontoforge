@@ -4,6 +4,8 @@
 > **代码基线**：2026-10-19 main `c9de0336`，审查 Native 草稿/快照、M4–M7、QualityMVP、Spring/React 真实源码。**未运行用户 Windows 11 PostgreSQL/Chromium 实机 UAT，也不等同于生产安全/发布评审**。
 > **结论**：**产品功能范围结构有条件通过；实现成熟度限定认可；真实用户验收 NOT RUN；商业发布 NOT RELEASED；PR #78 仍为 Draft / 未获最终签收。**
 
+> **审查后新增工程变化提醒**：最新主线至 `c157d228` 已进行了多模块代码迁移。本文关于 M5/M7 的 Java 源码链接已指向重组后的 `ontoforge-business` 等路径；必须以本次 PR 合并目标 head 实际测试确认行为，不从旧源码目录路径推断最新 main 的接口或 CI 状态。
+
 ## 1. 数量复核与唯一权威
 
 | 检查对象 | 结果 | 评审判定 |
@@ -31,7 +33,7 @@ Flyway 迁移不等于可操作的升级/回滚产品；PowerShell 脱敏数据�
 
 ### R2-P1-03 采购黄金故事的受控来源前提不足（合同已整改）
 
-[DataBindingService](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DataBindingService.java) 使用来源 ID `local-pg-sandbox`，只允许 `public` 下由服务端登记的表。默认允许表配置见 [application.yml](../../ontoforge-boot/src/main/resources/application.yml)：`m5_supplier_source`，且要求独立最小权限只读账号。任意新建 Supplier/PurchaseOrder 类型不意味着自动出现相应来源数据。
+[DataBindingService](../../ontoforge-business/src/main/java/io/ontoforge/business/connection/DataBindingService.java) 使用来源 ID `local-pg-sandbox`，只允许 `public` 下由服务端登记的表。默认允许表配置见 [application.yml](../../ontoforge-boot/src/main/resources/application.yml)：`m5_supplier_source`，且要求独立最小权限只读账号。任意新建 Supplier/PurchaseOrder 类型不意味着自动出现相应来源数据。
 
 **处理**：U01 现在明确创建 Supplier/PurchaseOrder 的 Native 定义，但在当前 Core 仅对实际准备好的 `public.m5_supplier_source` 验证 Supplier Binding、Object Runtime、ObjectSet；PurchaseOrder 的实体 LinkFact/双向遍历仍归未实现的 M8。
 
