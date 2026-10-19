@@ -207,7 +207,23 @@ public class LinkBindingService {
         if (revision < 1 || revision > head.revision()) {
             throw fail(404, "LINK_REVISION_NOT_FOUND", "不存在此修订", "revision");
         }
-        return detail(id, packageId, revision, revision != head.revision());
+        LinkDetail stored = detail(id, packageId, revision, revision != head.revision());
+        // A visible package alone cannot grant continued access to historical
+        // source identities after a database SELECT grant has been revoked.
+        DataBindingService.BindingDetail sourceBinding = bindings.getBinding(
+                UUID.fromString(stored.sourceBindingId()), stored.sourceBindingRevision(), auth);
+        DataBindingService.BindingDetail targetBinding = bindings.getBinding(
+                UUID.fromString(stored.targetBindingId()), stored.targetBindingRevision(), auth);
+        Set<String> visibleTables = new HashSet<>();
+        for (DataBindingService.SourceTable table : bindings.listTables(packageId, auth)) {
+            visibleTables.add(table.table());
+        }
+        if (!visibleTables.contains(sourceBinding.sourceTable())
+                || !visibleTables.contains(targetBinding.sourceTable())) {
+            throw fail(403, "LINK_SOURCE_UNAVAILABLE",
+                    "当前无权读取完整关系来源；旧详情不可展示受限证据", "linkBindingId");
+        }
+        return stored;
     }
 
     private LinkDetail recover(LinkRequest request, String digest,
