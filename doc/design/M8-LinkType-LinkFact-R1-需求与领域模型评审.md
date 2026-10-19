@@ -24,7 +24,7 @@ M8 的用户目标是：**明确绑定关系来源 → 验证端点身份和语�
 | **M8.2 第二切片** | 同一受控 PG 内 **BRIDGE_TABLE** 映射及 M:N 单跳；沿用已验收的一跳执行和 UI | 两跳与任意多跳、跨源 JOIN |
 | **M8.3 第三切片** | 两段显式 Typed Traverse 的恰好两跳；分别核验对象/LinkFact/路径去重、扇出预算、循环和自关联 | 递归遍历/无界深度、图索引、任意路径表达式 |
 
-**范围建议：** M8.1 重点验证 ONE_TO_ONE、ONE_TO_MANY、MANY_TO_ONE；MANY_TO_MANY 的多对多物理表达由 M8.2 桥表完整交付。若用户定义的 LinkType 为 MANY_TO_MANY，而给定单列外键无法证明该关系，M8.1 显示“不支持该映射模式”，而非静默更改基数。四种基数的统一回归可在 M8.2 收口，M8.1 仍需按已声明基数正反双端验证。
+**范围建议：** M8.1 重点验证 ONE_TO_ONE、ONE_TO_MANY、MANY_TO_ONE；MANY_TO_MANY 的多对多物理表达由 M8.2 桥表完整交付。若用户定义的 LinkType 为 MANY_TO_MANY，而给定单列外键无法证明该关系，M8.1 显示“不支持该映射模式”，而非静默更改基数。**注意：在双方 Object Binding 都强制真实唯一身份键的前提下，单列 FK 从 TARGET 指向 SOURCE 时天然限制每个 TARGET 至多一个 SOURCE；以 ONE_TO_MANY 声明正常查询不可能凭同一合法 TARGET 记录制造“一个 TARGET 关联多个 SOURCE”的反例。必须用另外的声明/外键方向或在配置校验阶段验证不支持的组合，不能构造违反数据库身份约束的假用例。** 四种基数的统一回归可在 M8.2 收口，M8.1 仍需按已声明基数正反双端验证。
 
 ### 1.3 当前明确非目标
 
@@ -46,8 +46,8 @@ M8 的用户目标是：**明确绑定关系来源 → 验证端点身份和语�
 **首轮黄金故事（自定义领域，无固定制造 switch）**：
 - 新建 `equipment`（设备）、`inspection-lot`（检验批次）；LinkType `equipment-inspections` 定义为 `Equipment → InspectionLot`、`ONE_TO_MANY`、`evidenceRequired=true`。
 - 在本机受控 PG 两张来源表分别保存 M5 Object Binding；`inspection_lot.equipment_code` 是位于 **TARGET** 端的 FK，引用 `equipment.equipment_code`（源端已绑定 PK）。设备 EQ-001 的检验批次 LOT-11、LOT-12，正向返回两个去重目标；LOT-11 反向返回 EQ-001；不更改原始 LinkFact 方向。
-- LOT-13 的 FK 为 SQL NULL：无 LinkFact，统计“合法空关系”；LOT-14 的非空 FK 指向不存在的设备：仅在具备两端读取资格且覆盖该请求范围的前提下，报告断链和 `PARTIAL / KNOWN_SUBSET`，不能返回 `COMPLETE/0` 掩盖。
-- 物理重复事实不复制同一逻辑 LinkFact；一端多条非法关联时按 `ONE_TO_MANY` 反向基数拒绝。来源表/字段改变、权限撤销或 cursor 过期必须有明确错误与新执行入口。
+- LOT-13 的 FK 为 SQL NULL：**仅在覆盖 LOT-13 的校验/查询范围内**计入“合法空关系”；LOT-14 的非空 FK 指向不存在的设备：**绑定校验报告**在有两端读取资格且覆盖 LOT-14 时报告断链。**从 EQ-001 向外遍历时，LOT-14 不属于 EQ-001 的关系结果，不得将其算作 EQ-001 的 PARTIAL 缺口；从 LOT-14 反向查询时可在可授权范围内报告已知断链与 `PARTIAL / KNOWN_SUBSET`。** 不得以全表样本孤儿率推断任意 root query 的 completeness。
+- **M5 的端点来源键必须是 PostgreSQL PK 或单列 UNIQUE**，所以不能向同一端点来源表插入重复主键行作为“合法重复关系”的正例；M8.1 验证逻辑 LinkFact 不被查询操作重复输出，并保留端点键冲突的拒绝证据。真正的重复物理关系事实正例放到允许重复桥表行的 **M8.2**。M8.1 的明确基数冲突反例采用 `ONE_TO_ONE` + TARGET FK，令两个不同检验批次指向同一设备，从而违反 SOURCE 端唯一约束；合法 `ONE_TO_MANY` + TARGET FK 的 LOT-11/LOT-12 **不能被误判为冲突**。来源表/字段改变、权限撤销或 cursor 过期必须有明确错误与新执行入口。
 - 只使用测试模型/数据（`ontoforge_test_*`），**不连接真实工业源或改用户现存生产库**。
 
 ## 3. 领域模型与权威责任边界
@@ -96,9 +96,9 @@ flowchart LR
 
 ### 3.3 质量、身份和重复事实
 
-- `NULL` FK 表示未声明关系，记录在有权限的请求范围内的合法空引用计数；空字符串是 STRING 的精确值，不等同 NULL。
+- `NULL` FK 表示未声明关系，**仅在当前有权限的验证/遍历范围内**记录合法空引用计数；空字符串是 STRING 的精确值，不等同 NULL。预演抽样计数必须标注 `SAMPLE / UNKNOWN_TOTAL`，只有预算内确认完整的请求范围才能宣称精确计数。
 - 非空引用但找不到目标：`ORPHAN`，仅在两端可完整核验时返回已知子集和 `PARTIAL/KNOWN_SUBSET`；跨权限边界不泄露目标存在性。
-- 同一 ObjectRef 对应冲突的关键属性/外键：`OBJECT_IDENTITY_CONFLICT`，本次 FAILED；重复且相同的物理行合并为一个 LinkFact，另有物理重复证据计数。
+- 同一 ObjectRef 对应冲突的关键属性/外键：`OBJECT_IDENTITY_CONFLICT`，本次 FAILED。**但 M5 已要求来源 PK/唯一约束：M8.1 的外键端点表不能正常产生重复主键的物理关系行；不能为了填验收矩阵而绕过约束或放宽 M5。** 对象/关系身份去重的正确性仍需要服务端防御，允许重复物理关系行的测试和物理重复证据计数应在 M8.2 的桥表场景完整验证。
 - 一跳结果 `objectCount` 按输出端 ObjectRef 去重、`linkCount` 按逻辑 LinkFact 去重；`pathCount` 在 M8.1 与 `linkCount` 可一致，但必须独立定义，**不得推导 M8.3 路径数必等于对象数**。
 - `evidenceRequired` 为真时必须确认能返回合同要求的实际来源表/列及读取证据；若业务要求永久行级定位而源表缺稳定行主键，须明示“行级定位不可用”或拒绝需要该能力的配置，不能把 PostgreSQL `ctid` 伪造成长期身份。
 
@@ -106,7 +106,7 @@ flowchart LR
 
 建议沿用现有本体建模/Binding/ObjectSet 工具的视觉和导航骨架，而非新建独立图谱子系统或散落的“专业工具”菜单：
 
-1. **LinkType 详情中的“配置实例关联”**：显示现有定义和配置状态；进入配置工作区。
+1. **现有 Native 建模工作台“关系类型”页签中的“配置实例关联”入口**：当前代码只有该页签和 LinkType 编辑区，而非独立的 LinkType 详情路由；需要以已冻结 Snapshot 为前提跳转到关系配置工作区，不把未保存的编辑内容当作生效定义。
 2. **LinkBinding 单工作台**：顶部固定 LinkType/两端 ObjectType/Local Snapshot；按“选择端点绑定 → 外键来源 → 核验结果 → 保存”分步推进，并有明确返回与版本冲突恢复。
 3. **关联查询**：从根对象或有界对象集合进入；先选一条已保存的 LinkBinding，再选 OUT/IN；同一结果区域展示去重对象、LinkFact、断链/质量提示和版本来源证据。
 4. **失败证据与继续操作**：区别成功 0 条、PARTIAL、FAILED/409/429/503/410；失败不残留旧对象载荷，仍显示可核验的执行 ID、失效 snapshot 和“修复映射/重验/重新执行”入口。
@@ -127,7 +127,7 @@ flowchart LR
 ## 6. 有界执行与错误恢复边界
 
 - 所有参与的来源/端点表必须位于白名单和已授权的**同一隔离 PG**；使用一条请求内只读 `REPEATABLE READ`、参数化查询和验证过的 SQL identifier。
-- 继承 M7 候选上限（本机单次 3 秒、10,000 访问事实/对象量级、8 MiB 来源/结果、单页不超过 50、5 分钟 TTL），另外对 Join **中间候选数、物理关系事实和路径扇出**单独计预算；这些是候选值，第二轮必须确认是否复用同一全局预算或明确拆配额，不能先无限 Join 再最终 DISTINCT/LIMIT。
+- 继承 M7 候选上限（本机单次 3 秒、10,000 访问事实/对象量级、8 MiB 来源/结果、单页不超过 50、5 分钟 TTL），另外对 Join **中间候选数、物理关系事实和路径扇出**单独计预算；这些是候选值，第二轮必须确认是否复用同一全局预算或明确拆配额，不能先无限 Join 再最终 DISTINCT/LIMIT。**当前 M7 的 StoredSnapshot/游标状态为查询服务内部私有结构，只能复用已验证的行为和安全语义；不能把它写成已具备公开的多端 LinkBinding 查询运行时。R2 必须确定如何受控复用/抽象且不破坏 M7 响应。**
 - 完整预算/授权/身份/基数校验成功后才发布冻结结果。超时、越界、类型错误、身份冲突、基数冲突均 FAILED，不能返回伪空、截断统计或“部分精确 SUM”。
 - 页间新增/修改/删除普通源事实不重算旧 execution 的成员；页间来源不可读、任一端 Binding/权限失效、schema 漂移或 LinkBinding 资格不成立，旧快照永久失效；恢复授权也不能重放旧 cursor。
 - 错误语义候选：`INVALID_LINK_BINDING` / `INVALID_TRAVERSE_TYPE`(422)、`LINK_CARDINALITY_CONFLICT` / `OBJECT_IDENTITY_CONFLICT`(409)、`BINDING_REVISION_CONFLICT` / `BINDING_SCHEMA_DRIFT`(409)、`QUERY_BUDGET_EXCEEDED`(429)、`SOURCE_TIMEOUT`(503)、`RESULT_EXPIRED`(410)。复用 M5–M7 既有错误目录优先，不创建重复含义。
@@ -141,7 +141,7 @@ flowchart LR
 | 双向与类型 | OUT / IN 不交换原始 LinkFact；反向错端点、错方向、错 keyType 拒绝 | PG17 + API JSON |
 | 双端基数 | ONE_TO_ONE 双端至多一，ONE_TO_MANY 逆向唯一，MANY_TO_ONE 正向唯一；冲突 409 | PG17 数据反例，校验前后对照 |
 | NULL/孤儿 | NULL 合法、空字符串不默转 NULL；有权可见的非空孤儿标 `PARTIAL/KNOWN_SUBSET` | PG17 + Chromium 质量展示 |
-| 去重与冲突 | 重复物理行 LinkFact 去重但保留证据；同一 ObjectRef 关键事实冲突先拒绝 | PG17 + API |
+| 去重与冲突 | M8.1 验证不同查询入口下同一逻辑 LinkFact 不重复、真实唯一键/重复键拒绝；**桥表重复物理事实正例 NOT SELECTED，属于 M8.2** | PG17 + API |
 | 版本锁 | LinkBinding CAS 冲突；两端 Binding 版本变化、类型快照错误拒绝，不自动升级 | Flyway/restart + API |
 | 权限安全 | 本机只读来源白名单；JWT 两端 package 权限；无权/撤权不泄露可枚举关系 | 实际 JWT/mvp-local HTTP |
 | 来源漂移 | FK/PK 列删改、目标表重建、授权/SELECT 撤销与权限恢复 cursor 410 | PG17 + Chromium |
@@ -158,10 +158,10 @@ flowchart LR
 | --- | --- | --- |
 | **D1 切片** | M8.1 外键双向一跳为首个完整交付；桥表 M8.2、显式二跳 M8.3 独立验收 | 是否坚持第一交付必须包含全部模式（风险显著增加） |
 | **D2 关系身份** | LinkFact = LinkType + 两端完整类型化 ObjectRef + 语义快照；物理重复仅增加证据计数 | 是否存在必须保留同端点多重边/时态关系的真实场景 |
-| **D3 基数与断链** | 双端校验；非空孤儿为有权限的 PARTIAL/KNOWN_SUBSET，基数/身份冲突 fail-closed | 是否接受“有断链仍返回已知子集” |
+| **D3 基数与断链** | 双端校验；**仅影响本次根集合的**非空孤儿在有权限时为 PARTIAL/KNOWN_SUBSET；绑定范围的孤儿只进绑定质量报告；基数/身份冲突 fail-closed | 是否接受“本次有断链仍返回已知子集” |
 | **D4 端点版本** | 同 Local Snapshot、两端 Binding/LinkBinding revision/digest 锁；保存 CAS，不隐式 latest | 是否要求跨包/跨源关系（本 MVP 现不具备） |
 | **D5 查询执行** | 先 M8.1 单 Traverse，继承 M7 冻结快照/TTL/重启和撤权语义，增设中间扇出预算 | 扇出预算如何独立于现有 10k/8MiB 门槛 |
-| **D6 证据** | 表/列/版本/SourceReadRef 为强制证据；无稳定源行键不得宣传可长期定位 | `evidenceRequired=true` 是否强制可稳定定位每个物理行 |
+| **D6 证据** | 每个真实 LinkFact 最少返回表/列/映射版本/SourceReadRef；`evidenceRequired=true` 的额外精度仍需 R2 明确，不能用 PG `ctid` 伪造稳定行级身份 | `evidenceRequired=true` 是否强制可稳定定位每个物理行 |
 | **D7 UX** | LinkType 详情 → 统一 LinkBinding 工作台 → 根对象/集合一跳查询，先列表/证据，图形视图非 P0 | 是否存在必须在首次交付使用图形视图的任务 |
 | **D8 合同** | 独立 Local LinkBinding 合同，Traverse 版本化扩展，不冒充正式 Native V0.2 发布/索引 | `local-query-v1` 向后兼容扩展 vs `local-query-v2` 新合同 |
 
@@ -188,3 +188,41 @@ flowchart LR
 3. UX-Low → 产品签收 → UX-High → 产品签收；不能用 M7 旧页面代替 M8 新原型。
 4. 维护者按 OFIP-0001 独立记录真实 `[VOTE] Accepted`、理由与 permalink 并更新 OFIP-0010 生命周期。
 5. 仅在上述门禁通过后，按 M8.1 **一个完整真实用户可操作纵向 PR** 实施，核实同 head Required Quality 再审查合并。M8.2/M8.3 分别走自己的验收出口。
+
+## 10. 第一轮独立审核记录（2026-10-19，R1-RV1）
+
+**审核性质：有条件认可产品方向；目前尚未获得产品所有者 D1–D8 签收。** 本轮逐一核对 M5 `DataBindingService` 来源唯一键要求、Native LinkType 声明、M7 有界查询实际服务及现有 React 建模入口。上述修正为**候选方案整改**，不是实施决定。
+
+### 10.1 实际代码核对出的约束（不能改口径）
+
+- M5 `DataBindingService.context()` 仅允许 PK/单列 UNIQUE 作为来源身份列，至少映射两项非主键属性；M8 黄金故事要提供真实的端点 Binding 夹具，不能以两个只有 ID 的临时表替代。
+- M5 LinkType 仍是 Native 编辑器中的**定义**，React 当前提供“关系类型”页签，没有用户正式打开 LinkFact 的入口；需要 R2/UX-Low 定义从冻结 Snapshot 与对象浏览进入的路径。
+- M7 结果冻结、签名游标、TTL、逐页复核已落地，但其 `StoredSnapshot` 为内部实现；M8 多端版本锁与双端授权复核需要新合同/适配，不能借用 M7 的 success 测试证明 M8 安全。
+- M7 允许明确引用合法历史 Object Binding revision。**M8 草案中“任一端点出现新 revision，就让旧 LinkBinding 永久不可执行”可能与此不一致**：R2 必须区分“当前最新 revision 已变化”与“被明确锁住的历史 revision 不再合法或来源已漂移”；只有后者天然属于 fail-closed，是否采取更严格的 active-only 策略需专门决策。
+
+### 10.2 R1 需带入第二轮的 P0 / P1 审核项
+
+| 级别 | 审核项 | 本轮整改或 R2 出口 |
+| --- | --- | --- |
+| P0 | **孤儿作用域与查询 completeness**：全局 LOT-14 的断链不能污染 EQ-001 的本次结果 | 已修订黄金故事及 D3；R2 定义 `VALIDATION_SCOPE` 与 `TRAVERSAL_SCOPE` 各自计数及质量信封 |
+| P0 | **物理重复与 M5 唯一键矛盾**：不能在已验证端点表写重复 PK 当作正常 LinkFact 正例 | 已把桥表重复正例移到 M8.2；M8.1 只验证合法唯一键下逻辑输出与冲突拒绝 |
+| P1 | **基数冲突样例不可达**：ONE_TO_MANY + TARGET FK 不会通过合法唯一目标行造成 TARGET 多 SOURCE | 已补 ONE_TO_ONE + TARGET FK 的可达冲突样例；R2 固化映射方向×基数适配矩阵 |
+| P1 | **版本演进策略不清楚**：严格“任何新 revision 就禁止历史版本”可能与 M7 的版本锁历史读取矛盾 | R2 冻结 historical/active 的可执行资格、变更时快照失效规则和 CAS 状态机 |
+| P1 | **M8 多端复核不能假设直接复用 M7 private snapshot 代码** | R2 定义独立 multi-binding version closure + 执行授权复核与 cursor 生命周期 |
+| P1 | **遍历根集合、校验范围、抽样精度**尚未独立表示 | R2 明确输入是 ObjectRef / 有界 root query，不信任客户端直接带 M7 cursor 当权限；给 Validation 与 Traversal 独立 scope |
+| P1 | **证据最低粒度**：`evidenceRequired=false` 不等于可完全没有来源证据 | 最低表/列/类型/修订/SourceReadRef 必须存在；R2 单独决定 `true` 是否要求可稳定复查的源行键 |
+
+### 10.3 八项决策的独立评审建议
+
+| 决策 | 本轮建议 | 理由与签收条件 |
+| --- | --- | --- |
+| D1 | **建议通过** | M8.1/M8.2/M8.3 分阶段，每阶段真实前后端闭环，不将图谱功能一次做完 |
+| D2 | **有条件通过** | LinkFact 逻辑身份与版本/来源证据分层；多重平行边或时态关系不在 MVP |
+| D3 | **要求按作用域修订后通过** | 孤儿分 VALIDATION/TRAVERSAL 两种 scope，基数/身份冲突先拒绝 |
+| D4 | **原则通过，R2 冻结细节** | 明确同一快照双端锁；历史 revision 是否仍可执行需与 M7 统一 |
+| D5 | **原则通过，R2 冻结预算** | 只做一跳；中间扫描与扇出不允许先无限 Join 后截断 |
+| D6 | **原则通过，R2 明确 evidenceRequired** | 最低读取证据永远强制；稳定物理行 locator 不可假设 |
+| D7 | **建议通过** | 沿现有建模“关系类型”页签/对象查询入口推进，避免另建孤立的图工具菜单 |
+| D8 | **延至 R2** | 比较 `local-query-v2` 与 v1 的向后兼容；未评审不修改现有 v1 Schema |
+
+**下一轮准入标准（签收之前）：** 产品所有者明确认可上述 D1–D7 修订方向；无需一次签八项技术细节。R2 必须输出端点 FK 来源 schema、LinkBinding 状态机/版本资格、作用域与质量合同、排序去重/预算策略、授权与 cursor 语义、API/Schema 兼容矩阵，以及完整可运行的 PG17 + Chromium 验收矩阵。UX-Low/UX-High/OFIP 投票仍是独立后置门禁。
