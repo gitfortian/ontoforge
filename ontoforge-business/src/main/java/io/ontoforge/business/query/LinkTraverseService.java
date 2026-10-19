@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.ontoforge.business.connection.DataBindingService;
 import io.ontoforge.business.connection.LinkBindingService;
 import io.ontoforge.business.model.NativeSnapshotService;
+import io.ontoforge.core.compiler.M8TraverseSchema;
 import io.ontoforge.platform.identity.B0AuthorizationService;
 import java.math.BigDecimal;
 import java.security.MessageDigest;
@@ -55,6 +56,11 @@ public class LinkTraverseService {
     private static final long MAX_BYTES = 8L * 1024 * 1024;
     private static final int MAX_LINKS = 10_000;
     private static final int DEADLINE_SECONDS = 3;
+    private static final int MAX_SNAPSHOTS = 32;
+    // Stored JSON node trees can use far more heap than their compact JSON.
+    // Keep a separate conservative serialized cap across ALL actors in addition
+    // to the per-query ≤8 MiB evidence budget.
+    private static final long MAX_FROZEN_JSON_BYTES = 16L * 1024 * 1024;
 
     private final LinkBindingService links;
     private final DataBindingService bindings;
@@ -66,7 +72,7 @@ public class LinkTraverseService {
     private final Map<String, Frozen> frozen = new ConcurrentHashMap<>();
 
     private record Frozen(String id, String actor, Instant expiresAt, ObjectNode full,
-            int pageSize, String direction, String pkg, String snapshotId,
+            long jsonBytes, int pageSize, String direction, String pkg, String snapshotId,
             String linkId, long linkRevision, String linkDigest,
             String sourceBindingId, long sourceRevision, String sourceDigest,
             String targetBindingId, long targetRevision, String targetDigest,
@@ -134,6 +140,10 @@ public class LinkTraverseService {
 
     public ObjectNode execute(JsonNode json, Authentication auth) {
         long deadline = System.nanoTime() + DEADLINE_SECONDS * 1_000_000_000L;
+        if (!M8TraverseSchema.validQuery(json)) {
+            throw fail(422, "TRAVERSE_CONTRACT_INVALID",
+                    "查询请求不符合已冻结 v2 JSON Schema", "query");
+        }
         Requested request = parse(json);
         authorization.requirePackage(auth, request.packageId(), B0AuthorizationService.Operation.READ_DRAFT);
         UUID snapshotId = UUID.fromString(request.snapshotId());
@@ -448,19 +458,27 @@ public class LinkTraverseService {
             throw fail(409, "LINK_VERSION_UNAVAILABLE", "查询执行期间关系版本变化", "steps");
         }
         if (System.nanoTime() > deadline) throw fail(503, "QUERY_TIMEOUT", "来源执行整体超时", "limits");
-        if (request.aggregateOperation() != null) return result;
+        if (request.aggregateOperation() != null) {
+            ensureResultContract(result);
+            return result;
+        }
+        long frozenBytes = result.toString().getBytes(StandardCharsets.UTF_8).length;
         Frozen saved = new Frozen(frozenId, actorKey(auth), now.plusSeconds(300), result.deepCopy(),
-                request.pageSize(), request.direction(), request.packageId(), request.snapshotId(),
+                frozenBytes, request.pageSize(), request.direction(), request.packageId(), request.snapshotId(),
                 link.linkBindingId(), link.revision(), link.digest(),
                 sourceBinding.bindingId(), sourceBinding.revision(), sourceBinding.digest(),
                 targetBinding.bindingId(), targetBinding.revision(), targetBinding.digest(),
                 left.schemaFingerprint(), right.schemaFingerprint());
         synchronized (frozen) {
             frozen.entrySet().removeIf(e -> !e.getValue().expiresAt().isAfter(Instant.now()));
-            // Bounded at 32 in-flight snapshots; each is limited to an 8MiB
-            // serialized result and lives at most 300 seconds.
-            if (frozen.size() >= 32) throw fail(429, "RESULT_SNAPSHOT_BUDGET",
-                    "当前冻结结果容量已满，请稍后重新执行", "limits");
+            // Admission is synchronized with eviction and aggregate allocation.
+            // No concurrent caller can bypass either the slot or total byte cap.
+            long retained = 0;
+            for (Frozen record : frozen.values()) retained += record.jsonBytes();
+            if (frozen.size() >= MAX_SNAPSHOTS || frozenBytes > MAX_FROZEN_JSON_BYTES - retained) {
+                throw fail(429, "RESULT_SNAPSHOT_BUDGET",
+                        "冻结结果总容量已满；请缩小查询或等待旧结果到期", "limits");
+            }
             frozen.put(frozenId, saved);
         }
         try {
@@ -614,7 +632,15 @@ public class LinkTraverseService {
                 budget.path("maxSerializedResultBytes").asLong()) {
             throw fail(429, "QUERY_BUDGET_EXCEEDED", "当前冻结页超出响应预算", "limits");
         }
+        ensureResultContract(page);
         return page;
+    }
+
+    private static void ensureResultContract(JsonNode result) {
+        if (!M8TraverseSchema.validResult(result)) {
+            throw fail(503, "TRAVERSE_RESULT_CONTRACT_DRIFT",
+                    "本次响应无法满足已冻结 v2 合同，已拒绝返回对象和来源证据", "result");
+        }
     }
 
     private byte[] sign(byte[] data) {
