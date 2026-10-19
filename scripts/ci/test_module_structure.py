@@ -53,6 +53,8 @@ class ModuleStructureTests(unittest.TestCase):
                     self.assertNotIn("org.springframework.web.bind.annotation", text)
 
     def test_boot_controllers_do_not_own_sql_or_transactions(self):
+        self.assertFalse(list((ROOT / "ontoforge-boot/src/main/java/io/ontoforge/boot/model").glob("*.java")),
+                         "Model and query services belong to Core or Business, not Boot")
         for file in (ROOT / "ontoforge-boot/src/main/java/io/ontoforge/boot/controller").glob("*.java"):
             text = file.read_text(encoding="utf-8")
             self.assertNotRegex(text, r"\bJdbcTemplate\b|@Transactional|java\.sql\.")

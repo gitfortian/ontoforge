@@ -8,7 +8,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.ontoforge.platform.identity.B0AuthorizationService;
+import io.ontoforge.dao.query.PostgresSourceRepository;
 import java.sql.Timestamp;
+import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -140,6 +143,49 @@ public class DataBindingService {
         } catch (DataAccessException ex) {
             throw sourceFailure(ex);
         }
+    }
+
+    /**
+     * Re-check one bound table without escaping the original M7 source-read deadline.
+     * This is used only for the final pre-publication schema revalidation of an ObjectSet.
+     */
+    public SourceTable inspectTableWithDeadline(String packageId, String sourceId, String schema, String table,
+            Authentication auth, long deadlineNanos) {
+        authorization.requirePackage(auth, packageId, B0AuthorizationService.Operation.READ_DRAFT);
+        if (deadlineNanos <= System.nanoTime()) {
+            throw fail(503, "SOURCE_TIMEOUT", "来源结构复核超过本次请求的端到端时间预算", "source");
+        }
+        if (!SOURCE_ID.equals(sourceId) || !"public".equals(schema) || table == null
+                || !IDENT.matcher(table).matches() || !allowedTables.contains(table)) {
+            throw fail(409, "BINDING_SCHEMA_DRIFT", "Binding 来源表不在当前服务端允许列表或已不存在", "sourceTable");
+        }
+        JdbcTemplate source = sourceJdbc();
+        try {
+            return sourceMetadata(sourceId, schema, table,
+                    sourceRepository.inspectTableWithDeadline(source, schema, table, deadlineNanos));
+        } catch (PostgresSourceRepository.ReadFailure ex) {
+            throw fail("BINDING_SCHEMA_DRIFT".equals(ex.code()) ? 409 : 503,
+                    ex.code(), ex.getMessage(), ex.field());
+        } catch (BindingFailure ex) {
+            throw ex;
+        } catch (QueryTimeoutException ex) {
+            throw fail(503, "SOURCE_TIMEOUT", "来源结构复核超过本次请求的端到端时间预算", "source");
+        } catch (DataAccessException ex) {
+            if (System.nanoTime() >= deadlineNanos || isSourceTimeout(ex)) {
+                throw fail(503, "SOURCE_TIMEOUT", "来源结构复核超过本次请求的端到端时间预算", "source");
+            }
+            throw sourceFailure(ex);
+        }
+    }
+
+    private static boolean isSourceTimeout(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof SQLTimeoutException) return true;
+            if (current instanceof SQLException sql && "57014".equals(sql.getSQLState())) return true;
+            current = current.getCause();
+        }
+        return false;
     }
 
     public PreviewResult preview(BindingRequest request, Authentication auth) {

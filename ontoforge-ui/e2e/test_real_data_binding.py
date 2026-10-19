@@ -76,6 +76,7 @@ class DataBindingRealBrowserTest(unittest.TestCase):
             ("supplier-active", "active", "是否有效", "BOOLEAN", True),
             ("supplier-onboarded", "onboardedAt", "入驻时间", "DATETIME", False),
             ("supplier-legacy", "legacyCode", "旧系统编码", "STRING", False),
+            ("supplier-unmapped-rating", "unmappedRating", "未绑定数值", "DECIMAL", False),
         ]
         for index, (property_id, api_name, label, value_type, required) in enumerate(properties):
             if index > 0:
@@ -89,6 +90,12 @@ class DataBindingRealBrowserTest(unittest.TestCase):
                 required_control.check()
             elif not required and required_control.is_checked():
                 required_control.uncheck()
+            # M7 deliberately exposes filters only for properties explicitly
+            # marked searchable in the immutable ObjectType contract.
+            if property_id in ("supplier-name", "supplier-legacy"):
+                searchable_control = page.locator(f"#prop-{index}-searchable")
+                if not searchable_control.is_checked():
+                    searchable_control.check()
         page.locator("#obj-pk").select_option("supplier-code")
         page.get_by_role("button", name="保存编辑进度").click()
         page.get_by_text("已写入 PostgreSQL", exact=False).wait_for(timeout=15000)
@@ -241,3 +248,119 @@ class DataBindingRealBrowserTest(unittest.TestCase):
         page.locator(".object-runtime-error").wait_for(timeout=15000)
         self.assertIn("OBJECT_NOT_FOUND", page.locator(".object-runtime-error").inner_text())
         self.assertNotIn("Northwind Components", page.locator(".object-runtime-result").inner_text())
+
+        # M7 vertical story: the same saved custom Supplier Binding drives a real ObjectSet query.
+        page.goto(BASE + "/#/mvp/object-sets?packageId=" + quote(self.package)
+                  + "&bindingId=" + quote(binding_id) + "&bindingRevision=2")
+        page.get_by_role("heading", name="对象集合查询", exact=True).wait_for(timeout=15000)
+        filter_property = page.locator(".object-set-filter-row select").nth(0)
+        # The route heading renders before async binding/type resolution; wait for
+        # the resolved selector contract before inspecting its options.
+        filter_property.locator('option[value="supplier-name"]').wait_for(state="attached", timeout=15000)
+        page.locator('.object-set-sort-row select option[value="supplier-code"]').wait_for(state="attached", timeout=15000)
+        filter_options = filter_property.locator("option").evaluate_all("(options) => options.map(option => option.value)")
+        self.assertIn("supplier-name", filter_options)
+        self.assertNotIn("supplier-legacy", filter_options)
+        sort_options = page.locator(".object-set-sort-row select").nth(0).locator("option").evaluate_all("(options) => options.map(option => option.value)")
+        self.assertNotIn("supplier-legacy", sort_options)
+        filter_property.select_option("supplier-name")
+        page.locator(".object-set-filter-row select").nth(1).select_option("PREFIX")
+        page.locator(".object-set-filter-row input").fill("North")
+        page.get_by_role("button", name="执行查询", exact=True).click()
+        page.locator(".object-set-result-summary").wait_for(timeout=15000)
+        query_text = page.locator(".object-set-result-panel").inner_text()
+        self.assertIn("Northwind Components", query_text)
+        self.assertIn("匹配对象总数", query_text)
+        self.assertIn("当前页 / 总页数", query_text)
+        self.assertIn("UNKNOWN", page.locator(".object-set-evidence").inner_text())
+        self.assertIn("local-result:", page.locator(".object-set-evidence").inner_text())
+        self.assertNotIn("Changed after first page", query_text)
+        query_summary = page.locator(".object-set-query-summary").inner_text()
+        self.assertIn("筛选", query_summary)
+        self.assertIn("North", query_summary)
+        self.assertIn("Binding revision", query_summary)
+        self.assertIn("UNKNOWN", query_summary)
+
+        # Simulate a page revalidation failure after a successful first page. The UI
+        # must hide all result rows while retaining independent snapshot/execution evidence.
+        failure_evidence = {}
+        def add_test_cursor(route):
+            response = route.fetch()
+            payload = response.json()
+            if response.ok and payload.get("status") == "SUCCESS" and payload.get("objects") is not None:
+                payload["nextCursor"] = "m7-ui-test-cursor-not-a-real-server-token"
+                payload["totalCount"] = max(payload.get("totalCount", 0), 2)
+                failure_evidence["snapshot"] = payload["resultSnapshotRef"]
+            route.fulfill(response=response, json=payload)
+
+        def fail_next_page(route):
+            route.fulfill(status=503, content_type="application/json", body=json.dumps({
+                "status": "FAILED", "executionId": "m7-ui-failure-simulation",
+                "code": "SOURCE_UNAVAILABLE", "message": "Simulated page revalidation failure.",
+                "fieldPath": "source",
+                "quality": {"accuracy": "UNKNOWN", "completeness": "UNKNOWN",
+                            "freshness": "UNKNOWN", "answerScope": "REQUESTED_SCOPE"},
+            }))
+
+        page.route("**/api/runtime/object-sets/query", add_test_cursor)
+        page.route("**/api/runtime/object-sets/pages", fail_next_page)
+        page.get_by_role("button", name="执行查询", exact=True).click()
+        # The first real query had no next cursor; wait for the injected cursor to render
+        # rather than racing an already-existing result summary from the previous run.
+        page.get_by_role("button", name="下一页 →", exact=True).wait_for(timeout=15000)
+        self.assertIn("当前页 / 总页数", page.locator(".object-set-result-summary").inner_text())
+        page.get_by_role("button", name="下一页 →", exact=True).click()
+        page.locator(".object-set-failure-evidence").wait_for(timeout=15000)
+        failure_text = page.locator(".object-set-failure-evidence").inner_text()
+        self.assertIn(failure_evidence["snapshot"], failure_text)
+        self.assertIn("SOURCE_UNAVAILABLE", failure_text)
+        self.assertNotIn("Northwind Components", page.locator(".object-set-result-panel").inner_text())
+        page.unroute("**/api/runtime/object-sets/query", add_test_cursor)
+        page.unroute("**/api/runtime/object-sets/pages", fail_next_page)
+
+        # The aggregate mode is mutually exclusive with sorting, projection and paging.
+        page.get_by_role("button", name="聚合统计", exact=True).click()
+        page.locator(".object-set-aggregate-choice select").nth(0).select_option("SUM")
+        aggregate_properties = page.locator(".object-set-aggregate-choice select").nth(1).locator("option").evaluate_all("(options) => options.map(option => option.value)")
+        self.assertIn("supplier-rating", aggregate_properties)
+        self.assertNotIn("supplier-unmapped-rating", aggregate_properties)
+        page.locator(".object-set-aggregate-choice select").nth(1).select_option("supplier-rating")
+        page.get_by_role("button", name="执行查询", exact=True).click()
+        page.locator(".object-set-aggregate-result").wait_for(timeout=15000)
+        aggregate_text = page.locator(".object-set-aggregate-result").inner_text()
+        self.assertIn("SUM", aggregate_text)
+        self.assertIn("匹配对象", aggregate_text)
+        self.assertIn("UNKNOWN", page.locator(".object-set-evidence").inner_text())
+        # Persist one short-lived signed cursor so the workflow can verify both B0
+        # authorization revocation and real backend-restart invalidation.
+        evidence_path = os.getenv("E2E_M7_CURSOR_EVIDENCE")
+        if evidence_path:
+            binding = api(RUNTIME_API, f"/bindings/{binding_id}?revision=2")
+            cursor_query = {
+                "queryVersion": "local-query-v1",
+                "rootTypeRef": {
+                    "sourceRef": {"kind": "LOCAL_SNAPSHOT", "snapshotId": binding["snapshotId"]},
+                    "packageId": binding["packageId"],
+                    "objectTypeId": binding["objectTypeId"],
+                },
+                "bindingRef": {"bindingId": binding_id, "revision": 2},
+                "steps": [
+                    {"kind": "SORT", "fields": [{"propertyRef": "supplier-code", "direction": "ASC"}]},
+                    {"kind": "PROJECT", "propertyRefs": ["supplier-name", "supplier-rating"]},
+                    {"kind": "PAGE", "pageSize": 2},
+                ],
+            }
+            cursor_first = api(RUNTIME_API, "/object-sets/query", "POST", cursor_query)
+            self.assertEqual(cursor_first["status"], "SUCCESS")
+            self.assertTrue(cursor_first.get("nextCursor"))
+            Path(evidence_path).write_text(json.dumps({
+                "packageId": self.package,
+                "bindingId": binding_id,
+                "snapshotId": binding["snapshotId"],
+                "bindingRevision": 2,
+                "resultSnapshotRef": cursor_first["resultSnapshotRef"],
+                "queryDigest": cursor_first["queryDigest"],
+                "query": cursor_query,
+                "expiresAt": cursor_first["expiresAt"],
+                "cursor": cursor_first["nextCursor"],
+            }, indent=2), encoding="utf-8")

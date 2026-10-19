@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -17,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.concurrent.TimeUnit;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.RowMapper;
@@ -103,6 +105,106 @@ public class PostgresSourceRepository {
                 +"AND table_type='BASE TABLE' AND table_name IN ("+placeholders+") ORDER BY table_name",
                 (rs,i)->rs.getString(1),allowedTables.toArray());
     }
+    /** Inspect metadata within the original caller deadline, in a read-only transaction. */
+    public Metadata inspectTableWithDeadline(JdbcTemplate source, String schema, String table, long deadlineNanos) {
+        return source.execute((ConnectionCallback<Metadata>) connection -> {
+            boolean auto = connection.getAutoCommit();
+            int isolation = connection.getTransactionIsolation();
+            boolean readOnly = connection.isReadOnly();
+            try {
+                connection.setReadOnly(true);
+                connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+                connection.setAutoCommit(false);
+                try (Statement statement = connection.createStatement()) {
+                    statement.setQueryTimeout(remainingQueryTimeoutSeconds(deadlineNanos));
+                    if (System.nanoTime() >= deadlineNanos) {
+                        throw new ReadFailure("SOURCE_TIMEOUT", "来源结构复核超过本次请求的端到端时间预算", "source");
+                    }
+                    statement.execute("SET TRANSACTION READ ONLY");
+                }
+                try (PreparedStatement statement = connection.prepareStatement("""
+                        SELECT 1 FROM information_schema.tables
+                         WHERE table_schema=? AND table_name=? AND table_type='BASE TABLE'
+                        """)) {
+                    applyRemainingTimeout(connection, statement, deadlineNanos);
+                    statement.setString(1, schema);
+                    statement.setString(2, table);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        if (!rs.next()) {
+                            throw new ReadFailure("BINDING_SCHEMA_DRIFT",
+                                    "Binding 来源表不在当前服务端允许列表或已不存在", "sourceTable");
+                        }
+                    }
+                }
+                List<SourceColumn> columns = new ArrayList<>();
+                try (PreparedStatement statement = connection.prepareStatement(COLUMNS)) {
+                    applyRemainingTimeout(connection, statement, deadlineNanos);
+                    statement.setString(1, schema);
+                    statement.setString(2, table);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        while (rs.next()) {
+                            columns.add(new SourceColumn(rs.getString("column_name"), rs.getString("data_type"),
+                                    rs.getString("udt_name"), "YES".equals(rs.getString("is_nullable")),
+                                    rs.getInt("ordinal_position"), rs.getBoolean("is_primary"), rs.getBoolean("is_unique"),
+                                    rs.getObject("character_maximum_length", Integer.class),
+                                    rs.getObject("numeric_precision", Integer.class), rs.getObject("numeric_scale", Integer.class),
+                                    rs.getObject("datetime_precision", Integer.class)));
+                        }
+                    }
+                }
+                if (columns.isEmpty()) {
+                    throw new ReadFailure("BINDING_SCHEMA_DRIFT", "Binding 来源表结构不可见或已不存在", "sourceTable");
+                }
+                List<KeyColumn> keys = new ArrayList<>();
+                try (PreparedStatement statement = connection.prepareStatement(KEYS)) {
+                    applyRemainingTimeout(connection, statement, deadlineNanos);
+                    statement.setString(1, schema);
+                    statement.setString(2, table);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        while (rs.next()) {
+                            keys.add(new KeyColumn(rs.getString(1), rs.getString(2),
+                                    rs.getString(3), rs.getInt(4)));
+                        }
+                    }
+                }
+                connection.commit();
+                return new Metadata(List.copyOf(columns), List.copyOf(keys));
+            } catch (RuntimeException | SQLException ex) {
+                try { connection.rollback(); } catch (SQLException ignored) {}
+                if (ex instanceof RuntimeException runtime) throw runtime;
+                throw (SQLException) ex;
+            } finally {
+                try { connection.setAutoCommit(auto); } catch (SQLException ignored) {}
+                try { connection.setTransactionIsolation(isolation); } catch (SQLException ignored) {}
+                try { connection.setReadOnly(readOnly); } catch (SQLException ignored) {}
+            }
+        });
+    }
+
+    private static int remainingQueryTimeoutSeconds(long deadlineNanos) {
+        long remaining = deadlineNanos - System.nanoTime();
+        if (remaining <= 0) return 1;
+        long millis = Math.max(1, TimeUnit.NANOSECONDS.toMillis(remaining));
+        return (int) Math.max(1, Math.min(3, (millis + 999) / 1000));
+    }
+
+    private static void applyRemainingTimeout(Connection connection, PreparedStatement statement,
+            long deadlineNanos) throws SQLException {
+        long remainingNanos = deadlineNanos - System.nanoTime();
+        if (remainingNanos <= 0) throw new SQLTimeoutException("M7 source deadline expired");
+        long remainingMillis = Math.max(1, TimeUnit.NANOSECONDS.toMillis(remainingNanos) - 10);
+        int timeoutSeconds = (int) Math.max(1, Math.min(3, (remainingMillis + 999) / 1000));
+        try (PreparedStatement timeout = connection.prepareStatement("SELECT set_config('statement_timeout', ?, true)")) {
+            timeout.setQueryTimeout(timeoutSeconds);
+            timeout.setString(1, remainingMillis + "ms");
+            timeout.execute();
+        }
+        long afterConfig = deadlineNanos - System.nanoTime();
+        if (afterConfig <= 0) throw new SQLTimeoutException("M7 source deadline expired");
+        long afterMillis = Math.max(1, TimeUnit.NANOSECONDS.toMillis(afterConfig));
+        statement.setQueryTimeout((int) Math.max(1, Math.min(3, (afterMillis + 999) / 1000)));
+    }
+
     public Metadata metadata(JdbcTemplate jdbc,String schema,String table) {
         List<SourceColumn> columns=jdbc.query(COLUMNS,(rs,i)->new SourceColumn(rs.getString("column_name"),
             rs.getString("data_type"),rs.getString("udt_name"),"YES".equals(rs.getString("is_nullable")),

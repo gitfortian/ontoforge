@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ontoforge.local/schema/local-query-v1.schema.json",
+  "title": "OntoForge Local ObjectSet Query v1",
+  "description": "本机隔离 MVP 的通用查询合同；不代表 Native V0.2 的正式 SchemaRelease/IndexSnapshot/AuthorizationContext。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["queryVersion", "rootTypeRef", "bindingRef", "steps"],
+  "properties": {
+    "queryVersion": { "const": "local-query-v1" },
+    "rootTypeRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceRef", "packageId", "objectTypeId"],
+      "properties": {
+        "sourceRef": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "snapshotId"],
+          "properties": {
+            "kind": { "const": "LOCAL_SNAPSHOT" },
+            "snapshotId": { "type": "string", "format": "uuid" }
+          }
+        },
+        "packageId": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "objectTypeId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" }
+      }
+    },
+    "bindingRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bindingId", "revision"],
+      "properties": {
+        "bindingId": { "type": "string", "format": "uuid" },
+        "revision": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "maxPhysicalRows": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "maxSourceBytes": { "type": "integer", "minimum": 1, "maximum": 8388608 },
+        "maxSerializedResultBytes": { "type": "integer", "minimum": 1, "maximum": 8388608 },
+        "timeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 3 }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/filterStep" },
+          { "$ref": "#/$defs/sortStep" },
+          { "$ref": "#/$defs/projectStep" },
+          { "$ref": "#/$defs/pageStep" },
+          { "$ref": "#/$defs/aggregateStep" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "literal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["valueType", "value"],
+      "properties": {
+        "valueType": { "enum": ["STRING", "INTEGER", "DECIMAL", "BOOLEAN", "ENUM", "DATETIME", "DATE", "UUID"] },
+        "value": { "oneOf": [{ "type": "string", "maxLength": 4096 }, { "type": "boolean" }] }
+      },
+      "allOf": [
+        { "if": { "properties": { "valueType": { "const": "BOOLEAN" } } }, "then": { "properties": { "value": { "type": "boolean" } } } },
+        { "if": { "properties": { "valueType": { "enum": ["STRING", "INTEGER", "DECIMAL", "ENUM", "DATETIME", "DATE", "UUID"] } } }, "then": { "properties": { "value": { "type": "string", "maxLength": 4096 } } } }
+      ]
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["propertyRef", "operator"],
+      "properties": {
+        "propertyRef": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "operator": { "enum": ["EQ", "IN", "GT", "GTE", "LT", "LTE", "PREFIX", "IS_NULL"] },
+        "literal": { "$ref": "#/$defs/literal" },
+        "values": { "type": "array", "minItems": 1, "maxItems": 100, "items": { "$ref": "#/$defs/literal" } }
+      },
+      "allOf": [
+        { "if": { "properties": { "operator": { "const": "IS_NULL" } } }, "then": { "not": { "anyOf": [{ "required": ["literal"] }, { "required": ["values"] }] } } },
+        { "if": { "properties": { "operator": { "const": "IN" } } }, "then": { "required": ["values"], "not": { "required": ["literal"] } } },
+        { "if": { "properties": { "operator": { "enum": ["EQ", "GT", "GTE", "LT", "LTE", "PREFIX"] } } }, "then": { "required": ["literal"], "not": { "required": ["values"] } } }
+      ]
+    },
+    "filterStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "conditions"],
+      "properties": {
+        "kind": { "const": "FILTER" },
+        "conditions": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "$ref": "#/$defs/condition" } }
+      }
+    },
+    "sortStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "fields"],
+      "properties": {
+        "kind": { "const": "SORT" },
+        "fields": {
+          "type": "array", "minItems": 1, "maxItems": 3,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["propertyRef", "direction"],
+            "properties": {
+              "propertyRef": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "direction": { "enum": ["ASC", "DESC"] }
+            }
+          }
+        }
+      }
+    },
+    "projectStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "propertyRefs"],
+      "properties": {
+        "kind": { "const": "PROJECT" },
+        "propertyRefs": { "type": "array", "minItems": 1, "maxItems": 100, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 128 } }
+      }
+    },
+    "pageStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "pageSize"],
+      "properties": {
+        "kind": { "const": "PAGE" },
+        "pageSize": { "type": "integer", "minimum": 1, "maximum": 50 }
+      }
+    },
+    "aggregateStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "operation"],
+      "properties": {
+        "kind": { "const": "AGGREGATE" },
+        "operation": { "enum": ["COUNT_DISTINCT", "SUM"] },
+        "propertyRef": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "allOf": [
+        { "if": { "properties": { "operation": { "const": "SUM" } } }, "then": { "required": ["propertyRef"] } },
+        { "if": { "properties": { "operation": { "const": "COUNT_DISTINCT" } } }, "then": { "not": { "required": ["propertyRef"] } } }
+      ]
+    },
+    "pageRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cursor"],
+      "properties": { "cursor": { "type": "string", "minLength": 1, "maxLength": 512 } }
+    }
+  }
+}

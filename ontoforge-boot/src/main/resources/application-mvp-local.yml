@@ -1,0 +1,6 @@
+# Local isolated MVP only. Non-local deployments must configure a stable, private
+# ONTOFORGE_OBJECTSET_CURSOR_SIGNING_SECRET (at least 32 characters) so signed cursors
+# can be validated after process restarts without using a public fallback key.
+ontoforge:
+  objectset:
+    cursor-signing-secret: ${ONTOFORGE_OBJECTSET_CURSOR_SIGNING_SECRET:ontoforge-local-query-v1-development-only-secret}

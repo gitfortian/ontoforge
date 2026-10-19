@@ -28,7 +28,7 @@ Authoritative design references:
 
 ## Ownership and dependency boundaries
 
-- `ontoforge-boot`: Spring Boot entry, HTTP/security adapters and explicit module assembly. `ontoforge-business` owns Draft/Snapshot/Binding/Object/quality use cases and their transactions; `ontoforge-platform` owns stored-identity authorization and platform status.
+- `ontoforge-boot`: Spring Boot entry, HTTP/security adapters and explicit module assembly. `ontoforge-business` owns Draft/Snapshot/Binding/Object/quality and local-query-v1 ObjectSet use cases and their transactions; `ontoforge-platform` owns stored-identity authorization and platform status.
 - `ontoforge-ui`: current single Vite/React application. No fictitious `apps/web`, multi-app workspace or extra shared component library before there are real consumers.
 - `ontoforge-core` owns existing Native editor/schema validation; `ontoforge-dao` owns SQL, bounded PostgreSQL source reads and the unchanged Flyway V1–V7 sequence. `ontoforge-configuration` owns local environment guards; `ontoforge-common` owns shared byte digests. For module changes, read the [module plan and current implementation](doc/implementation/S0-工程模块规划与命名规范.md), and run `scripts/ci/test_module_structure.py`.
 - SPI/plugins/task-execution/dist and other future modules remain planned; create them when a real owner, caller, dependency direction and tests justify them.

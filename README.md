@@ -30,6 +30,8 @@
 
 在仓库根执行 `.\scripts\run-local.ps1`，脚本先构建实际 Reactor，再启动可执行 Boot jar；已有构建可传 `-SkipBuild`。它沿用当前终端的 DB/Profile/OIDC/来源配置。若使用 `mvn -pl ontoforge-boot spring-boot:run`，须先 `mvn -pl ontoforge-boot -am -DskipTests install` 安装内部依赖。下列有日期的 AS-IS 材料保留其历史基线；最新工程归属以模块规划和代码为准。
 
+沿用 main 的 M7 配置约束：非 `mvp-local` 环境须通过 `ONTOFORGE_OBJECTSET_CURSOR_SIGNING_SECRET` 提供至少 32 字符的稳定私有游标签名密钥。
+
 ## 当前精简 MVP：无需登录的本机隔离运行（需显式启用）
 
 **开发优先级已调整**：本体定义 → 测试数据绑定 → ObjectSet/多结果查询 → 工业业务追溯。登录、用户和角色不是 MVP 核心能力；未来优先复用 [yak-ops](https://github.com/weifuwan/yak-ops) 的 `HttpSession` 认证，而不是单独开发 OntoForge 身份产品。
