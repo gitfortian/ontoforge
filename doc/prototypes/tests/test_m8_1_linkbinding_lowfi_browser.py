@@ -190,7 +190,7 @@ class M81LinkBindingUXLowBrowser(unittest.TestCase):
         self.assertTrue(self.page.locator("#result-box").is_hidden())
 
     def test_bounded_root_set_respects_direction_and_partial_scope(self):
-        self.save()
+        self.save("orphans")
         self.page.locator("#tab-query").click()
         self.page.locator("#query-root-mode").select_option("bounded")
         self.assertTrue(self.page.locator("#query-root").is_disabled())
@@ -204,6 +204,16 @@ class M81LinkBindingUXLowBrowser(unittest.TestCase):
         self.assertIn("PARTIAL / KNOWN_SUBSET", self.model()["qualityResult"])
         self.assertIn("EQ-001", self.page.locator("#result-rows").inner_text())
         self.assertIn("已知子集 1 条", self.page.locator("#query-outcome").inner_text())
+
+    def test_valid_fixture_does_not_offer_unverified_orphan(self):
+        self.save("normal")
+        self.page.locator("#tab-query").click()
+        self.page.locator("#query-direction").select_option("IN")
+        self.assertEqual([], self.page.locator('#query-root option[value="LOT-14"]').all())
+        self.page.locator("#query-root-mode").select_option("bounded")
+        self.page.locator("#run-query").click()
+        self.assertIn("LOT-11、LOT-13", self.page.locator("#query-outcome").inner_text())
+        self.assertIn("COMPLETE", self.model()["qualityResult"])
 
     def test_unsaved_navigation_guard_cancel_and_confirm(self):
         self.page.locator("#fk-column").select_option("order_id")
