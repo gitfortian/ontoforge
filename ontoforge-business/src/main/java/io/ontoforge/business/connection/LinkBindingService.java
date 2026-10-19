@@ -140,7 +140,6 @@ public class LinkBindingService {
                 ||!"FOREIGN_KEY".equals(request.mode())
                 ||!("SOURCE".equals(request.fkOwner())||"TARGET".equals(request.fkOwner()))
                 ||request.expectedRevision()<0
-                ||request.idempotencyKey()==null
                 ||request.packageId()==null||request.linkTypeId()==null) {
             throw fail(422,"INVALID_LINK_BINDING_REQUEST","仅支持 Local Snapshot / FOREIGN_KEY / FULL，写入须有幂等 UUID","request");
         }
@@ -328,10 +327,16 @@ public class LinkBindingService {
         return inspect(request,auth).report();
     }
 
+    private static void requireOperationKey(Request request) {
+        if(request.idempotencyKey()==null)
+            throw fail(422,"IDEMPOTENCY_KEY_REQUIRED",
+                    "CREATE 和 UPDATE 均必须提交操作级幂等 UUID","idempotencyKey");
+    }
     @Transactional
     public Detail create(Request request,Authentication auth) {
         if(request==null||request.expectedRevision()!=0)
             throw fail(400,"MALFORMED_REQUEST","新建 LinkBinding 的 expectedRevision 必须为 0","expectedRevision");
+        requireOperationKey(request);
         authorization.requirePackage(auth,nonblank(request.packageId(),"packageId"),
                 B0AuthorizationService.Operation.WRITE_DRAFT);
         String requestDigest=digest(request);
