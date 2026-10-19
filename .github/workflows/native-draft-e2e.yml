@@ -58,6 +58,7 @@ jobs:
       E2E_AUTH_FILE: /tmp/ontoforge-b0-private-fixture.json
       E2E_M5_BINDING_EVIDENCE: /tmp/ontoforge-m5-binding-acceptance.json
       E2E_M7_CURSOR_EVIDENCE: /tmp/ontoforge-m7-cursor-acceptance.json
+      E2E_M8_CURSOR_EVIDENCE: /tmp/ontoforge-m8-cursor-acceptance.json
       ONTOFORGE_OBJECTSET_CURSOR_SIGNING_SECRET: ontoforge-e2e-stable-cursor-signing-secret-2026
       S0_HOST: 127.0.0.1
       ONTOFORGE_BINDING_SOURCE_URL: jdbc:postgresql://127.0.0.1:5432/ontoforge_test_e2e
@@ -342,6 +343,39 @@ jobs:
           }, indent=2), encoding="utf-8")
           print("M7 old cursor expired after real Spring Boot restart; identical local-query-v1 digest remained stable across JVM processes")
           PY
+      - name: Prove M8 signed cursor fails 410 after actual JVM restart
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from urllib.error import HTTPError
+          from urllib.request import Request, urlopen
+
+          evidence = json.loads(Path(os.environ["E2E_M8_CURSOR_EVIDENCE"]).read_text(encoding="utf-8"))
+          fixture = json.loads(Path(os.environ["E2E_AUTH_FILE"]).read_text(encoding="utf-8"))
+          request = Request(
+              "http://127.0.0.1:8080/api/runtime/object-sets/traverse/pages",
+              data=json.dumps({"cursor": evidence["cursor"]}).encode("utf-8"),
+              method="POST",
+              headers={"Authorization": "Bearer " + fixture["editorToken"],
+                       "Content-Type": "application/json"},
+          )
+          try:
+              with urlopen(request, timeout=15) as response:
+                  raise AssertionError("M8 frozen LinkFacts unexpectedly survived service restart")
+          except HTTPError as error:
+              data = json.loads(error.read())
+              assert error.code == 410, f"M8 stale cursor HTTP={error.code}: {data}"
+              assert data.get("code") == "RESULT_EXPIRED", data
+              assert "objects" not in data and "links" not in data, "Stale M8 cursor leaked LinkFacts"
+          Path("/tmp/ontoforge-m8-cursor-restart-result.json").write_text(
+              json.dumps({"packageId": evidence["packageId"],
+                          "resultSnapshotRef": evidence["resultSnapshotRef"],
+                          "code": "RESULT_EXPIRED", "http": 410,
+                          "reason": "VOLATILE_FROZEN_RESULT_LOST_ON_REAL_RESTART"}, indent=2),
+              encoding="utf-8")
+          print("M8 v2 signed cursor returns 410 after actual backend JVM restart")
+          PY
       - name: Recheck M5 binding revisions and digests after real backend restart
         run: |
           python - <<'PY'
@@ -382,6 +416,7 @@ jobs:
           cp /tmp/ontoforge-m5-binding-acceptance.json /tmp/ontoforge-e2e-evidence/m5-binding-acceptance.json 2>/dev/null || true
           cp /tmp/ontoforge-m7-b0-revocation.json /tmp/ontoforge-e2e-evidence/m7-b0-revocation.json 2>/dev/null || true
           cp /tmp/ontoforge-m7-cursor-restart-result.json /tmp/ontoforge-e2e-evidence/m7-cursor-restart-result.json 2>/dev/null || true
+          cp /tmp/ontoforge-m8-cursor-restart-result.json /tmp/ontoforge-e2e-evidence/m8-cursor-restart-result.json 2>/dev/null || true
           cp /tmp/ontoforge-idp.log /tmp/ontoforge-e2e-evidence/test-idp.log 2>/dev/null || true
           cp -r '${{ runner.temp }}/ontoforge-native-e2e-shots' /tmp/ontoforge-e2e-evidence/screenshots 2>/dev/null || true
       - uses: actions/upload-artifact@v7
