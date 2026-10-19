@@ -3,7 +3,7 @@
 > **文档类型**：产品功能说明 / 功能分解结构（FBS）/ AS-IS 与 TO-BE 差距基线。不是新的总体架构、不是产品 Release Notes、不是软件发布批准书。  
 > **梳理日期**：2026-10-19；**代码基准**：`main` = [`c9de0336a022ed33bca08f39029b5ac58d3265e3`](https://github.com/gitfortian/ontoforge/commit/c9de0336a022ed33bca08f39029b5ac58d3265e3)，包含已合并 PR #75。  
 > **范围**：OntoForge 独立本体产品，不包含 data-ops；**正式产品发布**：Not Released；用户既有 Windows 11 本机 PostgreSQL 完整人工 UAT：NOT RUN/未取得签收证据。  
-> **2026-10-19 整改进展**：本文件改为 **AS-IS 实施视角证据账**，原 125 行中混入范围排除/CI/UAT 等条目，不能再作为完整产品三级功能树或计算产品完工率。全产品一级/二级/三级结构请使用 [V1.1 八域/F01–F29/209 项](../product/OntoForge-产品完整功能树-三级-V1.1.md)，实际验收模板见 [15 项核心合同与 8 条黄金故事](../product/OntoForge-Core功能验收合同与黄金故事-V1.1.md)；正式签收由 [#82](https://github.com/gitfortian/ontoforge/issues/82) 跟踪。  
+> **2026-10-19 整改进展**：本文件改为 **AS-IS 实施视角证据账**，原 125 行中混入范围排除/CI/UAT 等条目，不能再作为完整产品三级功能树或计算产品完工率。全产品一级/二级/三级结构请使用 [V1.1 八域/F01–F29/216 项](../product/OntoForge-产品完整功能树-三级-V1.1.md)，实际验收模板见 [15 项核心合同与 8 条黄金故事](../product/OntoForge-Core功能验收合同与黄金故事-V1.1.md)；正式签收由 [#82](https://github.com/gitfortian/ontoforge/issues/82) 跟踪。  
 > **正式功能评审（2026-10-19）**：此版可作为**已实现功能核对初稿**，但**尚未通过“全产品三级功能目录”签收**。详见[正式产品功能评审报告](./OntoForge-三级功能正式产品评审报告-20261019.md)：当前未与 V1.3 的八功能域、F01–F29 建立完整映射，且部分条目其实是非功能质量门或范围排除项。
 
 ## 0. 使用说明与状态判定
