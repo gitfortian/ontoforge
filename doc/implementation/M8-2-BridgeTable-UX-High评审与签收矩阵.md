@@ -93,3 +93,8 @@
 5. 正式生产阶段必须跑实际 PostgreSQL 17 同事务三表 FULL、真实来源授权/撤权、Head CAS/idempotency、JWT/Session、React+Chromium 端到端验收 B01–B18；当前这些均 **NOT IMPLEMENTED/NOT RUN**。
 
 **不可混淆**：M8.1 #93 MERGED ≠ M8.2 完成；本 PR 原型/合同质量检查 PASS ≠ M8.2 生产 E2E PASS；UX-Low 的用户签收 ≠ UX-High 的用户签收。M8.3 仅计划未来一份纵向 PR，不能搭车开发。
+
+
+## 5. 高保真可访问性修订（同 PR 内追补）
+
+独立交互复核补充：原型对可见错误状态使用 `role=alert`、可程序化聚焦与焦点移动，保证键盘用户不会停留在已失效提交按钮。专属 Chromium 新增一项“无效版本映射触发验证 → 焦点落到验证错误 + 读屏告警”反例，**总计划为 55 个浏览器用例**。此项仍只验证静态原型交互，并不证明生产 React 或真实浏览器辅助技术的完整兼容性。
