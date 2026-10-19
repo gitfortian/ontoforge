@@ -1,6 +1,7 @@
 import { Input } from '../../../shared/ui/yak/input';
 import { Button } from '../../../shared/ui/yak/button';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
+import LinkTraversalWorkspace from './LinkTraversalWorkspace';
 import {ArrowLeft, CheckCircle2, ChevronRight, Database, Filter, RefreshCw, ShieldAlert, Sigma} from 'lucide-react';
 import {authorizedFetch} from '../../../shared/api/auth';
 import '../../design/modeling/model.css';
@@ -232,6 +233,10 @@ export default function ObjectSetWorkspace({route,navigate,scopePackages}:{route
   }
   function resetQuery(){setFilters([]);clearResultState();setError(null);setMode('PAGE');}
 
+  const linkRouteParams=new URLSearchParams(route.split('?')[1]||'');
+  const preferredLinkSnapshot=linkRouteParams.get('snapshotId')||'';
+  const preferredLinkType=linkRouteParams.get('linkTypeId')||'';
+
   return <div className="model-page object-set-page">
     <div className="model-head">
       <div><div className="model-eyebrow">M7 / GENERIC OBJECTSET QUERY</div><h1>对象集合查询</h1><p>基于已保存的 ObjectType 与 Binding revision 执行类型化筛选、稳定排序、字段投影、结果分页和有界聚合。查询执行与每页读取都重新核验来源及授权。</p></div>
@@ -306,5 +311,8 @@ export default function ObjectSetWorkspace({route,navigate,scopePackages}:{route
         </section>
       </div>
     </>}
+    <LinkTraversalWorkspace packageId={binding?.packageId||packageInput.trim()}
+      scopePackages={scopePackages}
+      initialSnapshotId={preferredLinkSnapshot} initialLinkTypeId={preferredLinkType} navigate={navigate}/>
   </div>;
 }

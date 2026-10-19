@@ -38,7 +38,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/platform/workspaces","/api/platform/workspaces/**").authenticated()
                         .requestMatchers("/api/model/**").authenticated()
                         .requestMatchers("/api/mvp/quality/**").authenticated()
-                        .requestMatchers("/api/runtime/sources/**", "/api/runtime/bindings", "/api/runtime/bindings/**", "/api/runtime/objects/**", "/api/runtime/object-sets/**").authenticated()
+                        .requestMatchers("/api/runtime/sources/**", "/api/runtime/bindings", "/api/runtime/bindings/**", "/api/runtime/link-bindings", "/api/runtime/link-bindings/**", "/api/runtime/objects/**", "/api/runtime/object-sets/**").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(errors -> errors
                         .authenticationEntryPoint(json401())
