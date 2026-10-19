@@ -140,6 +140,33 @@ class RealM8BrowserGoldenStory(unittest.TestCase):
         self.assertEqual(detail["targetBindingId"], right["bindingId"])
         self.assertEqual(detail["validationQuality"]["matchedLinks"], 2)
 
+        # Save a real signed M8 page cursor BEFORE API restart. The post-restart
+        # CI step must return 410, not recover stale in-memory LinkFacts.
+        cursor_query = {
+            "queryVersion": "local-query-v2",
+            "rootTypeRef": {"sourceRef": {"kind": "LOCAL_SNAPSHOT", "snapshotId": snapshot},
+                            "packageId": self.package, "objectTypeId": "factory-cell"},
+            "rootBindingRef": {"bindingId": left["bindingId"], "revision": left["revision"]},
+            "rootSelector": {"kind": "OBJECT_REF",
+                "objectRef": {"packageId": self.package, "objectTypeId": "factory-cell",
+                    "identityDomainId": left["identityDomainId"],
+                    "key": {"valueType": "STRING", "value": "CELL-01"}}},
+            "steps": [{"kind": "TRAVERSE", "linkTypeRef": "cell-quality",
+                       "linkBindingRef": {"bindingId": detail["linkBindingId"],
+                                           "revision": detail["revision"]},
+                       "direction": "OUT", "maxDepth": 1},
+                      {"kind": "PAGE", "pageSize": 1}]
+        }
+        frozen = api("/runtime/object-sets/traverse", "POST", cursor_query)
+        assert frozen["nextCursor"].startswith("v2.")
+        evidence = os.getenv("E2E_M8_CURSOR_EVIDENCE")
+        if evidence:
+            Path(evidence).write_text(json.dumps({
+                "cursor": frozen["nextCursor"],
+                "resultSnapshotRef": frozen["resultSnapshotRef"],
+                "packageId": self.package
+            }), encoding="utf-8")
+
         panel.get_by_label("M8 Root Object Key").fill("CELL-01")
         panel.get_by_role("button", name="执行一跳查询").click()
         result = panel.locator(".m8-result")
