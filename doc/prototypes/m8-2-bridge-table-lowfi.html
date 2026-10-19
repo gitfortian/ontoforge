@@ -185,6 +185,11 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
       <div class="readonly"><b>TARGET · Equipment</b><span id="evidence-target-version">Binding B-EQ/r3 · READ ONLY · 同一 PG</span></div>
       <div class="readonly"><b>BRIDGE · maintenance_order_equipment</b><span>两列 FK + Bridge schemaFingerprint · 独立 SELECT 资格</span></div>
     </div>
+    <div class="kv" id="execution-lock" hidden style="margin-top:12px">
+      <div><b>查询与关系版本锁（模拟）</b><span id="lock-link" class="mono">—</span></div>
+      <div><b>三份来源读取 ID（模拟）</b><span id="lock-reads" class="mono">—</span></div>
+      <div><b>三份结构指纹（模拟）</b><span id="lock-fp" class="mono">—</span></div>
+    </div>
     <div class="notice" id="evidence-summary"><b>尚无执行证据</b>保存后，只有明确执行并授权成功才展示对应的来源读取记录。</div>
     <div class="notice" id="failure-evidence" hidden></div>
     <div class="actions"><button class="main-action" id="retry-query">模拟修复来源后重新执行（新快照）</button><button id="repair-config">修正映射 / 重新核验</button></div>
@@ -266,8 +271,11 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
      $("#validation-coverage").textContent="SAMPLE / UNKNOWN_TOTAL · 不可保存";
    }else if(scenario==="revoke"){
      setStatus("validation-outcome","bad","FAILED · 403 SOURCE_NOT_ALLOWED","BRIDGE SELECT 资格未知；不能把无权结果解释成孤儿。");
+     // A new source admission failure invalidates the old visible result too.
+     fail("403 SOURCE_NOT_ALLOWED","FULL 复核发现 BRIDGE SELECT 已撤销，旧结果与 cursor 均失效");
    }else if(scenario==="drift"){
      setStatus("validation-outcome","bad","FAILED · 409 LINK_SOURCE_SCHEMA_DRIFT","Bridge schemaFingerprint 不再与候选配置一致。");
+     fail("409 LINK_SOURCE_SCHEMA_DRIFT","FULL 复核发现 BRIDGE 结构漂移，旧结果与 cursor 均失效");
    }else{
      let l=ledgerFor(scenario), quality=l.orphans?"VALID_WITH_ORPHANS":"VALID";
      state.validated=true;state.validationQuality=quality;state.qualityLedger=l;
@@ -463,8 +471,10 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
  }
  function renderEvidence(){
    // Source table identities and version grants are not public error evidence.
-   // Show the role cards only after the current execution succeeds.
-   $("#three-read-roles").hidden=!!state.failure||!state.lastResult;
+   // Show the role cards and execution version lock only on a valid success.
+   const successful=!!state.lastResult&&!state.failure;
+   $("#three-read-roles").hidden=!successful;
+   $("#execution-lock").hidden=!successful;
    const mappingInUse=state.saved?.mapping||original;
    $("#evidence-source-version").textContent="Binding "+mappingInUse.source+" · READ ONLY · 同一 PG";
    $("#evidence-target-version").textContent="Binding "+mappingInUse.target+" · READ ONLY · 同一 PG";
@@ -478,6 +488,9 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
    $("#failure-evidence").hidden=true;
    if(state.lastResult){
      const r=state.lastResult;
+     $("#lock-link").textContent="S-042 / order-equipment / LinkBinding r"+state.revision+" · "+r.dir+" / "+r.roots.join(",");
+     $("#lock-reads").textContent="SRC-DEMO-"+r.execution+" / TGT-DEMO-"+r.execution+" / BRG-DEMO-"+r.execution;
+     $("#lock-fp").textContent="FP-SRC-DEMO / FP-TGT-DEMO / FP-BRG-DEMO · freshness UNKNOWN";
      setStatus("evidence-summary","good","已冻结的模拟执行 "+r.execution,
         "三方 schemaFingerprint + 两端 Object Binding/一条 LinkBinding 版本锁；"+
         r.quality+"；可确认孤儿 pair "+r.orphanCount+"；Bridge duplicatePairRows "+r.duplicates+
