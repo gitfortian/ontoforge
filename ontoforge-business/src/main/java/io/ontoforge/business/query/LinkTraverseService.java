@@ -814,16 +814,16 @@ public class LinkTraverseService {
         }
         List<Map.Entry<String, String>> extra = selected.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey()).toList();
-        StringBuilder sql = new StringBuilder("SELECT \\"").append(key).append("\\"");
-        if (fk != null) sql.append(",\\"").append(fk).append("\\"");
+        StringBuilder sql = new StringBuilder("SELECT \"").append(key).append("\"");
+        if (fk != null) sql.append(",\"").append(fk).append("\"");
         for (Map.Entry<String, String> column : extra) {
             if (!IDENT.matcher(column.getValue()).matches()) {
                 throw fail(422, "UNSUPPORTED_FILTER_FIELD", "来源列不满足受控数据库标识符约束", "conditions");
             }
-            sql.append(",\\"").append(column.getValue()).append("\\"");
+            sql.append(",\"").append(column.getValue()).append("\"");
         }
-        sql.append(" FROM public.\\"").append(table).append("\\" ORDER BY \\"")
-                .append(key).append("\\" LIMIT ?");
+        sql.append(" FROM public.\"").append(table).append("\" ORDER BY \"")
+                .append(key).append("\" LIMIT ?");
         List<Fact> data = new ArrayList<>();
         try (PreparedStatement statement = c.prepareStatement(sql.toString())) {
             statement.setQueryTimeout(Math.max(1, request.timeout()));
