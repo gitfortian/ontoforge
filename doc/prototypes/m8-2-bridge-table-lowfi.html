@@ -288,6 +288,10 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
      $("#validation-pairs").textContent="未提供";
      $("#validation-quality").textContent="失败不返回全局孤儿计数";
      $("#validation-buckets").textContent="未取得完整三方来源资格，不返回互斥桶";
+     // With unknown grants, wrong source, or a drifting schema we cannot
+     // display the previously fixed role/card evidence. Only a permitted
+     // budget diagnostic is exposed without qualified FULL statistics.
+     if(scenario!=="budget")$("#validation-ledger").hidden=true;
    }
  }
  function save(){
@@ -333,7 +337,12 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
    const direction=$("#query-direction").value,opts=direction==="OUT"?["MO-001","MO-002","MO-003"]:["E01","E02","E03"];
    const root=$("#query-root");root.replaceChildren();
    opts.forEach(id=>{let o=document.createElement("option");o.value=id;o.textContent=id;root.append(o);});
-   $("#target-filter").options[1].textContent=direction==="OUT"?"仅设备 E02":"仅工单 MO-002";
+   const targetOption=$("#target-filter").options[1];
+   targetOption.textContent=direction==="OUT"?"仅设备 E02":"仅工单 MO-002";
+   targetOption.value=direction==="OUT"?"E02":"MO-002";
+   // A TARGET FILTER is typed against the current output ObjectType.
+   // Never carry a device predicate into an order query after direction flips.
+   $("#target-filter").value="all";
    updateRoot();
  }
  function updateRoot(){
@@ -344,11 +353,22 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
       "当前 "+(dir==="OUT"?"SOURCE 工单":"TARGET 设备")+" 根："+$("#query-root").value+"（绑定身份域固定）";
    clearVisibleResult("查询条件已修改，请明确执行新查询。");
  }
+ function purgeRenderedResult(){
+   // Hiding a panel alone leaves private values in the client DOM. Remove them
+   // on query edits and authorization/source failures as well.
+   $("#result-panel").hidden=true;
+   $("#result-rows").replaceChildren();
+   $("#result-summary").replaceChildren();
+   $("#result-snapshot").textContent="";
+   $("#aggregate-panel").textContent="";
+   $("#page-number").textContent="";
+   $("#next-page").disabled=true;
+ }
  function clearVisibleResult(message){
    // A changed root/filter/operation is not the old execution. Never present old
    // source/version evidence as proof for the currently selected query draft.
    state.lastResult=null;state.failure=null;
-   $("#result-panel").hidden=true;
+   purgeRenderedResult();
    setStatus("query-outcome","",message,"对象、LinkFact 与聚合仅在新执行成功后展示。");
  }
  function fail(code,message){
@@ -356,8 +376,8 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
    if(r&&r.snapshot&&!state.retired.includes(r.snapshot))state.retired.push(r.snapshot);
    state.failure={code,message};
    state.lastResult=null;
-   $("#result-panel").hidden=true;
-   setStatus("query-outcome","bad","FAILED · "+code,message+"；已移除旧对象与关系载荷，恢复必须重新执行。");
+   purgeRenderedResult();
+   setStatus("query-outcome","bad","FAILED · "+code,message+"；已清空旧对象与关系载荷，恢复必须重新执行。");
    renderEvidence();
  }
  const objCount=rows=>new Set(rows.map(x=>x.out)).size;
@@ -388,7 +408,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
      rows.push({source:mo,target:eq,out:dir==="OUT"?eq:mo});
    }
    let filter=$("#target-filter").value;
-   if(filter!=="all")rows.splice(0,rows.length,...rows.filter(r=>r.out===(dir==="OUT"?"E02":"MO-002")));
+   if(filter!=="all")rows.splice(0,rows.length,...rows.filter(r=>r.out===filter));
    // After target filtering, duplicate evidence is scoped to the returned pair set.
    // Duplicate physical rows for a filtered-out pair must not inflate this result.
    const visiblePairs=new Set(rows.map(r=>r.source+"|"+r.target));
