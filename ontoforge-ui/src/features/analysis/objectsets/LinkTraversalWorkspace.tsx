@@ -93,7 +93,13 @@ export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
   function invalidateDraft(){
     setValidation(null);setCurrentLink(null);setOpKey('');reqKey.current='';setNotice('');clearExecution();
   }
-  function selectType(id:string){setLinkTypeId(id);setFkColumn('');invalidateDraft();}
+  function selectType(id:string){
+    setLinkTypeId(id);setFkColumn('');
+    setRootFilterField('');setRootFilterValue('');
+    setTargetFilterField('');setTargetFilterValue('');
+    setSortField('');setProjectField('');setSumField('');
+    setRootKey('');setTerminal('PAGE');invalidateDraft();
+  }
   function selectOwner(owner:'SOURCE'|'TARGET'){setFkOwner(owner);setFkColumn('');invalidateDraft();}
 
   useEffect(()=>{
@@ -290,7 +296,17 @@ export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
         <h3>03 · 已保存关系的一跳遍历</h3>
         {currentLink?<div className="m8-current"><CheckCircle2 size={16}/><strong>{currentLink.linkTypeId} · revision {currentLink.revision}</strong><span>{currentLink.validationStatus} · 来源检查来自不可变修订</span></div>
           :<p className="object-set-hint">先验证并保存 LinkBinding，或使用“重开已保存”。未保存的前端草稿不能参与遍历。</p>}
-        <div className="m8-query-controls"><label>方向<select aria-label="M8 Traverse Direction" value={direction} onChange={e=>{setDirection(e.target.value as 'OUT'|'IN');setRootFilterField('');setTargetFilterField('');clearExecution();}}>
+        <div className="m8-query-controls"><label>方向<select aria-label="M8 Traverse Direction" value={direction} onChange={e=>{
+            setDirection(e.target.value as 'OUT'|'IN');
+            // The opposite endpoint owns a different ObjectType/Binding. Fields
+            // selected on the previous output side must never survive direction
+            // changes as invisible, invalid or access-expanding predicates.
+            setRootFilterField('');setRootFilterValue('');
+            setTargetFilterField('');setTargetFilterValue('');
+            setSortField('');setProjectField('');setSumField('');
+            setTerminal('PAGE');setRootKey('');
+            clearExecution();
+          }}>
           <option value="OUT">OUT · SOURCE → TARGET</option><option value="IN">IN · TARGET → SOURCE</option></select></label>
           <label>根选择方式<select aria-label="M8 Root Selector" value={selectorMode} onChange={e=>{setSelectorMode(e.target.value as 'OBJECT_REF'|'BOUNDED_ROOT_FILTER');clearExecution();}}>
             <option value="OBJECT_REF">指定根对象</option><option value="BOUNDED_ROOT_FILTER">有界根筛选（最多 50 个根）</option>
