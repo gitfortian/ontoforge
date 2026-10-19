@@ -255,7 +255,9 @@ class LinkBindingFullIntegrationTest {
                 .isEqualTo(firstPageBody.path("resultSnapshotRef"));
         assertThat(secondPageBody.path("objects").get(0).path("objectRef").path("key").path("value"))
                 .isNotEqualTo(firstPageBody.path("objects").get(0).path("objectRef").path("key").path("value"));
-        ResponseEntity<String> tampered = traversePage(nextCursor.substring(0, nextCursor.length() - 1) + "X");
+        String forged = nextCursor.substring(0, 3)
+                + (nextCursor.charAt(3)=='A' ? 'B' : 'A') + nextCursor.substring(4);
+        ResponseEntity<String> tampered = traversePage(forged);
         assertThat(tampered.getStatusCode().value()).isEqualTo(400);
         assertThat(tampered.getBody()).contains("INVALID_CURSOR");
 
