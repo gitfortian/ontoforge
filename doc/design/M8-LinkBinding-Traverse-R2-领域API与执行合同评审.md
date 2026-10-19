@@ -135,8 +135,9 @@
 
 1. `referencedIdentityColumn` **不能由客户端自由指定**。它必须由服务端从已锁定的“被引用端 M5 Binding revision.sourceKey”解析，校验 FKOwner 相反端、identityDomain、来源列类型与 PG 一致性。候选 LinkBinding 请求因此只允许明确 FK 所在端及其真实来源列。
 2. 结构 Schema 的 `contains` 最多只能检查**恰好一个** TRAVERSE / 终结步骤；运行时还必须检查步骤先后、rootSelector 根谓词与 TRAVERSE 后 TARGET FILTER 的端点类型、字段映射、M8.1 FK×基数约束、对象身份和授权，不可把 Schema PASS 误称为可执行验证。
-3. 两端 current source/database grants、跨服务元数据版本一致性、关联源权限与 FULL 质量验证均无法由静态 Schema 保证；在生产实现前必须配对真实 PG17 + API E2E 负例。
-4. 这些候选文件在 `doc/design/candidates`，**并非**当前运行时解析/发布的 `doc/design/schema` 正式合同，也不授权把 v2 接口提前纳入生产服务。R2 经过产品/架构批准后才可定稿并回填 OFIP-0010。
+3. **多端证据不可缩水**：成功结果至少包含 SOURCE 和 TARGET 两种 role 的 SourceReadRef 与 SchemaFingerprint，并冻结 source/target 两条 OBJECT Binding 版本和一条 LINK Binding 版本。即使自关联共享物理表，也必须记录两端语义角色，不可用 M7 的单个 sourceReadRef 冒充双端复核。候选结果 Schema 已以 contains 约束要求这些元素；端点引用真实性仍由服务端按 Binding 重算。
+4. 两端 current source/database grants、跨服务元数据版本一致性、关联源权限与 FULL 质量验证均无法由静态 Schema 保证；在生产实现前必须配对真实 PG17 + API E2E 负例。
+5. 这些候选文件在 `doc/design/candidates`，**并非**当前运行时解析/发布的 `doc/design/schema` 正式合同，也不授权把 v2 接口提前纳入生产服务。R2 经过产品/架构批准后才可定稿并回填 OFIP-0010。
 
 ### 4.3 API 强校验
 
