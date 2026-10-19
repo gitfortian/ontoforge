@@ -9,6 +9,14 @@ import io.ontoforge.business.connection.LinkBindingService;
 import io.ontoforge.business.model.NativeSnapshotService;
 import io.ontoforge.platform.identity.B0AuthorizationService;
 import java.math.BigDecimal;
+import java.security.MessageDigest;
+import java.security.GeneralSecurityException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -26,14 +34,17 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 /**
  * M8.1 strict execution slice: one rooted ObjectRef and exactly one Traverse
- * step, terminating in PAGE. The service refuses unsupported filters/operators
- * and pages requiring a cursor instead of returning a misleading truncated page.
+ * step, terminating in PAGE. Unsupported filters/aggregates fail closed rather
+ * than silently changing the requested scope. A bounded signed frozen cursor
+ * stores only the validated one-hop result; source facts remain in PostgreSQL.
  * No generic graph traversal, SQL supplied by callers, or M7 v1 mutation.
  */
 @Service
@@ -50,17 +61,31 @@ public class LinkTraverseService {
     private final B0AuthorizationService authorization;
     private final ObjectProvider<JdbcTemplate> sourceProvider;
     private final ObjectMapper mapper;
+    private final byte[] signingKey;
+    private final Map<String, Frozen> frozen = new ConcurrentHashMap<>();
+
+    private record Frozen(String id, String actor, Instant expiresAt, ObjectNode full,
+            int pageSize, String pkg, String snapshotId,
+            String linkId, long linkRevision, String linkDigest,
+            String sourceBindingId, long sourceRevision, String sourceDigest,
+            String targetBindingId, long targetRevision, String targetDigest,
+            String sourceFingerprint, String targetFingerprint) {}
 
     public LinkTraverseService(LinkBindingService links, DataBindingService bindings,
             NativeSnapshotService snapshots, B0AuthorizationService authorization,
             @Qualifier("bindingSourceJdbcTemplate") ObjectProvider<JdbcTemplate> sourceProvider,
-            ObjectMapper mapper) {
+            ObjectMapper mapper,
+            @Value("${ontoforge.objectset.cursor-signing-secret:}") String cursorSigningSecret) {
         this.links = links;
         this.bindings = bindings;
         this.snapshots = snapshots;
         this.authorization = authorization;
         this.sourceProvider = sourceProvider;
         this.mapper = mapper;
+        if (cursorSigningSecret == null || cursorSigningSecret.length() < 32) {
+            throw new IllegalStateException("M8 cursor signing secret must have >= 32 characters");
+        }
+        this.signingKey = cursorSigningSecret.getBytes(StandardCharsets.UTF_8);
     }
 
     public static final class TraverseFailure extends RuntimeException {
@@ -238,12 +263,6 @@ public class LinkTraverseService {
         if (candidates > request.maxJoin() || distinctLink.size() > request.maxLinks()) {
             throw fail(429, "QUERY_BUDGET_EXCEEDED", "一跳候选或 LinkFact 超过预算", "limits");
         }
-        if (resultObjects.size() > request.pageSize()) {
-            // Cursor snapshot infrastructure is not yet available in this slice.
-            // Do NOT produce a partial first page as COMPLETE or misuse M7 cursor.
-            throw fail(422, "TRAVERSE_PAGING_NOT_READY",
-                    "该根对象关联超出一页，安全结果冻结分页尚未完成；本次拒绝截断", "steps");
-        }
         Instant now = Instant.now();
         ArrayNode bindingVersions = mapper.createArrayNode();
         bindingVersion(bindingVersions, sourceBinding.bindingId(), sourceBinding.revision(),
@@ -277,7 +296,8 @@ public class LinkTraverseService {
         result.set("sourceReadRefs", sourceReadRefs);
         result.put("queryDigest", NativeSnapshotService.sha256(
                 NativeSnapshotService.canonicalize(json.toString())));
-        result.put("resultSnapshotRef", "local-result:" + UUID.randomUUID());
+        String frozenId = UUID.randomUUID().toString();
+        result.put("resultSnapshotRef", "local-result:" + frozenId);
         result.put("expiresAt", now.plusSeconds(300).toString());
         ObjectNode quality = result.putObject("quality");
         quality.put("accuracy", "EXACT");
@@ -317,7 +337,194 @@ public class LinkTraverseService {
             throw fail(409, "LINK_VERSION_UNAVAILABLE", "查询执行期间关系版本变化", "steps");
         }
         if (System.nanoTime() > deadline) throw fail(503, "QUERY_TIMEOUT", "来源执行整体超时", "limits");
-        return result;
+        frozen.entrySet().removeIf(e -> !e.getValue().expiresAt().isAfter(Instant.now()));
+        if (frozen.size() >= 10) throw fail(429, "RESULT_SNAPSHOT_BUDGET",
+                "当前冻结结果容量已满，请稍后重新执行", "limits");
+        Frozen saved = new Frozen(frozenId, actorKey(auth), now.plusSeconds(300), result.deepCopy(),
+                request.pageSize(), request.packageId(), request.snapshotId(),
+                link.linkBindingId(), link.revision(), link.digest(),
+                sourceBinding.bindingId(), sourceBinding.revision(), sourceBinding.digest(),
+                targetBinding.bindingId(), targetBinding.revision(), targetBinding.digest(),
+                left.schemaFingerprint(), right.schemaFingerprint());
+        frozen.put(frozenId, saved);
+        try {
+            return buildPage(saved, 0);
+        } catch (RuntimeException ex) {
+            frozen.remove(frozenId);
+            throw ex;
+        }
+    }
+
+    /** Opaque cursor only; never accepts an arbitrary client-computed offset. */
+    public ObjectNode nextPage(JsonNode body, Authentication auth) {
+        if (!fields(body, Set.of("cursor")) || !body.path("cursor").isTextual()
+                || body.path("cursor").asText().length() > 512) {
+            throw fail(400, "INVALID_CURSOR", "仅接受签名的 v2 cursor", "cursor");
+        }
+        String token = body.path("cursor").asText();
+        String[] parts = token.split("\\.", -1);
+        if (parts.length != 3 || !"v2".equals(parts[0])) {
+            throw fail(400, "INVALID_CURSOR", "cursor 格式错误", "cursor");
+        }
+        byte[] raw;
+        byte[] supplied;
+        try {
+            raw = Base64.getUrlDecoder().decode(parts[1]);
+            supplied = Base64.getUrlDecoder().decode(parts[2]);
+        } catch (IllegalArgumentException e) {
+            throw fail(400, "INVALID_CURSOR", "cursor 编码错误", "cursor");
+        }
+        if (!MessageDigest.isEqual(supplied, sign(raw))) {
+            throw fail(400, "INVALID_CURSOR", "cursor 签名失效", "cursor");
+        }
+        String[] fields = new String(raw, StandardCharsets.UTF_8).split(":", -1);
+        if (fields.length != 4) throw fail(400, "INVALID_CURSOR", "cursor 内容不合法", "cursor");
+        String id = fields[0];
+        int offset;
+        long expiresMillis;
+        try {
+            UUID.fromString(id);
+            offset = Integer.parseInt(fields[1]);
+            expiresMillis = Long.parseLong(fields[2]);
+        } catch (RuntimeException ex) {
+            throw fail(400, "INVALID_CURSOR", "cursor 位置不可解析", "cursor");
+        }
+        if (!fields[3].equals(actorHash(actorKey(auth)))) {
+            throw fail(403, "FORBIDDEN", "cursor 不属于当前主体", "cursor");
+        }
+        Frozen record = frozen.get(id);
+        if (record == null || !record.expiresAt().isAfter(Instant.now())
+                || expiresMillis != record.expiresAt().toEpochMilli()) {
+            frozen.remove(id);
+            throw fail(410, "RESULT_EXPIRED", "结果已过期或已失效，必须重新执行", "cursor");
+        }
+        if (!record.actor().equals(actorKey(auth))) {
+            throw fail(403, "FORBIDDEN", "cursor 不属于当前主体", "cursor");
+        }
+        int maxOffset = record.full().path("objects").size();
+        if (offset <= 0 || offset >= maxOffset || offset % record.pageSize() != 0) {
+            throw fail(400, "INVALID_CURSOR", "cursor 不对应可翻页的服务端位置", "cursor");
+        }
+        try {
+            revalidate(record, auth);
+        } catch (RuntimeException ex) {
+            // Once denied or drifted, a previously issued cursor cannot resurrect
+            // even if a grant is later restored. Do not leak partial page content.
+            frozen.remove(id);
+            throw ex;
+        }
+        return buildPage(record, offset);
+    }
+
+    private void revalidate(Frozen saved, Authentication auth) {
+        authorization.requirePackage(auth, saved.pkg(), B0AuthorizationService.Operation.READ_DRAFT);
+        UUID snapshotId = UUID.fromString(saved.snapshotId());
+        authorization.requireSnapshot(auth, snapshotId, B0AuthorizationService.Operation.READ_SNAPSHOT);
+        NativeSnapshotService.Snapshot currentSnapshot = snapshots.get(snapshotId);
+        if (!currentSnapshot.packageId().equals(saved.pkg())
+                || !currentSnapshot.payloadSha256().equals(saved.full().path("versionLock")
+                    .path("payloadSha256").asText())) {
+            throw fail(409, "LINK_VERSION_UNAVAILABLE", "模型快照身份已变化", "cursor");
+        }
+        LinkBindingService.LinkDetail link = links.get(UUID.fromString(saved.linkId()),
+                saved.pkg(), saved.linkRevision(), auth);
+        if (link.historical() || !saved.linkDigest().equals(link.digest())) {
+            throw fail(409, "LINK_VERSION_UNAVAILABLE", "关系修订已不再可执行", "cursor");
+        }
+        DataBindingService.BindingDetail a = bindings.getBinding(UUID.fromString(saved.sourceBindingId()),
+                saved.sourceRevision(), auth);
+        DataBindingService.BindingDetail b = bindings.getBinding(UUID.fromString(saved.targetBindingId()),
+                saved.targetRevision(), auth);
+        if (!saved.sourceDigest().equals(a.digest()) || !saved.targetDigest().equals(b.digest())) {
+            throw fail(409, "LINK_ENDPOINT_VERSION_MISMATCH", "双端版本证据不再有效", "cursor");
+        }
+        Map<String, DataBindingService.SourceTable> current = new HashMap<>();
+        for (DataBindingService.SourceTable table : bindings.listTables(saved.pkg(), auth)) {
+            current.put(table.table(), table);
+        }
+        if (!current.containsKey(a.sourceTable()) || !current.containsKey(b.sourceTable())) {
+            throw fail(403, "SOURCE_NOT_ALLOWED", "来源当前不可读", "cursor");
+        }
+        if (!saved.sourceFingerprint().equals(current.get(a.sourceTable()).schemaFingerprint())
+                || !saved.targetFingerprint().equals(current.get(b.sourceTable()).schemaFingerprint())) {
+            throw fail(409, "LINK_SOURCE_SCHEMA_DRIFT", "结果冻结后来源结构发生变化", "cursor");
+        }
+    }
+
+    private ObjectNode buildPage(Frozen saved, int offset) {
+        ObjectNode page = saved.full().deepCopy();
+        ArrayNode allObjects = (ArrayNode) saved.full().path("objects");
+        ArrayNode allLinks = (ArrayNode) saved.full().path("links");
+        ArrayNode objects = mapper.createArrayNode();
+        ArrayNode links = mapper.createArrayNode();
+        int end = Math.min(offset + saved.pageSize(), allObjects.size());
+        // For a single ObjectRef and single FK hop each output endpoint has at
+        // most one LinkFact. Recompute membership by the frozen output ObjectRef,
+        // not by assuming relational links can never have duplicate source keys.
+        for (int i = offset; i < end; i++) {
+            JsonNode object = allObjects.get(i);
+            objects.add(object.deepCopy());
+            String wanted = object.path("objectRef").toString();
+            boolean out = page.path("rootTypeRef").path("objectTypeId").asText()
+                    .equals(allLinks.size() > 0 ? allLinks.get(0).path("source")
+                            .path("objectTypeId").asText() : "");
+            for (JsonNode edge : allLinks) {
+                if ((out ? edge.path("target") : edge.path("source")).toString().equals(wanted)) {
+                    links.add(edge.deepCopy());
+                }
+            }
+        }
+        page.set("objects", objects);
+        page.set("links", links);
+        page.put("objectCount", objects.size());
+        page.put("linkCount", links.size());
+        page.put("pathCount", links.size());
+        page.put("pageNumber", offset / saved.pageSize() + 1);
+        page.remove("nextCursor");
+        if (end < allObjects.size()) {
+            String payload = saved.id() + ":" + end + ":" + saved.expiresAt().toEpochMilli()
+                    + ":" + actorHash(saved.actor());
+            byte[] data = payload.getBytes(StandardCharsets.UTF_8);
+            String token = "v2." + Base64.getUrlEncoder().withoutPadding().encodeToString(data)
+                    + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(sign(data));
+            if (token.length() > 512) throw fail(429, "QUERY_BUDGET_EXCEEDED",
+                    "签名 cursor 超出长度预算", "cursor");
+            page.put("nextCursor", token);
+        }
+        ObjectNode budget = (ObjectNode) page.path("budget");
+        budget.put("serializedResultBytes", 0);
+        budget.put("serializedResultBytes", page.toString().getBytes(StandardCharsets.UTF_8).length);
+        if (page.toString().getBytes(StandardCharsets.UTF_8).length >
+                budget.path("maxSerializedResultBytes").asLong()) {
+            throw fail(429, "QUERY_BUDGET_EXCEEDED", "当前冻结页超出响应预算", "limits");
+        }
+        return page;
+    }
+
+    private byte[] sign(byte[] data) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(signingKey, "HmacSHA256"));
+            return mac.doFinal(data);
+        } catch (GeneralSecurityException ex) {
+            throw new IllegalStateException("M8 cursor signing unavailable", ex);
+        }
+    }
+    private static String actorKey(Authentication auth) {
+        if (auth instanceof JwtAuthenticationToken jwt) {
+            String issuer = jwt.getToken().getIssuer() == null ? "" : jwt.getToken().getIssuer().toString();
+            return "jwt:" + issuer + ":" + jwt.getToken().getSubject();
+        }
+        return "LOCAL_ISOLATED";
+    }
+    private static String actorHash(String actor) {
+        try {
+            byte[] d = MessageDigest.getInstance("SHA-256")
+                    .digest(actor.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(d);
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 unavailable", ex);
+        }
     }
 
     private void addEdge(Requested r, LinkBindingService.LinkDetail link,
