@@ -12,7 +12,8 @@ type Property={id:string;apiName:string;label?:string;valueType:string;required:
 type Descriptor={sourceRef:SourceRef;packageId:string;modelSourceRevision:number;lifecycle:'VALIDATED_DRAFT_ONLY'|'LOCAL_SNAPSHOT_ONLY';objectTypeId:string;apiName:string;label?:string;primaryKeyRef:string;properties:Property[];payloadSha256?:string};
 type SnapshotSummary={snapshotId:string;packageId:string;sourceRevision:number;payloadSha256:string;createdAt:string;lifecycle:'LOCAL_SNAPSHOT_ONLY'};
 type SnapshotPage={items:SnapshotSummary[];nextCursor:string|null};
-type SnapshotDetail={snapshotId:string;packageId:string;sourceDraftId:string;sourceRevision:number;payloadSha256:string;lifecycle:'LOCAL_SNAPSHOT_ONLY'};
+type LinkTypeEntry={id:string;apiName:string;label?:string;sourceTypeRef:string;targetTypeRef:string;cardinality:string};
+type SnapshotDetail={snapshotId:string;packageId:string;sourceDraftId:string;sourceRevision:number;payloadSha256:string;lifecycle:'LOCAL_SNAPSHOT_ONLY';snapshotContent?:{linkTypes?:LinkTypeEntry[]}};
 type DraftDetail={draftId:string;packageId:string;revision:number;validation:{status:string;validatedRevision:number|null}};
 type ApiError={code?:string;message?:string};
 type CurrentDraft={draftId:string;revision:number};
@@ -43,6 +44,7 @@ export default function RuntimeTypeWorkspace({route,navigate}:{route:string;navi
   const [detail,setDetail]=useState<Descriptor|null>(null);
   const [detailLoading,setDetailLoading]=useState(false);
   const [snapshots,setSnapshots]=useState<SnapshotSummary[]>([]);
+  const [linkTypes,setLinkTypes]=useState<LinkTypeEntry[]>([]);
   const [currentDraft,setCurrentDraft]=useState<CurrentDraft|null>(null);
   const [refreshKey,setRefreshKey]=useState(0);
 
@@ -51,7 +53,7 @@ export default function RuntimeTypeWorkspace({route,navigate}:{route:string;navi
   useEffect(()=>{
     const controller=new AbortController();
     setLoading(true);setError(null);setDetailError(null);setCatalog(null);setDetail(null);
-    setSelectedId('');setSnapshots([]);setCurrentDraft(null);
+    setSelectedId('');setSnapshots([]);setLinkTypes([]);setCurrentDraft(null);
     if(!draftId&&!snapshotId){
       setError('不支持的运行时类型来源地址。请从已校验草稿或本地快照进入。');
       setLoading(false);
@@ -84,6 +86,8 @@ export default function RuntimeTypeWorkspace({route,navigate}:{route:string;navi
         if(snapshotId){
           try{
             const snapshot=await request<SnapshotDetail>(API+'/snapshots/'+snapshotId,controller.signal);
+            if(snapshot.packageId!==result.packageId)throw new Error('快照与模型包不一致');
+            if(!controller.signal.aborted)setLinkTypes(snapshot.snapshotContent?.linkTypes||[]);
             const draft=await request<DraftDetail>(API+'/drafts/'+snapshot.sourceDraftId,controller.signal);
             if(!controller.signal.aborted&&draft.validation?.status==='VALID'
               &&draft.validation.validatedRevision===draft.revision){
@@ -175,6 +179,18 @@ export default function RuntimeTypeWorkspace({route,navigate}:{route:string;navi
           :'本地快照引用锁定 snapshotId，并已由服务端核验 SHA-256 与规范化内容。'}</span></div>
       </section>
 
+      {snapshotId&&linkTypes.length>0&&<section className="model-panel" aria-label="已冻结关系类型">
+        <header className="model-panel-head"><div><h2>已冻结关系类型</h2><p>从 Native LinkType 精确进入 M8.1，不创建平行菜单；仅单列 FK 属于当前范围。</p></div><span className="model-count">{linkTypes.length}</span></header>
+        <div className="object-set-binding-list"><table className="model-table"><thead><tr><th>LinkType</th><th>SOURCE → TARGET</th><th>基数</th><th>下一步</th></tr></thead><tbody>
+          {linkTypes.map(link=><tr key={link.id}><td><b>{link.label||link.apiName}</b><small>{link.id}</small></td>
+            <td>{link.sourceTypeRef} → {link.targetTypeRef}</td><td>{link.cardinality}</td><td>
+              <button className="model-btn primary" type="button" disabled={link.cardinality==='MANY_TO_MANY'}
+                onClick={()=>navigate('#/mvp/object-sets?packageId='+encodeURIComponent(catalog.packageId)+'&snapshotId='+encodeURIComponent(snapshotId)+'&linkTypeId='+encodeURIComponent(link.id))}>
+                <Database size={14}/> {link.cardinality==='MANY_TO_MANY'?'M8.2 待评审':'配置实例关系'}
+              </button>
+            </td></tr>)}
+        </tbody></table></div>
+      </section>}
       <div className="model-layout runtime-type-layout">
         <section className="model-panel runtime-type-list">
           <header className="model-panel-head"><div><h2>对象类型</h2><p>按稳定 ObjectType ID 排序；选择类型查看属性合同。</p></div><span className="model-count">{catalog.items.length}</span></header>
