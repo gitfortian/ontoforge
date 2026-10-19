@@ -1,10 +1,10 @@
 # M8 R2 · LinkBinding 领域状态机、API/Schema 与有界 Traverse 技术合同评审
 
-> **Status: R2 Review Candidate — NOT APPROVED.** 日期：2026-10-19。
+> **Status: R2 PRODUCT / ARCHITECTURE DIRECTION APPROVED（R2-D1–D8）.** 产品所有者于 2026-10-19 明确授权“正式审定”；具体接口/Schema 为已批准的设计基线，但尚未进入实现。**OFIP-0010 维护者正式决策仍 Pending**，UX-Low / UX-High 尚未签收。
 >
 > 上游：[M8 Issue #47](https://github.com/gitfortian/ontoforge/issues/47)；第一轮已签收并合并：[PR #77](https://github.com/gitfortian/ontoforge/pull/77) / M8 R1；当前权威提案：[OFIP-0010](../proposals/OFIP-0010-M8-LinkFact与有界遍历.md)（**Discussion / Decision Pending / Implementation Not Started**）；基座：[M7 #75](https://github.com/gitfortian/ontoforge/pull/75)。
 >
-> 本文是对**M8.1 外键双向一跳**的 R2 第二轮领域/API/安全/查询规划；M8.2 桥表、M8.3 显式两跳只保留扩展合同和后续切片，不作为首切片验收。**本 PR 是设计，不包含 Java/React/Flyway/Schema 生产变更，不代表 UX-Low/UX-High 已签收，也不代表维护者 OFIP 投票。**
+> 本文是对**M8.1 外键双向一跳**的 R2 第二轮领域/API/安全/查询规划；M8.2 桥表、M8.3 显式两跳只保留扩展合同和后续切片，不作为首切片验收。**本 PR 是经过产品方向审定的设计材料，不包含 Java/React/Flyway/Schema 生产变更，不代表 UX-Low/UX-High 已签收，也不代表维护者 OFIP 投票。**
 
 ## 0. 基座核验（先界定真实代码已做什么）
 
@@ -263,7 +263,7 @@
 | **R2-D7** UX/任务 | 原 LinkType 与 ObjectSet 入口，四段配置/校验/保存/查询，列表 + 证据优先 | UX-Low 首屏负担/返回路径、UX-High 独立签收 |
 | **R2-D8** 技术版本 | **local-query-v2 / local-result-v2**，不破坏已验收的 local-query-v1 | 若坚持扩展 v1，需要证明严格 Schema 的向后兼容 |
 
-**本轮不批准直接开发。** 需要完整技术/产品评审后，将批准的 R2 合同写回 OFIP-0010 单一权威文档（保持 pending 直到有权维护者显式投票）；再出**新 M8.1 UX-Low** → 产品签收 → **新 M8.1 UX-High** → 产品签收 → OFIP Accepted → 一条可交付生产纵向 PR。
+**R2 产品/架构设计方向已经通过；不批准直接开发。** 批准的 R2 合同随本 PR 回填 OFIP-0010 作为产品设计基线（OFIP 本身保持 Discussion / Decision Pending，直到有权维护者显式投票）；下一步先出**新 M8.1 UX-Low** → 产品签收 → **新 M8.1 UX-High** → 产品签收 → OFIP Accepted → 一条可交付生产纵向 PR。
 
 ## 10.1 合同自审：根作用域唯一来源（R2-RV1）
 
@@ -273,17 +273,36 @@
 
 此项是 R2 审查中的候选纠错，尚不是 OFIP-0010 的正式技术决策；实现时仍须对 step 顺序与端点属性做服务端语义校验。
 
+## 10.2 R2 产品正式审定记录（2026-10-19）
+
+**签收依据**：用户在 R1 完成后已明确“认可，进入 R2”，现针对 R2-D1–D8 进一步明确“好的，大佬，正式审定”。以下为产品所有者授权的**设计层决策**，不是维护者在 OFIP 讨论区的 `[VOTE] Accepted`，也不绕过 UX 签收。
+
+| 决策 | 审定结果 | 业务合同与门槛 |
+| --- | --- | --- |
+| **R2-D1** | **批准** | LinkBinding 不可变 revision + expectedRevision CAS + idempotencyKey；显式历史 revision 可在**当前**完整版本/来源/授权资格下执行，不跟随 head 偷换版本；保存丢响应须 read-after-write/幂等恢复。 |
+| **R2-D2** | **批准（有约束）** | Validation / Traversal 是不同 scope；仅在预算内 **FULL 校验**后允许 `VALID` 或 `VALID_WITH_ORPHANS` 保存。孤儿只影响实际关联 root 的 `PARTIAL/KNOWN_SUBSET`。校验超预算或来源不明：拒绝保存为可执行修订；不以抽样代替完整校验。 |
+| **R2-D3** | **批准** | 定义 MVP 专用 `local-link-binding-v1` API/Schema；保存、预演、读取版本分开，服务端重算 FK 被引用端身份列、digest 和资格；客户端不能携带任意 SQL/列权限结论。 |
+| **R2-D4** | **批准** | 应用元数据 head/revision CAS 原子；受控 PG 来源用单次只读 REPEATABLE_READ 核验双端。**两种事务不构成一个跨库原子来源事实快照**，须执行前后验证 schema/版本/授权。 |
+| **R2-D5** | **批准（有约束）** | M8.1 严格一跳；扫描全端合计 ≤10k、Join 中间候选 ≤10k、逻辑 LinkFact ≤10k、来源与序列化结果各 ≤8MiB、同一来源执行 deadline 3s、页大小 ≤50、结果 TTL ≤5min。**计数先于截断**；超预算/超时失败无载荷，具体 SQL 前置拦截须真实 PG 证据。 |
+| **R2-D6** | **批准** | 两个 Object Binding + 一个 LinkBinding + 模型快照 + 双端当前来源/授权构成执行闭包，每一页 fail-closed 重验；旧授权失效导致快照永久过期，恢复授权也不能复活旧 cursor；没有现成 RLS 不得宣传行/列级安全。 |
+| **R2-D7** | **批准** | 从 Native“关系类型”与 ObjectSet 工作台的现有入口开始，用独立 M8.1 UX-Low / UX-High 设计配置、校验、保存、正反单跳、证据与恢复；不另造独立专业图谱菜单。 |
+| **R2-D8** | **批准** | 新 `local-query-v2 / local-result-v2` 描述根选择+一条 TRAVERSE+目标过滤/终结与多端结果/质量；不篡改 `local-query-v1 / local-result-v1` 或 Native V0.2。根谓词只能来自 rootSelector，不能重复定义 ROOT FILTER。 |
+
+**明确保留的后置工作**：正式原型需细化字段布局、未保存返回、错误证据；REST 精确资源路径/SQL DDL/迁移号/DTO 以 OFIP 门禁及实现审查为准。候选 Schema 的结构测试不能替代双端 PG 真实正确性、权限、性能与 React 交互验收。
+
+**阶段门禁**：R2 产品审定 ≠ OFIP Accepted ≠ UX-Low/UX-High 签收 ≠ M8 生产实施授权。接续仅进入 UX-Low 制作与评审；不能跳到生产代码。
+
 ## 11. 本轮产出与验收状态
 
 | 项目 | 真实状态 |
 | --- | --- |
 | R1 D1–D7 | 产品认可、[PR #77](https://github.com/gitfortian/ontoforge/pull/77) 已合并 |
-| R2 需求/领域/API/Schema/预算评审文档 | **本文件：待评审候选** |
-| R2-D8 | 推荐 v2；**未签收** |
+| R2 需求/领域/API/Schema/预算评审文档 | **产品/架构方向已审定；详细机器 Schema 仍待正式治理门禁与真实生产实现** |
+| R2-D8 | **已批准采用独立 local-query-v2 / local-result-v2，M7 v1 严格保持兼容** |
 | OFIP-0010 | Discussion / Decision Pending / Implementation Not Started |
 | M8.1 UX-Low/UX-High | NOT STARTED / NOT SIGNED |
 | M8.1 PG17/Java/React/Chromium 生产实现 | NOT STARTED / NOT RUN |
 | M8.2 桥表、M8.3 两跳 | 规划中，不得提前宣传交付 |
 | 正式 Release | NOT RELEASED |
 
-**审核原则：** 本文件有意把歧义显式暴露为 R2-D1–D8 选择项；任何新 REST URL、数据表、Schema、参数与运行时类名都仍是设计候选，不应把设计建议伪装成仓库中已实现的功能。
+**审核原则：** R2-D1–D8 的产品/架构路线已获正式审定，但候选 REST URL、物理表名、机器 Schema、参数与运行时类名仍需在标准原型/OFIP/实现门禁中落定，不能把已批准的设计建议伪装成已部署功能。
