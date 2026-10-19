@@ -18,9 +18,10 @@ const REDIRECT=window.location.origin+window.location.pathname;
 let accessToken:string|null=null;
 let expiresAt=0;
 export type AuthenticationMode='local-session'|'oidc-jwt'|'mvp-local';
-type AuthContext={mode:AuthenticationMode;authenticated:boolean;csrf?:{token:string;headerName:string}};
+type AuthContext={mode:AuthenticationMode;authenticated:boolean;csrf?:{token:string;headerName:string};capabilities?:{manageAccounts:boolean}};
 let context:AuthContext|null=null;
 export const authenticationMode=():AuthenticationMode|null=>context?.mode??null;
+export const canManageAccounts=():boolean=>context?.capabilities?.manageAccounts===true;
 async function loadContext():Promise<AuthContext> {
   const response=await fetch('/api/auth/context',{cache:'no-store',credentials:'same-origin'});
   if(!response.ok)throw new Error('无法读取认证模式');
@@ -163,7 +164,7 @@ export async function authorizedFetch(input:RequestInfo|URL,init:RequestInit={})
   else if(accessToken && Date.now()<expiresAt-15000)headers.set('Authorization','Bearer '+accessToken);
   else {accessToken=null;expiresAt=0;}
   const response=await fetch(input,{...init,headers,credentials:session?'same-origin':'omit'});
-  if(response.status===401 && (String(input).startsWith('/api/model/')||String(input).startsWith('/api/mvp/')||String(input).startsWith('/api/runtime/'))){
+  if(response.status===401 && ['/api/model/','/api/mvp/','/api/runtime/','/api/platform/'].some(prefix=>target.pathname.startsWith(prefix))){
     forget();window.dispatchEvent(new Event('ontoforge-auth-expired'));
   }
   return response;

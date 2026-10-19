@@ -37,6 +37,15 @@ public class LocalLoginController {
     public record Credentials(String username,String password) {
         @Override public String toString() { return "Credentials[redacted]"; }
     }
+    public record ChangePassword(String currentPassword,String newPassword) {
+        @Override public String toString(){return "ChangePassword[redacted]";}
+    }
+    @PostMapping("/api/auth/password")
+    public void changePassword(org.springframework.security.core.Authentication actor,@RequestBody ChangePassword body,
+                               HttpServletRequest request,HttpServletResponse response) {
+        accounts.changePassword(actor,body.currentPassword(),body.newPassword(),request.getRemoteAddr());
+        logout(request,response);
+    }
     @PostMapping("/api/auth/login")
     public B0AuthorizationService.Identity login(@RequestBody Credentials credentials,HttpServletRequest request,HttpServletResponse response) {
         var principal=accounts.authenticate(credentials.username(),credentials.password(),request.getRemoteAddr());
@@ -65,5 +74,13 @@ public class LocalLoginController {
     void throttled(HttpServletResponse response) throws IOException {
         response.setHeader("Retry-After","900");
         AuthResponses.error(response,429,"LOGIN_RATE_LIMITED","登录尝试过多，请稍后重试");
+    }
+    @ExceptionHandler(io.ontoforge.platform.identity.AccountChangeException.class)
+    void conflict(io.ontoforge.platform.identity.AccountChangeException failure,HttpServletResponse response) throws IOException {
+        AuthResponses.error(response,409,failure.code(),failure.getMessage());
+    }
+    @ExceptionHandler(IllegalArgumentException.class)
+    void invalidRequest(IllegalArgumentException failure,HttpServletResponse response) throws IOException {
+        AuthResponses.error(response,400,"INVALID_ACCOUNT_REQUEST",failure.getMessage());
     }
 }

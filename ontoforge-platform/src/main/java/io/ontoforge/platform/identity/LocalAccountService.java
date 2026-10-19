@@ -10,6 +10,10 @@ import java.util.UUID;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.dao.DuplicateKeyException;
+import java.util.List;
 
 /** Account use cases own credential verification; no servlet or client supplied principal. */
 @Service
@@ -58,6 +62,84 @@ public class LocalAccountService {
     public LocalAccountPrincipal current(UUID accountId,long loginVersion) {
         Account account=repository.byId(accountId);
         return account!=null && account.enabled() && account.credentialVersion()==loginVersion ? principal(account):null;
+    }
+    public record AccountView(UUID accountId,UUID principalId,String username,String displayName,
+                              boolean enabled,boolean systemAdmin,long version) {}
+    public record AccountPage(List<AccountView> items,long total,int page,int pageSize) {}
+    private static AccountView view(Account account) {
+        return new AccountView(account.accountId(),account.principalId(),account.username(),account.displayName(),
+                account.enabled(),account.systemAdmin(),account.version());
+    }
+    private Account requireLocal(Authentication authentication) {
+        if(authentication==null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof LocalAccountPrincipal principal))
+            throw new AccessDeniedException("需要本地账号身份");
+        Account account=repository.byId(principal.accountId());
+        if(account==null || !account.enabled() || account.credentialVersion()!=principal.credentialVersion())
+            throw new AccessDeniedException("账号已失效，请重新登录");
+        return account;
+    }
+    private Account requireAdmin(Authentication authentication) {
+        Account account=requireLocal(authentication);
+        if(!account.systemAdmin())throw new AccessDeniedException("仅系统管理员可以管理账号");
+        return account;
+    }
+    private static String displayName(String raw) {
+        String value=raw==null?"":raw.trim();
+        if(value.isEmpty() || value.length()>100)throw new IllegalArgumentException("显示名称需为 1–100 个字符");
+        return value;
+    }
+    public AccountPage accounts(Authentication authentication,String query,int page,int pageSize) {
+        requireAdmin(authentication);
+        String q=query==null?"":query.trim();
+        if(q.length()>100 || page<1 || page>100_000 || pageSize<1 || pageSize>100)
+            throw new IllegalArgumentException("账号查询范围无效");
+        return new AccountPage(repository.page(q,pageSize,(page-1)*pageSize).stream().map(LocalAccountService::view).toList(),
+                repository.count(q),page,pageSize);
+    }
+    /** Adapted Yak UserServiceImpl create/edit/reset use cases; adds admin authorization and PG CAS. */
+    @Transactional
+    public AccountView create(Authentication authentication,String rawUsername,String name,String password,Boolean admin) {
+        repository.lockAccounts();requireAdmin(authentication);
+        String username=username(rawUsername),display=displayName(name);requirePassword(password);
+        if(admin==null)throw new IllegalArgumentException("请选择账号权限");
+        UUID id=UUID.randomUUID();
+        try {repository.insert(id,UUID.randomUUID(),username,display,passwords.encode(password),admin);}
+        catch(DuplicateKeyException duplicate){throw new AccountChangeException("USERNAME_EXISTS","账号名已存在");}
+        return view(repository.byId(id));
+    }
+    @Transactional
+    public AccountView update(Authentication authentication,UUID id,Long version,String name,Boolean enabled,Boolean admin) {
+        repository.lockAccounts();Account operator=requireAdmin(authentication);
+        Account target=locked(id,version);
+        if(enabled==null||admin==null)throw new IllegalArgumentException("账号状态和权限不能为空");
+        if(operator.accountId().equals(id) && (!enabled || !admin))
+            throw new AccountChangeException("SELF_ADMIN_PROTECTED","不能停用或降级当前管理员，请由其他管理员操作");
+        if(!enabled && target.enabled() && repository.wouldOrphanLocalWorkspace(target.principalId()))
+            throw new AccountChangeException("LAST_WORKSPACE_OWNER","请先转交工作空间的最后一个可用 OWNER");
+        if(!repository.update(target,displayName(name),enabled,admin))
+            throw new AccountChangeException("ACCOUNT_VERSION_CONFLICT","账号已被其他操作更新，请重新核对");
+        return view(repository.byId(id));
+    }
+    @Transactional
+    public void resetPassword(Authentication authentication,UUID id,Long version,String password) {
+        repository.lockAccounts();requireAdmin(authentication);Account target=locked(id,version);requirePassword(password);
+        if(!repository.password(target,passwords.encode(password)))
+            throw new AccountChangeException("ACCOUNT_VERSION_CONFLICT","账号已更新，请重新核对");
+    }
+    @Transactional
+    public void changePassword(Authentication authentication,String oldPassword,String newPassword,String ip) {
+        repository.lockAccounts();Account target=requireLocal(authentication);requirePassword(newPassword);
+        authenticate(target.username(),oldPassword,ip);
+        if(!repository.password(target,passwords.encode(newPassword)))
+            throw new AccountChangeException("ACCOUNT_VERSION_CONFLICT","账号已更新，请重新登录后核对");
+    }
+    private Account locked(UUID id,Long version) {
+        if(version==null||version<1)throw new IllegalArgumentException("必须提供当前账号版本");
+        Account account=repository.lockById(id);
+        if(account==null)throw new AccountChangeException("ACCOUNT_NOT_FOUND","账号不存在");
+        if(account.version()!=version)throw new AccountChangeException("ACCOUNT_VERSION_CONFLICT","账号已更新，请重新核对");
+        return account;
     }
     private static LocalAccountPrincipal principal(Account account) {
         return new LocalAccountPrincipal(account.accountId(),account.principalId(),account.credentialVersion(),

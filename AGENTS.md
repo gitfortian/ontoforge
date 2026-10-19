@@ -5,7 +5,7 @@
 
 ## Purpose and verified current scope
 
-Branch delta: [OFIP-0017 maintainer decision](https://github.com/gitfortian/ontoforge/pull/94#issuecomment-6261109442) authorizes Yak account reuse. B1 adds default local Session login/logout, CSRF and per-user cursors; OIDC/JWT is explicit compatibility mode. Read the [B1 runbook](doc/implementation/Yak-B1-本地账号Session接入.md) before changing authentication, bootstrap or deployment. Account/space administration remains later slices; no production security acceptance, release or OFIP-0005 approval is implied. Retain isolated TEST_DB_* and signed-token negative cases.
+Branch delta: [OFIP-0017 maintainer decision](https://github.com/gitfortian/ontoforge/pull/94#issuecomment-6261109442) authorizes Yak account reuse. B1 adds default local Session login/logout, CSRF and per-user cursors; OIDC/JWT is explicit compatibility mode. Read the [B1 runbook](doc/implementation/Yak-B1-本地账号Session接入.md) before changing authentication, bootstrap or deployment. B2 adds account administration and self-service password changes; workspace administration remains C1; no production security acceptance, release or OFIP-0005 approval is implied. Retain isolated TEST_DB_* and signed-token negative cases.
 
 OntoForge is an independent enterprise/industrial operational ontology platform. **Do not couple it to data-ops** or claim that S0 implements authentication, trusted authorization, real object querying, connectors, production policies or Actions. S0 **does** now implement local Native ObjectType/LinkType editing and immutable schema snapshot history.
 

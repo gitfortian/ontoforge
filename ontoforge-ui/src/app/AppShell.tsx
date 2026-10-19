@@ -1,12 +1,14 @@
 // Layout structure and appearance controls adapted from Yak Ops AppLayout/TopBar.
 import { useState, type ReactNode } from 'react';
-import { Activity, Blocks, Database, GitBranch, Monitor, Palette, LogOut } from 'lucide-react';
+import { Activity, Blocks, Database, GitBranch, Monitor, Palette, LogOut, Users } from 'lucide-react';
+import PasswordChangeDialog from '../features/platform/accounts/PasswordChangeDialog';
 import { Button } from '../shared/ui/yak/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../shared/ui/yak/dialog';
 import { useTheme, type ThemeMode } from '../shared/theme/ThemeProvider';
 import type { WorkspaceIdentity } from '../shared/api/auth';
+import { authenticationMode,canManageAccounts } from '../shared/api/auth';
 
-const navigation = [
+const baseNavigation = [
   { label: '系统概览', path: '#/system', prefix: '#/system', icon: Activity, section: '工作台' },
   { label: 'Native 本体建模', path: '#/model/packages', prefix: '#/model', icon: Blocks, section: '本体设计' },
   { label: '通用数据绑定 · M5', path: '#/mvp/bindings', prefix: '#/mvp/bindings', icon: Database, section: '数据集成' },
@@ -27,6 +29,8 @@ type AppShellProps = {
 
 export default function AppShell({ children, location, navigate, identity, dirty, logout, signIn }: AppShellProps) {
   const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const navigation=[...baseNavigation,...(canManageAccounts()?[{label:'账号管理',path:'#/platform/accounts',prefix:'#/platform/accounts',icon:Users,section:'平台管理'}]:[])];
   const { theme, resolvedTheme, persistent, setTheme } = useTheme();
   const active = navigation.find(item => location.startsWith(item.prefix)) ?? navigation[0];
   const local = identity?.issuer === 'local-mvp';
@@ -42,6 +46,7 @@ export default function AppShell({ children, location, navigate, identity, dirty
         <span className="app-identity">{identity ? (local ? '本机隔离 MVP · 无登录' : identity.displayName) : '身份待验证'}</span>
         <Button variant="ghost" className="app-topbar-button" aria-label="界面设置" onClick={() => setAppearanceOpen(true)}><Palette size={16}/><span>外观</span></Button>
         {identity && !local && <Button variant="ghost" className="app-topbar-button" onClick={logout}><LogOut size={15}/>退出会话</Button>}
+        {identity&&authenticationMode()==='local-session'&&<Button variant="ghost" className="app-topbar-button" onClick={()=>setPasswordOpen(true)}>修改密码</Button>}
         {!identity && <Button variant="ghost" className="app-topbar-button" onClick={signIn}>登录</Button>}
       </div>
     </header>
@@ -80,5 +85,6 @@ export default function AppShell({ children, location, navigate, identity, dirty
         <div className="appearance-actions"><Button variant="primary" onClick={() => setAppearanceOpen(false)}>完成</Button></div>
       </DialogContent>
     </Dialog>
+    <PasswordChangeDialog open={passwordOpen} close={()=>setPasswordOpen(false)}/>
   </div>;
 }

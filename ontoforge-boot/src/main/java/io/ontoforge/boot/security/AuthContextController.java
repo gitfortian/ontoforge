@@ -42,6 +42,8 @@ public class AuthContextController {
         result.put("mode",mode());
         result.put("authenticated",authentication!=null && authentication.isAuthenticated()
                 && !(authentication instanceof AnonymousAuthenticationToken));
+        result.put("capabilities",Map.of("manageAccounts",mode().equals("local-session") && authentication!=null
+                && authentication.getPrincipal() instanceof io.ontoforge.platform.identity.LocalAccountPrincipal account && account.systemAdmin()));
         if(mode().equals("local-session") && csrf!=null)
             result.put("csrf",Map.of("token",csrf.getToken(),"headerName",csrf.getHeaderName()));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(result);
