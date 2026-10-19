@@ -188,6 +188,21 @@ class M81LinkBindingUXLowBrowser(unittest.TestCase):
         self.assertIn("RESULT_EXPIRED", self.page.locator("#query-outcome").inner_text())
         self.assertTrue(self.page.locator("#result-box").is_hidden())
 
+    def test_bounded_root_set_respects_direction_and_partial_scope(self):
+        self.save()
+        self.page.locator("#tab-query").click()
+        self.page.locator("#query-root-mode").select_option("bounded")
+        self.assertTrue(self.page.locator("#query-root").is_disabled())
+        self.page.locator("#run-query").click()
+        self.assertIn("EQ-001、EQ-002", self.page.locator("#query-outcome").inner_text())
+        self.assertIn("COMPLETE", self.model()["qualityResult"])
+        self.assertIn("LOT-11", self.page.locator("#result-rows").inner_text())
+        self.page.locator("#query-direction").select_option("IN")
+        self.page.locator("#run-query").click()
+        self.assertIn("LOT-11、LOT-14", self.page.locator("#query-outcome").inner_text())
+        self.assertIn("PARTIAL / KNOWN_SUBSET", self.model()["qualityResult"])
+        self.assertIn("EQ-001", self.page.locator("#result-rows").inner_text())
+
     def test_unsaved_navigation_guard_cancel_and_confirm(self):
         self.page.locator("#fk-column").select_option("order_id")
         self.assertTrue(self.model()["dirty"])
