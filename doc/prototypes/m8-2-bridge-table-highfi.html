@@ -110,7 +110,7 @@ main{width:100%;max-width:1470px;min-width:0;margin:0 auto;padding:28px 34px 46p
     <div class="demo">
       <h3>评审情境（模拟注入）</h3>
       <p>选择只改变模拟的桥表物理事实/权限故障，不影响真实来源，测试可证明“样本不是 FULL”。</p>
-      <div class="field"><label for="validation-scenario">本次模拟来源情境</label><select id="validation-scenario">
+      <div class="field"><label for="validation-pace">演示请求速度（用于验证交互竞态）</label><select id="validation-pace"><option value="instant">正常模拟响应</option><option value="slow">延迟响应：可切换版本或场景取消旧请求</option></select></div><div class="field"><label for="validation-scenario">本次模拟来源情境</label><select id="validation-scenario">
         <option value="clean">有效 3 个 pair：MO-001↔E01/E02，MO-002↔E02</option>
         <option value="duplicate">同一 pair 重复物理桥表记录</option>
         <option value="orphan">分别含缺失设备 / 缺失工单的孤儿引用</option>
@@ -212,7 +212,7 @@ main{width:100%;max-width:1470px;min-width:0;margin:0 auto;padding:28px 34px 46p
  "use strict";
  const $=q=>document.querySelector(q), $$=q=>[...document.querySelectorAll(q)];
  const original={source:"B-MO:r2",target:"B-EQ:r3",table:"maintenance_order_equipment",sourceFk:"work_order_no",targetFk:"equipment_code"};
- const state={view:"config",dirty:false,validated:false,validationQuality:null,validationScenario:null,qualityLedger:null,saved:null,revision:0,saveUnknown:false,operationId:null,lastResult:null,retired:[],failure:null,sequence:0};
+ const state={view:"config",dirty:false,validated:false,validationQuality:null,validationScenario:null,qualityLedger:null,saved:null,revision:0,saveUnknown:false,operationId:null,lastResult:null,retired:[],failure:null,sequence:0,queryGeneration:0,validationGeneration:0,queryPending:false,validationPending:false,asyncDiscarded:0};
  const mapping=()=>({source:$("#source-binding").value,target:$("#target-binding").value,table:$("#bridge-table").value,sourceFk:$("#source-fk").value,targetFk:$("#target-fk").value});
  const apply=x=>{$("#source-binding").value=x.source;$("#target-binding").value=x.target;$("#bridge-table").value=x.table;$("#source-fk").value=x.sourceFk;$("#target-fk").value=x.targetFk;};
  const setStatus=(id,kind,title,message)=>{let node=$("#"+id);node.className="notice "+kind;node.replaceChildren();let b=document.createElement("b");b.textContent=title;let msg=document.createElement("span");msg.textContent=message;node.append(b,msg);};
@@ -472,6 +472,7 @@ main{width:100%;max-width:1470px;min-width:0;margin:0 auto;padding:28px 34px 46p
      const count=r.objects.length,sum=r.objects.reduce((v,x)=>v+(x==="E01"?10:x==="E02"?20:x==="MO-001"?100:200),0);
      $("#aggregate-panel").textContent=r.op==="COUNT_DISTINCT"?"COUNT_DISTINCT(输出 ObjectRef) = "+count+"，不重复计算桥表同 pair 或共享设备":
        "SUM("+$("#aggregate-property").options[0].textContent.split("（")[0]+") = "+sum+
+         (r.partial?" · 已知子集小计（非全量）":" · 完整作用域合计")+
          "，按唯一输出 ObjectRef 求和而非 Bridge 物理行";
    }
    $("#page-number").textContent=r.op!=="PAGE"?"聚合结果不分页":"第 "+r.page+" / "+Math.max(1,r.objects.length)+" 页 · 同一冻结成员";
@@ -522,7 +523,7 @@ main{width:100%;max-width:1470px;min-width:0;margin:0 auto;padding:28px 34px 46p
  $("#to-validate").onclick=()=>{navigate("validate",false);resetValidation();};
  $("#restore-config").onclick=discard;
  $("#back-to-config").onclick=()=>navigate("config",false);
- $("#run-validation").onclick=validation;
+ $("#run-validation").onclick=()=>requestValidation();
  $("#validation-scenario").onchange=()=>{
    resetValidation();
    state.validationScenario=null;
@@ -535,19 +536,114 @@ main{width:100%;max-width:1470px;min-width:0;margin:0 auto;padding:28px 34px 46p
  $("#to-query").onclick=()=>navigate("query",false);
  $("#query-direction").onchange=refreshRoots;
  ["query-root","root-mode","result-operation","target-filter","aggregate-property"].forEach(id=>$("#"+id).addEventListener("change",updateRoot));
- $("#run-query").onclick=query;
+ $("#run-query").onclick=()=>requestQuery();
  $("#next-page").onclick=next;
  $("#open-evidence").onclick=()=>navigate("evidence",false);
  $("#edit-mapping").onclick=()=>navigate("config");
  $("#repair-config").onclick=()=>navigate("config",false);
- $("#retry-query").onclick=()=>{$("#query-fault").value="none";if(navigate("query"))query();};
+ $("#retry-query").onclick=()=>{$("#query-fault").value="none";if(navigate("query"))requestQuery();};
+ // UX-High's request controller intentionally simulates latency and cancellation.
+ // Every async callback is guarded by a generation token; stale responses
+ // cannot overwrite current filters, roots, version locks, or revoked evidence.
+ const isVisible=n=>!$("#view-"+n).hidden;
+ function setAsync(id,status,details){
+   const el=$("#"+id);
+   el.className="asyncbar"+(status==="LOADING"?" busy":status==="CANCELLED"||status==="FAILED"?" error":"");
+   el.replaceChildren();
+   const a=document.createElement("strong"),b=document.createElement("span");
+   a.textContent=details;b.textContent=status;el.append(a,b);
+ }
+ function abortQuery(reason="请求已取消；旧回包不能覆盖新选择",clear=true){
+   state.queryGeneration++;
+   if(state.queryPending){
+     state.queryPending=false;state.asyncDiscarded++;
+     setAsync("query-async","CANCELLED",reason);
+     if(clear)clearVisibleResult(reason);
+   }
+   $("#cancel-query").disabled=true;
+   $("#run-query").disabled=false;
+ }
+ function abortValidation(reason="来源输入改变，旧 FULL 响应失效"){
+   state.validationGeneration++;
+   if(state.validationPending){
+     state.validationPending=false;state.asyncDiscarded++;
+     setAsync("validation-async","CANCELLED",reason);
+     resetValidation();
+   }
+   $("#run-validation").disabled=false;
+ }
+ function requestValidation(){
+   abortValidation();
+   const gen=++state.validationGeneration;
+   if($("#validation-pace").value==="slow"){
+     state.validationPending=true;
+     resetValidation();
+     $("#run-validation").disabled=true;
+     setAsync("validation-async","LOADING","只读校验中 · SOURCE/TARGET/BRIDGE，同一快照候选");
+     window.setTimeout(()=>{
+       if(gen!==state.validationGeneration||!state.validationPending)return;
+       state.validationPending=false;$("#run-validation").disabled=false;
+       validation();
+       setAsync("validation-async",state.validated?"COMPLETE":"FAILED","本次 FULL 请求已返回 · 资格随来源输入冻结");
+     },320);
+   }else{
+     validation();
+     setAsync("validation-async",state.validated?"COMPLETE":"FAILED","本次 FULL 请求已返回 · 只读、不写入");
+   }
+ }
+ function requestQuery(){
+   abortQuery("新查询取代之前未完成的请求",false);
+   const gen=++state.queryGeneration;
+   if($("#query-fault").value==="slow"){
+     if(!state.saved||state.saveUnknown){query();return;}
+     state.queryPending=true;
+     clearVisibleResult("RUNNING · 查询来源/版本/权限校验中");
+     $("#cancel-query").disabled=false;
+     setAsync("query-async","LOADING","对象集合查询执行中 · 三表单一受控读取");
+     window.setTimeout(()=>{
+       if(gen!==state.queryGeneration||!state.queryPending)return;
+       state.queryPending=false;$("#cancel-query").disabled=true;
+       const prior=$("#query-fault").value;
+       if(prior!=="slow"){setAsync("query-async","CANCELLED","输入已变；拒绝延迟响应");return;}
+       $("#query-fault").value="none";
+       query();
+       $("#query-fault").value="slow";
+       setAsync("query-async",state.lastResult?"COMPLETE":"FAILED","延迟请求已完成，生成独立执行证据");
+     },380);
+   }else{
+     query();
+     setAsync("query-async",state.lastResult?"COMPLETE":"FAILED","同步模拟请求完成 · 不等于真实生产查询");
+   }
+ }
+ $("#cancel-query").onclick=()=>abortQuery("用户主动取消旧查询：没有成功结果快照");
+ ["query-direction","query-root","root-mode","result-operation","aggregate-property","target-filter","query-fault"].forEach(id=>
+   $("#"+id).addEventListener("change",()=>abortQuery("查询条件变化：丢弃旧请求")));
+ ["source-binding","target-binding","bridge-table","source-fk","target-fk","validation-scenario"].forEach(id=>
+   $("#"+id).addEventListener("change",()=>abortValidation()));
+ $("#reset-demo").onclick=()=>window.location.reload();
+ // Explicit tab -> panel semantics for keyboard and screen-reader navigation.
+ $("[data-stage]").forEach((tab,index,items)=>{
+   const panel=$("#view-"+tab.dataset.stage);
+   tab.setAttribute("aria-controls",panel.id);tab.setAttribute("tabindex",tab.getAttribute("aria-selected")==="true"?"0":"-1");
+   panel.setAttribute("role","tabpanel");panel.setAttribute("aria-labelledby",tab.id);
+   tab.addEventListener("keydown",evt=>{
+     let next=evt.key==="ArrowRight"?(index+1)%items.length:evt.key==="ArrowLeft"?(index+items.length-1)%items.length:null;
+     if(next!==null){evt.preventDefault();items[next].focus();items[next].click();}
+   });
+ });
+ const oldNavigate=navigate;
+ // Existing navigation callback already handles app state; enforce roving tab stop afterwards.
+ $("[data-stage], [data-nav]").forEach(el=>el.addEventListener("click",()=>{
+   $("[data-stage]").forEach(t=>t.tabIndex=t.getAttribute("aria-selected")==="true"?0:-1);
+ }));
  refreshRoots();navigate("config",false);
- window.__m82uxLow={getState:()=>({view:state.view,dirty:state.dirty,validated:state.validated,validationQuality:state.validationQuality,
+ window.__m82uxHigh={getState:()=>({view:state.view,dirty:state.dirty,validated:state.validated,validationQuality:state.validationQuality,
   revision:state.revision,saved:!!state.saved,saveUnknown:state.saveUnknown,operationId:state.operationId,
   savedMapping:state.saved?{...state.saved.mapping}:null,savedScenario:state.saved?.scenario||null,
   execution:state.lastResult?.execution||null,snapshot:state.lastResult?.snapshot||null,retired:[...state.retired],
   failure:state.failure,qualityResult:state.lastResult?.quality||null,duplicates:state.lastResult?.duplicates||0,
-  objectCount:state.lastResult?.objects.length||0,linkCount:state.lastResult?.rows.length||0})};
+  objectCount:state.lastResult?.objects.length||0,linkCount:state.lastResult?.rows.length||0,
+  queryPending:state.queryPending,validationPending:state.validationPending,asyncDiscarded:state.asyncDiscarded})};
 })();
 </script>
 </body>
