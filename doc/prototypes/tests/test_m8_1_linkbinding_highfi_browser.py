@@ -284,6 +284,25 @@ class M81LinkBindingUXHighBrowser(unittest.TestCase):
         self.assertTrue(self.page.locator("#result-box").is_hidden())
         self.assertEqual(snap,self.model()["snapshot"],"new root requires explicitly new execution")
 
+    def test_source_permission_failure_masks_validation_source_details(self):
+        self.validate("source")
+        details = self.page.locator("#validation-source-description").inner_text()
+        self.assertIn("隐藏", details)
+        self.assertNotIn("inspection_lot", details)
+        self.assertTrue(self.page.locator("#continue-save").is_disabled())
+
+    def test_revoked_access_masks_sensitive_evidence_but_keeps_safe_execution_id(self):
+        self.save()
+        self.query()
+        self.page.locator("#query-fault").select_option("revoke")
+        self.page.locator("#next-page").click()
+        self.page.locator("#tab-evidence").click()
+        self.assertIn("execution-demo-", self.page.locator("#ev-exec").inner_text())
+        self.assertIn("授权撤销", self.page.locator("#ev-sources").inner_text())
+        self.assertNotIn("inspection_lot", self.page.locator("#ev-sources").inner_text())
+        self.assertIn("没有查看", self.page.locator("#ev-version").inner_text())
+        self.assertTrue(self.page.locator("#result-box").is_hidden())
+
     def test_narrow_viewport_has_no_horizontal_overflow(self):
         self.page.set_viewport_size({"width": 375, "height": 812})
         self.assertTrue(self.page.locator("#view-config").is_visible())
