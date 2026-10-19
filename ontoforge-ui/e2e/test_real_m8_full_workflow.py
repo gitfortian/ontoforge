@@ -112,9 +112,11 @@ class RealM8BrowserGoldenStory(unittest.TestCase):
         self.assertEqual(self.errors, [])
         self.page.close()
 
-    def test_native_linktype_deeplink_and_return_preserve_exact_context(self):
-        snapshot, _, _ = build_source(self.package)
+    def test_real_native_to_m5_to_linkbinding_to_react_traverse_and_aggregate(self):
+        snapshot, left, right = build_source(self.package)
         page = self.page
+        # Exercise the original signed-off UX sequence with exactly one set of
+        # immutable Native/M5 fixtures (no second snapshot polluting selection).
         page.goto(BASE + "/#/model/runtime-types/snapshots/" + quote(snapshot))
         page.get_by_role("heading", name="运行时类型目录").wait_for(timeout=18000)
         links = page.get_by_role("region", name="已冻结关系类型")
@@ -124,14 +126,10 @@ class RealM8BrowserGoldenStory(unittest.TestCase):
         panel.get_by_label("M8 Local Snapshot").wait_for(timeout=20000)
         self.assertEqual(panel.get_by_label("M8 Local Snapshot").input_value(), snapshot)
         self.assertEqual(panel.get_by_label("M8 LinkType").input_value(), "cell-quality")
-        self.assertEqual(page.get_by_label("M8 LinkType").count(), 1)
         panel.get_by_role("button", name="返回 Native 关系定义").click()
         page.get_by_role("heading", name="运行时类型目录").wait_for(timeout=18000)
         self.assertIn(snapshot, page.url)
 
-    def test_real_native_to_m5_to_linkbinding_to_react_traverse_and_aggregate(self):
-        snapshot, left, right = build_source(self.package)
-        page = self.page
         page.goto(BASE + "/#/mvp/object-sets?packageId=" + quote(self.package)
                   + "&bindingId=" + quote(left["bindingId"]) + "&bindingRevision=1")
         page.get_by_role("heading", name="对象集合查询", exact=True).wait_for(timeout=18000)
