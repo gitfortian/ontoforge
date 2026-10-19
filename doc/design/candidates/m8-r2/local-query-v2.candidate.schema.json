@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ontoforge.local/schema/candidates/m8/local-query-v2.candidate.schema.json",
   "title": "M8 R2 Candidate - single-hop typed local Traverse query",
-  "description": "Review-only candidate, not the approved M7 local-query-v1 or Native DSL contract. Runtime must additionally enforce step ordering, correct side type, version and source locks.",
+  "description": "Review-only candidate, not the approved M7 local-query-v1 or Native DSL contract. Runtime must additionally enforce step ordering, correct side type, version and source locks. Root predicates live only in rootSelector; FILTER steps apply only to the Traverse output.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -465,10 +465,7 @@
           "const": "FILTER"
         },
         "scope": {
-          "enum": [
-            "ROOT",
-            "TARGET"
-          ]
+          "const": "TARGET"
         },
         "conditions": {
           "type": "array",
