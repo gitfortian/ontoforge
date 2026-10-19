@@ -232,6 +232,21 @@ class LinkBindingFullIntegrationTest {
         assertThat(originalRevision.path("sourceBindingDigest").asText())
                 .isEqualTo(equipment.digest());
 
+        // Reopen/replay must not leak historical source evidence after SELECT is revoked.
+        jdbc.execute("REVOKE SELECT ON public." + INSPECTION + " FROM ontoforge_binding_reader");
+        try {
+            ResponseEntity<String> hidden = http.getForEntity(URI.create(url("/" + id)
+                    + "?packageId=" + pkg + "&revision=1"), String.class);
+            assertThat(hidden.getStatusCode().value()).isEqualTo(403);
+            assertThat(hidden.getBody()).contains("LINK_SOURCE_UNAVAILABLE");
+            assertThat(hidden.getBody()).doesNotContain(equipment.sourceSchemaFingerprint());
+            ResponseEntity<String> unknownReplayAfterRevocation = put("/" + id, next);
+            assertThat(unknownReplayAfterRevocation.getStatusCode().value()).isEqualTo(403);
+            assertThat(unknownReplayAfterRevocation.getBody()).doesNotContain("sourceBindingDigest");
+        } finally {
+            jdbc.execute("GRANT SELECT ON public." + INSPECTION + " TO ontoforge_binding_reader");
+        }
+
         jdbc.execute("ALTER TABLE public." + INSPECTION + " ADD COLUMN m8_drift TEXT");
         try {
             ResponseEntity<String> drift = post("/validate", request);
