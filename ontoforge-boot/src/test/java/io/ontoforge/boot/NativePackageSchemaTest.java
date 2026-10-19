@@ -19,6 +19,21 @@ class NativePackageSchemaTest {
         assertThat(NativePackageSchema.validate(candidate())).isEmpty();
     }
 
+    @Test void nativeSchemaAllowsUuidObjectIdentityTypeUsedByBindingsAndObjectSet() throws Exception {
+        var candidate = candidate();
+        var type = (ObjectNode) candidate.path("objectTypes").get(0);
+        String primaryKeyRef = type.path("primaryKeyRef").asText();
+        boolean changed = false;
+        for (var property : type.path("properties")) {
+            if (primaryKeyRef.equals(property.path("id").asText())) {
+                ((ObjectNode) property).put("valueType", "UUID");
+                changed = true;
+            }
+        }
+        assertThat(changed).isTrue();
+        assertThat(NativePackageSchema.validate(candidate)).isEmpty();
+    }
+
     @Test void nativeStructureFailuresRetainStableCodeAndNestedInstancePath() throws Exception {
         var candidate = candidate();
         candidate.put("unexpectedAuthority", true);

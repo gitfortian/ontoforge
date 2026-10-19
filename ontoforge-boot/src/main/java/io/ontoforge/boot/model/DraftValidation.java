@@ -19,7 +19,7 @@ public final class DraftValidation {
     private static final Pattern PACKAGE_ID = Pattern.compile("^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$");
     private static final Pattern DEFINITION_ID = Pattern.compile("^[a-z][a-z0-9-]{1,63}$");
     private static final Pattern API_NAME = Pattern.compile("^[A-Za-z][A-Za-z0-9]{1,80}$");
-    private static final Set<String> TYPES = Set.of("STRING", "INTEGER", "DECIMAL", "BOOLEAN", "DATETIME", "ENUM");
+    private static final Set<String> TYPES = Set.of("STRING", "INTEGER", "DECIMAL", "BOOLEAN", "DATETIME", "ENUM", "UUID");
     private static final Set<String> CLASSIFICATIONS = Set.of("PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED");
     private static final Set<String> ROOT = Set.of("editorSchemaVersion", "objectTypes", "linkTypes");
     private static final Set<String> OBJECT = Set.of("id", "apiName", "label", "description", "primaryKeyRef", "properties");
@@ -219,7 +219,7 @@ public final class DraftValidation {
                 if(matched==null){issues.add(new Issue(path+"/primaryKeyRef","PK_NOT_FOUND","主键必须引用本类型内的属性"));invalid=true;}
                 else {
                     if(!matched.path("required").asBoolean(false)){issues.add(new Issue(path+"/primaryKeyRef","PK_REQUIRED","主键属性必须是必填"));invalid=true;}
-                    if(!"STRING".equals(get(matched,"valueType")) && !"INTEGER".equals(get(matched,"valueType"))){issues.add(new Issue(path+"/primaryKeyRef","PK_TYPE","主键只允许 STRING 或 INTEGER"));invalid=true;}
+                    if(!Set.of("STRING", "INTEGER", "UUID").contains(get(matched,"valueType"))){issues.add(new Issue(path+"/primaryKeyRef","PK_TYPE","主键只允许 STRING、INTEGER 或 UUID"));invalid=true;}
                 }
             }
         }

@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ontoforge.local/schema/local-result-v1.schema.json",
+  "title": "OntoForge Local ObjectSet Result v1",
+  "description": "有界 local-query-v1 执行结果；不伪造正式 IndexSnapshot、SchemaRelease 或 AuthorizationScope。",
+  "oneOf": [
+    { "$ref": "#/$defs/pageSuccess" },
+    { "$ref": "#/$defs/aggregateSuccess" },
+    { "$ref": "#/$defs/failure" }
+  ],
+  "$defs": {
+    "typeSourceRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "snapshotId"],
+      "properties": { "kind": { "const": "LOCAL_SNAPSHOT" }, "snapshotId": { "type": "string", "format": "uuid" } }
+    },
+    "bindingVersion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["bindingId", "revision", "digest", "sourceId", "kind"],
+      "properties": {
+        "bindingId": { "type": "string", "format": "uuid" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "digest": { "type": "string", "minLength": 1 },
+        "sourceId": { "type": "string", "minLength": 1 },
+        "kind": { "const": "OBJECT" }
+      }
+    },
+    "versionLock": {
+      "type": "object", "additionalProperties": false,
+      "required": ["typeSourceRef", "payloadSha256", "bindingVersions", "sourceSchemaFingerprints"],
+      "properties": {
+        "typeSourceRef": { "$ref": "#/$defs/typeSourceRef" },
+        "payloadSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "bindingVersions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/bindingVersion" } },
+        "sourceSchemaFingerprints": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["sourceId", "schema", "table", "schemaFingerprint"],
+            "properties": {
+              "sourceId": { "type": "string" }, "schema": { "type": "string" }, "table": { "type": "string" },
+              "schemaFingerprint": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "sourceReadRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "sourceId", "schema", "table", "columns", "schemaFingerprint", "startedAt", "completedAt", "transactionIsolation", "checkpoint", "consistencyNote"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" }, "sourceId": { "type": "string" },
+        "schema": { "type": "string" }, "table": { "type": "string" },
+        "columns": { "type": "array", "items": { "type": "string" } },
+        "schemaFingerprint": { "type": "string" }, "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "transactionIsolation": { "const": "REPEATABLE_READ" },
+        "checkpoint": {
+          "type": "object", "additionalProperties": false, "required": ["status", "reason"],
+          "properties": { "status": { "const": "UNKNOWN" }, "reason": { "type": "string", "minLength": 1 } }
+        },
+        "consistencyNote": { "type": "string" }
+      }
+    },
+    "quality": {
+      "type": "object", "additionalProperties": false,
+      "required": ["accuracy", "completeness", "freshness", "answerScope"],
+      "properties": {
+        "accuracy": { "const": "EXACT" }, "completeness": { "const": "COMPLETE" },
+        "freshness": { "const": "UNKNOWN" }, "answerScope": { "const": "REQUESTED_SCOPE" }
+      }
+    },
+    "budget": {
+      "type": "object", "additionalProperties": false,
+      "required": ["physicalRows", "distinctObjects", "sourceBytes", "serializedResultBytes", "maxPhysicalRows", "maxSourceBytes", "maxSerializedResultBytes", "queryTimeoutSeconds"],
+      "properties": {
+        "physicalRows": { "type": "integer", "minimum": 0 }, "distinctObjects": { "type": "integer", "minimum": 0 },
+        "sourceBytes": { "type": "integer", "minimum": 0 }, "serializedResultBytes": { "type": "integer", "minimum": 0 },
+        "maxPhysicalRows": { "const": 10000 }, "maxSourceBytes": { "const": 8388608 },
+        "maxSerializedResultBytes": { "const": 8388608 }, "queryTimeoutSeconds": { "const": 3 }
+      }
+    },
+    "commonSuccess": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "executionId", "executedAt", "queryVersion", "typeSourceRef", "payloadSha256", "accessMode", "bindingVersions", "versionLock", "sourceReadRef", "queryDigest", "resultSnapshotRef", "expiresAt", "quality", "budget"],
+      "properties": {
+        "status": { "const": "SUCCESS" }, "executionId": { "type": "string", "format": "uuid" },
+        "executedAt": { "type": "string", "format": "date-time" }, "queryVersion": { "const": "local-query-v1" },
+        "typeSourceRef": { "$ref": "#/$defs/typeSourceRef" },
+        "payloadSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "accessMode": { "enum": ["LOCAL_ISOLATED", "JWT_AUTHENTICATED"] },
+        "bindingVersions": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/bindingVersion" } },
+        "versionLock": { "$ref": "#/$defs/versionLock" }, "sourceReadRef": { "$ref": "#/$defs/sourceReadRef" },
+        "queryDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "resultSnapshotRef": { "type": "string", "pattern": "^local-result:[0-9a-f-]{36}$" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "objects": { "type": "array", "items": { "$ref": "#/$defs/objectSetItem" } },
+        "aggregate": {
+          "type": "object", "additionalProperties": false,
+          "required": ["operation", "valueType", "value", "matchedObjects"],
+          "properties": {
+            "operation": { "enum": ["COUNT_DISTINCT", "SUM"] }, "propertyRef": { "type": "string" },
+            "valueType": { "enum": ["INTEGER", "DECIMAL"] }, "value": { "type": "string" },
+            "matchedObjects": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "totalCount": { "type": "integer", "minimum": 0 },
+        "pageSize": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "pageNumber": { "type": "integer", "minimum": 1 },
+        "nextCursor": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "quality": { "$ref": "#/$defs/quality" }, "budget": { "$ref": "#/$defs/budget" }
+      }
+    },
+    "objectSetItem": {
+      "type": "object", "additionalProperties": false, "required": ["objectRef", "properties"],
+      "properties": {
+        "objectRef": {
+          "type": "object", "additionalProperties": false,
+          "required": ["packageId", "objectTypeId", "identityDomainId", "key"],
+          "properties": {
+            "packageId": { "type": "string" }, "objectTypeId": { "type": "string" }, "identityDomainId": { "type": "string" },
+            "key": { "type": "object", "additionalProperties": false, "required": ["valueType", "value"],
+              "properties": { "valueType": { "enum": ["STRING", "INTEGER"] }, "value": { "type": "string" } } }
+          }
+        },
+        "properties": {
+          "type": "array", "items": {
+            "type": "object", "additionalProperties": false, "required": ["propertyRef", "valueType", "status"],
+            "properties": {
+              "propertyRef": { "type": "string" }, "valueType": { "type": "string" },
+              "status": { "enum": ["PRESENT", "NULL", "MISSING"] }, "value": {},
+              "provenance": { "type": "object", "additionalProperties": false,
+                "required": ["sourceId", "schema", "table", "column", "bindingId", "bindingRevision", "sourceReadRef"],
+                "properties": {
+                  "sourceId": { "type": "string" }, "schema": { "type": "string" }, "table": { "type": "string" },
+                  "column": { "type": "string" }, "bindingId": { "type": "string", "format": "uuid" },
+                  "bindingRevision": { "type": "integer", "minimum": 1 }, "sourceReadRef": { "type": "string", "format": "uuid" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "pageSuccess": {
+      "allOf": [
+        { "$ref": "#/$defs/commonSuccess" },
+        { "type": "object", "required": ["objects", "totalCount", "pageSize", "pageNumber"],
+          "properties": {
+            "objects": { "type": "array", "items": { "$ref": "#/$defs/objectSetItem" } },
+            "totalCount": { "type": "integer", "minimum": 0 }, "pageSize": { "type": "integer", "minimum": 1, "maximum": 50 },
+            "pageNumber": { "type": "integer", "minimum": 1 }, "nextCursor": { "type": "string", "minLength": 1, "maxLength": 128 }
+          },
+          "not": { "required": ["aggregate"] }
+        }
+      ]
+    },
+    "aggregateSuccess": {
+      "allOf": [
+        { "$ref": "#/$defs/commonSuccess" },
+        { "type": "object", "required": ["aggregate"],
+          "properties": {
+            "aggregate": {
+              "type": "object", "additionalProperties": false,
+              "required": ["operation", "valueType", "value", "matchedObjects"],
+              "properties": {
+                "operation": { "enum": ["COUNT_DISTINCT", "SUM"] }, "propertyRef": { "type": "string" },
+                "valueType": { "enum": ["INTEGER", "DECIMAL"] }, "value": { "type": "string" },
+                "matchedObjects": { "type": "integer", "minimum": 0 }
+              }
+            }
+          },
+          "not": { "anyOf": [{ "required": ["objects"] }, { "required": ["totalCount"] }, { "required": ["pageSize"] }, { "required": ["pageNumber"] }, { "required": ["nextCursor"] }] }
+        }
+      ]
+    },
+    "failure": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "executionId", "code", "message", "quality"],
+      "properties": {
+        "status": { "const": "FAILED" }, "executionId": { "type": "string", "format": "uuid" },
+        "code": { "type": "string" }, "message": { "type": "string" }, "fieldPath": { "type": ["string", "null"] },
+        "quality": { "type": "object", "required": ["accuracy", "completeness", "freshness", "answerScope"],
+          "properties": {
+            "accuracy": { "const": "UNKNOWN" }, "completeness": { "const": "UNKNOWN" },
+            "freshness": { "const": "UNKNOWN" }, "answerScope": { "const": "REQUESTED_SCOPE" }
+          }
+        }
+      },
+      "not": { "anyOf": [{ "required": ["objects"] }, { "required": ["aggregate"] }, { "required": ["totalCount"] }] }
+    }
+  }
+}

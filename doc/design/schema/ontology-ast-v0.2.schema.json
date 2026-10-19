@@ -247,7 +247,8 @@
             "DECIMAL",
             "BOOLEAN",
             "DATETIME",
-            "ENUM"
+            "ENUM",
+            "UUID"
           ]
         },
         "required": {
