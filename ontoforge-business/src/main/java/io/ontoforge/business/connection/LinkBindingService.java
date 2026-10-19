@@ -138,9 +138,16 @@ public class LinkBindingService {
         validateRequest(request);
         authorization.requirePackage(auth, request.packageId(), B0AuthorizationService.Operation.WRITE_DRAFT);
         String digest = requestDigest(request);
+        // Always lock this operation UUID before reading its durable receipt.
+        // A concurrent same-key retry must wait for the original transaction.
+        repository.lockOperationKey(request.packageId(), request.idempotencyKey());
         LinkBindingRepository.Operation existing =
                 repository.findOperation(request.packageId(), request.idempotencyKey());
         if (existing != null) return recover(request, digest, existing, "CREATE", auth);
+        // Different operation keys creating the same LinkType also serialize.
+        // This must precede listHeads / INSERT to remove the check-then-insert race.
+        repository.lockLinkIdentity(request.packageId(),
+                request.modelSourceRef().snapshotId(), request.linkTypeId());
         Context context = context(request, auth);
         LinkValidation validation = fullValidation(context);
         boolean taken = repository.listHeads(request.packageId()).stream().anyMatch(h ->
@@ -166,6 +173,9 @@ public class LinkBindingService {
         }
         authorization.requirePackage(auth, request.packageId(), B0AuthorizationService.Operation.WRITE_DRAFT);
         String digest = requestDigest(request);
+        // Always lock this operation UUID before reading its durable receipt.
+        // A concurrent same-key retry must wait for the original transaction.
+        repository.lockOperationKey(request.packageId(), request.idempotencyKey());
         LinkBindingRepository.Operation existing =
                 repository.findOperation(request.packageId(), request.idempotencyKey());
         if (existing != null) {
