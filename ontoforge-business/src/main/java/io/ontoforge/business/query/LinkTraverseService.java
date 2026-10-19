@@ -446,9 +446,8 @@ public class LinkTraverseService {
             result.put("linkCount",0);
             result.put("pathCount",0);
         }
-        long resultBytes = result.toString().getBytes(StandardCharsets.UTF_8).length;
-        budget.put("serializedResultBytes", resultBytes);
-        if (result.toString().getBytes(StandardCharsets.UTF_8).length > request.maxResultBytes()) {
+        long resultBytes = exactSerializedBytes(result);
+        if (resultBytes > request.maxResultBytes()) {
             throw fail(429, "QUERY_BUDGET_EXCEEDED", "响应超过 8MiB 预算", "limits");
         }
         // Final current evidence recheck BEFORE a successful payload escapes.
@@ -634,14 +633,28 @@ public class LinkTraverseService {
             page.put("nextCursor", token);
         }
         ObjectNode budget = (ObjectNode) page.path("budget");
-        budget.put("serializedResultBytes", 0);
-        budget.put("serializedResultBytes", page.toString().getBytes(StandardCharsets.UTF_8).length);
-        if (page.toString().getBytes(StandardCharsets.UTF_8).length >
-                budget.path("maxSerializedResultBytes").asLong()) {
+        long actualBytes = exactSerializedBytes(page);
+        if (actualBytes > budget.path("maxSerializedResultBytes").asLong()) {
             throw fail(429, "QUERY_BUDGET_EXCEEDED", "当前冻结页超出响应预算", "limits");
         }
         ensureResultContract(page);
         return page;
+    }
+
+    /**
+     * Account for the byte count field itself. Reporting the length while it is
+     * still 0 undercounts 1..8 bytes depending on digit width and corrupts
+     * observable query evidence, even if the final separate limit check passed.
+     */
+    private static long exactSerializedBytes(ObjectNode response) {
+        ObjectNode budget = (ObjectNode) response.path("budget");
+        for (int n = 0; n < 4; n++) {
+            long length = response.toString().getBytes(StandardCharsets.UTF_8).length;
+            if (budget.path("serializedResultBytes").asLong() == length) return length;
+            budget.put("serializedResultBytes", length);
+        }
+        throw fail(503, "RESULT_BUDGET_ACCOUNTING",
+                "无法计算稳定的序列化响应字节数，拒绝提供不准确预算", "budget");
     }
 
     private static void ensureResultContract(JsonNode result) {
