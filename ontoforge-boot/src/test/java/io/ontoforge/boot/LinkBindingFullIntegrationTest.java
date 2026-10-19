@@ -302,6 +302,72 @@ class LinkBindingFullIntegrationTest {
         assertThat(excluded.path("links").size()).isZero();
         assertThat(excluded.path("quality").path("completeness").asText()).isEqualTo("COMPLETE");
 
+        // Real SORT + PROJECT: property order is stable across frozen pages,
+        // and the projection carries the exact target SourceReadRef provenance.
+        ObjectNode sorted = traverseRequest(pkg, snapshotId, equipment, lot, id,
+                "equipment-inspections", "OUT", "EQ-001", 1);
+        ArrayNode sortedSteps = sorted.withArray("steps");
+        ObjectNode sortedPage = (ObjectNode) sortedSteps.remove(1);
+        sortedSteps.addObject().put("kind","SORT").putArray("fields")
+                .addObject().put("propertyRef","lot-code").put("direction","DESC");
+        sortedSteps.addObject().put("kind","PROJECT").putArray("propertyRefs")
+                .add("inspection-amount");
+        sortedSteps.add(sortedPage);
+        ResponseEntity<String> sortedResponse = traverse(sorted);
+        assertThat(sortedResponse.getStatusCode().value()).as(sortedResponse.getBody()).isEqualTo(200);
+        JsonNode sortedFirst = mapper.readTree(sortedResponse.getBody());
+        assertThat(sortedFirst.path("objects").get(0).path("objectRef").path("key").path("value").asText())
+                .isEqualTo("LOT-12");
+        JsonNode amount = sortedFirst.path("objects").get(0).path("properties").get(0);
+        assertThat(amount.path("propertyRef").asText()).isEqualTo("inspection-amount");
+        assertThat(amount.path("valueType").asText()).isEqualTo("DECIMAL");
+        assertThat(new java.math.BigDecimal(amount.path("value").asText()))
+                .isEqualByComparingTo("20");
+        assertThat(sortedFirst.path("sourceReadRefs").toString()).contains("amount");
+        JsonNode sortedSecond = mapper.readTree(traversePage(sortedFirst.path("nextCursor").asText()).getBody());
+        assertThat(sortedSecond.path("objects").get(0).path("objectRef").path("key").path("value").asText())
+                .isEqualTo("LOT-11");
+        assertThat(sortedSecond.path("resultSnapshotRef")).isEqualTo(sortedFirst.path("resultSnapshotRef"));
+
+        ObjectNode unknownSort = sorted.deepCopy();
+        ((ObjectNode) unknownSort.withArray("steps").get(1).path("fields").get(0))
+                .put("propertyRef","secret-property");
+        ResponseEntity<String> rejectedSort = traverse(unknownSort);
+        assertThat(rejectedSort.getStatusCode().value()).isEqualTo(422);
+        assertThat(rejectedSort.getBody()).contains("UNSUPPORTED_FILTER_FIELD");
+
+        ObjectNode countQuery = traverseRequest(pkg, snapshotId, equipment, lot, id,
+                "equipment-inspections", "OUT", "EQ-001", 50);
+        ArrayNode countSteps = countQuery.withArray("steps");
+        countSteps.remove(countSteps.size()-1);
+        countSteps.addObject().put("kind","AGGREGATE").put("operation","COUNT_DISTINCT");
+        ResponseEntity<String> counted = traverse(countQuery);
+        assertThat(counted.getStatusCode().value()).as(counted.getBody()).isEqualTo(200);
+        JsonNode countResult = mapper.readTree(counted.getBody());
+        assertThat(countResult.path("resultKind").asText()).isEqualTo("AGGREGATE");
+        assertThat(countResult.path("aggregate").path("value").asText()).isEqualTo("2");
+        assertThat(countResult.path("aggregate").path("matchedObjects").asInt()).isEqualTo(2);
+        assertThat(countResult.path("pageSize").isMissingNode()).isTrue();
+        assertThat(countResult.path("sourceReadRefs").size()).isEqualTo(2);
+
+        ObjectNode sumQuery = traverseRequest(pkg, snapshotId, equipment, lot, id,
+                "equipment-inspections", "OUT", "EQ-001", 50);
+        ArrayNode sumSteps = sumQuery.withArray("steps");
+        sumSteps.remove(sumSteps.size()-1);
+        sumSteps.addObject().put("kind","AGGREGATE").put("operation","SUM")
+                .put("propertyRef","inspection-amount");
+        ResponseEntity<String> summed = traverse(sumQuery);
+        assertThat(summed.getStatusCode().value()).as(summed.getBody()).isEqualTo(200);
+        JsonNode sumResult = mapper.readTree(summed.getBody());
+        assertThat(sumResult.path("aggregate").path("valueType").asText()).isEqualTo("DECIMAL");
+        assertThat(new java.math.BigDecimal(sumResult.path("aggregate").path("value").asText()))
+                .isEqualByComparingTo("30");
+        assertThat(sumResult.path("sourceReadRefs").toString()).contains("amount");
+
+        ObjectNode badSum = sumQuery.deepCopy();
+        ((ObjectNode) badSum.withArray("steps").get(1)).put("propertyRef","inspection-status");
+        assertThat(traverse(badSum).getStatusCode().value()).isEqualTo(422);
+
         // Separate FK-on-SOURCE case: reverse cardinality but DO NOT reverse
         // LinkFact definition based on traversal direction.
         ObjectNode reversedRequest = request.deepCopy();
@@ -334,6 +400,26 @@ class LinkBindingFullIntegrationTest {
         JsonNode reversedPartial = mapper.readTree(traverse(reverseOrphan).getBody());
         assertThat(reversedPartial.path("quality").path("completeness").asText()).isEqualTo("PARTIAL");
         assertThat(reversedPartial.path("quality").path("knownOrphanCount").asInt()).isEqualTo(1);
+
+        // The SAME equipment output is matched by two source LinkFacts.
+        // Aggregate SUM must deduplicate by full output ObjectRef, not sum edges.
+        ObjectNode distinctSum = traverseRequest(pkg, snapshotId, lot, equipment, reverseId,
+                "inspection-equipment", "OUT", "LOT-11", 50);
+        ObjectNode multi = distinctSum.putObject("rootSelector");
+        multi.put("kind", "BOUNDED_ROOT_FILTER");
+        multi.putArray("conditions").addObject().put("propertyRef","inspection-status")
+                .put("operator","EQ").putObject("literal")
+                .put("valueType","STRING").put("value","PASS");
+        ArrayNode manySteps = distinctSum.withArray("steps");
+        manySteps.remove(1);
+        manySteps.addObject().put("kind","AGGREGATE").put("operation","SUM")
+                .put("propertyRef","equipment-cost");
+        ResponseEntity<String> distinctRes = traverse(distinctSum);
+        assertThat(distinctRes.getStatusCode().value()).as(distinctRes.getBody()).isEqualTo(200);
+        JsonNode uniqueSum = mapper.readTree(distinctRes.getBody());
+        assertThat(uniqueSum.path("aggregate").path("matchedObjects").asInt()).isEqualTo(1);
+        assertThat(new java.math.BigDecimal(uniqueSum.path("aggregate").path("value").asText()))
+                .isEqualByComparingTo("100");
 
         ObjectNode paged = traverseRequest(pkg, snapshotId, equipment, lot, id,
                 "equipment-inspections", "OUT", "EQ-001", 1);
