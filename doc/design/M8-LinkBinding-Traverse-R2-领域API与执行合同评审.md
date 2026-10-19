@@ -119,7 +119,7 @@
 **请求草案（结构概念；不是机器 schema）：**
 
 - LinkBindingDraft：modelSourceRef {kind:LOCAL_SNAPSHOT,snapshotId}、packageId、linkTypeId、sourceBindingRef {bindingId,revision,digest?}、targetBindingRef {bindingId,revision,digest?}、mode=FOREIGN_KEY、fkOwner=(SOURCE|TARGET)、fkSourceColumn、referencedPk=OTHER_ENDPOINT_SOURCE_KEY、expectedRevision、idempotencyKey（仅 create）、expectedSchemaFingerprints。
-- TraverseRequest：queryVersion=local-query-v2、rootTypeRef、rootBindingRef、rootSelector (one ObjectRef | bounded RootFilter of same ObjectType)，steps=[RootFilter* → TRAVERSE {linkTypeRef,linkBindingRef,direction,maxDepth:1} → TargetFilter* → terminal(SORT?,PROJECT?,PAGE or AGGREGATE)]、limits。**禁止**从旧 M7 cursor 直接解析为 root 授权，除非经独立合同确保根集合来源与当前主体/版本闭包。
+- TraverseRequest：queryVersion=local-query-v2、rootTypeRef、rootBindingRef、rootSelector (one ObjectRef | bounded RootFilter of same ObjectType)，steps=[TRAVERSE {linkTypeRef,linkBindingRef,direction,maxDepth:1} → TargetFilter* → terminal(SORT?,PROJECT?,PAGE or AGGREGATE)]；根谓词**只出现于 rootSelector**，不允许在 TRAVERSE 之外重复声明 ROOT FILTER 造成两套根作用域、limits。**禁止**从旧 M7 cursor 直接解析为 root 授权，除非经独立合同确保根集合来源与当前主体/版本闭包。
 - 响应：executionId、queryDigest、resultSnapshotRef、expiresAt、rootTypeRef、outputTypeRef、bindingVersions [{kind:OBJECT|LINK,...}]、versionLock、sourceReadRefs[]、objects[]、links[]、linkCount、pathCount、quality、budget。M8.1 单步的 pathCount 可等于逻辑 linkCount，但字段必须独立命名，为 M8.3 保留路径维度。
 
 ### 4.3A 可独立审查的结构化合同候选
@@ -134,7 +134,7 @@
 **明确的可信边界**：
 
 1. `referencedIdentityColumn` **不能由客户端自由指定**。它必须由服务端从已锁定的“被引用端 M5 Binding revision.sourceKey”解析，校验 FKOwner 相反端、identityDomain、来源列类型与 PG 一致性。候选 LinkBinding 请求因此只允许明确 FK 所在端及其真实来源列。
-2. 结构 Schema 的 `contains` 最多只能检查**恰好一个** TRAVERSE / 终结步骤；运行时还必须检查步骤先后、FILTER ROOT/TARGET 与真实端点类型、字段映射、M8.1 FK×基数约束、对象身份和授权，不可把 Schema PASS 误称为可执行验证。
+2. 结构 Schema 的 `contains` 最多只能检查**恰好一个** TRAVERSE / 终结步骤；运行时还必须检查步骤先后、rootSelector 根谓词与 TRAVERSE 后 TARGET FILTER 的端点类型、字段映射、M8.1 FK×基数约束、对象身份和授权，不可把 Schema PASS 误称为可执行验证。
 3. 两端 current source/database grants、跨服务元数据版本一致性、关联源权限与 FULL 质量验证均无法由静态 Schema 保证；在生产实现前必须配对真实 PG17 + API E2E 负例。
 4. 这些候选文件在 `doc/design/candidates`，**并非**当前运行时解析/发布的 `doc/design/schema` 正式合同，也不授权把 v2 接口提前纳入生产服务。R2 经过产品/架构批准后才可定稿并回填 OFIP-0010。
 
@@ -263,6 +263,14 @@
 | **R2-D8** 技术版本 | **local-query-v2 / local-result-v2**，不破坏已验收的 local-query-v1 | 若坚持扩展 v1，需要证明严格 Schema 的向后兼容 |
 
 **本轮不批准直接开发。** 需要完整技术/产品评审后，将批准的 R2 合同写回 OFIP-0010 单一权威文档（保持 pending 直到有权维护者显式投票）；再出**新 M8.1 UX-Low** → 产品签收 → **新 M8.1 UX-High** → 产品签收 → OFIP Accepted → 一条可交付生产纵向 PR。
+
+## 10.1 合同自审：根作用域唯一来源（R2-RV1）
+
+**发现并消除一个设计歧义**：原始草案同时允许 rootSelector 中的有界根筛选，以及 TRAVERSE 之前另外一组 ROOT FILTER 步骤，容易令根对象是否被双重过滤、版本/字段校验按哪一组执行产生歧义。
+
+本 R2 的严格候选已统一为：**rootSelector 是根集合的唯一选择入口**；查询 steps 中恰好一条 TRAVERSE，随后可追加只应用在**输出端类型**的 TARGET FILTER、SORT、PROJECT 和 PAGE/AGGREGATE。结果类型由 LinkType 定义方向 + OUT/IN 决定，不允许客户端自行声明。针对“ROOT FILTER 步骤绕开 rootSelector”增加了独立负例合同测试。
+
+此项是 R2 审查中的候选纠错，尚不是 OFIP-0010 的正式技术决策；实现时仍须对 step 顺序与端点属性做服务端语义校验。
 
 ## 11. 本轮产出与验收状态
 
