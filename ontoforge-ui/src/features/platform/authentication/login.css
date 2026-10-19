@@ -1,0 +1,8 @@
+.login-panel{max-width:400px;margin:0 auto;color:var(--yak-color-text-primary)}
+.login-panel p{font-size:13px;line-height:1.7;color:var(--yak-color-text-secondary)}
+.login-panel form{display:flex;flex-direction:column;gap:10px}
+.login-panel label{font-size:12px;font-weight:600;margin-top:8px}
+.login-panel form>button{margin-top:16px;width:100%}
+.login-panel [role=alert]{color:var(--of-danger-text);margin:6px 0}
+.auth-panel{max-width:540px;margin:48px auto;padding:32px}.auth-panel h1{font-size:24px;margin:0 0 20px}
+.session-recovery p{font-size:13px;line-height:1.7;color:var(--yak-color-text-secondary)}

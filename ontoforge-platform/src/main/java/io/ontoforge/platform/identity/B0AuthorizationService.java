@@ -9,7 +9,6 @@ import io.ontoforge.dao.platform.AuthorizationRepository.IdentityRow;
 import io.ontoforge.dao.platform.AuthorizationRepository.WorkspaceRow;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.context.annotation.Profile;
 
@@ -47,11 +46,9 @@ public class B0AuthorizationService {
                                   List<String> packageIds) {}
 
     public Identity identity(Authentication authentication) {
-        JwtAuthenticationToken token = requireJwt(authentication);
-        String issuer = token.getToken().getIssuer() == null
-                ? ""
-                : token.getToken().getIssuer().toString();
-        String subject = token.getToken().getSubject();
+        TrustedActor actor = TrustedActor.require(authentication);
+        String issuer = actor.issuer();
+        String subject = actor.subject();
         if (issuer.isBlank() || subject == null || subject.isBlank()) {
             throw new AccessDeniedException("当前身份缺少受信 issuer/subject");
         }
@@ -79,11 +76,9 @@ public class B0AuthorizationService {
         if (packageId == null || packageId.isBlank()) {
             throw new AccessDeniedException("当前请求没有可授权的模型包");
         }
-        JwtAuthenticationToken token = requireJwt(authentication);
-        String issuer = token.getToken().getIssuer() == null
-                ? ""
-                : token.getToken().getIssuer().toString();
-        String subject = token.getToken().getSubject();
+        TrustedActor actor = TrustedActor.require(authentication);
+        String issuer = actor.issuer();
+        String subject = actor.subject();
         if (issuer.isBlank() || subject == null || subject.isBlank()) {
             throw new AccessDeniedException("当前身份缺少受信 issuer/subject");
         }
@@ -111,23 +106,18 @@ public class B0AuthorizationService {
     }
 
     public Set<String> readablePackageIds(Authentication authentication) {
-        JwtAuthenticationToken token = requireJwt(authentication);
-        String issuer = token.getToken().getIssuer() == null
-                ? ""
-                : token.getToken().getIssuer().toString();
-        String subject = token.getToken().getSubject();
+        TrustedActor actor = TrustedActor.require(authentication);
+        String issuer = actor.issuer();
+        String subject = actor.subject();
         if (issuer.isBlank() || subject == null || subject.isBlank()) {
             throw new AccessDeniedException("当前身份缺少受信 issuer/subject");
         }
         return new LinkedHashSet<>(repository.readablePackageIds(issuer, subject));
     }
 
-    private static JwtAuthenticationToken requireJwt(Authentication authentication) {
-        if (!(authentication instanceof JwtAuthenticationToken token)) {
-            throw new AccessDeniedException("当前请求没有受信 JWT 身份");
-        }
-        return token;
-    }
+    public String actorKey(Authentication authentication) { return TrustedActor.require(authentication).actorKey(); }
+
+    public String accessMode(Authentication authentication) { return TrustedActor.require(authentication).accessMode(); }
 
     private static String[] rolesFor(Operation operation) {
         return switch (operation) {

@@ -7,5 +7,7 @@ spring:
 
 # Stable test-only HMAC key for restart-detectable M7 cursors; never used by production.
 ontoforge:
+  security:
+    authentication-mode: oidc-jwt
   objectset:
     cursor-signing-secret: ${ONTOFORGE_OBJECTSET_CURSOR_SIGNING_SECRET:ontoforge-test-only-cursor-signing-secret-2026}

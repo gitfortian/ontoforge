@@ -39,6 +39,8 @@
 
 ## 证据与参考研究（非第二套架构权威）
 
+当前 B1 的初始化、登录、显式包授权及兼容模式见 [Yak B1 操作说明](./implementation/Yak-B1-本地账号Session接入.md)；设计已获 [OFIP-0017 接受](https://github.com/gitfortian/ontoforge/pull/94#issuecomment-6261109442)，实现、验收及发布状态分别记录。
+
 | 材料 | 用途 |
 |---|---|
 | [通用底座现状与 Yak Ops 复用评估](./research/2026-10-19-OntoForge-通用底座现状与Yak-Ops复用评估.md) | 固定源码核验、公共能力覆盖与分批复用顺序；区分 Yak 已实现功能与需另行建设的能力 |
