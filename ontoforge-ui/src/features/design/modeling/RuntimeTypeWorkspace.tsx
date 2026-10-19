@@ -144,6 +144,7 @@ export default function RuntimeTypeWorkspace({route,navigate}:{route:string;navi
       </div>
       <div className="model-actions">
         <button className="model-btn" onClick={()=>setRefreshKey(value=>value+1)} disabled={loading||detailLoading}><RefreshCw size={15}/> 重新核验</button>
+        {catalog&&snapshotId&&<button className="model-btn primary" onClick={()=>navigate('#/mvp/link-bindings?packageId='+encodeURIComponent(catalog.packageId)+'&snapshotId='+encodeURIComponent(snapshotId))}><Database size={15}/> 配置实例关系 · M8.1</button>}
         <button className="model-btn" onClick={()=>navigate(returnHash)}><ArrowLeft size={15}/> 返回来源</button>
       </div>
     </div>
