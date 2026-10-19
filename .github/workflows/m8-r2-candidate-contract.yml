@@ -5,6 +5,8 @@ on:
     paths:
       - 'doc/design/candidates/m8-r2/**'
       - 'doc/design/tests/test_m8_r2_candidate_contract.py'
+      - 'doc/design/candidates/m8-2/**'
+      - 'doc/design/tests/test_m8_2_bridge_candidate_contract.py'
       - '.github/workflows/m8-r2-candidate-contract.yml'
   workflow_dispatch:
 
@@ -24,5 +26,7 @@ jobs:
           python-version: '3.12'
       - name: Install pinned schema validator
         run: python -m pip install jsonschema==4.25.1
-      - name: Validate M8 R2 draft schemas and negative fixtures
+      - name: Validate M8.1 R2 draft schemas and negative fixtures
         run: python -m unittest discover -s doc/design/tests -p 'test_m8_r2_candidate_contract.py' -v
+      - name: Validate M8.2 R2 bridge draft schemas, evidence roles and v1 regression
+        run: python -m unittest discover -s doc/design/tests -p 'test_m8_2_bridge_candidate_contract.py' -v
