@@ -228,6 +228,18 @@ class M82BridgeTableUXLowBrowser(unittest.TestCase):
         self.assertIn("重开已保存修订 r1", self.page.locator("#save-outcome").inner_text())
         self.assertEqual(1, self.model()["revision"])
 
+    def test_unknown_save_must_be_recovered_before_query(self):
+        self.save(fault="unknown")
+        self.page.locator("#tab-query").click()
+        self.page.locator("#run-query").click()
+        self.assertIn("保存结果 UNKNOWN", self.page.locator("#query-outcome").inner_text())
+        self.assertTrue(self.page.locator("#result-panel").is_hidden())
+        self.page.locator("#tab-save").click()
+        self.page.locator("#lookup-operation").click()
+        self.query()
+        self.assertEqual(2, self.model()["objectCount"])
+        self.assertIsNotNone(self.model()["snapshot"])
+
     def test_source_fingerprint_drift_at_save_requires_revalidation(self):
         self.save(fault="drift")
         self.assertIn("LINK_SOURCE_SCHEMA_DRIFT", self.page.locator("#save-outcome").inner_text())
