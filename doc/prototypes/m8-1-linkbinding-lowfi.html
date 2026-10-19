@@ -109,14 +109,30 @@ const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll
 const state={view:"config",dirty:false,validated:false,validationQuality:null,validationId:null,saved:null,revision:0,pendingUnknown:false,execute:0,lastResult:null,retired:[],failure:null,pending:false};
 const approved={source:"B-11:r2",target:"B-15:r3",owner:"TARGET",column:"equipment_code"};
 const input=()=>({source:$("#source-binding").value,target:$("#target-binding").value,owner:$("#fk-owner").value,column:$("#fk-column").value});
-const original=()=>Object.keys(approved).every(k=>input()[k]===approved[k]);
+const baseline=()=>state.saved?{
+ source:state.saved.source,target:state.saved.target,owner:state.saved.fkOwner,column:state.saved.column
+}:approved;
+function restorePersistedChoice(){
+ const saved=baseline();
+ $("#source-binding").value=saved.source;
+ $("#target-binding").value=saved.target;
+ $("#fk-owner").value=saved.owner;
+ $("#fk-column").value=saved.column;
+ state.dirty=false;
+ state.validated=false;
+ state.validationQuality=null;
+ $("#unsaved").hidden=true;
+ $("#continue-save").disabled=true;
+ $("#save-binding").disabled=true;
+}
+const original=()=>Object.keys(approved).every(k=>input()[k]===baseline()[k]);
 const say=(el,kind,head,detail)=>{el.className="status "+kind;el.replaceChildren();const strong=document.createElement("strong");strong.textContent=head;const span=document.createElement("span");span.textContent=detail;el.append(strong,span);};
 const escapeText=s=>String(s);
 const touch=()=>{state.dirty=true;state.validated=false;state.validationQuality=null;$("#unsaved").hidden=false;$("#continue-save").disabled=true;$("#save-binding").disabled=true;$("#validation-evidence").hidden=true;$("#validation-outcome").textContent="来源配置已修改，需要重新执行完整核验。";$("#save-validation").textContent="已失效，需重新核验";};
 function confirmLeave(next){
  if(state.dirty && !["config","validate","save"].includes(next)){
   if(!window.confirm("存在未保存的关系来源编辑。离开后将丢弃本次编辑，是否继续？"))return false;
-  state.dirty=false;$("#unsaved").hidden=true;
+  restorePersistedChoice();
  }
  return true;
 }
@@ -259,7 +275,7 @@ $("#save-binding").onclick=save;
 $("#lookup-save").onclick=()=>{if(state.pendingUnknown)commitSave();};
 $("#to-query").onclick=()=>navigate("query",false);
 $("#reload-saved").onclick=()=>{if(state.saved){say($("#save-outcome"),"success","刷新重开 · 修订 r"+state.revision+"（模拟）","重开已保存修订，冻结两端绑定和 FK 来源配置保持一致；没有产生新版本。");}};
-$("#config-undo").onclick=()=>{$("#source-binding").value=approved.source;$("#target-binding").value=approved.target;$("#fk-owner").value=approved.owner;$("#fk-column").value=approved.column;touch();state.dirty=false;$("#unsaved").hidden=true;};
+$("#config-undo").onclick=()=>{restorePersistedChoice();$("#validation-outcome").textContent="已恢复上次保存的来源选择；继续前需要新的完整校验。";};
 $("#query-direction").onchange=()=>{refreshRootOptions();$("#result-box").hidden=true;$("#query-outcome").textContent="方向已更改，请明确执行新查询。";};
 $("#query-root").onchange=()=>{$("#result-box").hidden=true;$("#query-outcome").textContent="根对象已更改，请执行新查询。";};
 $("#run-query").onclick=runQuery;
