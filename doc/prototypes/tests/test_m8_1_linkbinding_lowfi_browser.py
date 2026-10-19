@@ -183,6 +183,7 @@ class M81LinkBindingUXLowBrowser(unittest.TestCase):
         self.save()
         self.query(fault="timeout")
         self.assertIn("SOURCE_TIMEOUT", self.page.locator("#query-outcome").inner_text())
+        self.assertIsNone(self.model()["snapshot"], "failed execution must not claim a published result snapshot")
         self.assertTrue(self.page.locator("#result-box").is_hidden())
         self.query(fault="expired")
         self.assertIn("RESULT_EXPIRED", self.page.locator("#query-outcome").inner_text())
@@ -202,6 +203,7 @@ class M81LinkBindingUXLowBrowser(unittest.TestCase):
         self.assertIn("LOT-11、LOT-14", self.page.locator("#query-outcome").inner_text())
         self.assertIn("PARTIAL / KNOWN_SUBSET", self.model()["qualityResult"])
         self.assertIn("EQ-001", self.page.locator("#result-rows").inner_text())
+        self.assertIn("已知子集 1 条", self.page.locator("#query-outcome").inner_text())
 
     def test_unsaved_navigation_guard_cancel_and_confirm(self):
         self.page.locator("#fk-column").select_option("order_id")
