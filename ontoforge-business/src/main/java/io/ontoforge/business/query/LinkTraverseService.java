@@ -379,7 +379,9 @@ public class LinkTraverseService {
                 left.schemaFingerprint(), right.schemaFingerprint());
         synchronized (frozen) {
             frozen.entrySet().removeIf(e -> !e.getValue().expiresAt().isAfter(Instant.now()));
-            if (frozen.size() >= 10) throw fail(429, "RESULT_SNAPSHOT_BUDGET",
+            // Bounded at 32 in-flight snapshots; each is limited to an 8MiB
+            // serialized result and lives at most 300 seconds.
+            if (frozen.size() >= 32) throw fail(429, "RESULT_SNAPSHOT_BUDGET",
                     "当前冻结结果容量已满，请稍后重新执行", "limits");
             frozen.put(frozenId, saved);
         }
