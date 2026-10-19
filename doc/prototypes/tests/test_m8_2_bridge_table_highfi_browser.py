@@ -616,6 +616,40 @@ class M82BridgeTableUXHighBrowser(unittest.TestCase):
         self.assertFalse(self.model()["saved"])
         self.assertEqual("config", self.model()["view"])
 
+    def test_reset_requires_confirmation_when_current_mapping_is_dirty(self):
+        self.page.locator("#target-binding").select_option("B-EQ:r2")
+        self.assertTrue(self.model()["dirty"])
+        self.page.once("dialog", lambda d: d.dismiss())
+        self.page.locator("#reset-demo").click()
+        self.assertTrue(self.model()["dirty"])
+        self.assertEqual("B-EQ:r2", self.page.locator("#target-binding").input_value())
+        self.page.once("dialog", lambda d: d.accept())
+        self.page.locator("#reset-demo").click()
+        self.page.wait_for_function("window.__m82uxHigh?.getState().dirty === false")
+        self.assertEqual("B-EQ:r3", self.page.locator("#target-binding").input_value())
+
+    def test_leaving_query_workspace_cancels_slow_request_without_stale_result(self):
+        self.save()
+        self.page.locator("#tab-query").click()
+        self.page.locator("#query-fault").select_option("slow")
+        self.page.locator("#run-query").click()
+        self.assertTrue(self.model()["queryPending"])
+        self.page.locator("#tab-evidence").click()
+        self.assertFalse(self.model()["queryPending"])
+        self.page.wait_for_timeout(490)
+        self.assertIsNone(self.model()["snapshot"])
+        self.assertTrue(self.page.locator("#three-read-roles").is_hidden())
+
+    def test_leaving_full_workspace_cancels_slow_full_validation(self):
+        self.page.locator("#to-validate").click()
+        self.page.locator("#validation-pace").select_option("slow")
+        self.page.locator("#run-validation").click()
+        self.assertTrue(self.model()["validationPending"])
+        self.page.locator("#tab-config").click()
+        self.assertFalse(self.model()["validationPending"])
+        self.page.wait_for_timeout(420)
+        self.assertFalse(self.model()["validated"])
+
     def test_highfi_375_mobile_workflow_and_1024_tablet_do_not_overflow(self):
         for width in [375, 768, 1024, 1440]:
             self.page.set_viewport_size({"width": width, "height": 840})
