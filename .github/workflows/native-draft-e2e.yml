@@ -346,13 +346,16 @@ jobs:
       - name: Prove M8 signed cursor fails 410 after actual JVM restart
         run: |
           python - <<'PY'
-          import json, os
+          import json, os, time
+          from datetime import datetime
           from pathlib import Path
           from urllib.error import HTTPError
           from urllib.request import Request, urlopen
 
           evidence = json.loads(Path(os.environ["E2E_M8_CURSOR_EVIDENCE"]).read_text(encoding="utf-8"))
           fixture = json.loads(Path(os.environ["E2E_AUTH_FILE"]).read_text(encoding="utf-8"))
+          deadline = datetime.fromisoformat(evidence["expiresAt"].replace("Z", "+00:00")).timestamp()
+          assert deadline > time.time(), "M8 cursor naturally expired: restart loss not proven"
           request = Request(
               "http://127.0.0.1:8080/api/runtime/object-sets/traverse/pages",
               data=json.dumps({"cursor": evidence["cursor"]}).encode("utf-8"),
