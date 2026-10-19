@@ -17,7 +17,7 @@ type Validation={status:string;coverage:string;scannedRows:number;matchedLinks:n
 type ObjectRef={packageId:string;objectTypeId:string;identityDomainId:string;key:{valueType:string;value:string}};
 type ResultObject={objectRef:ObjectRef;properties:unknown[]};
 type LinkFact={linkTypeId:string;linkBindingId:string;linkBindingRevision:number;source:ObjectRef;target:ObjectRef;sourceReadRefs:string[]};
-type OneHopResult={status:'SUCCESS';executionId:string;resultSnapshotRef:string;queryVersion:string;expiresAt:string;pageNumber:number;nextCursor?:string;objects:ResultObject[];links:LinkFact[];linkCount:number;quality:{completeness:'COMPLETE'|'PARTIAL';answerScope:string;freshness:string;knownOrphanCount:number};budget:{physicalRows:number;joinCandidates:number;sourceBytes:number};bindingVersions:Array<{kind:string;revision:number;bindingId:string;digest:string}>;sourceReadRefs:Array<{id:string;role:string;schema:string;table:string;schemaFingerprint:string;checkpoint:{status:string}}>} ;
+type OneHopResult={status:'SUCCESS';resultKind:'PAGE'|'AGGREGATE';aggregate?:{operation:'COUNT_DISTINCT'|'SUM';propertyRef?:string;valueType:'INTEGER'|'DECIMAL';value:string;matchedObjects:number};executionId:string;resultSnapshotRef:string;queryVersion:string;expiresAt:string;pageNumber:number;nextCursor?:string;objects:ResultObject[];links:LinkFact[];linkCount:number;quality:{completeness:'COMPLETE'|'PARTIAL';answerScope:string;freshness:string;knownOrphanCount:number};budget:{physicalRows:number;joinCandidates:number;sourceBytes:number};bindingVersions:Array<{kind:string;revision:number;bindingId:string;digest:string}>;sourceReadRefs:Array<{id:string;role:string;schema:string;table:string;schemaFingerprint:string;checkpoint:{status:string}}>} ;
 type ApiError={code?:string;message?:string;fieldPath?:string;executionId?:string;httpStatus?:number};
 
 async function request<T>(path:string,init:RequestInit={}):Promise<T>{
@@ -58,6 +58,11 @@ export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
   const [targetFilterField,setTargetFilterField]=useState('');
   const [targetFilterValue,setTargetFilterValue]=useState('');
   const [pageSize,setPageSize]=useState(25);
+  const [sortField,setSortField]=useState('');
+  const [sortDirection,setSortDirection]=useState<'ASC'|'DESC'>('ASC');
+  const [projectField,setProjectField]=useState('');
+  const [terminal,setTerminal]=useState<'PAGE'|'COUNT_DISTINCT'|'SUM'>('PAGE');
+  const [sumField,setSumField]=useState('');
   const [result,setResult]=useState<OneHopResult|null>(null);
   const generation=useRef(0);
   const reqKey=useRef('');
@@ -78,9 +83,11 @@ export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
   const outputProperties=mappedSearchable(outputBinding);
   const chosenRootProperty=rootProperties.find(p=>p.id===rootFilterField);
   const chosenTargetProperty=outputProperties.find(p=>p.id===targetFilterField);
+  const numericOutput=outputProperties.filter(p=>['DECIMAL','INTEGER'].includes(p.valueType));
   const queryReady=Boolean(currentLink&&root&&(
     selectorMode==='OBJECT_REF'?rootKey.trim():(chosenRootProperty&&rootFilterValue.trim()))
-    &&(!targetFilterField||(chosenTargetProperty&&targetFilterValue.trim()))&&!busy);
+    &&(!targetFilterField||(chosenTargetProperty&&targetFilterValue.trim()))
+    &&(terminal!=='SUM'||numericOutput.some(p=>p.id===sumField))&&!busy);
 
   function clearExecution(){setResult(null);setError(null);}
   function invalidateDraft(){
@@ -206,7 +213,14 @@ export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
         {propertyRef:targetFilterField,operator:'EQ',
           literal:{valueType:chosenTargetProperty.valueType,value:targetFilterValue.trim()}}
       ]});
-      steps.push({kind:'PAGE',pageSize});
+      if(terminal==='PAGE'){
+        if(sortField)steps.push({kind:'SORT',fields:[{propertyRef:sortField,direction:sortDirection}]});
+        if(projectField)steps.push({kind:'PROJECT',propertyRefs:[projectField]});
+        steps.push({kind:'PAGE',pageSize});
+      }else{
+        steps.push(terminal==='COUNT_DISTINCT'?{kind:'AGGREGATE',operation:'COUNT_DISTINCT'}
+          :{kind:'AGGREGATE',operation:'SUM',propertyRef:sumField});
+      }
       const query={
         queryVersion:'local-query-v2',
         rootTypeRef:{sourceRef:{kind:'LOCAL_SNAPSHOT',snapshotId},packageId,objectTypeId:root.objectTypeId},
@@ -296,13 +310,38 @@ export default function LinkTraversalWorkspace({packageId}:{packageId:string}){
           {targetFilterField&&<label>目标属性匹配值（EQ）<input aria-label="M8 Target Filter Value" value={targetFilterValue}
             placeholder="输出端可检索属性值" onChange={e=>{setTargetFilterValue(e.target.value);clearExecution();}}/></label>}
         </div>
+        <div className="m8-operator-controls">
+          <label>输出形式<select aria-label="M8 Result Mode" value={terminal} onChange={e=>{setTerminal(e.target.value as 'PAGE'|'COUNT_DISTINCT'|'SUM');clearExecution();}}>
+            <option value="PAGE">对象列表 + LinkFact</option>
+            <option value="COUNT_DISTINCT">COUNT_DISTINCT · 不重复对象数</option>
+            <option value="SUM">SUM · 目标对象数值合计</option>
+          </select></label>
+          {terminal==='PAGE'?<>
+            <label>排序字段（可选）<select aria-label="M8 Sort Field" value={sortField} onChange={e=>{setSortField(e.target.value);clearExecution();}}>
+              <option value="">按已冻结读取顺序</option>{outputProperties.map(p=><option key={p.id} value={p.id}>{p.apiName} · {p.valueType}</option>)}
+            </select></label>
+            <label>方向<select aria-label="M8 Sort Direction" value={sortDirection} onChange={e=>{setSortDirection(e.target.value as 'ASC'|'DESC');clearExecution();}}>
+              <option value="ASC">升序</option><option value="DESC">降序</option>
+            </select></label>
+            <label>属性投影（可选）<select aria-label="M8 Project Field" value={projectField} onChange={e=>{setProjectField(e.target.value);clearExecution();}}>
+              <option value="">仅显示对象标识</option>{outputProperties.map(p=><option key={p.id} value={p.id}>{p.apiName}</option>)}
+            </select></label>
+          </>:terminal==='SUM'&&<label>SUM 数值属性<select aria-label="M8 Sum Field" value={sumField} onChange={e=>{setSumField(e.target.value);clearExecution();}}>
+            <option value="">选择已映射数值属性</option>{numericOutput.map(p=><option key={p.id} value={p.id}>{p.apiName} · {p.valueType}</option>)}
+          </select></label>}
+        </div>
         {result&&<div className="m8-result">
           <div className="m8-result-stats"><div><span>结果质量</span><strong>{result.quality.completeness}</strong><small>{result.quality.answerScope} · Freshness {result.quality.freshness}</small></div>
             <div><span>本页 LinkFact</span><strong>{result.linkCount}</strong><small>第 {result.pageNumber} 页</small></div>
             <div><span>相关孤儿</span><strong>{result.quality.knownOrphanCount}</strong><small>仅本次根作用域</small></div></div>
-          <div className="m8-links">{result.links.length===0?<div className="m8-empty"><CheckCircle2 size={20}/><strong>{result.quality.completeness==='COMPLETE'?'成功 · 0 条关系':'已知子集 · 0 条有效关系'}</strong><p>{result.quality.completeness==='COMPLETE'?'当前根确实没有可关联对象。':'当前根存在已确认的未匹配 FK；不能把 0 条有效关系解释为完整的业务世界。'}</p></div>
+          {result.resultKind==='AGGREGATE'&&result.aggregate&&<div className="m8-aggregate" aria-label="M8 Aggregate Result">
+            <span>{result.aggregate.operation}{result.aggregate.propertyRef?' · '+result.aggregate.propertyRef:''}</span>
+            <strong>{result.aggregate.value}</strong>
+            <small>{result.aggregate.valueType} · {result.aggregate.matchedObjects} 个去重目标对象 · {result.quality.completeness}</small>
+          </div>}
+          {result.resultKind==='PAGE'&&<div className="m8-links">{result.links.length===0?<div className="m8-empty"><CheckCircle2 size={20}/><strong>{result.quality.completeness==='COMPLETE'?'成功 · 0 条关系':'已知子集 · 0 条有效关系'}</strong><p>{result.quality.completeness==='COMPLETE'?'当前根确实没有可关联对象。':'当前根存在已确认的未匹配 FK；不能把 0 条有效关系解释为完整的业务世界。'}</p></div>
             :<table className="model-table"><thead><tr><th>Source ObjectRef</th><th>Target ObjectRef</th><th>LinkType</th></tr></thead><tbody>
-            {result.links.map((fact,i)=><tr key={i}><td><b>{fact.source.key.value}</b><small>{fact.source.objectTypeId}</small></td><td><b>{fact.target.key.value}</b><small>{fact.target.objectTypeId}</small></td><td>{fact.linkTypeId}</td></tr>)}</tbody></table>}</div>
+            {result.links.map((fact,i)=><tr key={i}><td><b>{fact.source.key.value}</b><small>{fact.source.objectTypeId}</small></td><td><b>{fact.target.key.value}</b><small>{fact.target.objectTypeId}</small></td><td>{fact.linkTypeId}</td></tr>)}</tbody></table>}</div>}
           <div className="m8-evidence"><strong>冻结来源与版本证据</strong><span>双端 SourceReadRefs：{result.sourceReadRefs.length} · 版本锁：{result.bindingVersions.length} · 总扫描：{result.budget.physicalRows} 行 · 查询候选：{result.budget.joinCandidates}</span>
             <small>结果快照 {result.resultSnapshotRef} · 到期 {result.expiresAt} · 不声明历史源时刻或新鲜度保证</small></div>
           {result.nextCursor&&<button className="model-btn" disabled={busy} type="button" onClick={()=>void nextPage()}>下一页 <ChevronRight size={14}/></button>}
