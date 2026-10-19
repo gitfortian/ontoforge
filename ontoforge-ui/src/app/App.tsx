@@ -6,8 +6,9 @@ import QualityMvpWorkspace from '../features/analysis/impact/QualityMvpWorkspace
 import DataBindingWorkspace from '../features/integration/bindings/DataBindingWorkspace';
 import ObjectRuntimeWorkspace from '../features/objects/explorer/ObjectRuntimeWorkspace';
 import ObjectSetWorkspace from '../features/analysis/objectsets/ObjectSetWorkspace';
-import {authenticationMode,initializeIdentity,signOut,WorkspaceIdentity} from '../shared/api/auth';
+import {authenticationMode,canManageAccounts,initializeIdentity,signOut,WorkspaceIdentity} from '../shared/api/auth';
 import LoginPanel from '../features/platform/authentication/LoginPanel';
+import AccountWorkspace from '../features/platform/accounts/AccountWorkspace';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../shared/ui/yak/dialog';
 import AppShell from './AppShell';
 import { Button } from '../shared/ui/yak/button';
@@ -62,6 +63,7 @@ export default function App() {
   const quality=location.startsWith('#/mvp/quality');
   const objectRuntime=location.startsWith('#/mvp/objects');
   const objectSet=location.startsWith('#/mvp/object-sets');
+  const accountManagement=location.startsWith('#/platform/accounts');
   const mvp=binding||quality||objectRuntime||objectSet;
   async function reload() {
     setStatus({kind:'loading'});
@@ -101,8 +103,8 @@ export default function App() {
   }
   return <AppShell location={location} navigate={navigate} identity={auth.identity} dirty={dirty} logout={()=>void logout()}
     signIn={()=>navigate('#/model/packages')}>
-      {(model||mvp)?(Boolean(auth.identity)
-        ? <React.Fragment key={auth.identity!.principalId}>{binding?<DataBindingWorkspace route={location} navigate={navigate} onDirtyChange={onDirtyChange}/>:quality?<QualityMvpWorkspace navigate={navigate}/>:objectSet?<ObjectSetWorkspace route={location} navigate={navigate}/>:objectRuntime?<ObjectRuntimeWorkspace route={location} navigate={navigate}/>:location.startsWith('#/model/runtime-types/')
+      {(model||mvp||accountManagement)?(Boolean(auth.identity)
+        ? <React.Fragment key={auth.identity!.principalId}>{accountManagement?(canManageAccounts()?<AccountWorkspace principalId={auth.identity!.principalId} onDirtyChange={onDirtyChange}/>:<Card className="panel auth-panel"><h1>账号管理</h1><p role="alert">当前账号无权管理本地账号。</p></Card>):binding?<DataBindingWorkspace route={location} navigate={navigate} onDirtyChange={onDirtyChange}/>:quality?<QualityMvpWorkspace navigate={navigate}/>:objectSet?<ObjectSetWorkspace route={location} navigate={navigate}/>:objectRuntime?<ObjectRuntimeWorkspace route={location} navigate={navigate}/>:location.startsWith('#/model/runtime-types/')
           ? <RuntimeTypeWorkspace route={location} navigate={navigate}/>
           : <NativeModelWorkspace identity={auth.identity!} onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>}</React.Fragment>
         : <Card className="panel auth-panel" aria-live="polite">

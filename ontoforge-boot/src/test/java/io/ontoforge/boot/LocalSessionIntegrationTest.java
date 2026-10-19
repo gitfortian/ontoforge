@@ -153,8 +153,10 @@ class LocalSessionIntegrationTest {
     @Test void f_password_limits_and_bootstrap_are_explicit() {
         assertThatThrownBy(()->LocalAccountService.requirePassword("short")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(()->LocalAccountService.requirePassword("界".repeat(25))).isInstanceOf(IllegalArgumentException.class);
+        long before=accounts.count();
         accountService.bootstrap(false,"ignored",null); // non-empty installs never reset an existing admin
-        assertThat(accounts.byUsername("session-bootstrap")).isNotNull();
+        assertThat(accounts.count()).isEqualTo(before);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM platform_local_account WHERE enabled AND system_admin",Long.class)).isPositive();
     }
     private UUID grant(String packageId,UUID principal) {
         UUID workspace=UUID.randomUUID();
