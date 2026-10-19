@@ -591,6 +591,7 @@ public class LinkTraverseService {
                 || !fields(body.path("steps").get(1), Set.of("kind", "pageSize"))
                 || !"TRAVERSE".equals(body.path("steps").get(0).path("kind").asText())
                 || !"PAGE".equals(body.path("steps").get(1).path("kind").asText())
+                || !body.path("steps").get(0).path("maxDepth").isIntegralNumber()
                 || body.path("steps").get(0).path("maxDepth").asInt() != 1) {
             throw fail(422, "UNSUPPORTED_TRAVERSE_AST",
                     "当前仅支持 OBJECT_REF + 一条 TRAVERSE + PAGE，其他 AST 不会被静默忽略", "steps");
@@ -614,7 +615,11 @@ public class LinkTraverseService {
             String rootKeyType = required(root.path("key").path("valueType"));
             if (!Set.of("STRING", "INTEGER").contains(rootKeyType)) throw new IllegalArgumentException("root key type");
             String rootKey = required(root.path("key").path("value"));
-            int pageSize = body.path("steps").get(1).path("pageSize").asInt();
+            JsonNode pageNode = body.path("steps").get(1).path("pageSize");
+            if (!pageNode.isIntegralNumber() || !pageNode.canConvertToInt()) {
+                throw new IllegalArgumentException("pageSize");
+            }
+            int pageSize = pageNode.intValue();
             if (pageSize < 1 || pageSize > 50 || rootKey.length() > 4096
                     || !Set.of("OUT","IN").contains(required(step.path("direction")))
                     || !required(root.path("packageId")).equals(required(type.path("packageId")))
@@ -625,8 +630,14 @@ public class LinkTraverseService {
             UUID.fromString(required(type.path("sourceRef").path("snapshotId")));
             UUID.fromString(required(body.path("rootBindingRef").path("bindingId")));
             UUID.fromString(required(step.path("linkBindingRef").path("bindingId")));
-            long rootRevision = body.path("rootBindingRef").path("revision").asLong();
-            long linkRevision = step.path("linkBindingRef").path("revision").asLong();
+            JsonNode rootVersion = body.path("rootBindingRef").path("revision");
+            JsonNode linkVersion = step.path("linkBindingRef").path("revision");
+            if (!rootVersion.isIntegralNumber() || !rootVersion.canConvertToLong()
+                    || !linkVersion.isIntegralNumber() || !linkVersion.canConvertToLong()) {
+                throw new IllegalArgumentException("revision");
+            }
+            long rootRevision = rootVersion.longValue();
+            long linkRevision = linkVersion.longValue();
             if (rootRevision < 1 || linkRevision < 1) throw new IllegalArgumentException("revision");
             return new Requested(required(type.path("packageId")), required(type.path("sourceRef").path("snapshotId")),
                     required(type.path("objectTypeId")),
@@ -725,7 +736,8 @@ public class LinkTraverseService {
     private static Map<String, Fact> uniqueIndex(List<Fact> facts) {
         Map<String, Fact> index = new HashMap<>();
         for (Fact fact : facts) {
-            if (fact.key().isBlank() || index.putIfAbsent(fact.key(), fact) != null) {
+            if (fact.key().isBlank() || fact.key().length() > 4096
+                    || index.putIfAbsent(fact.key(), fact) != null) {
                 throw fail(409, "IDENTITY_CONFLICT", "来源键存在空白或冲突，不能构造稳定 ObjectRef", "rootBindingRef");
             }
         }
