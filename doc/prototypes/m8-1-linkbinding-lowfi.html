@@ -224,7 +224,7 @@ function runQuery(){
  state.execute+=1;
  if(!state.saved){say($("#query-outcome"),"warning","尚未配置实例关系","请先配置、完整核验并保存 LinkBinding revision，再执行一跳查询。");$("#result-box").hidden=true;return;}
  const mode=$("#query-root-mode").value,root=$("#query-root").value,dir=$("#query-direction").value,fault=$("#query-fault").value;
- state.lastResult={executionId:"execution-demo-"+String(state.execute).padStart(3,"0"),snapshot:"local-result:DEMO-"+String(state.execute).padStart(3,"0"),quality:"COMPLETE / REQUESTED_SCOPE · freshness UNKNOWN",page:1,rows:[],root,dir};
+ state.lastResult={executionId:"execution-demo-"+String(state.execute).padStart(3,"0"),snapshot:null,quality:"PENDING · 无结果快照",page:1,rows:[],root,dir};
  state.failure=null;
  if(fault==="timeout"||fault==="expired"){failure(fault==="timeout"?"503 · SOURCE_TIMEOUT":"410 · RESULT_EXPIRED",fault==="timeout"?"本次来源执行超出 3 秒预算":"结果快照已过期/进程重启，旧结果不能恢复");return;}
  let rows=[];
@@ -232,11 +232,12 @@ function runQuery(){
  if(dir==="OUT"&&(root==="EQ-001"||mode==="bounded"))rows=[["LOT-11","EQ-001 → LOT-11"],["LOT-12","EQ-001 → LOT-12"]];
  if(dir==="IN"&&(root==="LOT-11"||mode==="bounded"))rows=[["EQ-001","EQ-001 → LOT-11"]];
  if(dir==="IN"&&(root==="LOT-14"||mode==="bounded"))partial=true;
+ state.lastResult.snapshot="local-result:DEMO-"+String(state.execute).padStart(3,"0");
  state.lastResult.rows=rows;state.lastResult.quality=partial?"PARTIAL / KNOWN_SUBSET · orphan LOT-14 · freshness UNKNOWN":"COMPLETE / REQUESTED_SCOPE · freshness UNKNOWN";
  $("#query-outcome").className="status "+(partial?"warning":"success");
  $("#query-outcome").replaceChildren();
  const title=document.createElement("strong");title.textContent=partial?"PARTIAL · 当前根对象存在可确认断链":rows.length?"SUCCESS · 本次根集合的关联对象":"SUCCESS · 真实零关联";
- const msg=document.createElement("span");msg.textContent=partial?"LOT-14 的非空 FK 指向不存在的设备：已知子集 0 条，不能冒称完整结果。":rows.length?"本次查询共 "+rows.length+" 个去重对象 / "+rows.length+" 条 LinkFact（模拟）。":"根对象确实没有匹配关系（例如 FK NULL 或该设备无批次），不是查询失败。";
+ const msg=document.createElement("span");msg.textContent=partial?"LOT-14 的非空 FK 指向不存在的设备：已知子集 "+rows.length+" 条，不能冒称完整结果。":rows.length?"本次查询共 "+rows.length+" 个去重对象 / "+rows.length+" 条 LinkFact（模拟）。":"根对象确实没有匹配关系（例如 FK NULL 或该设备无批次），不是查询失败。";
  $("#query-outcome").append(title,msg);
  if(mode==="bounded"){const scope=document.createElement("p");scope.className="small";scope.textContent=dir==="OUT"?"根集合：EQ-001、EQ-002（有界根筛选，2 个不同 ObjectRef）":"根集合：LOT-11、LOT-14（有界根筛选，1 条已知关系 + 1 条本次相关孤儿）";$("#query-outcome").append(scope);}
  $("#result-box").hidden=false;
