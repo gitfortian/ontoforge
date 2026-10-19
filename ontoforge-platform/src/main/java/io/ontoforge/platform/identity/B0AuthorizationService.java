@@ -71,6 +71,11 @@ public class B0AuthorizationService {
         Identity current = identity(authentication);
         return new DraftListingScope(current.issuer(), current.subject(), false);
     }
+    public void requireWorkspaceFilter(Authentication authentication,UUID workspace) {
+        TrustedActor actor=TrustedActor.require(authentication);
+        if(!repository.workspaceMember(actor.issuer(),actor.subject(),workspace))
+            throw new AccessDeniedException("当前主体未加入指定工作空间");
+    }
 
     public void requirePackage(Authentication authentication, String packageId, Operation operation) {
         if (packageId == null || packageId.isBlank()) {

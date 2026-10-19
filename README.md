@@ -33,7 +33,7 @@
 
 ## 工程模块化（2026-10-19）
 
-**B1 认证接入候选**：普通默认现为 Yak 本地账号 + Session；首次显式初始化管理员，已有 OIDC 安装设置 `ONTOFORGE_SECURITY_AUTHENTICATION_MODE=oidc-jwt`。登录/退出、CSRF、主体和逐用户游标及显式包授权见 [B1 操作说明](./doc/implementation/Yak-B1-本地账号Session接入.md)。B2 已增加账号管理与用户自行改密；空间管理仍属 C1；不自动获得历史包权限，尚未生产发布或签收。
+**B1 认证接入候选**：普通默认现为 Yak 本地账号 + Session；首次显式初始化管理员，已有 OIDC 安装设置 `ONTOFORGE_SECURITY_AUTHENTICATION_MODE=oidc-jwt`。登录/退出、CSRF、主体和逐用户游标及显式包授权见 [B1 操作说明](./doc/implementation/Yak-B1-本地账号Session接入.md)。B2 已增加账号管理与用户自行改密；C1 已增加 [空间、成员及模型包归属管理](./doc/implementation/Yak-C1-工作空间与模型包归属.md)；不自动获得历史包权限，尚未生产发布或签收。
 
 当前真实后端模块为 `core → common`、`configuration`、`platform → dao`、`business → core/platform/dao` 与 `boot` 组装；箭头表示编译依赖，准确关系见 [完整工程模块规划](./doc/implementation/S0-工程模块规划与命名规范.md)。七份历史 Flyway 迁移统一由 DAO 提供，API、模型/绑定格式、安装 UUID 和认证模式保持原合同。前端仍为单一 npm 工程，按 `app / features / shared` 组织。
 

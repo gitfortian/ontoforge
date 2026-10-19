@@ -15,6 +15,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.MethodOrderer;
@@ -204,9 +205,10 @@ class LocalSessionIntegrationTest {
         String cursor=first.path("nextCursor").asText();assertThat(cursor).startsWith("cursor:");
         json(two.request("POST","/api/runtime/object-sets/pages",Map.of("cursor",cursor),true),403);
         json(one.request("POST","/api/runtime/object-sets/pages",Map.of("cursor",cursor),true),200);
-        jdbc.update("DELETE FROM b0_workspace_membership WHERE workspace_id=? AND principal_id=?",workspace,principalId);
+        jdbc.update("UPDATE platform_local_account SET system_admin=true WHERE account_id=?",accountId);
+        json(one.request("PUT","/api/platform/workspaces/"+workspace+"/members/"+principalId,Map.of("expectedVersion",1,"roles",List.of("VIEWER")),true),200);
         json(one.request("POST","/api/runtime/object-sets/pages",Map.of("cursor",cursor),true),403);
-        jdbc.update("INSERT INTO b0_workspace_membership(workspace_id,principal_id,role) VALUES (?,?,'EDITOR')",workspace,principalId);
+        json(one.request("PUT","/api/platform/workspaces/"+workspace+"/members/"+principalId,Map.of("expectedVersion",2,"roles",List.of("EDITOR")),true),200);
         json(one.request("POST","/api/runtime/object-sets/pages",Map.of("cursor",cursor),true),410);
     }
     @Test void z_uniform_invalid_credentials_and_rate_limit() throws Exception {

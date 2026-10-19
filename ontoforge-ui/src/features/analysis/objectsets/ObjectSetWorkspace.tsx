@@ -41,7 +41,8 @@ async function request<T>(path:string,init:RequestInit={}):Promise<T>{
 }
 const jsonPost=(body:unknown):RequestInit=>({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 
-export default function ObjectSetWorkspace({route,navigate}:{route:string;navigate:(hash:string)=>void}){
+export default function ObjectSetWorkspace({route,navigate,scopePackages}:{route:string;navigate:(hash:string)=>void;scopePackages?:string[]}){
+  function checkScope(pkg:string){if(scopePackages&&!scopePackages.includes(pkg))throw {code:'WORKSPACE_PACKAGE_REQUIRED',message:'请选择当前工作空间已登记的模型包。'} as ApiError;}
   const [packageInput,setPackageInput]=useState('');
   const [bindings,setBindings]=useState<BindingSummary[]>([]);
   const [binding,setBinding]=useState<BindingDetail|null>(null);
@@ -82,6 +83,7 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
     if(!pkg.trim()){setLoadingBindings(false);setListError({code:'PACKAGE_REQUIRED',message:'请输入模型包 ID。'});setBindings([]);setBinding(null);setDescriptor(null);clearResultState();return;}
     setLoadingBindings(true);setListError(null);setBindings([]);setBinding(null);setDescriptor(null);clearResultState();
     try{
+      checkScope(pkg.trim());
       const rows=await request<BindingSummary[]>(API+'/bindings?packageId='+encodeURIComponent(pkg.trim()));
       if(generation!==operationGeneration.current)return;
       setPackageInput(pkg.trim());setBindings(rows);
@@ -97,6 +99,7 @@ export default function ObjectSetWorkspace({route,navigate}:{route:string;naviga
       const suffix=revision?'?revision='+revision:'';
       const loaded=await request<BindingDetail>(API+'/bindings/'+encodeURIComponent(id)+suffix);
       if(generation!==operationGeneration.current)return;
+      checkScope(loaded.packageId);
       if(loaded.validationStatus!=='VALID')throw {code:'BINDING_UNAVAILABLE',message:'该 Binding revision 未通过校验，不能执行 ObjectSet。'} as ApiError;
       const type=await request<TypeDescriptor>('/api/model/type-sources/snapshots/'+encodeURIComponent(loaded.snapshotId)+'/types/'+encodeURIComponent(loaded.objectTypeId));
       if(generation!==operationGeneration.current)return;

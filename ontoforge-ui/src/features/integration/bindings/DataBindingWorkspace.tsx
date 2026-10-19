@@ -38,7 +38,8 @@ const sourceTypeLabel=(column:SourceColumn)=>{
   return column.dataType;
 };
 
-export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{route:string;navigate:(hash:string)=>void;onDirtyChange:(dirty:boolean)=>void}){
+export default function DataBindingWorkspace({route,navigate,onDirtyChange,scopePackages}:{route:string;navigate:(hash:string)=>void;onDirtyChange:(dirty:boolean)=>void;scopePackages?:string[]}){
+  function checkScope(pkg:string){if(scopePackages&&!scopePackages.includes(pkg))throw {code:'WORKSPACE_PACKAGE_REQUIRED',message:'请选择当前工作空间已登记的模型包。'} as ApiError;}
   const [packageId,setPackageId]=useState('');
   const [snapshotInput,setSnapshotInput]=useState('');
   const [typeInput,setTypeInput]=useState('');
@@ -70,7 +71,7 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
 
   async function loadBindings(pkg=packageId){
     if(!pkg.trim()){setBindings([]);return;}
-    try{setBindings(await request<BindingSummary[]>(API+'/bindings?packageId='+encodeURIComponent(pkg.trim())));}
+    try{checkScope(pkg.trim());setBindings(await request<BindingSummary[]>(API+'/bindings?packageId='+encodeURIComponent(pkg.trim())));}
     catch(e){setError(messageOf(e));}
   }
 
@@ -78,6 +79,7 @@ export default function DataBindingWorkspace({route,navigate,onDirtyChange}:{rou
     setBusy(true);setError('');setNotice('');setPreview(null);setValidation(null);
     try{
       const type=await request<TypeDescriptor>('/api/model/type-sources/snapshots/'+encodeURIComponent(snapshot)+'/types/'+encodeURIComponent(typeId));
+      checkScope(type.packageId);
       const sourceTables=await request<SourceTable[]>(API+'/sources/local-pg-sandbox/tables?packageId='+encodeURIComponent(type.packageId));
       if(sourceTables.length===0)throw {code:'SOURCE_TABLE_NOT_FOUND',message:'当前允许列表中没有可用的来源 BASE TABLE。'} as ApiError;
       let current=existing;

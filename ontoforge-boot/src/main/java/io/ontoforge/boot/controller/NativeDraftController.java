@@ -41,10 +41,11 @@ public class NativeDraftController {
     @GetMapping
     public NativeDraftService.DraftPage list(@RequestParam(defaultValue="20") int pageSize,
                                             @RequestParam(required=false) String cursor,
-                                            Authentication authentication) {
+                                            @RequestParam(required=false) UUID workspaceId, Authentication authentication) {
+        if(workspaceId!=null)authorization.requireWorkspaceFilter(authentication,workspaceId);
         var scope = authorization.draftListingScope(authentication);
         return scope.localOnly() ? service.list(pageSize, cursor)
-                : service.list(pageSize, cursor, scope.issuer(), scope.subject());
+                : service.list(pageSize, cursor, scope.issuer(), scope.subject(),workspaceId);
     }
     @PostMapping
     public ResponseEntity<NativeDraftService.DraftDetail> create(@RequestBody JsonNode body, Authentication authentication) {

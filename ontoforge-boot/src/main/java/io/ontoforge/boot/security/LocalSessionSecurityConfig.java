@@ -40,7 +40,8 @@ public class LocalSessionSecurityConfig {
             .requestCache(cache->cache.disable()).formLogin(form->form.disable()).httpBasic(basic->basic.disable()).logout(logout->logout.disable())
             .authorizeHttpRequests(auth->auth
                 .requestMatchers("/api/system/status","/api/auth/context","/api/auth/login","/api/auth/logout").permitAll()
-                .requestMatchers("/api/auth/password","/api/platform/accounts","/api/platform/accounts/**",
+                .requestMatchers("/api/platform/workspaces","/api/platform/workspaces/**",
+                        "/api/auth/password","/api/platform/accounts","/api/platform/accounts/**",
                         "/api/me","/api/model/**","/api/mvp/quality/**","/api/runtime/sources/**",
                         "/api/runtime/bindings","/api/runtime/bindings/**","/api/runtime/objects/**","/api/runtime/object-sets/**").authenticated()
                 .anyRequest().denyAll())

@@ -35,6 +35,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/system/status","/api/auth/context").permitAll()
                         .requestMatchers("/api/me").authenticated()
+                        .requestMatchers("/api/platform/workspaces","/api/platform/workspaces/**").authenticated()
                         .requestMatchers("/api/model/**").authenticated()
                         .requestMatchers("/api/mvp/quality/**").authenticated()
                         .requestMatchers("/api/runtime/sources/**", "/api/runtime/bindings", "/api/runtime/bindings/**", "/api/runtime/objects/**", "/api/runtime/object-sets/**").authenticated()
