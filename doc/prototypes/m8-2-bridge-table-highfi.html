@@ -215,7 +215,15 @@ main{width:100%;max-width:1470px;min-width:0;margin:0 auto;padding:28px 34px 46p
  const state={view:"config",dirty:false,validated:false,validationQuality:null,validationScenario:null,qualityLedger:null,saved:null,revision:0,saveUnknown:false,operationId:null,lastResult:null,retired:[],failure:null,sequence:0,queryGeneration:0,validationGeneration:0,queryPending:false,validationPending:false,asyncDiscarded:0};
  const mapping=()=>({source:$("#source-binding").value,target:$("#target-binding").value,table:$("#bridge-table").value,sourceFk:$("#source-fk").value,targetFk:$("#target-fk").value});
  const apply=x=>{$("#source-binding").value=x.source;$("#target-binding").value=x.target;$("#bridge-table").value=x.table;$("#source-fk").value=x.sourceFk;$("#target-fk").value=x.targetFk;};
- const setStatus=(id,kind,title,message)=>{let node=$("#"+id);node.className="notice "+kind;node.replaceChildren();let b=document.createElement("b");b.textContent=title;let msg=document.createElement("span");msg.textContent=message;node.append(b,msg);};
+ const setStatus=(id,kind,title,message)=>{
+   let node=$("#"+id);node.className="notice "+kind;node.replaceChildren();
+   let b=document.createElement("b");b.textContent=title;
+   let msg=document.createElement("span");msg.textContent=message;node.append(b,msg);
+   if(kind==="bad" && node.getClientRects().length){
+     // A keyboard user must land on the *actual* error, not a distant tab.
+     node.tabIndex=-1;node.setAttribute("role","alert");node.focus({preventScroll:false});
+   }else{node.setAttribute("role","status");}
+ };
  const resetValidation=()=>{state.validated=false;state.validationQuality=null;state.qualityLedger=null;$("#continue-save").disabled=true;$("#commit-binding").disabled=true;$("#validation-ledger").hidden=true;setStatus("validation-outcome","","尚未核验","桥表、两端修订或列变更，需要重新做 FULL。");};
  const discard=()=>{apply(state.saved?state.saved.mapping:original);state.dirty=false;$("#dirty-note").hidden=true;resetValidation();};
  const change=()=>{state.dirty=true;$("#dirty-note").hidden=false;resetValidation();};
