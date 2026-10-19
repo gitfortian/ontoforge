@@ -3,6 +3,7 @@ package io.ontoforge.boot.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.ontoforge.business.connection.DataBindingService.BindingFailure;
 import io.ontoforge.business.connection.LinkBindingService;
 import io.ontoforge.business.connection.LinkBindingService.LinkFailure;
 import io.ontoforge.business.model.NativeDraftService.DraftFailure;
@@ -111,6 +112,12 @@ class LinkBindingErrorAdvice {
 
     @ExceptionHandler(LinkFailure.class)
     ResponseEntity<ApiError> linkFailure(LinkFailure ex) {
+        return ResponseEntity.status(ex.http).body(new ApiError(
+                ex.code, ex.getMessage(), ex.fieldPath, UUID.randomUUID().toString()));
+    }
+
+    @ExceptionHandler(BindingFailure.class)
+    ResponseEntity<ApiError> endpointFailure(BindingFailure ex) {
         return ResponseEntity.status(ex.http).body(new ApiError(
                 ex.code, ex.getMessage(), ex.fieldPath, UUID.randomUUID().toString()));
     }
