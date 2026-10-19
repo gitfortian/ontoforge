@@ -140,6 +140,44 @@ class M82BridgeTableUXLowBrowser(unittest.TestCase):
         self.assertIn("仅 TARGET NULL 1", ledger)
         self.assertIn("有效物理行 3 = 总 6", ledger)
 
+    def test_switching_synthetic_source_after_full_revokes_validation_ticket(self):
+        self.validate("clean")
+        self.assertTrue(self.model()["validated"])
+        self.page.locator("#validation-scenario").select_option("orphan")
+        self.assertFalse(self.model()["validated"])
+        self.assertTrue(self.page.locator("#continue-save").is_disabled())
+        self.page.locator("#tab-save").click()
+        self.assertTrue(self.page.locator("#commit-binding").is_disabled())
+        self.page.locator("#tab-validate").click()
+        self.page.locator("#run-validation").click()
+        self.assertEqual("VALID_WITH_ORPHANS", self.model()["validationQuality"])
+        self.assertTrue(self.page.locator("#continue-save").is_enabled())
+
+    def test_dirty_mapping_cannot_escape_by_switching_validate_to_query(self):
+        self.page.locator("#source-binding").select_option("B-MO:r1")
+        self.page.locator("#to-validate").click()
+        self.assertTrue(self.model()["dirty"])
+        self.page.once("dialog", lambda dlg: dlg.dismiss())
+        self.page.locator("#tab-query").click()
+        self.assertEqual("validate", self.model()["view"])
+        self.page.once("dialog", lambda dlg: dlg.accept())
+        self.page.locator("#tab-query").click()
+        self.assertFalse(self.model()["dirty"])
+        self.page.locator("#tab-config").click()
+        self.assertEqual("B-MO:r2", self.page.locator("#source-binding").input_value())
+
+    def test_dirty_mapping_cannot_escape_via_save_tab_or_evidence(self):
+        self.page.locator("#target-binding").select_option("B-EQ:r2")
+        self.page.locator("#tab-save").click()
+        self.assertEqual("save", self.model()["view"])
+        self.page.once("dialog", lambda dlg: dlg.dismiss())
+        self.page.locator("#tab-evidence").click()
+        self.assertEqual("save", self.model()["view"])
+        self.page.once("dialog", lambda dlg: dlg.accept())
+        self.page.locator("#tab-evidence").click()
+        self.page.locator("#tab-config").click()
+        self.assertEqual("B-EQ:r3", self.page.locator("#target-binding").input_value())
+
     def test_success_save_button_does_not_duplicate_immutable_revision(self):
         self.save()
         self.assertEqual(1, self.model()["revision"])
@@ -292,6 +330,31 @@ class M82BridgeTableUXLowBrowser(unittest.TestCase):
         self.assertIn("旧结果已失效", self.page.locator("#failure-evidence").inner_text())
         self.page.locator("#retry-query").click()
         self.assertNotEqual(frozen, self.model()["snapshot"])
+
+    def test_failed_query_never_discloses_source_table_role_cards(self):
+        self.save()
+        self.query("OUT", "MO-001")
+        self.page.locator("#open-evidence").click()
+        self.assertTrue(self.page.locator("#three-read-roles").is_visible())
+        self.page.locator("#tab-query").click()
+        self.page.locator("#query-fault").select_option("revoke-bridge")
+        self.page.locator("#next-page").click()
+        self.page.locator("#tab-evidence").click()
+        self.assertTrue(self.page.locator("#three-read-roles").is_hidden())
+        self.assertIn("旧结果已失效", self.page.locator("#failure-evidence").inner_text())
+
+    def test_query_filter_change_does_not_keep_prior_execution_evidence(self):
+        self.save()
+        self.query()
+        previous=self.model()["execution"]
+        self.page.locator("#open-evidence").click()
+        self.assertIn(previous, self.page.locator("#evidence-summary").inner_text())
+        self.page.locator("#tab-query").click()
+        self.page.locator("#target-filter").select_option("E02")
+        self.assertIsNone(self.model()["execution"])
+        self.page.locator("#tab-evidence").click()
+        self.assertTrue(self.page.locator("#three-read-roles").is_hidden())
+        self.assertNotIn(previous, self.page.locator("#evidence-summary").inner_text())
 
     def test_bridge_drift_invalidates_old_page_after_source_changes(self):
         self.save()
