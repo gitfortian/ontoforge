@@ -1,10 +1,10 @@
 # OFIP-0015：M13 Agent 只读本体上下文与受限查询接口
 
-**Status:** Discussion
+**Status:** Accepted
 
 **Discussion:** [PR #58 — [DISCUSS][OFIP-0007–0016] M5-M14 需求 Review 与方案设计](https://github.com/gitfortian/ontoforge/pull/58)；需求讨论见 [M13 #52](https://github.com/gitfortian/ontoforge/issues/52)。
 
-**Decision:** Pending（须维护者显式记录决定、日期和 permalink）
+**Decision:** [VOTE] Accepted — [维护者 2026-10-19 明确接受 OpenAI 兼容只读首切片修订](https://github.com/gitfortian/ontoforge/pull/104#issuecomment-6269890450)；按用户明确授权由 Codex 记录，不代表实现或发布。
 
 **Implementation:** Not Started
 
@@ -12,7 +12,7 @@
 
 **Related:** [OFIP-0001](./OFIP-0001-需求提案文档治理与CI证据门禁.md) · [V1.3 候选](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2 候选](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md) · [ObjectSet Query 候选 Schema](../design/schema/objectset-query-v0.2.schema.json) · [Result 候选 Schema](../design/schema/objectset-result-v0.2.schema.json) · [术语表](../砺元本体产品统一术语词汇表.md) · [本机核心优先决策](../implementation/MVP-核心优先与yak-ops认证复用决策-20261017.md)
 
-> 原评审选择只读版本化 REST API。2026-10-19 用户要求增加可配置 `baseUrl / apiKey / model` 的 OpenAI 兼容模型调用；下列修订将受限只读问答纳入候选首切片，等待维护者明确决定。MCP 仍为后续独立适配，没有 Action 或模型代替服务端授权。
+> 原评审选择只读版本化 REST API。2026-10-19 维护者明确接受可配置 `baseUrl / apiKey / model` 的 OpenAI 兼容受限只读问答修订。MCP 仍为后续独立适配，没有 Action 或模型代替服务端授权。
 
 ## Motivation
 
@@ -32,9 +32,9 @@ Issue 的方向合理，但 API/MCP 同时首发会把协议生命周期、身�
 正式对外访问额外依赖 M10 正式版本锁和独立身份/权限 Gate；本机只读开发不必等待企业登录或正式发行。
 非目标：LLM 平台、自然语言转任意 SQL、RAG 索引、向量库、自动模型变更、Action、通用工作流/自主 Agent。外部模型调用仅限下述显式配置、固定资源范围的 OpenAI 兼容只读问答。
 
-### 2026-10-19 修订：OpenAI 兼容只读问答，待决定
+### 2026-10-19 修订：OpenAI 兼容只读问答，已接受
 
-用户明确要求实际接入 OpenAI 兼容模型服务，而非仅导出 function/tool Schema；开发完成后提交 PR。本修订不回填为历史 Accepted，也不将开发请求伪造为 GitHub 投票。生产代码实施前仍按 [CONTRIBUTING](../../.github/CONTRIBUTING.md) 记录维护者对修订范围的显式决定；本文件继续 `Discussion / Decision Pending / Implementation Not Started / Not Released`。
+用户明确要求实际接入 OpenAI 兼容模型服务，而非仅导出 function/tool Schema；开发完成后提交 PR。维护者审阅 PR #104 后明确答复“接受，记录决定并开始实现”，[决定记录](https://github.com/gitfortian/ontoforge/pull/104#issuecomment-6269890450) 授权按本修订进入独立实现 PR；不回填为历史审批，也不代表功能已实现或发布。
 
 代码复核基线为 `5d189bc4704fcf51405f2eb5fe78947c198801b2`：
 
@@ -222,4 +222,4 @@ MCP 适配在 REST 语义稳定后独立评审支持的传输、身份绑定、�
 
 ---
 
-**Decision Gate:** 请维护者明确决定是否接受本次 OpenAI 兼容、固定合成资源范围、有限只读工具循环的首切片修订。接受设计不等于开放对外服务；本机开发、模型协议/真实供应商、正式版本/身份、MCP 适配各自有独立实现与验收证据。
+**Decision Gate:** 2026-10-19 已明确接受 OpenAI 兼容、固定合成资源范围、有限只读工具循环的首切片修订。接受设计不等于开放对外服务；本机开发、模型协议/真实供应商、正式版本/身份、MCP 适配各自有独立实现与验收证据。
