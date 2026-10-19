@@ -174,27 +174,43 @@ class M8R2CandidateContracts(unittest.TestCase):
 
     def test_bad_typed_literals_unknown_ops_and_raw_sql_rejected(self):
         good = traverse_query()
-        good["steps"].insert(0, {
-            "kind": "FILTER", "scope": "ROOT",
+        good["steps"].insert(1, {
+            "kind": "FILTER", "scope": "TARGET",
             "conditions": [{
-                "propertyRef": "equipment-code", "operator": "EQ",
-                "literal": {"valueType": "STRING", "value": "EQ-001"},
+                "propertyRef": "lot-code", "operator": "EQ",
+                "literal": {"valueType": "STRING", "value": "LOT-11"},
             }],
         })
         self.assertTrue(valid(Q, good))
         bad = copy.deepcopy(good)
-        bad["steps"][0]["conditions"][0]["literal"] = {"valueType": "TEXT", "value": "EQ-001"}
+        bad["steps"][1]["conditions"][0]["literal"] = {"valueType": "TEXT", "value": "LOT-11"}
         self.assertFalse(valid(Q, bad))
         bad = copy.deepcopy(good)
-        bad["steps"][0]["conditions"][0]["literal"] = {"valueType": "BOOLEAN", "value": "true"}
+        bad["steps"][1]["conditions"][0]["literal"] = {"valueType": "BOOLEAN", "value": "true"}
         self.assertFalse(valid(Q, bad))
         bad = copy.deepcopy(good)
-        bad["steps"][0]["conditions"][0].pop("literal")
+        bad["steps"][1]["conditions"][0].pop("literal")
         self.assertFalse(valid(Q, bad))
         bad = copy.deepcopy(good)
         bad["rawSql"] = "select * from arbitrary_schema.table"
         self.assertFalse(valid(Q, bad))
         self.assertFalse(valid(OLD_Q, traverse_query()))
+
+    def test_root_filter_is_only_in_selector_and_target_filter_is_separate(self):
+        good = traverse_query()
+        good["rootSelector"] = {
+            "kind": "BOUNDED_ROOT_FILTER",
+            "conditions": [{"propertyRef": "equipment-code", "operator": "EQ",
+                            "literal": {"valueType": "STRING", "value": "EQ-001"}}],
+        }
+        self.assertTrue(valid(Q, good))
+        bad = copy.deepcopy(good)
+        bad["steps"].insert(0, {
+            "kind": "FILTER", "scope": "ROOT",
+            "conditions": [{"propertyRef": "equipment-code", "operator": "EQ",
+                            "literal": {"valueType": "STRING", "value": "EQ-001"}}],
+        })
+        self.assertFalse(valid(Q, bad))
 
     def test_result_quality_is_explicit_and_failure_has_no_payload(self):
         good = result()
