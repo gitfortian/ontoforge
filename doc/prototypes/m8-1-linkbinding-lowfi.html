@@ -81,7 +81,7 @@
 <div class="field span"><label for="query-root-mode">根选择方式</label><select id="query-root-mode"><option value="object">明确单个 ObjectRef</option><option value="bounded">已核验的有界根对象集合（合成筛选）</option></select></div><div class="field span"><label for="query-root">选择根对象（合成夹具）</label><select id="query-root"></select><div id="root-scope-description" class="hint" aria-live="polite">单个根对象：当前 Binding 身份域 + 规范主键</div></div>
 <div class="field span"><label for="query-fault">模拟执行/翻页故障</label><select id="query-fault"><option value="none">正常查询</option><option value="revoke">翻页时来源授权撤销</option><option value="drift">翻页时 schema 漂移</option><option value="timeout">当前执行来源超时（503）</option><option value="expired">结果快照已过期（410）</option></select></div>
 </div><div class="foot"><button class="primary" id="run-query">执行一跳查询</button><button id="query-repair">修复关系配置</button></div>
-<div class="link-note">示例关系：Equipment EQ-001 → LOT-11 / LOT-12。LOT-14 的孤儿属于它自己的 IN 根范围，**不会污染** EQ-001 的 OUT 查询质量。</div>
+<div class="link-note">示例关系：Equipment EQ-001 → LOT-11 / LOT-12。仅在已保存 VALID_WITH_ORPHANS 的来源修订中提供 LOT-14 的 IN 孤儿场景，该孤儿**不会污染** EQ-001 的 OUT 查询质量。</div>
 </div><div><h2>结果和质量</h2><div id="query-outcome" class="empty" role="status">尚未执行。本区域不会把 0 条、孤儿部分结果、FAILED 混为一类。</div>
 <div id="result-box" hidden>
 <div id="result-summary" class="quality" style="margin:14px 0"></div>
@@ -195,7 +195,7 @@ function refreshRootOptions(){
  ]:[
  ["LOT-11","检验批次 LOT-11 · 反查设备 EQ-001"],
  ["LOT-13","检验批次 LOT-13 · FK NULL，准确零关联"],
- ["LOT-14","检验批次 LOT-14 · 非空 FK 孤儿（PARTIAL）"]
+ ...(state.saved?.quality==="VALID_WITH_ORPHANS"?[["LOT-14","检验批次 LOT-14 · 本次来源中的孤儿（PARTIAL）"]]:[])
  ];
  $("#query-root").replaceChildren();
  options.forEach(([value,name])=>{const o=document.createElement("option");o.value=value;o.textContent=name;$("#query-root").append(o)});
@@ -231,7 +231,7 @@ function runQuery(){
  let partial=false;
  if(dir==="OUT"&&(root==="EQ-001"||mode==="bounded"))rows=[["LOT-11","EQ-001 → LOT-11"],["LOT-12","EQ-001 → LOT-12"]];
  if(dir==="IN"&&(root==="LOT-11"||mode==="bounded"))rows=[["EQ-001","EQ-001 → LOT-11"]];
- if(dir==="IN"&&(root==="LOT-14"||mode==="bounded"))partial=true;
+ if(dir==="IN"&&state.saved?.quality==="VALID_WITH_ORPHANS"&&(root==="LOT-14"||mode==="bounded"))partial=true;
  state.lastResult.snapshot="local-result:DEMO-"+String(state.execute).padStart(3,"0");
  state.lastResult.rows=rows;state.lastResult.quality=partial?"PARTIAL / KNOWN_SUBSET · orphan LOT-14 · freshness UNKNOWN":"COMPLETE / REQUESTED_SCOPE · freshness UNKNOWN";
  $("#query-outcome").className="status "+(partial?"warning":"success");
@@ -239,7 +239,7 @@ function runQuery(){
  const title=document.createElement("strong");title.textContent=partial?"PARTIAL · 当前根对象存在可确认断链":rows.length?"SUCCESS · 本次根集合的关联对象":"SUCCESS · 真实零关联";
  const msg=document.createElement("span");msg.textContent=partial?"LOT-14 的非空 FK 指向不存在的设备：已知子集 "+rows.length+" 条，不能冒称完整结果。":rows.length?"本次查询共 "+rows.length+" 个去重对象 / "+rows.length+" 条 LinkFact（模拟）。":"根对象确实没有匹配关系（例如 FK NULL 或该设备无批次），不是查询失败。";
  $("#query-outcome").append(title,msg);
- if(mode==="bounded"){const scope=document.createElement("p");scope.className="small";scope.textContent=dir==="OUT"?"根集合：EQ-001、EQ-002（有界根筛选，2 个不同 ObjectRef）":"根集合：LOT-11、LOT-14（有界根筛选，1 条已知关系 + 1 条本次相关孤儿）";$("#query-outcome").append(scope);}
+ if(mode==="bounded"){const scope=document.createElement("p");scope.className="small";scope.textContent=dir==="OUT"?"根集合：EQ-001、EQ-002（有界根筛选，2 个不同 ObjectRef）":state.saved?.quality==="VALID_WITH_ORPHANS"?"根集合：LOT-11、LOT-14（有界根筛选，1 条已知关系 + 1 条本次相关孤儿）":"根集合：LOT-11、LOT-13（有界根筛选，1 条已知关系 + 1 条合法 NULL）";$("#query-outcome").append(scope);}
  $("#result-box").hidden=false;
  showPage();
  recordEvidence("success");
@@ -280,7 +280,7 @@ $("#reload-saved").onclick=()=>{if(state.saved){say($("#save-outcome"),"success"
 $("#config-undo").onclick=()=>{restorePersistedChoice();$("#validation-outcome").textContent="已恢复上次保存的来源选择；继续前需要新的完整校验。";};
 $("#query-direction").onchange=()=>{refreshRootOptions();$("#query-root-mode").dispatchEvent(new Event("change"));$("#result-box").hidden=true;$("#query-outcome").textContent="方向已更改，请明确执行新查询。";};
 $("#query-root").onchange=()=>{$("#result-box").hidden=true;$("#query-outcome").textContent="根对象已更改，请执行新查询。";};
-$("#query-root-mode").onchange=()=>{const collection=$("#query-root-mode").value==="bounded";$("#query-root").disabled=collection;$("#root-scope-description").textContent=collection?($("#query-direction").value==="OUT"?"有界根集合：EQ-001、EQ-002 · 明确来源与当前授权；不能以旧 cursor 作为权限":"有界根集合：LOT-11、LOT-14 · 单根的质量独立核验；批量显示已知孤儿"):"单个根对象：当前 Binding 身份域 + 规范主键";$("#result-box").hidden=true;$("#query-outcome").textContent="根集合定义已更改，请执行新查询。";};
+$("#query-root-mode").onchange=()=>{const collection=$("#query-root-mode").value==="bounded";$("#query-root").disabled=collection;$("#root-scope-description").textContent=collection?($("#query-direction").value==="OUT"?"有界根集合：EQ-001、EQ-002 · 明确来源与当前授权；不能以旧 cursor 作为权限":state.saved?.quality==="VALID_WITH_ORPHANS"?"有界根集合：LOT-11、LOT-14 · 单根的质量独立核验；批量显示已知孤儿":"有界根集合：LOT-11、LOT-13 · 一条合法 NULL 关联为空"):"单个根对象：当前 Binding 身份域 + 规范主键";$("#result-box").hidden=true;$("#query-outcome").textContent="根集合定义已更改，请执行新查询。";};
 $("#run-query").onclick=runQuery;
 $("#next-page").onclick=nextPage;
 $("#query-repair").onclick=()=>navigate("config");
