@@ -468,7 +468,7 @@ class LinkBindingFullIntegrationTest {
         ((ObjectNode) stringPageSize.withArray("steps").get(1)).put("pageSize", "50");
         ResponseEntity<String> wrongPageType = traverse(stringPageSize);
         assertThat(wrongPageType.getStatusCode().value()).isEqualTo(422);
-        assertThat(wrongPageType.getBody()).contains("MALFORMED_TRAVERSE_REQUEST");
+        assertThat(wrongPageType.getBody()).contains("TRAVERSE_CONTRACT_INVALID");
         ObjectNode stringDepth = out.deepCopy();
         ((ObjectNode) stringDepth.withArray("steps").get(0)).put("maxDepth", "1");
         assertThat(traverse(stringDepth).getStatusCode().value()).isEqualTo(422);
