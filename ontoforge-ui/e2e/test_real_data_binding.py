@@ -92,7 +92,7 @@ class DataBindingRealBrowserTest(unittest.TestCase):
                 required_control.uncheck()
             # M7 deliberately exposes filters only for properties explicitly
             # marked searchable in the immutable ObjectType contract.
-            if property_id in ("supplier-name", "supplier-legacy"):
+            if property_id in ("supplier-name", "supplier-legacy", "supplier-rating", "supplier-active"):
                 searchable_control = page.locator(f"#prop-{index}-searchable")
                 if not searchable_control.is_checked():
                     searchable_control.check()
@@ -263,6 +263,53 @@ class DataBindingRealBrowserTest(unittest.TestCase):
         self.assertNotIn("supplier-legacy", filter_options)
         sort_options = page.locator(".object-set-sort-row select").nth(0).locator("option").evaluate_all("(options) => options.map(option => option.value)")
         self.assertNotIn("supplier-legacy", sort_options)
+        # #80: the first filter is intentionally blank. It must not turn an
+        # intended restricted query into an unfiltered GET/POST.
+        observed_queries = []
+        def record_objectset_query(request):
+            if request.method == "POST" and "/api/runtime/object-sets/query" in request.url:
+                observed_queries.append(json.loads(request.post_data or "{}"))
+        page.on("request", record_objectset_query)
+        run_query = page.get_by_role("button", name="执行查询", exact=True)
+        run_query.click()
+        self.assertIn("FILTER_INCOMPLETE", page.locator(".object-set-error").inner_text())
+        self.assertIn("第 1 条", page.locator(".object-set-error").inner_text())
+        self.assertIn("待填写", page.locator(".object-set-query-summary").inner_text())
+        self.assertEqual(observed_queries, [], "Blank filter must never issue a wider backend query")
+        # An IN list with an empty member is also incomplete, not silently normalized.
+        page.locator(".object-set-filter-row select").nth(1).select_option("IN")
+        page.locator(".object-set-filter-row input").fill("North,,West")
+        run_query.click()
+        self.assertIn("FILTER_INCOMPLETE", page.locator(".object-set-error").inner_text())
+        self.assertEqual(observed_queries, [])
+        # IS_NULL has no value and must remain a valid explicit query.
+        page.locator(".object-set-filter-row select").nth(1).select_option("IS_NULL")
+        run_query.click()
+        page.locator(".object-set-result-summary").wait_for(timeout=15000)
+        self.assertEqual(len(observed_queries), 1)
+        self.assertEqual(observed_queries[-1]["steps"][0]["conditions"][0]["operator"], "IS_NULL")
+        # Numeric 0 and BOOLEAN false are legitimate values, not missing inputs.
+        filter_property.select_option("supplier-rating")
+        page.locator(".object-set-filter-row input").fill("0")
+        run_query.click()
+        page.locator(".object-set-result-summary").wait_for(timeout=15000)
+        self.assertEqual(len(observed_queries), 2)
+        self.assertEqual(observed_queries[-1]["steps"][0]["conditions"][0]["literal"]["value"], "0")
+        filter_property.select_option("supplier-active")
+        page.locator(".object-set-filter-row select").nth(1).select_option("EQ")
+        page.locator(".object-set-filter-row select").nth(2).select_option("false")
+        run_query.click()
+        page.locator(".object-set-result-summary").wait_for(timeout=15000)
+        self.assertEqual(len(observed_queries), 3)
+        self.assertEqual(observed_queries[-1]["steps"][0]["conditions"][0]["literal"]["value"], False)
+        # A broad query is allowed only after an explicit remove action.
+        page.get_by_role("button", name="删除筛选条件 1").click()
+        run_query.click()
+        page.locator(".object-set-result-summary").wait_for(timeout=15000)
+        self.assertEqual(len(observed_queries), 4)
+        self.assertFalse(any(step["kind"] == "FILTER" for step in observed_queries[-1]["steps"]))
+        page.get_by_role("button", name="添加筛选条件").click()
+        filter_property = page.locator(".object-set-filter-row select").nth(0)
         filter_property.select_option("supplier-name")
         page.locator(".object-set-filter-row select").nth(1).select_option("PREFIX")
         page.locator(".object-set-filter-row input").fill("North")
