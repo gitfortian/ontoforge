@@ -124,8 +124,8 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
       <div><b>核验覆盖</b><span id="validation-coverage">—</span></div>
       <div><b>有效逻辑 Pair</b><span id="validation-pairs">—</span></div>
       <div><b>桥表物理重复 / NULL / 孤儿</b><span id="validation-quality">—</span></div>
-      <div><b>SOURCE 修订</b><span>B-MO/r2 · identityDomain-MO</span></div>
-      <div><b>TARGET 修订</b><span>B-EQ/r3 · identityDomain-EQ</span></div>
+      <div><b>SOURCE 修订</b><span id="validation-source-version">B-MO/r2 · identityDomain-MO</span></div>
+      <div><b>TARGET 修订</b><span id="validation-target-version">B-EQ/r3 · identityDomain-EQ</span></div>
       <div><b>BRIDGE 来源</b><span>public.maintenance_order_equipment · schemaFingerprint（模拟）</span></div>
       <div><b>质量桶互斥对账</b><span id="validation-buckets">—</span></div>
     </div>
@@ -181,8 +181,8 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
     <h2>三方来源证据 / 失败恢复</h2>
     <p>来源指纹与 Binding 版本锁不是源数据内容快照；来源事实不能历史重放，freshness 统一标记 UNKNOWN。</p>
     <div class="triple" id="three-read-roles">
-      <div class="readonly"><b>SOURCE · MaintenanceOrder</b><span>Binding B-MO/r2 · READ ONLY · 同一 PG</span></div>
-      <div class="readonly"><b>TARGET · Equipment</b><span>Binding B-EQ/r3 · READ ONLY · 同一 PG</span></div>
+      <div class="readonly"><b>SOURCE · MaintenanceOrder</b><span id="evidence-source-version">Binding B-MO/r2 · READ ONLY · 同一 PG</span></div>
+      <div class="readonly"><b>TARGET · Equipment</b><span id="evidence-target-version">Binding B-EQ/r3 · READ ONLY · 同一 PG</span></div>
       <div class="readonly"><b>BRIDGE · maintenance_order_equipment</b><span>两列 FK + Bridge schemaFingerprint · 独立 SELECT 资格</span></div>
     </div>
     <div class="notice" id="evidence-summary"><b>尚无执行证据</b>保存后，只有明确执行并授权成功才展示对应的来源读取记录。</div>
@@ -247,6 +247,8 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
  function validation(){
    const m=mapping(),scenario=$("#validation-scenario").value;
    resetValidation();
+   $("#validation-source-version").textContent=m.source+" · identityDomain-MO";
+   $("#validation-target-version").textContent=m.target+" · identityDomain-EQ";
    state.validationScenario=scenario;
    $("#validation-ledger").hidden=false;
    if(m.source==="foreign"||m.target==="foreign"){
@@ -375,6 +377,10 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
    }
    let filter=$("#target-filter").value;
    if(filter!=="all")rows.splice(0,rows.length,...rows.filter(r=>r.out===(dir==="OUT"?"E02":"MO-002")));
+   // After target filtering, duplicate evidence is scoped to the returned pair set.
+   // Duplicate physical rows for a filtered-out pair must not inflate this result.
+   const visiblePairs=new Set(rows.map(r=>r.source+"|"+r.target));
+   duplicates=physical.filter(([mo,eq])=>visiblePairs.has(mo+"|"+eq)).length-rows.length;
    const objects=[...new Set(rows.map(x=>x.out))].sort();
    state.sequence++;
    const op=$("#result-operation").value,partial=orphanPairs.size>0;
@@ -424,6 +430,9 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
    state.lastResult.page+=1;renderPage();
  }
  function renderEvidence(){
+   const mappingInUse=state.saved?.mapping||original;
+   $("#evidence-source-version").textContent="Binding "+mappingInUse.source+" · READ ONLY · 同一 PG";
+   $("#evidence-target-version").textContent="Binding "+mappingInUse.target+" · READ ONLY · 同一 PG";
    if(state.failure){
      $("#failure-evidence").hidden=false;
      setStatus("failure-evidence","bad","旧结果已失效 · "+state.failure.code,
