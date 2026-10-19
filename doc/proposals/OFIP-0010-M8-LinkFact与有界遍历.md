@@ -1,10 +1,14 @@
 # OFIP-0010: M8 LinkFact 来源映射与 ObjectSet 有界遍历
 
-**Status:** Discussion
+**Status:** Accepted
 
-**Discussion:** [PR #58 — [DISCUSS][OFIP-0007–0016] M5-M14 需求 Review 与方案设计](https://github.com/gitfortian/ontoforge/pull/58)
+**Discussion:** [初始设计 PR #58](https://github.com/gitfortian/ontoforge/pull/58) · [M8.1 研发准入决策 PR #88](https://github.com/gitfortian/ontoforge/pull/88)
 
-**Decision:** Pending（须维护者显式记录决定、理由、日期及 permalink）
+**Decision:** [VOTE] Accepted — 2026-10-19，仓库 Owner `gitfortian` 依据本轮受托授权，正式批准 **M8.1 单列 FK / OUT-IN 一跳**；批准依据、M8-D1–D8 裁决和两项 P1 约束见 [PR #88 决策永久链接](https://github.com/gitfortian/ontoforge/pull/88#issuecomment-6259511734)。
+
+**Accepted Scope:** M8.1 ONLY — 单列外键 LinkBinding，双端 M5 Binding 锁定，FULL 校验、不可变 CAS/幂等修订、OUT/IN 一跳、受控分页与当前来源/权限复核。
+
+**Out of Scope / Pending Decisions:** M8.2 桥表 M:N、M8.3 显式两跳、跨来源/无界图遍历，**未经本次 Accepted 授权**；须未来独立产品及治理门禁。
 
 **Implementation:** Not Started
 
@@ -12,7 +16,7 @@
 
 **Related:** [M8 #47](https://github.com/gitfortian/ontoforge/issues/47) · [M5 Binding](OFIP-0007-M5-通用DataBinding.md) · [M7 ObjectSet](OFIP-0009-M7-通用ObjectSet查询.md) · [M9 证据](OFIP-0011-M9-来源证据漂移与一致性.md) · [V1.3](../本体产品总体功能与技术架构设计_v1.3.md) · [Native V0.2](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md)
 
-> 本文为功能正式设计提案，不是已批准合同或实现说明。遵守 [OFIP-0001](OFIP-0001-需求提案文档治理与CI证据门禁.md)；不重复实现 M4；消费已合并的 TypeRef/Runtime 类型目录合同。提案 PR 不改生产代码、数据库迁移或现有机器 Schema。
+> **当前裁决说明（2026-10-19）：** 本提案仅有 **M8.1 首阶段**经过仓库 Owner 授权的正式 Accepted，见顶部决策永久链接；下文早期 Discussion / Pending 文字为设计演进时的历史记录。M8.2/M8.3 尚未批准，M8.1 产品生产实现也仍未开始。遵守 [OFIP-0001](OFIP-0001-需求提案文档治理与CI证据门禁.md)，不重复实现 M4；本决策记录 PR 仅调整提案状态和引用，不改生产代码、Flyway 或已部署 Schema。
 
 ## Motivation
 
@@ -226,3 +230,24 @@ M8 主 Issue 作为上述切片的验收汇总；M8.1 完成只能勾选首切�
 维护者须在本次 **OFIP-0010 独立决策 PR** 留下可追溯、带理由和日期的明确 `[VOTE] Accepted` / `Rejected` / `Request changes`，**至少覆盖以上 M8-D1–D8 与 M8.1 单阶段边界**。投票真实存在后，再将其 permalink 回填本文件的 `Decision`，变更 `Status` 并按独立流程合并 Accepted 设计。**不得代维护者投票或在其缺席时合并为 Accepted。**
 
 在上述决议成立前，只授权审查、计划与非生产证据准备。真实 M8.1 Java / React / Flyway / PG17 运行时仍 `NOT STARTED`，M8.1 专属生产黄金故事仍 `NOT RUN`，不存在因为 #87 已合并就“自动开发成功”的事实。
+
+
+---
+
+## 2026-10-19 · 当前有效决定：[VOTE] Accepted（**仅 M8.1 首阶段**）
+
+**权威决策：** [仓库 Owner 在 PR #88 的受托正式投票](https://github.com/gitfortian/ontoforge/pull/88#issuecomment-6259511734)；GitHub 评论署名 `gitfortian`，`author_association=OWNER`，时间 `2026-10-19T04:15:18Z`（新加坡时间 12:15:18）。决定经用户在本轮对话明确委托由已授权的 GitHub 连接代为提交，**不声称存在另一位独立批准人**。本提案顶部元数据现作为阶段性权威状态。
+
+### 已获批准的首阶段范围
+
+- M8-D1–D8 的详细裁决以投票评论为准：不可变的 Local Snapshot + 两端 M5 Binding；单列 FOREIGN_KEY 的 FK 所在端、Cardinality 与实际 FK→PK 精确值匹配；预算内 FULL 方可保存 VALID / VALID_WITH_ORPHANS；只对受影响根产生 PARTIAL / KNOWN_SUBSET；独立 v2 版本的单步 OUT/IN Traverse；双端 REPEATABLE_READ 读取、当前授权/来源、结果缓存及受控分页。
+- **P1 幂等恢复已裁定：** 创建与更新均采用操作级 idempotencyKey/规范请求摘要的安全重复处理；提交结果 UNKNOWN 时先恢复已成功的不可变 revision。同 key 不同 body 拒绝，跨包拒绝，新 key + 旧 expectedRevision 仍按 CAS 409；这一决定必须在生产 DTO/正式 JSON Schema 与真实 PG17 / HTTP 负例中实现，不能继续把候选 create-only Schema 当正式合同。
+- **P1 身份语义已裁定：** 不同 ObjectType 的 identityDomainId 可以不同；完整 ObjectRef 不能跨域误判相等或去重，但 FK 真实、受控、类型兼容地指向另一端源主键时允许构成合法 LinkFact。不能仅因源、目标域 ID 不等而拒绝关系。
+- 实施以 [R2 已审定领域/API/执行合同](../design/M8-LinkBinding-Traverse-R2-领域API与执行合同评审.md) 和 [高保证 L01–L18 测试矩阵](../implementation/M8-1-实施前高保证审查与纵向交付验收矩阵.md) 为依据；使用 [UX-Low #84](https://github.com/gitfortian/ontoforge/pull/84)、[UX-High #87](https://github.com/gitfortian/ontoforge/pull/87) 已签收的产品路径与恢复交互。实现需先基于最新 main 核查真实 Flyway 迁移占用，不重写旧迁移。
+- **M8.2 桥表 M:N / M8.3 显式两跳保留 Discussion 候选，均须另行评审及签收，不随 M8.1 自动生效。**
+
+### 状态与交付边界
+
+`Status: Accepted` 表示 **M8.1 设计准入与生产研发启动授权**，不是本体实例关系功能已完成。`Implementation: Not Started` 与 `Release: Not Released` 继续真实保留。新 M8.1 纵向生产 PR 需要 Java 21 / Spring Boot + PostgreSQL 17/Flyway + React/TypeScript，真实 PG17/HTTP/Chromium 全链路、来源只读角色及 JWT 负例、CAS 并发/幂等/游标撤权和 M5–M7 回归；所有证据和 PR 同 head。研究型 [PG17 #89](https://github.com/gitfortian/ontoforge/pull/89) 的 14 项 PASS 与高保真原型 27 项 PASS 不能代替生产 E2E。
+
+本节替代上文任何基于以前时间点的“未投票”“Decision Pending”描述，但不改变其作为历史审查记录的含义。
