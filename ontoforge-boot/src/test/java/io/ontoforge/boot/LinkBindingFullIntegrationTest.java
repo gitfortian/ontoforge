@@ -469,6 +469,63 @@ class LinkBindingFullIntegrationTest {
             assertThat(fanFirst.path("links").size()).isEqualTo(50);
             String fanCursor = fanFirst.path("nextCursor").asText();
             assertThat(fanCursor).startsWith("v2.");
+
+            // L15-L16: concurrent real HTTP queries compete for ONE service-wide
+            // frozen-result cache (32 slots, <=16 MiB retained JSON), not
+            // isolated per-thread mock caches. Accepted queries retain signed
+            // snapshot identity; rejected queries expose no partial payload.
+            ObjectNode concurrentPage = traverseRequest(pkg, snapshotId, equipment, lot, id,
+                    "equipment-inspections", "OUT", "EQ-001", 1);
+            java.util.Set<String> acceptedSnapshotRefs = new java.util.HashSet<>();
+            String survivingCursor = fanCursor;
+            int accepted = 0;
+            int refused = 0;
+            int timedOut = 0;
+            try (var callers = Executors.newFixedThreadPool(6)) {
+                CountDownLatch release = new CountDownLatch(1);
+                java.util.List<java.util.concurrent.Future<ResponseEntity<String>>> pending =
+                        new java.util.ArrayList<>();
+                for (int n = 0; n < 40; n++) {
+                    pending.add(callers.submit(() -> {
+                        release.await();
+                        return traverse(concurrentPage.deepCopy());
+                    }));
+                }
+                release.countDown();
+                for (var pendingResponse : pending) {
+                    ResponseEntity<String> reply = pendingResponse.get(90, TimeUnit.SECONDS);
+                    JsonNode body = mapper.readTree(reply.getBody());
+                    if (reply.getStatusCode().value() == 200) {
+                        assertExactJsonBudget(body);
+                        assertThat(body.path("objects").size()).isEqualTo(1);
+                        assertThat(body.path("links").size()).isEqualTo(1);
+                        assertThat(body.path("nextCursor").asText()).startsWith("v2.");
+                        assertThat(acceptedSnapshotRefs.add(body.path("resultSnapshotRef").asText()))
+                                .as("Each accepted query freezes a unique result identity").isTrue();
+                        accepted++;
+                        survivingCursor = body.path("nextCursor").asText();
+                    } else {
+                        assertThat(reply.getStatusCode().value())
+                                .as(reply.getBody()).isIn(429, 503);
+                        assertThat(body.path("code").asText())
+                                .isIn("RESULT_SNAPSHOT_BUDGET", "QUERY_TIMEOUT");
+                        assertThat(body.has("objects")).isFalse();
+                        assertThat(body.has("links")).isFalse();
+                        assertThat(body.has("nextCursor")).isFalse();
+                        if (reply.getStatusCode().value() == 429) refused++;
+                        else timedOut++;
+                    }
+                }
+            }
+            assertThat(accepted).as("No more than 32 service-wide frozen snapshots")
+                    .isBetween(1, 32);
+            assertThat(refused).as("Concurrent cache admission must reject overflow")
+                    .isGreaterThan(0);
+            assertThat(accepted + refused + timedOut).isEqualTo(40);
+            ResponseEntity<String> stillValid = traversePage(survivingCursor);
+            assertThat(stillValid.getStatusCode().value()).as(stillValid.getBody()).isEqualTo(200);
+            assertThat(mapper.readTree(stillValid.getBody()).path("objects").size()).isEqualTo(1);
+
             jdbc.execute("DELETE FROM public." + INSPECTION + " WHERE lot_code LIKE 'FAN-%'");
             ResponseEntity<String> fanoutSecond = traversePage(fanCursor);
             assertThat(fanoutSecond.getStatusCode().value()).as(fanoutSecond.getBody()).isEqualTo(200);
