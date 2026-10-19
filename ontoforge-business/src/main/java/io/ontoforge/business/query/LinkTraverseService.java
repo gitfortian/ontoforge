@@ -592,20 +592,21 @@ public class LinkTraverseService {
         ArrayNode objects = mapper.createArrayNode();
         ArrayNode links = mapper.createArrayNode();
         int end = Math.min(offset + saved.pageSize(), allObjects.size());
-        // For a single ObjectRef and single FK hop each output endpoint has at
-        // most one LinkFact. Recompute membership by the frozen output ObjectRef,
-        // not by assuming relational links can never have duplicate source keys.
+        // O(pageSize + frozenLinkFacts), NOT O(pageSize * frozenLinkFacts).
+        // A single endpoint may be reachable through many distinct roots; all
+        // of those LinkFacts belong to its page. Never assume one edge/object.
+        Set<String> pageRefs = new HashSet<>();
         for (int i = offset; i < end; i++) {
             JsonNode object = allObjects.get(i);
             objects.add(object.deepCopy());
-            String wanted = object.path("objectRef").toString();
-            // Direction was frozen with this query; type-name equality is not
-            // enough to decide the side for a self-referential LinkType.
-            boolean out = "OUT".equals(saved.direction());
-            for (JsonNode edge : allLinks) {
-                if ((out ? edge.path("target") : edge.path("source")).toString().equals(wanted)) {
-                    links.add(edge.deepCopy());
-                }
+            pageRefs.add(object.path("objectRef").toString());
+        }
+        // OUT/IN is frozen in the query, never inferred from endpoint type names:
+        // self-relationships have the same type on both sides.
+        boolean out = "OUT".equals(saved.direction());
+        for (JsonNode edge : allLinks) {
+            if (pageRefs.contains((out ? edge.path("target") : edge.path("source")).toString())) {
+                links.add(edge.deepCopy());
             }
         }
         page.set("objects", objects);
