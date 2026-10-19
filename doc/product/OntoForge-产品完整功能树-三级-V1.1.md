@@ -500,6 +500,7 @@
 
 - **八域 F 编号权威**：本表保持 V1.3 原八域与 F01–F29。每个二级 F 在此只有一个主域；禁止为一个功能另起“后续能力”平行目录。
 - **AS-IS 证据**：[原 125 条 M0–M7 代码盘点](../implementation/OntoForge-产品功能说明书-三级功能-V1.0.md)。它提供可查 Java/React 路径，不等于此完整产品树。按旧编号查询实施证据时回到该表。
+- **旧编号零遗失迁移**：[125→216 追溯与边界/质量分类表](./OntoForge-ASIS到全产品功能树-追溯与分类-V1.1.md)：旧 125 条全部归档或关联，不因切换产品树而丢 M4–M7 已实施细节。
 - **实施阶段关联**：[M5 #44](https://github.com/gitfortian/ontoforge/issues/44)、[M6 #45](https://github.com/gitfortian/ontoforge/issues/45)、[M7 #46](https://github.com/gitfortian/ontoforge/issues/46)、[M8 #47](https://github.com/gitfortian/ontoforge/issues/47)、[M9 #48](https://github.com/gitfortian/ontoforge/issues/48)、[M10 #49](https://github.com/gitfortian/ontoforge/issues/49)、[M11 #50](https://github.com/gitfortian/ontoforge/issues/50)、[M12 #51](https://github.com/gitfortian/ontoforge/issues/51)、[M13 #52](https://github.com/gitfortian/ontoforge/issues/52)、[M14 #53](https://github.com/gitfortian/ontoforge/issues/53)。Issue 的历史规划栏可能落后于合并状态，不能单独作为“未实现”的结论。
 - **产品成熟度四轴原则**：一个 L3 在产品完成说明中应分别记录：代码实现（Absent/Partial/Merged）、自动证据（Not run/Fail/Pass+同 SHA）、用户真实 UAT（Not run/Fail/Signed）、产品 Release（Not released/Released）。上述初始单列状态只代表静态实现核对，**不得向另外三轴自动推导**。
 - **升级与拆分**：若三级功能需要扩展，沿用现有 ID 的语义不变；分拆产生新 ID 并保留迁移关系；不能直接把“已实现”升级成“已发布”。
