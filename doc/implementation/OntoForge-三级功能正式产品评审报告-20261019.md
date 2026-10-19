@@ -100,7 +100,7 @@
 
 | 编号 | 关注点 | 核实后的问题与建议 |
 |---|---|---|
-| P2-01 | 建模表达 | F02“可视化本体建模”的当前成果是表单编辑；规划中的关系图、对象端点检查交互、重命名风险审阅未完整列入，不能用“Native 建模已实现”覆盖全部专业 UX |
+| P2-01 | 建模表达及 UI/API 一致性 | F02“可视化本体建模”的当前成果是表单编辑，尚无专业关系图；而且服务端 DraftValidation 允许 UUID 与 UUID 主键，但前端 NativeModelWorkspace 只提供六种非 UUID 属性类型、仅 STRING/INTEGER 主键选择。需修补前端表单、错误提示与跨层合同测试，不能声称 UUID 已可在界面配置 |
 | P2-02 | 模型生命周期 | Snapshot/JCS/Diff 已实现，但兼容性评估、消费者依赖锁、发布审批、Activation/回滚四者生命周期需要进一步拆分；M7 query versionLock 不是 M10 正式发行或跨消费者兼容判断 |
 | P2-03 | 数据映射语义 | 现有 Binding 仅 `AUTHORITATIVE` + 单注册 PG；后续必须分别设计链接映射、事件映射、来源权威冲突、跨源主键审定、映射失效修复，不宜笼统称为“连接器扩展” |
 | P2-04 | 对象值精度 | M6 `PRESENT/NULL/MISSING` 不能和 INVALID/CONFLICT 混用；身份域和版本 provenance 必须在单对象、ObjectSet 与 Agent 返回中保持一致 |
@@ -112,7 +112,6 @@
 | P2-10 | 状态/编号治理 | 当前 `OF-Fxx.xx.xx` 编码已与老 F01–F29 区分，是改进；但必须有跨历史编号/Issue/PR 的一对多映射和改号记录 |
 | P2-11 | 安全路线 | B0 已合并 OIDC/JWT，未来优先复用 yak-ops HttpSession；复用决定不意味着已迁移代码或可以绕过撤权、来源查询的服务端 PEP |
 | P2-12 | 页面视觉一致性 | 当前代码能证实导航和业务交互入口，**未做浏览器截图/人工实测**，不能把“交互体验达商业标准”写入正式签收；M11 仍要走低保真→高保真→实现门禁 |
-| P2-13 | UI/API 类型合同不一致 | [DraftValidation.java](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/DraftValidation.java) 接受 UUID（包括必填主键），但 [NativeModelWorkspace.tsx](../../ontoforge-ui/src/NativeModelWorkspace.tsx) 属性下拉无 UUID、主键候选限定 STRING/INTEGER。应补 UI、主键类型提示与同一版本合同测试；现阶段只可宣传六类类型的表单编辑 |
 
 ## 5. 代码与产品事实抽查
 
