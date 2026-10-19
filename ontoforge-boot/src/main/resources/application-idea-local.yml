@@ -1,0 +1,22 @@
+server:
+  address: 127.0.0.1
+  servlet:
+    session:
+      cookie:
+        secure: false
+
+spring:
+  datasource:
+    password: ${DB_PASSWORD:123456}
+
+ontoforge:
+  objectset:
+    # Generated once into ignored config/application.properties by OntoForgeApplication.
+    cursor-signing-secret: ${ONTOFORGE_OBJECTSET_CURSOR_SIGNING_SECRET:}
+  security:
+    authentication-mode: local-session
+    bootstrap:
+      enabled: true
+      username: admin
+      password: ${ONTOFORGE_BOOTSTRAP_ADMIN_PASSWORD:123456}
+      allow-development-default-password: true
