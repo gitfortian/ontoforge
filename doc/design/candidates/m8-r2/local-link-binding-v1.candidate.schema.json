@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ontoforge.local/schema/candidates/m8/local-link-binding-v1.candidate.schema.json",
+  "title": "M8 R2 Candidate - Local LinkBinding v1 validate/create/revise request",
+  "description": "Review candidate only, not an implemented or approved production schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "modelSourceRef",
+    "packageId",
+    "linkTypeId",
+    "sourceBindingRef",
+    "targetBindingRef",
+    "mode",
+    "fkOwner",
+    "fkSourceColumn",
+    "expectedRevision",
+    "expectedSchemaFingerprints",
+    "validationScope"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "local-link-binding-v1"
+    },
+    "modelSourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "snapshotId"
+      ],
+      "properties": {
+        "kind": {
+          "const": "LOCAL_SNAPSHOT"
+        },
+        "snapshotId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "packageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "linkTypeId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$"
+    },
+    "sourceBindingRef": {
+      "$ref": "#/$defs/bindingRef"
+    },
+    "targetBindingRef": {
+      "$ref": "#/$defs/bindingRef"
+    },
+    "mode": {
+      "const": "FOREIGN_KEY"
+    },
+    "fkOwner": {
+      "enum": [
+        "SOURCE",
+        "TARGET"
+      ]
+    },
+    "fkSourceColumn": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$"
+    },
+    "expectedRevision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "expectedSchemaFingerprints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "target"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "validationScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "coverage"
+      ],
+      "properties": {
+        "kind": {
+          "const": "VALIDATION_SCOPE"
+        },
+        "coverage": {
+          "const": "FULL"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "expectedRevision": {
+            "const": 0
+          }
+        },
+        "required": [
+          "expectedRevision"
+        ]
+      },
+      "then": {
+        "required": [
+          "idempotencyKey"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "bindingRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bindingId",
+        "revision"
+      ],
+      "properties": {
+        "bindingId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}
