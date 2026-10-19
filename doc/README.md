@@ -1,6 +1,7 @@
 # OntoForge · 砺元｜本体产品设计与架构文档
 
-> **产品完整功能范围入口（V1.1，待签收）**：[八大功能域 F01–F29，209 个三级产品能力](./product/OntoForge-产品完整功能树-三级-V1.1.md)；[Core 15 项验收合同与 8 条黄金故事](./product/OntoForge-Core功能验收合同与黄金故事-V1.1.md)；[正式签收跟踪 Issue #82](https://github.com/gitfortian/ontoforge/issues/82)。与 V1.3 的职责不同：V1.3 仍为**唯一总体架构权威**，V1.1 为产品功能分解视图。  
+> **产品完整功能范围入口（V1.1，待签收）**：[八大功能域 F01–F29，216 个三级产品能力](./product/OntoForge-产品完整功能树-三级-V1.1.md)；[Core 15 项验收合同与 8 条黄金故事](./product/OntoForge-Core功能验收合同与黄金故事-V1.1.md)；[正式签收跟踪 Issue #82](https://github.com/gitfortian/ontoforge/issues/82)。与 V1.3 的职责不同：V1.3 仍为**唯一总体架构权威**，V1.1 为产品功能分解视图。  
+> **编号迁移追溯**：[原 125 条 AS-IS 完整分类表](./product/OntoForge-ASIS到全产品功能树-追溯与分类-V1.1.md)，明确保留已实现事实、移出范围排除与验收门禁。
 > **当前产品三级功能盘点入口（待全域签收，2026-10-19）**：[OntoForge V1.0 实施能力盘点（12 个交付模块 / 30 个实现组 / 125 个条目）](./implementation/OntoForge-产品功能说明书-三级功能-V1.0.md)。按 `main=c9de0336` 审核 M4–M7 的当前实现和未交付边界；下方旧 OFIP 阶段状态、2026-10-17 AS-IS 是历史记录，不能覆盖最新基准。本页 V1.3 总体架构入口继续是唯一架构权威。
 > **正式功能评审**：[评审报告（REVISE / 暂不签收）](./implementation/OntoForge-三级功能正式产品评审报告-20261019.md)：本次识别 V1.3 八域、F01–F29 覆盖缺项和质量门混计等 P1；并未把当前 PR 自动批准为完整产品功能基线。  
 
