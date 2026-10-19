@@ -170,6 +170,10 @@ class RealM8BrowserGoldenStory(unittest.TestCase):
         # A real orphan yields PARTIAL, never an incorrectly complete empty result.
         panel.get_by_label("M8 Result Mode").select_option("PAGE")
         panel.get_by_label("M8 Traverse Direction").select_option("IN")
+        # Switching endpoints resets old target SORT/PROJECT choices. Otherwise
+        # a valid orphan query is silently blocked by a stale output-side field.
+        self.assertEqual(panel.get_by_label("M8 Sort Field").input_value(), "")
+        self.assertEqual(panel.get_by_label("M8 Project Field").input_value(), "")
         panel.get_by_label("M8 Root Object Key").fill("QE-14")
         panel.get_by_role("button", name="执行一跳查询").click()
         result.get_by_text("PARTIAL", exact=True).first.wait_for(timeout=20000)
