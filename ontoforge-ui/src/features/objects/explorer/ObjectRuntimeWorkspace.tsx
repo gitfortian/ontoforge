@@ -1,3 +1,5 @@
+import { Input } from '../../../shared/ui/yak/input';
+import { Button } from '../../../shared/ui/yak/button';
 import React, {useEffect, useState} from 'react';
 import {ArrowLeft, CheckCircle2, Database, FileClock, RefreshCw, ShieldAlert} from 'lucide-react';
 import {authorizedFetch} from '../../../shared/api/auth';
@@ -142,9 +144,9 @@ export default function ObjectRuntimeWorkspace({route,navigate}:{route:string;na
         <p>根据已保存的对象类型、不可变 Snapshot 与固定 Binding revision 读取一个业务对象。身份、属性值和来源证据分别呈现；失败时不返回伪造的空对象。</p></div>
       <div className="model-actions">
         <span className="model-status valid">M6 · 按需只读</span>
-        {binding&&<button className="model-btn" onClick={changeBinding}><Database size={14}/> 更换绑定</button>}
-        <button className="model-btn" onClick={()=>binding?void openBinding(binding.bindingId,binding.revision):void loadBindings()} disabled={busy||listBusy}><RefreshCw size={14}/> 重新核验</button>
-        <button className="model-btn" onClick={()=>navigate('#/mvp/bindings'+(packageId?'?packageId='+encodeURIComponent(packageId):''))}><ArrowLeft size={14}/> 查看数据绑定</button>
+        {binding&&<Button className="model-btn" onClick={changeBinding}><Database size={14}/> 更换绑定</Button>}
+        <Button className="model-btn" onClick={()=>binding?void openBinding(binding.bindingId,binding.revision):void loadBindings()} disabled={busy||listBusy}><RefreshCw size={14}/> 重新核验</Button>
+        <Button className="model-btn" onClick={()=>navigate('#/mvp/bindings'+(packageId?'?packageId='+encodeURIComponent(packageId):''))}><ArrowLeft size={14}/> 查看数据绑定</Button>
       </div>
     </div>
 
@@ -152,13 +154,13 @@ export default function ObjectRuntimeWorkspace({route,navigate}:{route:string;na
       <header className="model-panel-head"><div><h2>选择已保存的 Binding revision</h2><p>只读取通过 M5 有界校验的版本；不会从草稿、来源表名或客户端字段猜测对象映射。</p></div></header>
       <div className="object-runtime-package-search">
         <label htmlFor="object-runtime-package">模型包 ID</label>
-        <input id="object-runtime-package" value={packageInput} onChange={event=>setPackageInput(event.target.value)} placeholder="例如 manufacturing.procurement"/>
-        <button className="model-btn primary" onClick={()=>void loadBindings()} disabled={listBusy||busy||!packageInput.trim()}><Database size={14}/> 查询绑定</button>
+        <Input id="object-runtime-package" value={packageInput} onChange={event=>setPackageInput(event.target.value)} placeholder="例如 manufacturing.procurement"/>
+        <Button className="model-btn primary" onClick={()=>void loadBindings()} disabled={listBusy||busy||!packageInput.trim()}><Database size={14}/> 查询绑定</Button>
       </div>
       {listBusy&&<p role="status">正在读取已保存的绑定目录…</p>}
       {listError&&<div className="model-alert error" role="alert"><strong>{listError.code||'API_ERROR'} · {listError.message||'查询失败'}</strong></div>}
       {bindings.length>0&&<div className="object-runtime-binding-list"><table className="model-table"><thead><tr><th>ObjectType</th><th>来源</th><th>当前 revision</th><th>校验</th><th>操作</th></tr></thead><tbody>
-        {bindings.map(item=><tr key={item.bindingId}><td><b>{item.objectTypeId}</b><small>{item.packageId}</small></td><td>{item.sourceSchema}.{item.sourceTable}</td><td>revision {item.currentRevision}</td><td><span className={'binding-chip '+(item.validationStatus==='VALID'?'valid':'required')}>{item.validationStatus}</span></td><td><button className="model-btn primary" onClick={()=>chooseBinding(item)} disabled={item.validationStatus!=='VALID'}><Database size={13}/> 读取对象</button></td></tr>)}
+        {bindings.map(item=><tr key={item.bindingId}><td><b>{item.objectTypeId}</b><small>{item.packageId}</small></td><td>{item.sourceSchema}.{item.sourceTable}</td><td>revision {item.currentRevision}</td><td><span className={'binding-chip '+(item.validationStatus==='VALID'?'valid':'required')}>{item.validationStatus}</span></td><td><Button className="model-btn primary" onClick={()=>chooseBinding(item)} disabled={item.validationStatus!=='VALID'}><Database size={13}/> 读取对象</Button></td></tr>)}
       </tbody></table></div>}
     </section>}
 
@@ -176,7 +178,7 @@ export default function ObjectRuntimeWorkspace({route,navigate}:{route:string;na
           <header className="model-panel-head"><div><h2>读取条件</h2><p>规范键 + 明确的属性范围</p></div></header>
           <div className="object-runtime-field">
             <label htmlFor="object-runtime-key">业务键 · {keyType||'不支持的主键类型'}</label>
-            <input id="object-runtime-key" value={keyValue} onChange={event=>setKeyValue(event.target.value)} placeholder={keyType==='INTEGER'?'例如 9007199254740993':'例如 SUP-1001'} disabled={!keyType||busy} onKeyDown={event=>{if(event.key==='Enter')void readObject();}}/>
+            <Input id="object-runtime-key" value={keyValue} onChange={event=>setKeyValue(event.target.value)} placeholder={keyType==='INTEGER'?'例如 9007199254740993':'例如 SUP-1001'} disabled={!keyType||busy} onKeyDown={event=>{if(event.key==='Enter')void readObject();}}/>
             <small>读取固定使用 Binding revision {binding.revision}。STRING 原样保留；INTEGER 不接受前导零、+ 号或 -0。</small>
           </div>
           <div className="object-runtime-property-choices">
@@ -187,8 +189,8 @@ export default function ObjectRuntimeWorkspace({route,navigate}:{route:string;na
             </label>)}
           </div>
           <div className="object-runtime-actions">
-            <button id="read-object" className="model-btn primary" onClick={()=>void readObject()} disabled={busy||!keyType||keyValue.length===0}><Database size={14}/> {busy?'读取中…':'读取对象'}</button>
-            <button className="model-btn" onClick={()=>{setKeyValue('');setResult(null);setError(null);}} disabled={busy}><RefreshCw size={14}/> 重置条件</button>
+            <Button id="read-object" className="model-btn primary" onClick={()=>void readObject()} disabled={busy||!keyType||keyValue.length===0}><Database size={14}/> {busy?'读取中…':'读取对象'}</Button>
+            <Button className="model-btn" onClick={()=>{setKeyValue('');setResult(null);setError(null);}} disabled={busy}><RefreshCw size={14}/> 重置条件</Button>
           </div>
           {error&&<p className="object-runtime-request-status" role="status">上次读取未成功 · {error.code||'API_ERROR'}</p>}
           <p className="model-footnote"><ShieldAlert size={14}/> 不开放任意 SQL、来源列、predicate 或客户端授权上下文。服务端在读取前复核包/快照授权、Binding digest 和来源结构指纹。</p>
@@ -203,7 +205,7 @@ export default function ObjectRuntimeWorkspace({route,navigate}:{route:string;na
             <p>{error.message||'请求失败。'}</p><p>{errorHint(error)}</p>
             <code>{error.httpStatus?error.httpStatus+' · ':''}{error.code||'API_ERROR'}{error.fieldPath?' · '+error.fieldPath:''}</code>
             {error.executionId&&<small>executionId · {error.executionId}</small>}
-            <div className="object-runtime-actions"><button className="model-btn" onClick={()=>void readObject()} disabled={busy||!keyType||keyValue.length===0}><RefreshCw size={14}/> 重新读取</button><button className="model-btn" onClick={()=>navigate('#/mvp/bindings?packageId='+encodeURIComponent(packageId))}><Database size={14}/> 查看 / 修复绑定</button></div>
+            <div className="object-runtime-actions"><Button className="model-btn" onClick={()=>void readObject()} disabled={busy||!keyType||keyValue.length===0}><RefreshCw size={14}/> 重新读取</Button><Button className="model-btn" onClick={()=>navigate('#/mvp/bindings?packageId='+encodeURIComponent(packageId))}><Database size={14}/> 查看 / 修复绑定</Button></div>
           </div>}
           {!error&&!result&&<div className="object-runtime-empty"><Database size={30}/><strong>等待读取</strong><p>输入业务键并选择需要的属性。结果只在服务端授权、来源读取和类型转换全部成功后显示。</p></div>}
           {result&&descriptor&&<>

@@ -32,6 +32,12 @@
 
 沿用 main 的 M7 配置约束：非 `mvp-local` 环境须通过 `ONTOFORGE_OBJECTSET_CURSOR_SIGNING_SECRET` 提供至少 32 字符的稳定私有游标签名密钥。
 
+### 公共 UI 与主题
+
+工作台已复用 Yak Ops 的按钮、输入框、卡片、表格、空状态、加载和弹层组件，以及浅色/深色主题。点击右上角「外观」可选择浅色、深色或跟随系统；偏好保存在当前浏览器，切换主题不会丢失未保存的本体编辑。窄屏下顶部显示现有六个功能入口。组件来源、固定提交、许可证与逐文件摘要见 [Yak UI 来源记录](./ontoforge-ui/src/shared/ui/yak/README.md)。
+
+这一批仅调整现有页面的公共呈现与交互；账号、空间及其他通用能力的现状与复用顺序见 [通用底座复用评估](./doc/research/2026-10-19-OntoForge-通用底座现状与Yak-Ops复用评估.md)。认证配置仍按下述现有运行方式使用。
+
 ## 当前精简 MVP：无需登录的本机隔离运行（需显式启用）
 
 **开发优先级已调整**：本体定义 → 测试数据绑定 → ObjectSet/多结果查询 → 工业业务追溯。登录、用户和角色不是 MVP 核心能力；未来优先复用 [yak-ops](https://github.com/weifuwan/yak-ops) 的 `HttpSession` 认证，而不是单独开发 OntoForge 身份产品。

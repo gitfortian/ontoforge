@@ -1,0 +1,218 @@
+{
+  "repository": "https://github.com/weifuwan/yak-ops",
+  "commit": "85338827bdbb745eaa6a017031640674a298a4f9",
+  "license": "Apache-2.0",
+  "files": [
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/button/index.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/button/index.ts",
+      "sourceSha256": "f20d5b9fe0bac29a7182660090752de3b4219c31faaedf08587ca76be0dcf44b"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/button/Button.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/button/Button.tsx",
+      "sourceSha256": "bda004108cb166bf300799635394d9ffc2f7c8ac4f403e5960795c3d56911240"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/cn.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/cn.ts",
+      "sourceSha256": "292978b82060c9250ac17adf1ee586316c46b918c5f6775940bc90b79f5b2c5c"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/spinner/index.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/spinner/index.ts",
+      "sourceSha256": "92743f7453a2468f6f45828884395f499f0aa67664d017da7c9f50380a1b5ea9"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/spinner/Spinner.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/spinner/Spinner.tsx",
+      "sourceSha256": "d29817ae608917703829b5c3c826d18f753184ecca2e6f565316419bbc07af73"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/input/index.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/input/index.ts",
+      "sourceSha256": "e5584054fc6c9b6a3d26c639260a0fd35670bd3bac5e9af5722b5233fcd10fee"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/input/Input.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/input/Input.tsx",
+      "sourceSha256": "2609cdb7d68133cc18fcae6b048675c8adb7a8ca0f91551366ee601b1ff585a3"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/input/PasswordInput.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/input/PasswordInput.tsx",
+      "sourceSha256": "5b72c55cd15e961a40e0cd93400cba2cf9c97db06e63d20d5efc124c42428c98"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/input/FloatingLabelField.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/input/FloatingLabelField.tsx",
+      "sourceSha256": "911e1dec6d03be86c6665f09d906331fd08fa23301526de16b525f3f46ade937"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/field/index.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/field/index.ts",
+      "sourceSha256": "962cd6f62f6c905d8633852a6da2979b5fec989804d9bd0f390a44888f708e3f"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/field/Field.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/field/Field.tsx",
+      "sourceSha256": "5eefd6ad9a9f078c6cd8513ae6e89dbbf1c7efc9944ac83f40816b042187e73a"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/card/index.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/card/index.ts",
+      "sourceSha256": "26bed56803f992f60f19ed20ca80eb2712ae117f469a992530ee618c14498158"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/card/Card.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/card/Card.tsx",
+      "sourceSha256": "2424fa218da2bea42347acd551ccb656ea6a5998da2c3536f3163216be6fc9c4"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/card/SectionCard.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/card/SectionCard.tsx",
+      "sourceSha256": "15d7bf74b0439a358aa27e958de439fa862773e283a7084727f30d683b9f6856"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/empty/index.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/empty/index.ts",
+      "sourceSha256": "0d545d0a1d991cb87f56befd39aea692d2057a4cc63d01c56f2505453ad6f658"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/empty/Empty.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/empty/Empty.tsx",
+      "sourceSha256": "ecce80056ffdecc01b274dc297c0dad06e0b6f1a8afe772a282176683bd525d3"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/dialog/index.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/dialog/index.ts",
+      "sourceSha256": "720f5771d84b7132e6d7a0da2aef337724f155fd03dd01f345c108c5304cb0f1"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/dialog/Dialog.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/dialog/Dialog.tsx",
+      "sourceSha256": "b036b1b622dcdfffa49dbe521d6b93dd79bc76836dba85ce69ad42fe6b8ca9d7"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/table/index.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/table/index.ts",
+      "sourceSha256": "b570b6705f07fe3674f2038dcc62eea0754fb0a9fc75f13e7576ec1fb70a641e"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/table/Table.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/table/Table.tsx",
+      "sourceSha256": "1a4ede48983c2bedbbb4f363a187cedadf9438bf45a0e1ccb2f6b46f873167e3"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/table/interface.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/table/interface.ts",
+      "sourceSha256": "305200636c230f0211a99c5df18f513dc054c2e81b78a88c17844daae6e85cde"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/checkbox/index.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/checkbox/index.ts",
+      "sourceSha256": "b9cc643bf68c0e5a5240c8690de0d59fa085311b64b88c5a00cdd4f420e0be56"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/checkbox/Checkbox.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/checkbox/Checkbox.tsx",
+      "sourceSha256": "64bd979a7739b8e6482f155538923069d3f704280a08372b6d7d47bde6b71124"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/table/InternalTable.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/table/InternalTable.tsx",
+      "sourceSha256": "05c40f319ead341c687970d00b23689c8610634611c1284ad3a2d569f49c4240"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/pagination/index.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/pagination/index.ts",
+      "sourceSha256": "7e564ade449ff7cf77a615c073fee5cca9403fc074c6bfb34096177ee05fc102"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/pagination/Pagination.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/pagination/Pagination.tsx",
+      "sourceSha256": "4660c6aebfe6da882aa30788c12803edac87ec1be1ad8d6ecb5fe4164649c689"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/number-field/index.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/number-field/index.ts",
+      "sourceSha256": "dc9c7d3ae29ac34c5cc086ec311efad9d1759fcd3205eb67bfddb1c3808acd96"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/number-field/NumberField.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/number-field/NumberField.tsx",
+      "sourceSha256": "0be498eb67c76b6ca3d6bdb4f3f3635b569e2f04f2945d5395535d2c8627ff71"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/select/index.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/select/index.ts",
+      "sourceSha256": "f673c4d9fa26a6a4c6bd1737db75fb5d4f68198a2696ca76068a3dcc9cf8fa13"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/select/Select.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/select/Select.tsx",
+      "sourceSha256": "e0e11d187a5d13cad6f3c4b7ca9d473f4f3236f1555d6876725da0b44f3aa441"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/table/hooks/useFilter.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/table/hooks/useFilter.tsx",
+      "sourceSha256": "a310f075f494b1da659fb4c3de501d4581495442da04cc6780d5fb682b2e8437"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/popover/index.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/popover/index.ts",
+      "sourceSha256": "fc8f9fc8c695209608291ab11ffda118fc9b8a0784b56cb1695f6786eb9f0f2c"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/popover/Popover.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/popover/Popover.tsx",
+      "sourceSha256": "801a58060d198d296fd28d557f501dc032753485cdb43e18dd24ef500116f45a"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/table/utils.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/table/utils.ts",
+      "sourceSha256": "448d9d5a620107a39c09012105a4524da7c245f46d2927f9cbe8dd97b70966fe"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/table/hooks/usePagination.ts",
+      "target": "ontoforge-ui/src/shared/ui/yak/table/hooks/usePagination.ts",
+      "sourceSha256": "349a6e9130104f256f59968857685b48cdd49237bd6059e9dd3bef47bc9cfd62"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/table/hooks/useSelection.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/table/hooks/useSelection.tsx",
+      "sourceSha256": "be227f267ad31a7269680a574f250661a56ea0f97a4b9ade8f12cdfc6a07987a"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/table/hooks/useSorter.tsx",
+      "target": "ontoforge-ui/src/shared/ui/yak/table/hooks/useSorter.tsx",
+      "sourceSha256": "f39dc360b5b461db8110cadf3743f7556cdbd6a578ca7f6fc1932f61bcc6c6fa"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/styles.css",
+      "target": "ontoforge-ui/src/shared/ui/yak/styles.css",
+      "sourceSha256": "46e5008862b1ed99015f8db9f383658238303d965260bc1367992e78db92285c"
+    },
+    {
+      "source": "yak-ops-ui/packages/yak-ui/src/input/floating-label.css",
+      "target": "ontoforge-ui/src/shared/ui/yak/input/floating-label.css",
+      "sourceSha256": "a232a0829437bbc31e8e3922c1fa461f77f7825b779124510199242230ddd9bc"
+    },
+    {
+      "source": "yak-ops-ui/apps/web/themes/tokens.css",
+      "target": "ontoforge-ui/src/shared/theme/tokens.css",
+      "sourceSha256": "7a82e137c7744b7aa3f71ae89ff0dfce3ba9c597a5e1df99b8c61cb162676220"
+    },
+    {
+      "source": "yak-ops-ui/apps/web/themes/light.css",
+      "target": "ontoforge-ui/src/shared/theme/light.css",
+      "sourceSha256": "910cc1a8085025b1031a6f37ba32bfc6201f4ae98775acd4977256d381879f77"
+    },
+    {
+      "source": "yak-ops-ui/apps/web/themes/dark.css",
+      "target": "ontoforge-ui/src/shared/theme/dark.css",
+      "sourceSha256": "1c69e2fb804bab298289c4972c2d773c39f4abeaababe4e5d18dfdcb7c86235b"
+    }
+  ],
+  "hashFormat": "SHA-256 of UTF-8 text with LF line endings and one final newline"
+}

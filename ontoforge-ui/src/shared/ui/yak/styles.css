@@ -1,0 +1,169 @@
+@import "./input/floating-label.css";
+
+:root {
+  /* Standalone Yak UI default; the product theme supplies the primary color. */
+  --yak-color-primary: #0033ff;
+  --yak-color-primary-hover: color-mix(in srgb, var(--yak-color-primary) 90%, #000);
+  --yak-color-primary-active: color-mix(in srgb, var(--yak-color-primary) 82%, #000);
+  --yak-color-primary-subtle: color-mix(in srgb, var(--yak-color-primary) 10%, #fff);
+  --yak-color-primary-ring: color-mix(in srgb, var(--yak-color-primary) 20%, transparent);
+  --yak-color-primary-halo: color-mix(in srgb, var(--yak-color-primary) 12%, transparent);
+  --yak-color-hover: #f6f6f6;
+
+  --yak-components-collapse-section-bg: #fafafa;
+  --yak-components-collapse-section-bg-hover: var(--yak-color-hover);
+  --yak-components-collapse-section-border: #e7e9ed;
+  --yak-components-collapse-section-text: #252832;
+  --yak-components-collapse-section-icon: #667085;
+
+  --yak-radius-control-small: 6px;
+  --yak-radius-control-medium: 8px;
+  --yak-radius-control-large: 10px;
+
+  --yak-font-size-control-small: 12px;
+  --yak-font-size-control-medium: 13px;
+  --yak-font-size-control-large: 14px;
+
+  --yak-components-button-primary-bg: var(--yak-color-primary);
+  --yak-components-button-primary-bg-hover: var(--yak-color-primary-hover);
+  --yak-components-button-primary-bg-active: var(--yak-color-primary-active);
+  --yak-components-button-primary-text: #ffffff;
+
+  --yak-components-button-secondary-bg: #f4f4f6;
+  --yak-components-button-secondary-bg-hover: #ededf0;
+  --yak-components-button-secondary-bg-active: #e5e5e9;
+  --yak-components-button-secondary-text: #292c35;
+
+  --yak-components-button-ghost-text: #667085;
+  --yak-components-button-ghost-bg-hover: #f4f4f6;
+
+  --yak-components-button-danger-bg: #fff1f2;
+  --yak-components-button-danger-bg-hover: #ffe6e9;
+  --yak-components-button-danger-bg-active: #ffdadd;
+  --yak-components-button-danger-text: #d92d20;
+
+  --yak-components-button-focus-ring: var(--yak-color-primary-ring);
+
+  --yak-components-input-bg: #f6f7f9;
+  --yak-components-input-bg-hover: #f2f3f5;
+  --yak-components-input-bg-focus: #ffffff;
+  --yak-components-input-bg-disabled: #f4f4f6;
+  --yak-components-input-text: #252832;
+  --yak-components-input-text-disabled: #9ca0a9;
+  --yak-components-input-placeholder: #8f949e;
+  --yak-components-input-icon: #8f949e;
+  --yak-components-input-border: #d9dde3;
+  --yak-components-input-border-hover: #e2e4e8;
+  --yak-components-input-border-focus: var(--yak-color-primary);
+  --yak-components-input-border-danger: #d92d20;
+  --yak-components-input-focus-ring: var(--yak-color-primary-ring);
+  --yak-components-input-danger-ring: rgba(217, 45, 32, 0.1);
+
+  --yak-components-checkbox-bg: #ffffff;
+  --yak-components-checkbox-border: #c9cdd4;
+  --yak-components-checkbox-border-hover: #8f949e;
+  --yak-components-checkbox-bg-checked: var(--yak-color-primary);
+  --yak-components-checkbox-focus-ring: var(--yak-color-primary-ring);
+
+  --yak-components-select-bg: #ffffff;
+  --yak-components-select-border: #e7e9ed;
+  --yak-components-select-shadow: 0 10px 30px rgba(31, 35, 41, 0.14);
+  --yak-components-select-item-text: #343841;
+  --yak-components-select-item-bg-hover: #f5f6f8;
+  --yak-components-select-indicator: var(--yak-color-primary);
+  --yak-components-control-border: #eef0f3;
+  --yak-components-muted-text: #98a2b3;
+  --yak-components-danger-text: #d92d20;
+
+  --yak-components-panel-bg: #ffffff;
+  --yak-components-panel-border: #e7e9ed;
+  --yak-components-panel-text: #252832;
+  --yak-components-panel-shadow: 0 10px 30px rgba(31, 35, 41, 0.14);
+  --yak-components-dialog-shadow: 0 18px 48px rgba(16, 24, 40, 0.18);
+  --yak-components-overlay: rgba(0, 0, 0, 0.42);
+
+  --yak-components-tooltip-bg: #252832;
+  --yak-components-tooltip-text: #ffffff;
+
+  --yak-components-field-label: #344054;
+  --yak-components-field-description: #98a2b3;
+  --yak-components-field-error: #d92d20;
+  --yak-components-field-required: var(--yak-components-field-error);
+
+  --yak-components-switch-bg: #d9dde3;
+  --yak-components-switch-bg-hover: #cfd4dc;
+  --yak-components-switch-bg-checked: var(--yak-color-primary);
+  --yak-components-switch-bg-checked-hover: var(--yak-color-primary-hover);
+
+  --yak-components-tab-text: #8c919b;
+  --yak-components-tab-text-hover: #555b66;
+  --yak-components-tab-text-active: var(--yak-color-primary);
+  --yak-components-tab-active: var(--yak-color-primary);
+
+  --yak-components-spinner: #667085;
+
+  --yak-components-empty-icon: #c4c9d1;
+  --yak-components-empty-title: #344054;
+  --yak-components-empty-description: #98a2b3;
+
+  --yak-components-page-header-title: #252832;
+  --yak-components-page-header-description: #98a2b3;
+  --yak-components-page-header-border: #e7e9ed;
+
+  --yak-components-table-bg: #ffffff;
+  --yak-components-table-header-bg: #f2f2f2;
+  --yak-components-table-header-text: #252832;
+  --yak-components-table-row-bg: #ffffff;
+  --yak-components-table-text: #343841;
+  --yak-components-table-border: #eceef2;
+  --yak-components-table-border-strong: #e4e7ec;
+  --yak-components-table-loading-bg: rgba(255, 255, 255, 0.72);
+  --yak-components-table-focus-ring: var(--yak-color-primary-ring);
+  --yak-components-table-sorter-inactive: #b8bdc6;
+  --yak-components-table-sorter-active: var(--yak-color-primary);
+  --yak-components-table-filter-inactive: #8f949e;
+  --yak-components-table-filter-active: var(--yak-color-primary);
+  --yak-components-table-filter-bg-hover: #eef0f3;
+
+  --yak-components-pagination-bg: #ffffff;
+  --yak-components-pagination-bg-hover: #f6f7f9;
+  --yak-components-pagination-border: #e1e4e8;
+  --yak-components-pagination-text: #667085;
+  --yak-components-pagination-active-bg: #ffffff;
+  --yak-components-pagination-active-border: var(--yak-color-primary);
+  --yak-components-pagination-active-text: var(--yak-color-primary);
+
+  --yak-components-menu-item-hover: #f5f6f8;
+
+  --yak-components-alert-warning-bg: #fff8e8;
+  --yak-components-alert-warning-border: #f6dfad;
+  --yak-components-alert-warning-icon: #f79009;
+  --yak-components-alert-warning-text: #6d4710;
+
+  --yak-components-badge-neutral-bg: #f2f4f7;
+  --yak-components-badge-neutral-text: #667085;
+  --yak-components-badge-success-bg: #ecfdf3;
+  --yak-components-badge-success-text: #027a48;
+  --yak-components-badge-warning-bg: #fffaeb;
+  --yak-components-badge-warning-text: #b54708;
+  --yak-components-badge-danger-bg: #fef3f2;
+  --yak-components-badge-danger-text: #b42318;
+  --yak-components-badge-info-bg: #eef4ff;
+  --yak-components-badge-info-text: #3538cd;
+
+  --yak-components-toast-bg: rgba(255, 255, 255, 0.94);
+  --yak-components-toast-border: #e7e9ed;
+  --yak-components-toast-title: #252832;
+  --yak-components-toast-description: #667085;
+  --yak-components-toast-meta: #98a2b3;
+  --yak-components-toast-close: #8f949e;
+  --yak-components-toast-shadow: 0 12px 32px rgba(31, 35, 41, 0.16);
+  --yak-components-toast-success: #12b76a;
+  --yak-components-toast-error: #f04438;
+  --yak-components-toast-warning: #f79009;
+  --yak-components-toast-info: var(--yak-color-primary);
+  --yak-components-toast-success-halo: rgba(18, 183, 106, 0.14);
+  --yak-components-toast-error-halo: rgba(240, 68, 56, 0.14);
+  --yak-components-toast-warning-halo: rgba(247, 144, 9, 0.14);
+  --yak-components-toast-info-halo: var(--yak-color-primary-halo);
+}
