@@ -93,7 +93,7 @@ public class LinkTraverseQueryService {
             Quality quality,Budget budget,List<Item> objects,List<Link> links,
             int objectCount,int linkCount,int pathCount,int pageSize,int pageNumber,String nextCursor){}
     private record Parsed(UUID id,long revision,String linkType,String direction,int pageSize,
-            TypeRef rootType,JsonNode rootSelector,JsonNode rootBindingRef){}
+            TypeRef rootType,JsonNode rootSelector,JsonNode rootBindingRef,JsonNode limits){}
     private record Frozen(String id,String actor,UUID bindingId,long revision,String linkType,String executionId,
             Instant executedAt,Instant expiresAt,String digest,TypeRef rootType,TypeRef outputType,
             VersionLock lock,List<BindingVersion> versions,List<SourceRead> reads,Quality quality,
@@ -169,7 +169,7 @@ public class LinkTraverseQueryService {
         }
         return new Parsed(uuid(required(b,"bindingId",eid),"linkBindingRef.bindingId",eid),
                 b.path("revision").asLong(),required(step,"linkTypeRef",eid),
-                step.path("direction").asText(),pageSize,type,selector,ref);
+                step.path("direction").asText(),pageSize,type,selector,ref,limits);
     }
 
     private static String value(Object v){
@@ -235,7 +235,7 @@ public class LinkTraverseQueryService {
         var links=f.links().stream().filter(l->visible.contains(identity(
                 out?l.target():l.source()))).toList();
         String next=end<f.objects().size()?cursor(f,end):null;
-        return new Result(f.quality().completeness().equals("PARTIAL")?"PARTIAL":"SUCCESS",
+        return new Result("SUCCESS",
                 "PAGE",f.executionId(),f.executedAt(),"local-query-v2",f.rootType(),f.outputType(),
                 f.lock(),f.versions(),f.reads(),f.digest(),f.id(),f.expiresAt(),f.quality(),
                 f.budget(),objects,links,f.objects().size(),f.links().size(),f.links().size(),
@@ -267,6 +267,9 @@ public class LinkTraverseQueryService {
         return true;
     }
 
+    private static int budget(JsonNode limits,String key,int defaultValue){
+        return limits.has(key)?limits.path(key).asInt():defaultValue;
+    }
     public Result execute(JsonNode query,Authentication auth){
         String eid=UUID.randomUUID().toString();
         cleanup();
@@ -275,6 +278,11 @@ public class LinkTraverseQueryService {
         if(!parsed.linkType().equals(d.linkTypeId()))
             throw fail(422,"LINK_TYPE_MISMATCH","TRAVERSE 的 LinkType 不匹配冻结关系","steps[0].linkTypeRef",eid);
         var facts=linkBindings.sourceFacts(parsed.id(),parsed.revision(),auth);
+        int rowsRead=facts.sourceRows().size()+facts.targetRows().size();
+        if(rowsRead>budget(parsed.limits(),"maxPhysicalRows",MAX_ROWS)
+                ||facts.sourceBytes()>budget(parsed.limits(),"maxSourceBytes",MAX_BYTES))
+            throw fail(429,"QUERY_BUDGET_EXCEEDED",
+                    "来源扫描超过本次请求声明的更严格限额","limits",eid);
         boolean out="OUT".equals(parsed.direction());
         DataBindingService.BindingDetail root=out?facts.source():facts.target();
         DataBindingService.BindingDetail target=out?facts.target():facts.source();
@@ -313,14 +321,14 @@ public class LinkTraverseQueryService {
                 continue;
             }
             if(candidate==null||!selectedRoots.contains(identity(candidate)))continue;
-            if(++join>MAX_ROWS)throw fail(429,"QUERY_BUDGET_EXCEEDED","关系 join 候选超预算","limits",eid);
+            if(++join>budget(parsed.limits(),"maxJoinCandidates",MAX_ROWS))throw fail(429,"QUERY_BUDGET_EXCEEDED","关系 join 候选超预算","limits",eid);
             Ref dest=out?t:s;
             objects.putIfAbsent(identity(dest),new Item(dest,List.of()));
             String linkKey=identity(s)+"->"+identity(t);
             links.putIfAbsent(linkKey,new Link(d.linkTypeId(),d.linkBindingId(),d.revision(),
                     s,t,List.of("source-read","target-read")));
         }
-        if(objects.size()>MAX_ROWS||links.size()>MAX_ROWS)
+        if(objects.size()>MAX_ROWS||links.size()>budget(parsed.limits(),"maxLinks",MAX_ROWS))
             throw fail(429,"QUERY_BUDGET_EXCEEDED","结果实体或 LinkFact 超预算","limits",eid);
         var items=objects.values().stream().sorted(Comparator.comparing(o->identity(o.objectRef()))).toList();
         var edges=links.values().stream().sorted(Comparator.comparing(l->identity(l.source())+"->"+identity(l.target()))).toList();
@@ -353,7 +361,7 @@ public class LinkTraverseQueryService {
         int bytes;
         try{bytes=mapper.writeValueAsBytes(List.of(items,edges)).length;}
         catch(Exception e){throw new IllegalStateException(e);}
-        if(bytes>MAX_BYTES)throw fail(429,"QUERY_BUDGET_EXCEEDED","序列化结果超过 8 MiB","limits",eid);
+        if(bytes>budget(parsed.limits(),"maxSerializedResultBytes",MAX_BYTES))throw fail(429,"QUERY_BUDGET_EXCEEDED","序列化结果超过本次请求的上限","limits",eid);
         var budget=new Budget(facts.sourceRows().size()+facts.targetRows().size(),join,items.size(),edges.size(),
                 facts.sourceBytes(),bytes,MAX_ROWS,MAX_ROWS,MAX_BYTES,MAX_BYTES,3);
         String digest=hash(query.toString().getBytes(StandardCharsets.UTF_8));
