@@ -306,7 +306,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
    }
    state.dirty=false;$("#dirty-note").hidden=true;
    $("#commit-binding").disabled=true; // Same operation cannot accidentally create a second immutable revision.
-   $("#main-status".textContent="LinkBinding r"+state.revision+" · 已保存";
+   $("#main-status").textContent="LinkBinding r"+state.revision+" · 已保存";
    $("#type-status").textContent="BRIDGE_TABLE / revision r"+state.revision;
    if(fault==="unknown"){
      state.saveUnknown=true;$("#lookup-operation").hidden=false;
