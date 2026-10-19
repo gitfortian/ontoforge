@@ -630,7 +630,7 @@ main{width:100%;max-width:1470px;min-width:0;margin:0 auto;padding:28px 34px 46p
    $("#"+id).addEventListener("change",()=>abortValidation()));
  $("#reset-demo").onclick=()=>window.location.reload();
  // Explicit tab -> panel semantics for keyboard and screen-reader navigation.
- $("[data-stage]").forEach((tab,index,items)=>{
+ $$("[data-stage]").forEach((tab,index,items)=>{
    const panel=$("#view-"+tab.dataset.stage);
    tab.setAttribute("aria-controls",panel.id);tab.setAttribute("tabindex",tab.getAttribute("aria-selected")==="true"?"0":"-1");
    panel.setAttribute("role","tabpanel");panel.setAttribute("aria-labelledby",tab.id);
@@ -641,8 +641,8 @@ main{width:100%;max-width:1470px;min-width:0;margin:0 auto;padding:28px 34px 46p
  });
  const oldNavigate=navigate;
  // Existing navigation callback already handles app state; enforce roving tab stop afterwards.
- $("[data-stage], [data-nav]").forEach(el=>el.addEventListener("click",()=>{
-   $("[data-stage]").forEach(t=>t.tabIndex=t.getAttribute("aria-selected")==="true"?0:-1);
+ $$("[data-stage], [data-nav]").forEach(el=>el.addEventListener("click",()=>{
+   $$("[data-stage]").forEach(t=>t.tabIndex=t.getAttribute("aria-selected")==="true"?0:-1);
  }));
  refreshRoots();navigate("config",false);
  window.__m82uxHigh={getState:()=>({view:state.view,dirty:state.dirty,validated:state.validated,validationQuality:state.validationQuality,
