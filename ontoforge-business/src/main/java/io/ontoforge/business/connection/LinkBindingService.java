@@ -101,6 +101,20 @@ public class LinkBindingService {
             DataBindingService.SourceTable targetTable, String referencedColumn) {}
     private record Fact(String key, String fk) {}
     private record ReadResult(List<Fact> source, List<Fact> target, long sourceBytes) {}
+
+    /** Shared admission budget across BOTH endpoint reads, before retaining each row. */
+    private static final class RowBudget {
+        private int rows;
+        private long bytes;
+        void accept(Fact value) {
+            rows++;
+            bytes += size(value);
+            if (rows > MAX_ROWS || bytes > MAX_BYTES) {
+                throw fail(429, "QUERY_BUDGET_EXCEEDED",
+                        "双端 FULL 来源读取达到上限；不保存不完整校验", "validationScope");
+            }
+        }
+    }
     private record CanonicalRequest(String packageId, String snapshotId, String linkTypeId,
             String sourceBindingId, long sourceRevision, String sourceDigest,
             String targetBindingId, long targetRevision, String targetDigest,
@@ -390,18 +404,17 @@ public class LinkBindingService {
     }
 
     private ReadResult readBounded(Connection db, Context context) throws SQLException {
+        RowBudget budget = new RowBudget();
         boolean sourceFk = "SOURCE".equals(context.request().fkOwner());
         List<Fact> left = fetch(db, context.source().sourceTable(), context.source().sourceKey(),
-                sourceFk ? context.request().fkSourceColumn() : null);
+                sourceFk ? context.request().fkSourceColumn() : null, budget);
         List<Fact> right = fetch(db, context.target().sourceTable(), context.target().sourceKey(),
-                sourceFk ? null : context.request().fkSourceColumn());
-        long bytes = 0;
-        for (Fact fact : left) bytes += size(fact);
-        for (Fact fact : right) bytes += size(fact);
-        return new ReadResult(left, right, bytes);
+                sourceFk ? null : context.request().fkSourceColumn(), budget);
+        return new ReadResult(left, right, budget.bytes);
     }
 
-    private static List<Fact> fetch(Connection db, String table, String key, String fk) throws SQLException {
+    private static List<Fact> fetch(Connection db, String table, String key, String fk,
+                                    RowBudget budget) throws SQLException {
         if (!IDENT.matcher(table).matches() || !IDENT.matcher(key).matches()
                 || fk != null && !IDENT.matcher(fk).matches()) {
             throw fail(422, "SOURCE_NOT_ALLOWED", "列名不属于受控数据库标识符", "fkSourceColumn");
@@ -412,12 +425,15 @@ public class LinkBindingService {
         try (PreparedStatement statement = db.prepareStatement(sql)) {
             statement.setInt(1, MAX_ROWS + 1);
             statement.setQueryTimeout(3);
+            statement.setFetchSize(10);
             try (ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
                     Object keyValue = rs.getObject(1);
                     Object fkValue = fk == null ? null : rs.getObject(2);
                     if (keyValue == null) throw fail(409, "LINK_ENDPOINT_KEY_CONFLICT", "来源身份键不能为空", "sourceKey");
-                    rows.add(new Fact(value(keyValue), value(fkValue)));
+                    Fact fact = new Fact(value(keyValue), value(fkValue));
+                    budget.accept(fact); // Fail before retaining excessive source rows/bytes.
+                    rows.add(fact);
                 }
             }
         }
