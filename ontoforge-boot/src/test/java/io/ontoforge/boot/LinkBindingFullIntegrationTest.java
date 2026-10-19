@@ -234,6 +234,60 @@ class LinkBindingFullIntegrationTest {
                 "OUT", "EQ-002", 50);
         assertThat(mapper.readTree(traverse(zeroOut).getBody()).path("links").size()).isZero();
 
+        // BOUNDED_ROOT_FILTER is the only root predicate source. Every condition
+        // must resolve to a searchable frozen property and explicit M5 source mapping.
+        ObjectNode filteredRoots = traverseRequest(pkg, snapshotId, equipment, lot, id,
+                "equipment-inspections", "OUT", "EQ-001", 50);
+        ObjectNode selector = filteredRoots.putObject("rootSelector");
+        selector.put("kind", "BOUNDED_ROOT_FILTER");
+        ArrayNode selectors = selector.putArray("conditions");
+        selectors.addObject().put("propertyRef","equipment-site").put("operator","EQ")
+                .putObject("literal").put("valueType","STRING").put("value","A");
+        ResponseEntity<String> bounded = traverse(filteredRoots);
+        assertThat(bounded.getStatusCode().value()).as(bounded.getBody()).isEqualTo(200);
+        assertThat(mapper.readTree(bounded.getBody()).path("links").size()).isEqualTo(2);
+        assertThat(mapper.readTree(bounded.getBody()).path("quality").path("completeness").asText())
+                .isEqualTo("COMPLETE");
+
+        ObjectNode noRoots = filteredRoots.deepCopy();
+        ((ObjectNode) noRoots.path("rootSelector").path("conditions").get(0).path("literal"))
+                .put("value","unmatched-site");
+        ResponseEntity<String> emptyRoots = traverse(noRoots);
+        assertThat(emptyRoots.getStatusCode().value()).as(emptyRoots.getBody()).isEqualTo(200);
+        assertThat(mapper.readTree(emptyRoots.getBody()).path("links").size()).isZero();
+
+        ObjectNode badField = filteredRoots.deepCopy();
+        ((ObjectNode) badField.path("rootSelector").path("conditions").get(0))
+                .put("propertyRef","nonexistent-column");
+        ResponseEntity<String> unsafeField = traverse(badField);
+        assertThat(unsafeField.getStatusCode().value()).isEqualTo(422);
+        assertThat(unsafeField.getBody()).contains("UNSUPPORTED_FILTER_FIELD");
+
+        ObjectNode wrongType = filteredRoots.deepCopy();
+        ((ObjectNode) wrongType.path("rootSelector").path("conditions").get(0).path("literal"))
+                .put("valueType","DECIMAL");
+        assertThat(traverse(wrongType).getStatusCode().value()).isEqualTo(422);
+
+        // TARGET FILTER applies AFTER one hop, never changes root membership or
+        // fabricates orphans. The condition is mapped to inspection.status, not SQL text.
+        ObjectNode filteredTargets = traverseRequest(pkg, snapshotId, equipment, lot, id,
+                "equipment-inspections", "OUT", "EQ-001", 50);
+        ArrayNode stepsFiltered = filteredTargets.withArray("steps");
+        ObjectNode terminal = (ObjectNode) stepsFiltered.remove(1);
+        ObjectNode tf = stepsFiltered.addObject();
+        tf.put("kind","FILTER").put("scope","TARGET");
+        tf.putArray("conditions").addObject().put("propertyRef","inspection-status")
+                .put("operator","EQ").putObject("literal")
+                .put("valueType","STRING").put("value","PASS");
+        stepsFiltered.add(terminal);
+        ResponseEntity<String> accepted = traverse(filteredTargets);
+        assertThat(accepted.getStatusCode().value()).as(accepted.getBody()).isEqualTo(200);
+        assertThat(mapper.readTree(accepted.getBody()).path("links").size()).isEqualTo(2);
+        ((ObjectNode) tf.path("conditions").get(0).path("literal")).put("value","FAIL");
+        JsonNode excluded = mapper.readTree(traverse(filteredTargets).getBody());
+        assertThat(excluded.path("links").size()).isZero();
+        assertThat(excluded.path("quality").path("completeness").asText()).isEqualTo("COMPLETE");
+
         ObjectNode paged = traverseRequest(pkg, snapshotId, equipment, lot, id,
                 "equipment-inspections", "OUT", "EQ-001", 1);
         ResponseEntity<String> firstPage = traverse(paged);
