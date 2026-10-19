@@ -865,6 +865,92 @@ public class LinkTraverseService {
         return index;
     }
 
+    private static Map<String, String> mappedConditionColumns(
+            DataBindingService.BindingDetail binding, JsonNode payload, List<Condition> filters,
+            DataBindingService.SourceTable sourceTable) {
+        Map<String, String> result = new HashMap<>();
+        for (Condition filter : filters) {
+            JsonNode property = null;
+            for (JsonNode type : payload.path("objectTypes")) {
+                if (!type.path("id").asText().equals(binding.objectTypeId())) continue;
+                for (JsonNode candidate : type.path("properties")) {
+                    if (candidate.path("id").asText().equals(filter.propertyRef())) {
+                        property = candidate;
+                        break;
+                    }
+                }
+            }
+            if (property == null || !property.path("searchable").asBoolean(false)) {
+                throw fail(422, "UNSUPPORTED_FILTER_FIELD", "属性不是冻结模型的可检索字段", "conditions");
+            }
+            String type = property.path("valueType").asText();
+            if (!Set.of("STRING","INTEGER","DECIMAL","BOOLEAN","ENUM","UUID","DATE","DATETIME")
+                    .contains(type)
+                    || filter.valueType() != null && !type.equals(filter.valueType())) {
+                throw fail(422, "FILTER_TYPE_MISMATCH", "谓词值与冻结属性类型不匹配", "conditions");
+            }
+            if ("PREFIX".equals(filter.operator()) && !Set.of("STRING","ENUM").contains(type)
+                    || Set.of("GT","GTE","LT","LTE").contains(filter.operator())
+                    && !Set.of("INTEGER","DECIMAL").contains(type)) {
+                throw fail(422, "UNSUPPORTED_FILTER_OPERATOR", "属性类型不支持比较算子", "conditions");
+            }
+            String column = null;
+            for (DataBindingService.FieldMapping mapping : binding.fieldMappings()) {
+                if (mapping.propertyRef().equals(filter.propertyRef())) {
+                    column = mapping.sourceColumn();
+                    break;
+                }
+            }
+            String selected = column;
+            if (selected == null || !IDENT.matcher(selected).matches()
+                    || sourceTable.columns().stream().noneMatch(x -> x.name().equals(selected))) {
+                throw fail(422, "FILTER_NOT_BOUND", "属性没有有效的当前 M5 来源映射", "conditions");
+            }
+            result.put(filter.propertyRef(), selected);
+        }
+        return result;
+    }
+
+    private static boolean matches(Fact fact, List<Condition> conditions) {
+        for (Condition c : conditions) {
+            String actual = fact.values().get(c.propertyRef());
+            if ("IS_NULL".equals(c.operator())) {
+                if (actual != null) return false;
+                continue;
+            }
+            if (actual == null) return false;
+            try {
+                boolean accepted = switch (c.operator()) {
+                    case "EQ" -> compare(actual,c.values().get(0),c.valueType())==0;
+                    case "IN" -> c.values().stream().anyMatch(v -> compare(actual,v,c.valueType())==0);
+                    case "PREFIX" -> actual.startsWith(c.values().get(0));
+                    case "GT" -> compare(actual,c.values().get(0),c.valueType())>0;
+                    case "GTE" -> compare(actual,c.values().get(0),c.valueType())>=0;
+                    case "LT" -> compare(actual,c.values().get(0),c.valueType())<0;
+                    case "LTE" -> compare(actual,c.values().get(0),c.valueType())<=0;
+                    default -> throw new IllegalArgumentException("predicate");
+                };
+                if (!accepted) return false;
+            } catch (NumberFormatException ex) {
+                throw fail(422, "FILTER_TYPE_MISMATCH", "来源或查询数值不符合冻结类型", "conditions");
+            }
+        }
+        return true;
+    }
+
+    private static int compare(String actual, String expected, String type) {
+        if ("INTEGER".equals(type) || "DECIMAL".equals(type)) {
+            return new BigDecimal(actual).compareTo(new BigDecimal(expected));
+        }
+        if ("BOOLEAN".equals(type)) {
+            if (!Set.of("true","false").contains(actual.toLowerCase(java.util.Locale.ROOT))) {
+                throw fail(422,"FILTER_TYPE_MISMATCH","来源布尔值非法","conditions");
+            }
+            return Boolean.compare(Boolean.parseBoolean(actual), Boolean.parseBoolean(expected));
+        }
+        return actual.compareTo(expected);
+    }
+
     private static void ensureColumn(DataBindingService.SourceTable table, String column) {
         if (column == null || table.columns().stream().noneMatch(c -> c.name().equals(column))) {
             throw fail(409, "LINK_MAPPING_DRIFT", "绑定所需来源列不再存在", "rootBindingRef");
