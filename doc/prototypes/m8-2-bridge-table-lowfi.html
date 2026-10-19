@@ -206,7 +206,9 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
  const change=()=>{state.dirty=true;$("#dirty-note").hidden=false;resetValidation();};
  const selectedStage=n=>{$$("[data-stage]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.stage===n)));};
  function navigate(view,guard=true){
-   if(guard && state.view==="config" && state.dirty && view!=="config"){
+   // Moving within configure -> FULL -> save keeps the draft. Leaving this
+   // workflow for a read-only workspace must guard ANY outstanding edit state.
+   if(guard && state.dirty && ["type","query","evidence"].includes(view) && view!==state.view){
      if(!window.confirm("当前桥表映射存在未保存修改。离开并丢弃本次编辑吗？"))return false;
      discard();
    }
@@ -342,7 +344,13 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
       "当前 "+(dir==="OUT"?"SOURCE 工单":"TARGET 设备")+" 根："+$("#query-root").value+"（绑定身份域固定）";
    clearVisibleResult("查询条件已修改，请明确执行新查询。");
  }
- function clearVisibleResult(message){$("#result-panel").hidden=true;setStatus("query-outcome","",message,"对象、LinkFact 与聚合仅在新执行成功后展示。");}
+ function clearVisibleResult(message){
+   // A changed root/filter/operation is not the old execution. Never present old
+   // source/version evidence as proof for the currently selected query draft.
+   state.lastResult=null;state.failure=null;
+   $("#result-panel").hidden=true;
+   setStatus("query-outcome","",message,"对象、LinkFact 与聚合仅在新执行成功后展示。");
+ }
  function fail(code,message){
    const r=state.lastResult;
    if(r&&r.snapshot&&!state.retired.includes(r.snapshot))state.retired.push(r.snapshot);
@@ -434,6 +442,9 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
    state.lastResult.page+=1;renderPage();
  }
  function renderEvidence(){
+   // Source table identities and version grants are not public error evidence.
+   // Show the role cards only after the current execution succeeds.
+   $("#three-read-roles").hidden=!!state.failure||!state.lastResult;
    const mappingInUse=state.saved?.mapping||original;
    $("#evidence-source-version").textContent="Binding "+mappingInUse.source+" · READ ONLY · 同一 PG";
    $("#evidence-target-version").textContent="Binding "+mappingInUse.target+" · READ ONLY · 同一 PG";
@@ -463,6 +474,11 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
  $("#restore-config").onclick=discard;
  $("#back-to-config").onclick=()=>navigate("config",false);
  $("#run-validation").onclick=validation;
+ $("#validation-scenario").onchange=()=>{
+   resetValidation();
+   state.validationScenario=null;
+   $("#validation-coverage").textContent="UNVERIFIED · 场景已更改";
+ };
  $("#continue-save").onclick=()=>{navigate("save",false);$("#save-versions").textContent=mapping().source+" + "+mapping().target+" · FULL";$("#save-mapping").textContent=mapping().table+" · "+mapping().sourceFk+" / "+mapping().targetFk;$("#commit-binding").disabled=!state.validated;};
  $("#commit-binding").onclick=save;
  $("#lookup-operation").onclick=commitReceipt;
@@ -473,9 +489,9 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
  $("#run-query").onclick=query;
  $("#next-page").onclick=next;
  $("#open-evidence").onclick=()=>navigate("evidence",false);
- $("#edit-mapping").onclick=()=>navigate("config",false);
+ $("#edit-mapping").onclick=()=>navigate("config");
  $("#repair-config").onclick=()=>navigate("config",false);
- $("#retry-query").onclick=()=>{$("#query-fault").value="none";navigate("query",false);query();};
+ $("#retry-query").onclick=()=>{$("#query-fault").value="none";if(navigate("query"))query();};
  refreshRoots();navigate("config",false);
  window.__m82uxLow={getState:()=>({view:state.view,dirty:state.dirty,validated:state.validated,validationQuality:state.validationQuality,
   revision:state.revision,saved:!!state.saved,saveUnknown:state.saveUnknown,operationId:state.operationId,
