@@ -37,9 +37,19 @@
 
 当前真实后端模块为 `core → common`、`configuration`、`platform → dao`、`business → core/platform/dao` 与 `boot` 组装；箭头表示编译依赖，准确关系见 [完整工程模块规划](./doc/implementation/S0-工程模块规划与命名规范.md)。七份历史 Flyway 迁移统一由 DAO 提供，API、模型/绑定格式、安装 UUID 和认证模式保持原合同。前端仍为单一 npm 工程，按 `app / features / shared` 组织。
 
-在仓库根执行 `.\scripts\run-local.ps1`，脚本先构建实际 Reactor，再启动可执行 Boot jar；已有构建可传 `-SkipBuild`。它沿用当前终端的 DB/Profile/OIDC/来源配置。若使用 `mvn -pl ontoforge-boot spring-boot:run`，须先 `mvn -pl ontoforge-boot -am -DskipTests install` 安装内部依赖。下列有日期的 AS-IS 材料保留其历史基线；最新工程归属以模块规划和代码为准。
+本机默认启动只需在仓库根执行：
 
-沿用 main 的 M7 配置约束：非 `mvp-local` 环境须通过 `ONTOFORGE_OBJECTSET_CURSOR_SIGNING_SECRET` 提供至少 32 字符的稳定私有游标签名密钥。
+```powershell
+.\scripts\run-local.ps1
+```
+
+首次输入已有 PostgreSQL 密码，并设置本地管理员 `admin` 的密码（至少 12 字符）。脚本自动发现 Windows PostgreSQL、创建缺失的本机 `ontoforge` 库、生成独立随机游标签名密钥，构建并启动真实 Boot jar；不需要编辑 YAML 或配置 OIDC。已有库和已有账号保留。配置保存在 Git 忽略的 `config/application.properties`，凭据不回显，Windows 文件权限限制为当前用户；首次管理员创建后从文件移除初始化密码。
+
+以后直接重复这条命令；已有构建可传 `-SkipBuild`。首次脚本初始化完成后，也可在 IDEA 直接运行 `OntoForgeApplication`，工作目录使用仓库根目录，Spring Boot 自动读取这份本机配置。已有 PostgreSQL 的密码不能由应用猜测或内置，故首次仍需输入；新终端无需再次设置环境变量。
+
+高级使用：环境变量优先用于脚本初始化/更新；`-Reconfigure` 重新输入数据库密码（不重置管理员），`-PsqlPath` 指定未发现的 psql，`-NonInteractive` 禁止提示。无人值守首次启动继续要求外部 DB_PASSWORD、签名密钥及空库管理员初始化参数。显式 JWT/mvp-local 路径不自动初始化本地账号；非 loopback 部署不使用此自动准备流程。若使用 `mvn -pl ontoforge-boot spring-boot:run`，须先安装内部依赖。下列有日期的 AS-IS 材料保留其历史基线。
+
+沿用 M7 密钥校验：本机脚本自动生成并复用私有游标签名密钥；显式配置的部署仍通过 `ONTOFORGE_OBJECTSET_CURSOR_SIGNING_SECRET` 提供至少 32 字符的稳定私有值。
 
 ### 公共 UI 与主题
 

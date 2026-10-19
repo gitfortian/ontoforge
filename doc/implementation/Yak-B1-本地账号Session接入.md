@@ -2,6 +2,16 @@
 
 设计依据：[OFIP-0017 / PR #94](https://github.com/gitfortian/ontoforge/pull/94)，[维护者 2026-10-19 明确接受](https://github.com/gitfortian/ontoforge/pull/94#issuecomment-6261109442)。B1/B2 是开发实现候选，尚未生产发布、安全签收或用户既有安装 UAT。
 
+## 默认本机启动（无需编辑配置）
+
+Windows 已安装并运行 PostgreSQL、Java 21 和 Maven 后，在仓库根运行 `.\scripts\run-local.ps1`。首次只输入已有 PostgreSQL 密码和新管理员密码（用户名默认 `admin`）；脚本自动发现 psql、检查连接、创建缺失的本机 OntoForge 数据库并生成随机签名密钥。第一次启动执行正常 Flyway 和受控管理员 bootstrap，成功后删除一次性初始化密码。已有账号不重建或重置。
+
+第二次及以后同一命令直接启动，已有 jar 可加 `-SkipBuild`。IDEA 先运行脚本完成首次初始化，此后直接启动主类，工作目录选择仓库根即可；不需要在每个 IDEA 运行配置里复制秘密。
+
+本机文件 `config/application.properties` 使用当前用户专属 Windows ACL，已加入 Git ignore。文件含数据库密码和稳定签名密钥，属于本机凭据配置，内容不是加密格式；不要移到受版本控制的文件中。名称/包归属等业务状态继续保存在 PostgreSQL。迁移版本、账号密码、授权和会话校验没有默认绕过。
+
+`-Reconfigure` 可重新输入数据库密码，不会重置已有账号。`-NonInteractive` 禁止提示，首次无人值守部署须明确提供外部参数；自动准备只适用于 loopback + 默认本地 Session。显式 mvp-local/JWT 保留原路径，不因初始化脚本自动切换。服务器远程部署仍使用下面的明确环境变量配置。自有 `config/application.properties` 若不是脚本生成，脚本拒绝覆盖。
+
 ## 启动与登录
 
 普通默认 `local-session`；已有 OIDC 安装升级前设置 `ONTOFORGE_SECURITY_AUTHENTICATION_MODE=oidc-jwt` 并保留原 OIDC/VITE_OIDC 配置。显式 `mvp-local` 仍是原有单人隔离开发方式。非法模式启动失败，没有匿名回退。

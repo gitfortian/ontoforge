@@ -7,6 +7,7 @@ ontoforge-ui/dist/
 .env
 .env.*
 !.env.example
+/config/application.properties
 .DS_Store
 __pycache__/
 *.pyc
