@@ -1,7 +1,7 @@
 .idea/
 .vscode/
 *.iml
-ontoforge-boot/target/
+**/target/
 ontoforge-ui/node_modules/
 ontoforge-ui/dist/
 .env

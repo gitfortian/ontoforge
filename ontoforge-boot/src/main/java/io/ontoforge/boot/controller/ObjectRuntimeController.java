@@ -1,10 +1,10 @@
 package io.ontoforge.boot.controller;
 
-import io.ontoforge.boot.model.ObjectRuntimeService;
-import io.ontoforge.boot.model.ObjectRuntimeService.ObjectReadFailure;
-import io.ontoforge.boot.model.ObjectRuntimeService.ObjectReadRequest;
-import io.ontoforge.boot.model.ObjectRuntimeService.ObjectRuntimeFailure;
-import io.ontoforge.boot.model.ObjectRuntimeService.QualityEnvelope;
+import io.ontoforge.business.object.ObjectRuntimeService;
+import io.ontoforge.business.object.ObjectRuntimeService.ObjectReadFailure;
+import io.ontoforge.business.object.ObjectRuntimeService.ObjectReadRequest;
+import io.ontoforge.business.object.ObjectRuntimeService.ObjectRuntimeFailure;
+import io.ontoforge.business.object.ObjectRuntimeService.QualityEnvelope;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
 import java.util.Iterator;

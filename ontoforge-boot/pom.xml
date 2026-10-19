@@ -1,21 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-
     <parent>
         <groupId>io.ontoforge</groupId>
         <artifactId>ontoforge</artifactId>
         <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-
     <artifactId>ontoforge-boot</artifactId>
     <name>OntoForge Boot</name>
-    <description>Spring Boot entry and S0 minimal platform runtime</description>
-
+    <description>Spring Boot assembly and HTTP adapters for the modular ontology application</description>
     <dependencies>
+        <dependency>
+            <groupId>io.ontoforge</groupId>
+            <artifactId>ontoforge-business</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.ontoforge</groupId>
+            <artifactId>ontoforge-platform</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.ontoforge</groupId>
+            <artifactId>ontoforge-dao</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.ontoforge</groupId>
+            <artifactId>ontoforge-configuration</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
@@ -47,24 +58,6 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.networknt</groupId>
-            <artifactId>json-schema-validator</artifactId>
-            <version>3.0.8</version>
-        </dependency>
-        <!-- Jackson 3.2.1 (validator 3) shares these annotations with Jackson 2.
-             Keep Jackson 2 annotations available across the Jackson 2/3 transition. -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-            <version>2.22</version>
-        </dependency>
-        <!-- JCS RFC 8785 reference implementation (Apache-2.0); do not substitute Jackson field ordering. -->
-        <dependency>
-            <groupId>io.github.erdtman</groupId>
-            <artifactId>java-json-canonicalization</artifactId>
-            <version>1.1</version>
-        </dependency>
-        <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
@@ -85,18 +78,10 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
     <build>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
-            </resource>
-            <!-- Runtime and Python use ONE authoritative Native V0.2 JSON schema. -->
-            <resource>
-                <directory>${project.basedir}/../doc/design/schema</directory>
-                <includes><include>ontology-package-v0.2.schema.json</include></includes>
-                <targetPath>native</targetPath>
-                <filtering>false</filtering>
             </resource>
         </resources>
         <plugins>

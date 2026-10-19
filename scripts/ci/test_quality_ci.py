@@ -45,8 +45,16 @@ class ScopeTests(unittest.TestCase):
             with self.subTest(result=result), self.assertRaises(ValueError):
                 quality_ci.evaluate_results(s, {**results, "e2e": result}, "success")
 
+    def test_all_real_backend_modules_select_backend_and_product_e2e(self):
+        for module in quality_ci.BACKEND_MODULES:
+            for suffix in ("pom.xml", "src/main/java/Changed.java", "src/test/java/ChangedTest.java"):
+                with self.subTest(path=module + suffix):
+                    scope = quality_ci.select_paths([module + suffix])
+                    self.assertTrue(scope["backend"] and scope["e2e"])
+                    self.assertFalse(scope["poc"] or scope["frontend"])
+
     def test_backend_flyway_and_frontend(self):
-        s = quality_ci.select_paths(["ontoforge-boot/src/main/resources/db/migration/V2__model.sql",
+        s = quality_ci.select_paths(["ontoforge-dao/src/main/resources/db/migration/V2__model.sql",
                                      "ontoforge-ui/src/main.tsx"])
         self.assertTrue(s["backend"] and s["frontend"])
         self.assertFalse(s["poc"])
@@ -106,6 +114,30 @@ class ScopeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "no fresh Surefire"):
                 quality_ci.require_foundation_reports(Path(folder))
 
+    def test_moved_module_suite_cannot_be_missing_or_skipped(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            boot = root / "ontoforge-boot/target/surefire-reports"
+            boot.mkdir(parents=True)
+            (boot / "TEST-foundation.xml").write_text(
+                '<testsuite><testcase classname="io.ontoforge.boot.FoundationTest" name="realPostgresMigrationAndApiStatus"/>'
+                '<testcase classname="io.ontoforge.boot.FoundationTest" name="migrationVersionOneExists"/></testsuite>',
+                encoding="utf-8",
+            )
+            source = root / "ontoforge-core/src/test/java/example/SchemaTest.java"
+            source.parent.mkdir(parents=True)
+            source.write_text('package example;\nclass SchemaTest { @Test void contract() {} }', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "missing executed module suite"):
+                quality_ci.require_foundation_reports(root)
+            reports = root / "ontoforge-core/target/surefire-reports"
+            reports.mkdir(parents=True)
+            report = reports / "TEST-example.SchemaTest.xml"
+            report.write_text('<testsuite skipped="1"><testcase classname="example.SchemaTest" name="contract"><skipped/></testcase></testsuite>', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "skipped"):
+                quality_ci.require_foundation_reports(root)
+            report.write_text('<testsuite><testcase classname="example.SchemaTest" name="contract"/></testsuite>', encoding="utf-8")
+            quality_ci.require_foundation_reports(root)
+
     def test_reject_skipped_and_partial_reports(self):
         with tempfile.TemporaryDirectory() as folder:
             output = Path(folder) / "ontoforge-boot/target/surefire-reports"
@@ -147,7 +179,7 @@ class ScopeTests(unittest.TestCase):
                 '<testcase classname="io.ontoforge.boot.FoundationTest" name="migrationVersionOneExists"/>'
                 '</testsuite>', encoding="utf-8"
             )
-            source = root / "ontoforge-boot/src/main/java/io/ontoforge/boot/model/RuntimeTypeResolver.java"
+            source = root / "ontoforge-business/src/main/java/io/ontoforge/business/registry/RuntimeTypeResolver.java"
             source.parent.mkdir(parents=True)
             source.write_text("// M4 resolver exists", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "missing real PostgreSQL Runtime Type tests"):

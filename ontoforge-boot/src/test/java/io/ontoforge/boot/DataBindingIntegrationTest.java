@@ -4,10 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.ontoforge.boot.model.DataBindingService;
-import io.ontoforge.boot.model.NativeDraftService;
-import io.ontoforge.boot.model.NativeSnapshotService;
-import io.ontoforge.boot.model.ObjectSetQueryService;
+import io.ontoforge.business.connection.DataBindingService;
+import io.ontoforge.business.model.NativeDraftService;
+import io.ontoforge.business.model.NativeSnapshotService;
+import io.ontoforge.business.query.ObjectSetQueryService;
+import io.ontoforge.dao.query.ObjectSetSourceRepository;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -62,6 +63,7 @@ class DataBindingIntegrationTest {
     @Autowired NativeDraftService drafts;
     @Autowired NativeSnapshotService snapshots;
     @Autowired ObjectSetQueryService objectSetQueries;
+    @Autowired ObjectSetSourceRepository objectSetSource;
 
     private String url(String path) { return "http://127.0.0.1:" + port + path; }
 
@@ -650,10 +652,12 @@ class DataBindingIntegrationTest {
     void m7ExpiredEndToEndDeadlineFailsClosedBeforeStartingAnotherSourceStatement() throws Exception {
         try (Connection connection = sourceJdbc.getDataSource().getConnection();
              PreparedStatement statement = connection.prepareStatement("SELECT 1")) {
-            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(objectSetQueries, "applyRemainingTimeout",
-                    connection, statement, System.nanoTime() - 1_000_000L, "m7-deadline-test"))
-                    .isInstanceOfSatisfying(ObjectSetQueryService.QueryException.class, exception -> {
-                        assertThat(exception.http()).isEqualTo(503);
+            // The physical statement deadline belongs to DAO after the module split;
+            // HTTP status translation remains in the ObjectSet use case and controller.
+            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(objectSetSource, "applyRemainingTimeout",
+                    connection, statement, System.nanoTime() - 1_000_000L))
+                    .isInstanceOfSatisfying(ObjectSetSourceRepository.SourceFailure.class, exception -> {
+                        assertThat(exception.field()).isEqualTo("source");
                         assertThat(exception.code()).isEqualTo("SOURCE_TIMEOUT");
                     });
         }

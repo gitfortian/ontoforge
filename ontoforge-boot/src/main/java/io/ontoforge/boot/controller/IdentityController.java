@@ -1,6 +1,6 @@
 package io.ontoforge.boot.controller;
 
-import io.ontoforge.boot.security.B0AuthorizationService;
+import io.ontoforge.platform.identity.B0AuthorizationService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

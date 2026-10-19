@@ -1,5 +1,9 @@
 package io.ontoforge.boot;
 
+import io.ontoforge.core.compiler.DraftValidation;
+import io.ontoforge.core.compiler.NativePackageSchema;
+import io.ontoforge.business.model.NativeDraftService;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -53,7 +57,7 @@ class NativeDraftTest {
                 .path("draftId").asText());
         ObjectNode own=editor();own.withArray("objectTypes").add(obj("batch","Batch"));
         ObjectNode rival=own.deepCopy();((ObjectNode)rival.path("objectTypes").get(0)).put("description","rival");
-        var service=new io.ontoforge.boot.model.NativeDraftService(jdbc,mapper);
+        var service=new io.ontoforge.business.model.NativeDraftService(new io.ontoforge.dao.model.NativeDraftRepository(jdbc),mapper);
         var injected=new java.util.concurrent.atomic.AtomicBoolean();
         // Force a second committed write exactly after the first SQL mutation,
         // before the first service call can perform any follow-up read.
@@ -69,7 +73,7 @@ class NativeDraftTest {
                 var rows=super.query(sql,rowMapper,args);afterWrite(sql);return rows;
             }
         };
-        var response=new io.ontoforge.boot.model.NativeDraftService(interleaved,mapper).save(id,1,own);
+        var response=new io.ontoforge.business.model.NativeDraftService(new io.ontoforge.dao.model.NativeDraftRepository(interleaved),mapper).save(id,1,own);
         assertThat(injected).isTrue();
         assertThat(response.revision()).isEqualTo(2);
         assertThat(response.editingContent()).isEqualTo(own);
@@ -206,12 +210,12 @@ class NativeDraftTest {
         call(HttpMethod.PUT,"/"+id,saveBody(4,nullable),200);
         JsonNode nullLabels=call(HttpMethod.POST,"/"+id+"/validate",revision(5),200);
         assertThat(nullLabels.path("status").asText()).isEqualTo("VALID");
-        var result=io.ontoforge.boot.model.DraftValidation.validate(
+        var result=io.ontoforge.core.compiler.DraftValidation.validate(
                 "manufacturing.production",nullable,mapper);
         assertThat(result.nativeCandidate()).isNotNull();
         assertThat(result.nativeCandidate().path("objectTypes").get(0).has("label")).isFalse();
         assertThat(result.nativeCandidate().path("objectTypes").get(0).has("description")).isFalse();
         assertThat(result.nativeCandidate().path("objectTypes").get(0).path("properties").get(0).has("label")).isFalse();
-        assertThat(io.ontoforge.boot.model.NativePackageSchema.validate(result.nativeCandidate())).isEmpty();
+        assertThat(io.ontoforge.core.compiler.NativePackageSchema.validate(result.nativeCandidate())).isEmpty();
     }
 }

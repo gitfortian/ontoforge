@@ -107,7 +107,7 @@ jobs:
           cache: maven
           cache-dependency-path: |
             pom.xml
-            ontoforge-boot/pom.xml
+            ontoforge-*/pom.xml
       - name: Verify canonical naming and environment-only database secret
         run: |
           test -f ontoforge-boot/src/main/java/io/ontoforge/boot/OntoForgeApplication.java
@@ -116,7 +116,7 @@ jobs:
           grep -q '<groupId>io.ontoforge</groupId>' pom.xml
           grep -Fq 'password: ${DB_PASSWORD}' ontoforge-boot/src/main/resources/application.yml
       - name: Clear any old test reports before this invocation
-        run: rm -rf ontoforge-boot/target/surefire-reports
+        run: find ontoforge-* -path "*/target/surefire-reports" -type d -prune -exec rm -rf {} +
       - name: Actual PostgreSQL/Flyway JUnit tests
         run: mvn -B -pl ontoforge-boot -am verify
       - name: Require positive JUnit XML for both S0 database/API tests
@@ -128,7 +128,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ontoforge-s0-surefire
-          path: ontoforge-boot/target/surefire-reports/
+          path: ontoforge-*/target/surefire-reports/
           if-no-files-found: warn
           retention-days: 14
 

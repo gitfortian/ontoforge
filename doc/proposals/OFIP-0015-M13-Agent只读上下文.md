@@ -23,7 +23,7 @@
 审阅基线 `6968ea0804f57b2b82f237e37f812bcadb32f343`：
 
 - [QualityMvpController.java](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/QualityMvpController.java) 已有有限 ObjectSet 和关系追溯 HTTP 读能力，当前仍是固定三类型合同，不是通用 Agent Context。
-- [B0AuthorizationService.java](../../ontoforge-boot/src/main/java/io/ontoforge/boot/security/B0AuthorizationService.java) 已有真实 JWT/数据库包授权；[LocalMvpAuthorizationService.java](../../ontoforge-boot/src/main/java/io/ontoforge/boot/security/LocalMvpAuthorizationService.java) 是本机无认证路径，不能把占位身份传播为委托权限。
+- [B0AuthorizationService.java](../../ontoforge-platform/src/main/java/io/ontoforge/platform/identity/B0AuthorizationService.java) 已有真实 JWT/数据库包授权；[LocalMvpAuthorizationService.java](../../ontoforge-platform/src/main/java/io/ontoforge/platform/identity/LocalMvpAuthorizationService.java) 是本机无认证路径，不能把占位身份传播为委托权限。
 - Native V0.2 查询候选明确拒绝 rawSql 和客户端 AuthorizationContext；[结构测试](../design/tests/test_native_v02.py) 不能替代运行时权限和泄漏验收。
 - 当前没有通用 Context REST、MCP Server 或 Agent 运行器，不能把已合并的 M2/M3 宣称为本提案已交付。
 

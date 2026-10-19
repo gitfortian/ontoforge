@@ -1,5 +1,8 @@
 # OntoForge 砺元｜已实现技术与部署架构全景（AS-IS）
 
+> **历史代码基线：2026-10-17。** 2026-10-19 已将现有代码拆为真实 Maven 模块，当前目录/启动方式见 [工程规范化实施](./S0-工程模块规划与命名规范.md)。本文旧模块图保留其盘点时点，源码链接已随迁移更新。
+
+
 > **文档范围**：只描述 2026-10-17 已合并的 `main`（SHA `763fbfe792b45a84db8d3c2c423ca001a05682ed`）实际架构、代码调用链和数据结构。**不是**对原 [V1.3 产品总体架构](../本体产品总体功能与技术架构设计_v1.3.md) 的替代、不是未来模块已经上线的声明。
 >
 > **对照阅读**：[已实现功能全景](./OntoForge-AS-IS-已实现功能全景-20261017.md)（用户看到什么）｜[Native V0.2 设计合同](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md)（约束）｜[PG 研究 POC](../../experiments/pg-runtime/README.md)（实验，不是产品）
@@ -119,10 +122,10 @@ erDiagram
 
 | Flyway 文件 | 真实表/约束 | 语义与重要保护 |
 | --- | --- | --- |
-| [V1__foundation.sql](../../ontoforge-boot/src/main/resources/db/migration/V1__foundation.sql) | `platform_installation` 单行 `installation_id` UUID | 确保安装身份在重启后仍是同一条事实 |
-| [V2__native_package_drafts.sql](../../ontoforge-boot/src/main/resources/db/migration/V2__native_package_drafts.sql) | `native_package_draft`；`package_id UNIQUE`、revision、validated_revision/validation_report、JSONB 编辑文档 | 一个包一个草稿；保留部分完整 WIP，验证结果只针对具体 revision |
-| [V3__native_schema_snapshot.sql](../../ontoforge-boot/src/main/resources/db/migration/V3__native_schema_snapshot.sql) | `native_schema_snapshot`；独立 snapshotId、来源修订、幂等键、规范化原始字节与摘要 | 同草稿修订只能冻结一次；同草稿幂等键唯一；DB trigger 禁止普通 UPDATE/DELETE |
-| [V4__mvp_quality_trace_sandbox.sql](../../ontoforge-boot/src/main/resources/db/migration/V4__mvp_quality_trace_sandbox.sql) | `mvp_source_orders/work_orders/batches` 三表及两段 FK；`mvp_demo_binding` | 明确标记合成测试行；可配置字段角色绑定在 `source_map JSONB`；`bound_revision` 指向当前草稿修订 |
+| [V1__foundation.sql](../../ontoforge-dao/src/main/resources/db/migration/V1__foundation.sql) | `platform_installation` 单行 `installation_id` UUID | 确保安装身份在重启后仍是同一条事实 |
+| [V2__native_package_drafts.sql](../../ontoforge-dao/src/main/resources/db/migration/V2__native_package_drafts.sql) | `native_package_draft`；`package_id UNIQUE`、revision、validated_revision/validation_report、JSONB 编辑文档 | 一个包一个草稿；保留部分完整 WIP，验证结果只针对具体 revision |
+| [V3__native_schema_snapshot.sql](../../ontoforge-dao/src/main/resources/db/migration/V3__native_schema_snapshot.sql) | `native_schema_snapshot`；独立 snapshotId、来源修订、幂等键、规范化原始字节与摘要 | 同草稿修订只能冻结一次；同草稿幂等键唯一；DB trigger 禁止普通 UPDATE/DELETE |
+| [V4__mvp_quality_trace_sandbox.sql](../../ontoforge-dao/src/main/resources/db/migration/V4__mvp_quality_trace_sandbox.sql) | `mvp_source_orders/work_orders/batches` 三表及两段 FK；`mvp_demo_binding` | 明确标记合成测试行；可配置字段角色绑定在 `source_map JSONB`；`bound_revision` 指向当前草稿修订 |
 
 **实际关系**：来源测试表的 PK/FK 是 PostgreSQL 物理数据关系；Native `LinkType` 是模型定义；MVP 通过限定两跳 JOIN 返回临时事实。**并未创建一个独立、持久、可重建的通用 LinkFact 表**。不要把 `mvp_source_*` 称为通用 Ontology Index。
 
@@ -359,10 +362,10 @@ Pull Request / main push
 - [总体架构规划 V1.3](../本体产品总体功能与技术架构设计_v1.3.md)
 - [Native DSL/AST 合同](../design/核心本体元模型与Native-DSL-AST契约_v0.2.md)
 - [后端入口](../../ontoforge-boot/src/main/java/io/ontoforge/boot/OntoForgeApplication.java)
-- [草稿服务](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeDraftService.java)
-- [快照服务](../../ontoforge-boot/src/main/java/io/ontoforge/boot/model/NativeSnapshotService.java)
+- [草稿服务](../../ontoforge-business/src/main/java/io/ontoforge/business/model/NativeDraftService.java)
+- [快照服务](../../ontoforge-business/src/main/java/io/ontoforge/business/model/NativeSnapshotService.java)
 - [质量追溯服务](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/QualityMvpController.java)
-- [数据库版本目录](../../ontoforge-boot/src/main/resources/db/migration/)
+- [数据库版本目录](../../ontoforge-dao/src/main/resources/db/migration/)
 - [系统首页和菜单](../../ontoforge-ui/src/main.tsx)
 - [质量门禁](../../.github/workflows/quality-gate.yml)
 - [实验与真实产品边界](../../experiments/pg-runtime/README.md)

@@ -23,8 +23,8 @@
 基线审阅为 `6968ea0804f57b2b82f237e37f812bcadb32f343`：
 
 - [main.tsx](../../ontoforge-ui/src/main.tsx) 已有 hash 导航、全局未保存保护和运行身份提示。
-- [NativeModelWorkspace.tsx](../../ontoforge-ui/src/NativeModelWorkspace.tsx) 已有真实草稿编辑、校验、版本冲突和异步请求失效保护；[NativeSnapshotWorkspace.tsx](../../ontoforge-ui/src/NativeSnapshotWorkspace.tsx) 提供本地快照。
-- [QualityMvpWorkspace.tsx](../../ontoforge-ui/src/QualityMvpWorkspace.tsx) 与 [QualityMvpController.java](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/QualityMvpController.java) 已实现 M2/M3 有限集合、分页和来源映射，仍围绕三个固定 Native 类型。
+- [NativeModelWorkspace.tsx](../../ontoforge-ui/src/features/design/modeling/NativeModelWorkspace.tsx) 已有真实草稿编辑、校验、版本冲突和异步请求失效保护；[NativeSnapshotWorkspace.tsx](../../ontoforge-ui/src/features/design/releases/NativeSnapshotWorkspace.tsx) 提供本地快照。
+- [QualityMvpWorkspace.tsx](../../ontoforge-ui/src/features/analysis/impact/QualityMvpWorkspace.tsx) 与 [QualityMvpController.java](../../ontoforge-boot/src/main/java/io/ontoforge/boot/controller/QualityMvpController.java) 已实现 M2/M3 有限集合、分页和来源映射，仍围绕三个固定 Native 类型。
 - `mvp-local` 是显式 opt-in 本机无认证路径；非本机 Profile 已有 JWT 及数据库包授权代码。二者都不能被工作台文案追认为生产安全验收；yak-ops HttpSession 只是未来复用方向。
 
 Issue 的方向合理，但 M11 不能成为 M5–M9 第一次交付用户 UI 的阶段。

@@ -1,10 +1,10 @@
 package io.ontoforge.boot.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.ontoforge.boot.model.ObjectSetQueryService;
-import io.ontoforge.boot.model.ObjectSetQueryService.QueryException;
-import io.ontoforge.boot.model.ObjectSetQueryService.QueryFailureResult;
-import io.ontoforge.boot.model.ObjectSetQueryService.QualityEnvelope;
+import io.ontoforge.business.query.ObjectSetQueryService;
+import io.ontoforge.business.query.ObjectSetQueryService.QueryException;
+import io.ontoforge.business.query.ObjectSetQueryService.QueryFailureResult;
+import io.ontoforge.business.query.ObjectSetQueryService.QualityEnvelope;
 import java.util.UUID;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;

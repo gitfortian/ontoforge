@@ -364,5 +364,3 @@ class DataBindingRealBrowserTest(unittest.TestCase):
                 "expiresAt": cursor_first["expiresAt"],
                 "cursor": cursor_first["nextCursor"],
             }, indent=2), encoding="utf-8")
-
-

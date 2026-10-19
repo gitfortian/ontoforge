@@ -1,10 +1,12 @@
 package io.ontoforge.boot;
 
+import io.ontoforge.business.model.NativeDraftService;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import io.ontoforge.boot.model.NativeSnapshotService;
+import io.ontoforge.business.model.NativeSnapshotService;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -241,7 +243,7 @@ class NativeSnapshotTest {
                 if(!start.await(10,TimeUnit.SECONDS))throw new IllegalStateException("Workers never started");
                 try{
                     return service.freeze(draftId,2,UUID.randomUUID()).created()?"201":"200";
-                }catch(io.ontoforge.boot.model.NativeDraftService.DraftFailure e){
+                }catch(io.ontoforge.business.model.NativeDraftService.DraftFailure e){
                     return e.http+":"+e.code;
                 }
             };

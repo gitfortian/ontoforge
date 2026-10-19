@@ -29,6 +29,8 @@
 | [Native DSL/AST V0.2](./design/核心本体元模型与Native-DSL-AST契约_v0.2.md) | 配套**机器可读技术合同**：五份 [V0.2 Package JSON Schema](./design/schema/ontology-package-v0.2.schema.json)、Typed AST、制造质量样例、[契约测试](./design/tests/test_native_v02.py) |
 | [V0.1 → Native V0.2 迁移矩阵](./design/V0.1到NativeV0.2迁移矩阵.md) | 历史 IRI、公理与 EntityType 的显式兼容/拒绝约束，不是第二份总体架构 |
 
+工程目录、依赖、F01–F29 归属及当前模块化落地：[完整工程模块结构规划](./implementation/S0-工程模块规划与命名规范.md)。本文件是 V1.3 的工程分解；正式产品发布/治理合同仍按原状态管理。外部依据：[Yak Ops 固定提交模块核验](./research/2026-10-17-Yak-Ops-模块结构与依赖核验.md)。
+
 ## 证据与参考研究（非第二套架构权威）
 
 | 材料 | 用途 |

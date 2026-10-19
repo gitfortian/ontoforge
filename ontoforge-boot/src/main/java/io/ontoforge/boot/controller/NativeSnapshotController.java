@@ -1,10 +1,11 @@
 package io.ontoforge.boot.controller;
 
+
 import com.fasterxml.jackson.databind.JsonNode;
-import io.ontoforge.boot.model.NativeSnapshotService;
-import io.ontoforge.boot.security.B0AuthorizationService;
+import io.ontoforge.business.model.NativeSnapshotService;
+import io.ontoforge.platform.identity.B0AuthorizationService;
 import org.springframework.security.core.Authentication;
-import io.ontoforge.boot.model.NativeDraftService.DraftFailure;
+import io.ontoforge.business.model.NativeDraftService.DraftFailure;
 import java.net.URI;
 import java.util.Set;
 import java.util.UUID;
