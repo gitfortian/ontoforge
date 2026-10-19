@@ -16,6 +16,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
@@ -57,6 +58,10 @@ public class LinkTraverseService {
     private static final int MAX_LINKS = 10_000;
     private static final int DEADLINE_SECONDS = 3;
     private static final int MAX_SNAPSHOTS = 32;
+    // Four in-flight builders cap transient source/JsonNode amplification
+    // separately from frozen cache retention (32 slots / 16 MiB). This is
+    // best-effort admission, NOT a hard JVM heap-byte guarantee.
+    private static final int MAX_BUILDERS = 4;
     // Stored JSON node trees can use far more heap than their compact JSON.
     // Keep a separate conservative serialized cap across ALL actors in addition
     // to the per-query ≤8 MiB evidence budget.
@@ -70,6 +75,7 @@ public class LinkTraverseService {
     private final ObjectMapper mapper;
     private final byte[] signingKey;
     private final Map<String, Frozen> frozen = new ConcurrentHashMap<>();
+    private final Semaphore builders = new Semaphore(MAX_BUILDERS, true);
 
     private record Frozen(String id, String actor, Instant expiresAt, ObjectNode full,
             long jsonBytes, int pageSize, String direction, String pkg, String snapshotId,
@@ -139,6 +145,18 @@ public class LinkTraverseService {
     }
 
     public ObjectNode execute(JsonNode json, Authentication auth) {
+        if (!builders.tryAcquire()) {
+            throw fail(429, "QUERY_CONCURRENCY_BUDGET",
+                    "并行查询达到限额；未读取来源或返回部分关联，请稍后重试", "limits");
+        }
+        try {
+            return executeAdmitted(json, auth);
+        } finally {
+            builders.release();
+        }
+    }
+
+    private ObjectNode executeAdmitted(JsonNode json, Authentication auth) {
         long deadline = System.nanoTime() + DEADLINE_SECONDS * 1_000_000_000L;
         if (!M8TraverseSchema.validQuery(json)) {
             throw fail(422, "TRAVERSE_CONTRACT_INVALID",
