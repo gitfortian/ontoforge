@@ -236,6 +236,22 @@ class LinkBindingIntegrationTest {
         assertThat(orphan.path("quality").path("completeness").asText()).isEqualTo("PARTIAL");
         assertThat(orphan.path("quality").path("answerScope").asText()).isEqualTo("KNOWN_SUBSET");
 
+        // Caller-requested tighter budgets must not be silently upgraded to 10k.
+        ObjectNode bounded=query(s,id,1,"OUT","EQ-001",25);
+        bounded.putObject("limits").put("maxPhysicalRows",2);
+        ResponseEntity<String> budget=post("/api/runtime/object-sets/traverse",bounded);
+        assertThat(budget.getStatusCode().value()).as(budget.getBody()).isEqualTo(429);
+        assertThat(budget.getBody()).contains("QUERY_BUDGET_EXCEEDED");
+
+        // An attacker-supplied ObjectRef from another identity domain never
+        // authorizes a zero-result or successful traversed snapshot.
+        ObjectNode forged=query(s,id,1,"OUT","EQ-001",25);
+        ((ObjectNode)forged.path("rootSelector").path("objectRef")).put(
+                "identityDomainId",UUID.randomUUID().toString());
+        ResponseEntity<String> forbidden=post("/api/runtime/object-sets/traverse",forged);
+        assertThat(forbidden.getStatusCode().value()).as(forbidden.getBody()).isEqualTo(422);
+        assertThat(forbidden.getBody()).contains("OBJECT_REF_IDENTITY_MISMATCH");
+
         b.put("expectedRevision",1);b.put("idempotencyKey",UUID.randomUUID().toString());
         ResponseEntity<String> updated=put("/api/runtime/link-bindings/"+id,b);
         assertThat(updated.getStatusCode().value()).as(updated.getBody()).isEqualTo(200);
