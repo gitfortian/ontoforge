@@ -608,24 +608,23 @@ public class LinkTraverseService {
                 || !fields(body.path("rootTypeRef"), Set.of("sourceRef", "packageId", "objectTypeId"))
                 || !fields(body.path("rootTypeRef").path("sourceRef"), Set.of("kind", "snapshotId"))
                 || !fields(body.path("rootBindingRef"), Set.of("bindingId", "revision"))
-                || !fields(body.path("rootSelector"), Set.of("kind", "objectRef"))
-                || !fields(body.path("rootSelector").path("objectRef"),
-                        Set.of("packageId", "objectTypeId", "identityDomainId", "key"))
-                || !fields(body.path("rootSelector").path("objectRef").path("key"), Set.of("valueType", "value"))
-                || !"OBJECT_REF".equals(body.path("rootSelector").path("kind").asText())
+                || !body.path("rootSelector").isObject()
+                || !Set.of("OBJECT_REF", "BOUNDED_ROOT_FILTER")
+                        .contains(body.path("rootSelector").path("kind").asText())
                 || !"LOCAL_SNAPSHOT".equals(body.path("rootTypeRef").path("sourceRef").path("kind").asText())
-                || !body.path("steps").isArray() || body.path("steps").size() != 2
+                || !body.path("steps").isArray()
+                || body.path("steps").size() < 2 || body.path("steps").size() > 10
                 || !fields(body.path("steps").get(0), Set.of("kind", "linkTypeRef",
                         "linkBindingRef", "direction", "maxDepth"))
                 || !fields(body.path("steps").get(0).path("linkBindingRef"),
                         Set.of("bindingId", "revision"))
-                || !fields(body.path("steps").get(1), Set.of("kind", "pageSize"))
+                || !fields(body.path("steps").get(body.path("steps").size()-1), Set.of("kind", "pageSize"))
                 || !"TRAVERSE".equals(body.path("steps").get(0).path("kind").asText())
-                || !"PAGE".equals(body.path("steps").get(1).path("kind").asText())
+                || !"PAGE".equals(body.path("steps").get(body.path("steps").size()-1).path("kind").asText())
                 || !body.path("steps").get(0).path("maxDepth").isIntegralNumber()
                 || body.path("steps").get(0).path("maxDepth").asInt() != 1) {
             throw fail(422, "UNSUPPORTED_TRAVERSE_AST",
-                    "当前仅支持 OBJECT_REF + 一条 TRAVERSE + PAGE，其他 AST 不会被静默忽略", "steps");
+                    "当前仅支持单步 TRAVERSE + TARGET FILTER* + PAGE，其他 AST 不会被静默忽略", "steps");
         }
         try {
             JsonNode type = body.path("rootTypeRef");
@@ -643,21 +642,51 @@ public class LinkTraverseService {
             long maxSource = lowered(limit,"maxSourceBytes",MAX_BYTES);
             long maxResult = lowered(limit,"maxSerializedResultBytes",MAX_BYTES);
             int timeout = lowered(limit,"timeoutSeconds",DEADLINE_SECONDS);
-            String rootKeyType = required(root.path("key").path("valueType"));
-            if (!Set.of("STRING", "INTEGER").contains(rootKeyType)) throw new IllegalArgumentException("root key type");
-            String rootKey = required(root.path("key").path("value"));
-            JsonNode pageNode = body.path("steps").get(1).path("pageSize");
+            String selectorKind = required(body.path("rootSelector").path("kind"));
+            String rootKeyType = null;
+            String rootKey = null;
+            String rootDomain = null;
+            List<Condition> rootConditions = List.of();
+            if ("OBJECT_REF".equals(selectorKind)) {
+                if (!fields(body.path("rootSelector"), Set.of("kind", "objectRef"))
+                        || !fields(root, Set.of("packageId", "objectTypeId", "identityDomainId", "key"))
+                        || !fields(root.path("key"), Set.of("valueType", "value"))
+                        || !required(root.path("packageId")).equals(required(type.path("packageId")))
+                        || !required(root.path("objectTypeId")).equals(required(type.path("objectTypeId")))) {
+                    throw new IllegalArgumentException("objectRef");
+                }
+                rootKeyType = required(root.path("key").path("valueType"));
+                if (!Set.of("STRING", "INTEGER").contains(rootKeyType)) throw new IllegalArgumentException("root key type");
+                rootKey = required(root.path("key").path("value"));
+                rootDomain = required(root.path("identityDomainId"));
+                UUID.fromString(rootDomain);
+            } else {
+                if (!fields(body.path("rootSelector"), Set.of("kind", "conditions"))) {
+                    throw new IllegalArgumentException("rootSelector");
+                }
+                rootConditions = readConditions(body.path("rootSelector").path("conditions"));
+            }
+            List<Condition> targetConditions = new ArrayList<>();
+            for (int i = 1; i < body.path("steps").size()-1; i++) {
+                JsonNode filter = body.path("steps").get(i);
+                if (!fields(filter, Set.of("kind", "scope", "conditions"))
+                        || !"FILTER".equals(filter.path("kind").asText())
+                        || !"TARGET".equals(filter.path("scope").asText())) {
+                    throw new IllegalArgumentException("target filter");
+                }
+                targetConditions.addAll(readConditions(filter.path("conditions")));
+                if (targetConditions.size()>8) throw new IllegalArgumentException("too many target conditions");
+            }
+            JsonNode pageNode = body.path("steps").get(body.path("steps").size()-1).path("pageSize");
             if (!pageNode.isIntegralNumber() || !pageNode.canConvertToInt()) {
                 throw new IllegalArgumentException("pageSize");
             }
             int pageSize = pageNode.intValue();
-            if (pageSize < 1 || pageSize > 50 || rootKey.length() > 4096
-                    || !Set.of("OUT","IN").contains(required(step.path("direction")))
-                    || !required(root.path("packageId")).equals(required(type.path("packageId")))
-                    || !required(root.path("objectTypeId")).equals(required(type.path("objectTypeId")))) {
+            if (pageSize < 1 || pageSize > 50
+                    || rootKey != null && rootKey.length() > 4096
+                    || !Set.of("OUT","IN").contains(required(step.path("direction")))) {
                 throw new IllegalArgumentException("root or page mismatch");
             }
-            UUID.fromString(required(root.path("identityDomainId")));
             UUID.fromString(required(type.path("sourceRef").path("snapshotId")));
             UUID.fromString(required(body.path("rootBindingRef").path("bindingId")));
             UUID.fromString(required(step.path("linkBindingRef").path("bindingId")));
@@ -673,8 +702,8 @@ public class LinkTraverseService {
             return new Requested(required(type.path("packageId")), required(type.path("sourceRef").path("snapshotId")),
                     required(type.path("objectTypeId")),
                     required(body.path("rootBindingRef").path("bindingId")), rootRevision,
-                    required(root.path("identityDomainId")), rootKeyType, rootKey,
-                    required(step.path("direction")), required(step.path("linkTypeRef")),
+                    rootDomain, rootKeyType, rootKey, selectorKind, List.copyOf(rootConditions),
+                    List.copyOf(targetConditions), required(step.path("direction")), required(step.path("linkTypeRef")),
                     required(step.path("linkBindingRef").path("bindingId")), linkRevision,
                     pageSize, maxRows, maxJoin, maxLinks, maxSource, maxResult, timeout);
         } catch (RuntimeException ex) {
@@ -682,6 +711,51 @@ public class LinkTraverseService {
             throw fail(422, "MALFORMED_TRAVERSE_REQUEST",
                     "根身份、限制或 Link 版本引用不合法", "rootSelector");
         }
+    }
+
+    private static List<Condition> readConditions(JsonNode nodes) {
+        if (!nodes.isArray() || nodes.isEmpty() || nodes.size() > 8) {
+            throw new IllegalArgumentException("conditions must be bounded");
+        }
+        List<Condition> conditions = new ArrayList<>();
+        for (JsonNode node : nodes) {
+            if (!fields(node, Set.of("propertyRef", "operator", "literal", "values"))) {
+                throw new IllegalArgumentException("condition fields");
+            }
+            String prop = required(node.path("propertyRef"));
+            String op = required(node.path("operator"));
+            if (!Set.of("EQ", "IN", "PREFIX", "GT", "GTE", "LT", "LTE", "IS_NULL").contains(op)
+                    || !prop.matches("[a-z][a-z0-9-]{1,63}")) {
+                throw new IllegalArgumentException("condition operator");
+            }
+            List<String> values = new ArrayList<>();
+            String declaredType = null;
+            if ("IS_NULL".equals(op)) {
+                if (node.has("literal") || node.has("values")) throw new IllegalArgumentException("null literal");
+            } else {
+                JsonNode items = node.path("values");
+                if ("IN".equals(op) && (!items.isArray() || items.isEmpty() || items.size() > 100)
+                        || !"IN".equals(op) && (node.has("values") || !node.has("literal"))) {
+                    throw new IllegalArgumentException("condition literal");
+                }
+                Iterable<JsonNode> literals = "IN".equals(op) ? items : List.of(node.path("literal"));
+                for (JsonNode literal : literals) {
+                    if (!fields(literal, Set.of("valueType", "value"))
+                            || !literal.path("value").isValueNode()) throw new IllegalArgumentException("literal");
+                    String t = required(literal.path("valueType"));
+                    if (!Set.of("STRING","INTEGER","DECIMAL","BOOLEAN","ENUM","DATE","DATETIME","UUID").contains(t)
+                            || declaredType != null && !declaredType.equals(t)) throw new IllegalArgumentException("literal type");
+                    JsonNode value = literal.path("value");
+                    if ("BOOLEAN".equals(t) && !value.isBoolean()
+                            || !"BOOLEAN".equals(t) && !value.isTextual()
+                            || value.asText().length() > 4096) throw new IllegalArgumentException("literal value");
+                    declaredType = t;
+                    values.add(value.asText());
+                }
+            }
+            conditions.add(new Condition(prop, op, declaredType, List.copyOf(values)));
+        }
+        return conditions;
     }
 
     private static String required(JsonNode n) {
