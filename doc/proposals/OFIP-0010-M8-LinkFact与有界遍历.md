@@ -186,3 +186,35 @@ M8 主 Issue 作为上述切片的验收汇总；M8.1 完成只能勾选首切�
 | UX | Native“关系类型”→配置/核验/CAS 保存→ObjectSet 一跳 OUT/IN→证据/异常恢复 | **全新** UX-Low、UX-High 必须分别签收 |
 
 以上是经产品审定但**尚待 OFIP-0010 维护者决议**的权威设计基线。候选 REST 资源路径、迁移号、物理表名和 JSON Schema 不意味着已开发。正式生产实现仍需 UX 双阶段签收 + 维护者明确的 `[VOTE] Accepted`（理由、日期与 permalink）。
+
+---
+
+## 2026-10-19 · M8.1 UX 双阶段签收后，正式实施决策待维护者表决
+
+**这一节是待表决的设计提案更新，不是投票或生产实现状态变更。** 顶部仍保持 `Status: Discussion / Decision: Pending / Implementation: Not Started / Release: Not Released`，不能将“用户批准高保真原型，要求启动开发”解释为维护者已完成 `[VOTE] Accepted`。
+
+### 已满足的产品与浏览器设计证据
+
+1. **R1/R2 产品与架构设计**：[#77](https://github.com/gitfortian/ontoforge/pull/77) / [#79](https://github.com/gitfortian/ontoforge/pull/79) 已签收合并。以 R2-D1–D8 审定版作为 M8.1 的候选实施合同，而不是本文早期包含 M8.2/M8.3 的总路线大范围草案。
+2. **UX-Low**：[#84](https://github.com/gitfortian/ontoforge/pull/84) 已签收合并，静态 Chromium 18/18 PASS。
+3. **UX-High**：[#87](https://github.com/gitfortian/ontoforge/pull/87) 已正式签收合并 `86da1c71`。高保真同 head `7c82c9f0` 的 [Chromium 27/27](https://github.com/gitfortian/ontoforge/actions/runs/39193857575)、[Docs](https://github.com/gitfortian/ontoforge/actions/runs/39193857818)、[原型通用回归](https://github.com/gitfortian/ontoforge/actions/runs/39193857568) 和 [Required Quality](https://github.com/gitfortian/ontoforge/actions/runs/39193857670) 均已成功。已纠正撤权证据暴露、草稿/冻结版本混用、375px 用户任务入口过深。
+4. **用户产品签收**：2026-10-19 当前会话用户进一步明确“原型通过，继续开发启动”。这只改变产品设计/实施准备的准入状态，不自动改变 OFIP 维护者的独立治理状态。
+
+### 请维护者正式决议的八项合同（仅 M8.1 首交付）
+
+- **M8-D1：范围**：同一 Local Snapshot 下用户自定义 LinkType 的单列 FK 双向一跳；M8.2 BRIDGE_TABLE、M8.3 两跳独立交付，拒绝一次性扩大。
+- **M8-D2：身份**：冻结 SOURCE/TARGET M5 Binding 不可变 revision、digest、身份域；LinkFact 身份为 LinkType + 两端类型化 ObjectRef + 快照，不因 OUT/IN 颠倒。
+- **M8-D3：验证/质量**：只有预算内 FULL 才允许 VALID/VALID_WITH_ORPHANS 保存；NULL 无关系，非空孤儿仅影响本次受影响 root 的 PARTIAL/KNOWN_SUBSET，基数/身份冲突 FAILED。
+- **M8-D4：版本/API**：LinkBinding Head/Revision CAS 与创建 idempotency；独立 `local-link-binding-v1` 及 `local-query-v2/local-result-v2`，保证 M7 `local-query-v1/local-result-v1` 原样兼容。
+- **M8-D5：PG 事务**：同一隔离 PG 连接只读 REPEATABLE_READ 验证/Join 双端，来源连接限制为已批准表列；与应用元数据 CAS **不主张跨库原子事务**。
+- **M8-D6：预算/结果**：全端扫描、Join 候选、LinkFact 均 ≤10k，来源/结果各 ≤8MiB，超时 3s，页 ≤50、TTL ≤300s；Join 扇出预算前置、结果冻结且来源当前读资格按页核验。
+- **M8-D7：授权/恢复**：快照 + 两端 OBJECT + LINK Binding + 来源双端的当前授权闭包；无授权不透露敏感源信息；撤权旧 cursor 永久失效，恢复授权也不可复活。
+- **M8-D8：产品验收**：复用已签收两套 UX 与项目现有 React 工作区，单纵向 PR 交付真实 PG17 + Spring Boot API + React Chromium 黄金故事及负例/旧功能回归，不把静态原型用例当生产 E2E。
+
+**实施前高保证准入及 L01–L18 验收矩阵：** [M8.1 实施前审查](../implementation/M8-1-实施前高保证审查与纵向交付验收矩阵.md)。该审查列明真实 `main@86da1c71` 的 M5/M7/Native/Security/React/Flyway V7 可复用责任，以及 LinkBinding 与 Traverse 缺口；无任何生产代码在本次决策 PR 中修改。
+
+### 治理操作说明
+
+维护者须在本次 **OFIP-0010 独立决策 PR** 留下可追溯、带理由和日期的明确 `[VOTE] Accepted` / `Rejected` / `Request changes`，**至少覆盖以上 M8-D1–D8 与 M8.1 单阶段边界**。投票真实存在后，再将其 permalink 回填本文件的 `Decision`，变更 `Status` 并按独立流程合并 Accepted 设计。**不得代维护者投票或在其缺席时合并为 Accepted。**
+
+在上述决议成立前，只授权审查、计划与非生产证据准备。真实 M8.1 Java / React / Flyway / PG17 运行时仍 `NOT STARTED`，M8.1 专属生产黄金故事仍 `NOT RUN`，不存在因为 #87 已合并就“自动开发成功”的事实。
