@@ -1,0 +1,42 @@
+name: M8.1 LinkBinding UX-Low Chromium Review
+
+# Static UX design evidence. Not a production LinkBinding / PostgreSQL / JWT test.
+on:
+  pull_request:
+    paths:
+      - 'doc/prototypes/m8-1-linkbinding-lowfi.html'
+      - 'doc/prototypes/tests/test_m8_1_linkbinding_lowfi_browser.py'
+      - 'doc/implementation/M8-1-LinkBinding-UX-Low评审说明.md'
+      - '.github/workflows/m8-1-linkbinding-lowfi-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  m8-1-ux-low-chromium:
+    name: M8.1 UX-Low Real Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install pinned Playwright
+        run: python -m pip install playwright==1.57.0
+      - name: Install actual Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Verify M8.1 UX-Low interaction and failure contracts
+        env:
+          UX_CAPTURE_SCREENSHOTS: '1'
+          UX_SCREENSHOT_DIR: '${{ runner.temp }}/m8-1-linkbinding-lowfi-shots'
+        run: python -m unittest doc.prototypes.tests.test_m8_1_linkbinding_lowfi_browser -v
+      - name: Upload prototype screenshots on success and failure
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: m8-1-linkbinding-lowfi-chromium
+          path: '${{ runner.temp }}/m8-1-linkbinding-lowfi-shots'
+          if-no-files-found: warn
+          retention-days: 14
