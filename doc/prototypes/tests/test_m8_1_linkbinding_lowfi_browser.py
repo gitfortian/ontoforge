@@ -199,6 +199,17 @@ class M81LinkBindingUXLowBrowser(unittest.TestCase):
         self.assertEqual("query", self.model()["view"])
         self.assertFalse(self.model()["dirty"])
 
+    def test_discard_unsaved_restores_last_saved_revision_choice(self):
+        self.save()
+        self.page.locator("#tab-config").click()
+        self.page.locator("#target-binding").select_option("B-15:r2")
+        self.assertTrue(self.model()["dirty"])
+        self.page.once("dialog", lambda d: d.accept())
+        self.page.locator("#nav-query").click()
+        self.page.locator("#nav-config").click()
+        self.assertEqual("B-15:r3", self.page.locator("#target-binding").input_value())
+        self.assertFalse(self.model()["dirty"])
+
     def test_narrow_viewport_has_no_horizontal_overflow(self):
         self.page.set_viewport_size({"width": 375, "height": 812})
         self.assertTrue(self.page.locator("#view-config").is_visible())
