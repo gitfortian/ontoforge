@@ -967,6 +967,45 @@ public class LinkTraverseService {
         return index;
     }
 
+    private static Map<String,String> mappedResultColumns(
+            DataBindingService.BindingDetail binding, JsonNode payload, Set<String> names,
+            DataBindingService.SourceTable table) {
+        if (names.isEmpty()) return Map.of();
+        List<Condition> required = names.stream().sorted().map(name ->
+                new Condition(name,"IS_NULL",null,List.of())).toList();
+        return mappedConditionColumns(binding,payload,required,table);
+    }
+
+    private static Map<String,String> fieldTypes(JsonNode snapshot, String objectTypeId) {
+        Map<String,String> result = new HashMap<>();
+        for (JsonNode type : snapshot.path("objectTypes")) {
+            if (!objectTypeId.equals(type.path("id").asText())) continue;
+            for (JsonNode property : type.path("properties")) {
+                result.put(property.path("id").asText(), property.path("valueType").asText());
+            }
+        }
+        return result;
+    }
+
+    private static int sortCompare(Fact first, Fact second, List<SortField> fields,
+                                   Map<String,String> types) {
+        for (SortField field : fields) {
+            String left = first.values().get(field.propertyRef());
+            String right = second.values().get(field.propertyRef());
+            if (left == null && right == null) continue;
+            if (left == null) return 1; // NULLS LAST in both directions
+            if (right == null) return -1;
+            int compared;
+            try {
+                compared = compare(left,right,types.get(field.propertyRef()));
+            } catch (NumberFormatException ex) {
+                throw fail(422,"FILTER_TYPE_MISMATCH","排序字段不符合冻结类型","steps");
+            }
+            if (compared != 0) return "DESC".equals(field.direction()) ? -compared : compared;
+        }
+        return first.key().compareTo(second.key());
+    }
+
     private static Map<String, String> mappedConditionColumns(
             DataBindingService.BindingDetail binding, JsonNode payload, List<Condition> filters,
             DataBindingService.SourceTable sourceTable) {
