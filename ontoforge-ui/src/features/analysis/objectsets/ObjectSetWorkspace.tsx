@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
-import {ArrowLeft, CheckCircle2, ChevronRight, Database, Filter, RefreshCw, ShieldAlert, Sigma} from 'lucide-react';
+import {ArrowLeft, CheckCircle2, ChevronRight, Database, Filter, GitBranch, RefreshCw, ShieldAlert, Sigma} from 'lucide-react';
 import {authorizedFetch} from '../../../shared/api/auth';
 import '../../design/modeling/model.css';
 import './object-set.css';
