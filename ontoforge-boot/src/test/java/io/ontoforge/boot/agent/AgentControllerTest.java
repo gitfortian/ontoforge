@@ -18,6 +18,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.env.Environment;
@@ -53,7 +54,9 @@ class AgentControllerTest {
         CountDownLatch checking = new CountDownLatch(1);
         CountDownLatch interruptSwallowed = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
+        AtomicLong innerDeadline = new AtomicLong();
         doAnswer(invocation -> {
+            innerDeadline.set(invocation.getArgument(2));
             checking.countDown();
             boolean released = false;
             while (!released) {
@@ -81,15 +84,24 @@ class AgentControllerTest {
         Environment environment = mock(Environment.class);
         when(environment.acceptsProfiles(any(Profiles.class))).thenReturn(true);
         @SuppressWarnings("unchecked") ObjectProvider<HttpSessionAccounts> sessions = mock(ObjectProvider.class);
-        // A single worker also gives the test a deterministic barrier after the cancelled operation exits.
-        ExecutorService workers = Executors.newSingleThreadExecutor();
+        // Delay worker startup so its own budget still has time left when the outer request expires.
+        // This isolates outer cancellation from the service's independent deadline checks.
+        ExecutorService workers = Executors.newSingleThreadExecutor(task -> {
+            Thread thread = new Thread(() -> {
+                try { TimeUnit.MILLISECONDS.sleep(1000); }
+                catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+                task.run();
+            }, "agent-timeout-regression");
+            thread.setDaemon(true);
+            return thread;
+        });
         try {
             AgentController controller = new AgentController(service, mapper, settings, mock(LocalAccountService.class),
                     sessions, environment, workers, mock(ObjectSetQueryService.class), mock(LinkTraverseService.class));
             MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/agent/v1/runs");
             var body = mapper.createObjectNode().put("runVersion", "local-agent-v1").put("question", "Synthetic question");
             body.putObject("scope").put("snapshotId", snapshotId.toString()).putArray("bindingRefs");
-            body.putObject("limits").put("timeoutSeconds", 1);
+            body.putObject("limits").put("timeoutSeconds", 2);
             request.setContentType("application/json");
             request.setContent(mapper.writeValueAsBytes(body));
 
@@ -99,6 +111,7 @@ class AgentControllerTest {
             });
             assertThat(checking.getCount()).isZero();
             assertThat(interruptSwallowed.await(3, TimeUnit.SECONDS)).isTrue();
+            assertThat(innerDeadline.get() - System.nanoTime()).isGreaterThan(TimeUnit.MILLISECONDS.toNanos(100));
             release.countDown();
             workers.submit(() -> { }).get(3, TimeUnit.SECONDS);
             assertThat(modelRequests).hasValue(0);
