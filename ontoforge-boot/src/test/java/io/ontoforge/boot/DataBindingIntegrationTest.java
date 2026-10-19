@@ -52,7 +52,7 @@ class DataBindingIntegrationTest {
         registry.add("ontoforge.binding.source.url", () -> System.getenv("TEST_DB_URL"));
         registry.add("ontoforge.binding.source.username", () -> "ontoforge_binding_login");
         registry.add("ontoforge.binding.source.password", () -> READER_PASSWORD);
-        registry.add("ontoforge.binding.source.allowed-tables", () -> "m5_supplier_source");
+        registry.add("ontoforge.binding.source.allowed-tables", () -> "m5_supplier_source,m8_equipment_source,m8_inspection_lot_source");
     }
 
     @LocalServerPort int port;
