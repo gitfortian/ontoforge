@@ -284,7 +284,6 @@ public class LinkBindingService {
         for(var row:rows) for(Object value:row.values())if(value!=null)bytes+=key(value).getBytes(StandardCharsets.UTF_8).length+32;
         return (int)Math.min(Integer.MAX_VALUE,bytes);
     }
-    private String fkColumnOwner() {return "";} // overridden by Resolved helper below
     private Count count(Resolved r,FactRows facts) {
         boolean ownerSource="SOURCE".equals(r.fkOwner());
         var owner=ownerSource?facts.source():facts.target();
@@ -437,6 +436,33 @@ public class LinkBindingService {
         authorization.requireSnapshot(auth,h.snapshotId(),B0AuthorizationService.Operation.READ_SNAPSHOT);
         return repository.revisions(id).stream().map(r->detail(id,((Number)r.get("revision")).longValue(),
                 ((Number)r.get("revision")).longValue()!=h.revision())).toList();
+    }
+
+    /**
+     * Source facts for the separate versioned v2 executor. This is NOT a persisted
+     * LinkFact index: both endpoints are reloaded from one read-only PG snapshot.
+     * Rows contain only bounded PK/FK columns, never unapproved client SQL.
+     */
+    public record FactSnapshot(Detail binding, DataBindingService.BindingDetail source,
+            DataBindingService.BindingDetail target, List<Map<String,Object>> sourceRows,
+            List<Map<String,Object>> targetRows, int sourceBytes, Instant readAt) {}
+
+    public FactSnapshot sourceFacts(UUID id,long revision,Authentication auth) {
+        Detail d=revalidate(id,revision,auth);
+        var request=new Request("local-link-binding-v1",
+                new ModelSourceRef("LOCAL_SNAPSHOT",d.snapshotId()),
+                d.packageId(),d.linkTypeId(),
+                new BindingRef(d.sourceBindingId(),d.sourceBindingRevision(),d.sourceBindingDigest()),
+                new BindingRef(d.targetBindingId(),d.targetBindingRevision(),d.targetBindingDigest()),
+                "FOREIGN_KEY",d.fkOwner(),d.fkSourceColumn(),revision,UUID.randomUUID(),
+                new Fingerprints(d.sourceSchemaFingerprint(),d.targetSchemaFingerprint()),
+                new Scope("VALIDATION_SCOPE","FULL"));
+        Resolved r=resolve(request,auth);
+        FactRows facts=facts(r);
+        Count count=count(r,facts);
+        if(count.cardinalityViolation())
+            throw fail(409,"CARDINALITY_VIOLATION","来源当前事实不满足绑定的关系基数","linkBindingId");
+        return new FactSnapshot(d,r.source(),r.target(),facts.source(),facts.target(),facts.bytes(),Instant.now());
     }
 
     /** Rebuild authorization, snapshot identity and source fingerprint gates on execute/page. */
