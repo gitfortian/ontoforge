@@ -62,6 +62,7 @@ public class NativeDraftService {
         ObjectNode n=mapper.createObjectNode();
         n.put("status","NOT_RUN");n.putNull("validatedRevision");n.putArray("issues");return n;
     }
+    @org.springframework.transaction.annotation.Transactional
     public DraftDetail create(String packageId) {
         if(!DraftValidation.packageIdValid(packageId))
             throw new DraftFailure(422,"MODEL_VALIDATION_FAILED","模型包 ID 必须是有效的域式标识",
@@ -80,7 +81,7 @@ public class NativeDraftService {
         return items.getFirst();
     }
     public DraftPage list(int pageSize,String cursor) {
-        return listInternal(pageSize, cursor, null, null);
+        return listInternal(pageSize, cursor, null, null, null);
     }
 
     /** Controller-facing listing restricted to packages assigned to the authenticated subject. */
@@ -88,21 +89,26 @@ public class NativeDraftService {
         if (issuer == null || issuer.isBlank() || subject == null || subject.isBlank()) {
             throw new IllegalArgumentException("Authenticated identity is required");
         }
-        return listInternal(pageSize, cursor, issuer, subject);
+        return list(pageSize,cursor,issuer,subject,null);
     }
 
-    private DraftPage listInternal(int pageSize,String cursor,String issuer,String subject) {
+    public DraftPage list(int pageSize,String cursor,String issuer,String subject,UUID workspace) {
+        if(issuer==null||issuer.isBlank()||subject==null||subject.isBlank())throw new IllegalArgumentException("Authenticated identity is required");
+        return listInternal(pageSize,cursor,issuer,subject,workspace);
+    }
+
+    private DraftPage listInternal(int pageSize,String cursor,String issuer,String subject,UUID workspace) {
         if(pageSize<1 || pageSize>50)throw new DraftFailure(400,"MALFORMED_REQUEST","pageSize 必须在 1 到 50 之间");
         List<DraftDetail> items;
         if(cursor==null || cursor.isBlank()) {
-            items=repository.list(pageSize+1,null,null,issuer,subject,this::map);
+            items=repository.list(pageSize+1,null,null,issuer,subject,workspace,this::map);
         } else {
             try {
                 String decoded=new String(Base64.getUrlDecoder().decode(cursor),StandardCharsets.UTF_8);
                 String[] parts=decoded.split("\\|",-1);
                 if(parts.length!=2)throw new IllegalArgumentException();
                 Instant at=Instant.parse(parts[0]); UUID id=UUID.fromString(parts[1]);
-                items=repository.list(pageSize+1,at,id,issuer,subject,this::map);
+                items=repository.list(pageSize+1,at,id,issuer,subject,workspace,this::map);
             } catch(IllegalArgumentException | DateTimeException e) {
                 throw new DraftFailure(400,"MALFORMED_REQUEST","无效的分页游标");
             }

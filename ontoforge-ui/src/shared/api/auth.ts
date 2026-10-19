@@ -101,6 +101,10 @@ async function readIdentity():Promise<WorkspaceIdentity> {
     throw new Error('服务端返回的身份信息不完整');
   return identity;
 }
+export async function reloadIdentity():Promise<WorkspaceIdentity> {
+  await loadContext();
+  return readIdentity();
+}
 // React StrictMode mounts effects twice in development; exchange each OAuth code ONCE.
 let initialization:Promise<WorkspaceIdentity|null>|null=null;
 export function initializeIdentity():Promise<WorkspaceIdentity|null> {

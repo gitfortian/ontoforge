@@ -1,6 +1,6 @@
 // Layout structure and appearance controls adapted from Yak Ops AppLayout/TopBar.
 import { useState, type ReactNode } from 'react';
-import { Activity, Blocks, Database, GitBranch, Monitor, Palette, LogOut, Users } from 'lucide-react';
+import { Activity, Blocks, Database, GitBranch, Monitor, Palette, LogOut, Users, Folder } from 'lucide-react';
 import PasswordChangeDialog from '../features/platform/accounts/PasswordChangeDialog';
 import { Button } from '../shared/ui/yak/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../shared/ui/yak/dialog';
@@ -25,12 +25,15 @@ type AppShellProps = {
   dirty: boolean;
   logout: () => void;
   signIn: () => void;
+  selectedWorkspace:string;
+  selectWorkspace:(id:string)=>void;
+  refreshWorkspaces:()=>void;
 };
 
-export default function AppShell({ children, location, navigate, identity, dirty, logout, signIn }: AppShellProps) {
+export default function AppShell({ children, location, navigate, identity, dirty, logout, signIn, selectedWorkspace,selectWorkspace,refreshWorkspaces }: AppShellProps) {
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
-  const navigation=[...baseNavigation,...(canManageAccounts()?[{label:'账号管理',path:'#/platform/accounts',prefix:'#/platform/accounts',icon:Users,section:'平台管理'}]:[])];
+  const navigation=[...baseNavigation,...(identity&&identity.issuer!=='local-mvp'?[{label:'工作空间',path:'#/platform/workspaces',prefix:'#/platform/workspaces',icon:Folder,section:'平台管理'}]:[]),...(canManageAccounts()?[{label:'账号管理',path:'#/platform/accounts',prefix:'#/platform/accounts',icon:Users,section:'平台管理'}]:[])];
   const { theme, resolvedTheme, persistent, setTheme } = useTheme();
   const active = navigation.find(item => location.startsWith(item.prefix)) ?? navigation[0];
   const local = identity?.issuer === 'local-mvp';
@@ -50,6 +53,11 @@ export default function AppShell({ children, location, navigate, identity, dirty
         {!identity && <Button variant="ghost" className="app-topbar-button" onClick={signIn}>登录</Button>}
       </div>
     </header>
+    {identity&&!local&&<div className="app-workspace-switch"><label htmlFor="current-workspace">当前工作空间</label>
+      <select id="current-workspace" value={selectedWorkspace} onChange={event=>selectWorkspace(event.target.value)}>
+        {!identity.workspaces.length&&<option value="">尚未加入空间</option>}
+        {identity.workspaces.map(space=><option key={space.workspaceId} value={space.workspaceId}>{space.displayName}</option>)}
+      </select><Button size="small" onClick={refreshWorkspaces}>刷新成员权限</Button></div>}
     <div className="app-body">
       <aside className="app-sidebar" aria-label="主导航">
         <div className="app-sidebar-caption">ONTOFORGE / WORKSPACE</div>

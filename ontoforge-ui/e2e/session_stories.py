@@ -37,6 +37,9 @@ class SessionBrowserCase(unittest.TestCase):
         self.page.get_by_role('heading', name='登录 OntoForge', exact=True).wait_for()
         self.submit_login()
         self.page.get_by_role('heading', name='模型包', exact=True).wait_for()
+        # This account may own additional spaces created by other stories. Select the explicit fixture grant.
+        self.page.locator('#current-workspace').select_option(CONFIG['workspaceId'])
+        self.page.get_by_role('button', name='Native 本体建模', exact=True).click()
 
     def submit_login(self):
         self.page.locator('#login-username').fill(CONFIG['username'])
@@ -241,6 +244,139 @@ class AccountManagementBrowserTest(SessionBrowserCase):
         finally:
             one.close()
             two.close()
+
+
+class WorkspaceBrowserTest(SessionBrowserCase):
+    def mutate(self, request, method, path, data=None):
+        csrf = request.get(BASE + '/api/auth/context').json()['csrf']
+        return getattr(request, method)(BASE + path, headers={csrf['headerName']: csrf['token']}, **({'data': data} if data is not None else {}))
+
+    def account(self):
+        username, password = 'space.' + uuid.uuid4().hex, 'space-password-' + uuid.uuid4().hex
+        response = self.mutate(self.page.request, 'post', '/api/platform/accounts', {'username': username, 'displayName': username, 'password': password, 'systemAdmin': False})
+        self.assertEqual(response.status, 201)
+        return response.json(), password
+
+    def create_ui(self, page, key):
+        page.get_by_role('button', name='工作空间', exact=True).click()
+        page.get_by_role('button', name='创建工作空间', exact=True).click()
+        page.locator('#workspace-key').fill(key)
+        page.locator('#workspace-name').fill('空间 ' + key)
+        page.get_by_role('button', name='保存空间设置', exact=True).click()
+        expect(page.get_by_role('dialog')).not_to_be_visible()
+        page.get_by_role('region', name='空间详情').wait_for()
+        return next(space for space in page.request.get(BASE + '/api/me').json()['workspaces'] if space['workspaceKey'] == key)
+
+    def register_ui(self, page, package_id):
+        page.get_by_role('button', name='登记模型包', exact=True).click()
+        page.locator('#workspace-package').fill(package_id)
+        page.get_by_role('button', name='保存空间设置', exact=True).click()
+        expect(page.get_by_role('dialog')).not_to_be_visible()
+        expect(page.get_by_role('region', name='空间详情')).to_contain_text(package_id)
+
+    def test_create_space_register_package_select_and_save_real_draft(self):
+        self.login()
+        space = self.create_ui(self.page, 'browser-' + uuid.uuid4().hex)
+        package_id = 'workspace.new' + uuid.uuid4().hex
+        self.register_ui(self.page, package_id)
+        self.page.locator('#current-workspace').select_option(space['workspaceId'])
+        self.page.get_by_role('button', name='Native 本体建模', exact=True).click()
+        self.page.get_by_role('heading', name='模型包', exact=True).wait_for()
+        self.page.get_by_role('button', name='创建模型包', exact=True).click()
+        self.page.locator('#create-package-id').fill(package_id)
+        self.page.get_by_role('button', name='创建并继续', exact=False).click()
+        self.page.locator('#obj-id').fill('workspace-object')
+        self.page.locator('#obj-api').fill('WorkspaceObject')
+        self.page.get_by_role('button', name='保存编辑进度', exact=True).click()
+        self.page.get_by_text('当前编辑已与服务器同步', exact=False).wait_for()
+        self.page.reload()
+        expect(self.page.locator('#obj-id')).to_have_value('workspace-object')
+        expect(self.page.locator('#current-workspace')).to_have_value(space['workspaceId'])
+        self.page.get_by_role('button', name='工作空间', exact=True).click()
+        self.page.get_by_role('button', name='查看空间 ' + space['workspaceKey'], exact=True).click()
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth'), 390)
+        self.screenshot('workspace-mobile.png')
+
+    def test_normal_owner_grants_editor_revokes_and_keeps_last_owner(self):
+        self.login()
+        owner, password = self.account()
+        peer, peer_password = self.account()
+        one, two = self.browser.new_context(), self.browser.new_context()
+        try:
+            page, peer_page = one.new_page(), two.new_page()
+            AccountManagementBrowserTest.login_page(self, page, owner['username'], password)
+            AccountManagementBrowserTest.login_page(self, peer_page, peer['username'], peer_password)
+            space = self.create_ui(page, 'owned-' + uuid.uuid4().hex)
+            package_id = 'workspace.owned' + uuid.uuid4().hex
+            self.register_ui(page, package_id)
+            draft = self.mutate(page.request, 'post', '/api/model/drafts', {'packageId': package_id})
+            self.assertEqual(draft.status, 201)
+            draft_url = BASE + '/api/model/drafts/' + draft.json()['draftId']
+            self.assertEqual(peer_page.request.get(draft_url).status, 403)
+            page.locator('#workspace-candidate').fill(peer['username'])
+            page.get_by_role('button', name='搜索主体', exact=True).click()
+            page.get_by_role('button', name='添加成员 ' + peer['username'], exact=True).click()
+            page.get_by_label('EDITOR · 草稿编辑及已有只读查询', exact=True).check()
+            page.get_by_role('button', name='保存空间设置', exact=True).click()
+            expect(page.get_by_role('dialog')).not_to_be_visible()
+            self.assertEqual(peer_page.request.get(draft_url).status, 200)
+            page.once('dialog', lambda dialog: dialog.accept())
+            page.get_by_role('button', name='移除成员 ' + peer['username'], exact=True).click()
+            expect(page.get_by_role('button', name='移除成员 ' + peer['username'], exact=True)).not_to_be_visible()
+            self.assertEqual(peer_page.request.get(draft_url).status, 403)
+            page.once('dialog', lambda dialog: dialog.accept())
+            page.get_by_role('button', name='移除成员 ' + owner['username'], exact=True).click()
+            page.get_by_role('alert').filter(has_text='最后一个可用 OWNER').wait_for()
+            self.assertEqual(self.page.request.get(BASE + '/api/model/drafts/' + draft.json()['draftId']).status, 403)
+        finally:
+            one.close()
+            two.close()
+
+    def test_switch_cancel_keeps_unsaved_editor_confirm_clears_it(self):
+        self.login()
+        original = self.page.locator('#current-workspace').input_value()
+        space = self.create_ui(self.page, 'switch-' + uuid.uuid4().hex)
+        package_id = 'workspace.switch' + uuid.uuid4().hex
+        self.register_ui(self.page, package_id)
+        self.page.locator('#current-workspace').select_option(space['workspaceId'])
+        self.page.get_by_role('button', name='创建模型包', exact=True).click()
+        self.page.locator('#create-package-id').fill(package_id)
+        self.page.get_by_role('button', name='创建并继续', exact=False).click()
+        self.page.locator('#obj-id').fill('keep-workspace-edit')
+        self.page.once('dialog', lambda dialog: dialog.dismiss())
+        self.page.locator('#current-workspace').select_option(original)
+        expect(self.page.locator('#obj-id')).to_have_value('keep-workspace-edit')
+        expect(self.page.locator('#current-workspace')).to_have_value(space['workspaceId'])
+        self.page.once('dialog', lambda dialog: dialog.accept())
+        self.page.locator('#current-workspace').select_option(original)
+        self.page.get_by_role('heading', name='模型包', exact=True).wait_for()
+        expect(self.page.get_by_role('row').filter(has_text=package_id)).not_to_be_visible()
+        self.assertEqual(self.page.locator('#obj-id').count(), 0)
+
+    def test_membership_refresh_clears_removed_space_and_stale_preference(self):
+        self.login()
+        peer, password = self.account()
+        key = 'revoke-' + uuid.uuid4().hex
+        response = self.mutate(self.page.request, 'post', '/api/platform/workspaces', {'workspaceKey': key, 'displayName': '撤权测试空间'})
+        space = response.json()
+        added = self.mutate(self.page.request, 'put', '/api/platform/workspaces/' + space['workspaceId'] + '/members/' + peer['principalId'], {'expectedVersion': space['version'], 'roles': ['EDITOR']})
+        self.assertEqual(added.status, 200)
+        other = self.browser.new_context()
+        try:
+            page = other.new_page()
+            AccountManagementBrowserTest.login_page(self, page, peer['username'], password)
+            expect(page.locator('#current-workspace')).to_have_value(space['workspaceId'])
+            page.evaluate("([principal,space])=>localStorage.setItem('ontoforge:workspace:' + principal, space)", [peer['principalId'], space['workspaceId']])
+            removed = self.mutate(self.page.request, 'delete', '/api/platform/workspaces/' + space['workspaceId'] + '/members/' + peer['principalId'] + '?expectedVersion=' + str(added.json()['workspace']['version']))
+            self.assertEqual(removed.status, 204)
+            page.get_by_role('button', name='刷新成员权限', exact=True).click()
+            expect(page.locator('#current-workspace')).to_have_value('')
+            self.assertEqual(page.request.get(BASE + '/api/model/drafts?workspaceId=' + space['workspaceId']).status, 403)
+            page.reload()
+            expect(page.locator('#current-workspace')).to_have_value('')
+        finally:
+            other.close()
 
 
 if __name__ == '__main__':

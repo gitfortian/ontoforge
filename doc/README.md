@@ -39,7 +39,7 @@
 
 ## 证据与参考研究（非第二套架构权威）
 
-当前 B1 的初始化、登录、显式包授权及兼容模式见 [Yak B1 操作说明](./implementation/Yak-B1-本地账号Session接入.md)；设计已获 [OFIP-0017 接受](https://github.com/gitfortian/ontoforge/pull/94#issuecomment-6261109442)，实现、验收及发布状态分别记录。
+当前 C1 空间、成员及包归属见 [C1 操作说明](./implementation/Yak-C1-工作空间与模型包归属.md)；B1/B2 初始化、登录、账号及兼容模式见 [Yak B1 操作说明](./implementation/Yak-B1-本地账号Session接入.md)；设计已获 [OFIP-0017 接受](https://github.com/gitfortian/ontoforge/pull/94#issuecomment-6261109442)，实现、验收及发布状态分别记录。
 
 | 材料 | 用途 |
 |---|---|

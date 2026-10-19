@@ -53,7 +53,8 @@ const errorHint=(error:ApiError)=>{
   }
 };
 
-export default function ObjectRuntimeWorkspace({route,navigate}:{route:string;navigate:(hash:string)=>void}){
+export default function ObjectRuntimeWorkspace({route,navigate,scopePackages}:{route:string;navigate:(hash:string)=>void;scopePackages?:string[]}){
+  function checkScope(pkg:string){if(scopePackages&&!scopePackages.includes(pkg))throw {code:'WORKSPACE_PACKAGE_REQUIRED',message:'请选择当前工作空间已登记的模型包。'} as ApiError;}
   const [packageId,setPackageId]=useState('');
   const [packageInput,setPackageInput]=useState('');
   const [bindings,setBindings]=useState<BindingSummary[]>([]);
@@ -71,6 +72,7 @@ export default function ObjectRuntimeWorkspace({route,navigate}:{route:string;na
     if(!pkg.trim()){setListError({code:'PACKAGE_REQUIRED',message:'请输入有权访问的模型包 ID。'});setBindings([]);return;}
     setListBusy(true);setListError(null);setBindings([]);setBinding(null);setDescriptor(null);setResult(null);setError(null);
     try{
+      checkScope(pkg.trim());
       const rows=await request<BindingSummary[]>(API+'/bindings?packageId='+encodeURIComponent(pkg.trim()));
       setPackageId(pkg.trim());setPackageInput(pkg.trim());setBindings(rows);
       if(rows.length===0)setListError({code:'NO_BINDINGS',message:'当前模型包没有已保存的通用 Binding revision。请先从 M4 完成类型定义，再到 M5 预览、校验并保存绑定。'});
@@ -83,6 +85,7 @@ export default function ObjectRuntimeWorkspace({route,navigate}:{route:string;na
     try{
       const suffix=revision?'?revision='+revision:'';
       const loaded=await request<BindingDetail>(API+'/bindings/'+encodeURIComponent(id)+suffix);
+      checkScope(loaded.packageId);
       if(loaded.validationStatus!=='VALID')throw {code:'BINDING_UNAVAILABLE',message:'该 Binding revision 未通过校验，不能读取对象。'} as ApiError;
       const type=await request<TypeDescriptor>('/api/model/type-sources/snapshots/'+encodeURIComponent(loaded.snapshotId)+'/types/'+encodeURIComponent(loaded.objectTypeId));
       if(type.packageId!==loaded.packageId||type.objectTypeId!==loaded.objectTypeId||type.payloadSha256!==loaded.payloadSha256){

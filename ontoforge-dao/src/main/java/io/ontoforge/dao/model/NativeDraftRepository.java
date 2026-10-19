@@ -19,6 +19,7 @@ public class NativeDraftRepository {
     public NativeDraftRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     public void create(UUID id, String packageId, String editorVersion, String document) {
+        io.ontoforge.dao.platform.PackageIdentityLock.lock(jdbc,packageId);
         jdbc.update("INSERT INTO native_package_draft (draft_id,package_id,editor_schema_version,editing_document,revision) VALUES (?,?,?,?::jsonb,1)",
                 id, packageId, editorVersion, document);
     }
@@ -28,7 +29,7 @@ public class NativeDraftRepository {
     }
 
     public <T> List<T> list(int limit, Instant before, UUID beforeId,
-                            String issuer, String subject, RowMapper<T> mapper) {
+                            String issuer, String subject, UUID workspace, RowMapper<T> mapper) {
         List<Object> args = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT " + FIELDS + " FROM native_package_draft d WHERE 1=1 ");
         if (before != null) {
@@ -46,6 +47,10 @@ public class NativeDraftRepository {
                  )
                  """);
             args.add(issuer); args.add(subject);
+        }
+        if(workspace!=null) {
+            sql.append(" AND EXISTS (SELECT 1 FROM b0_package_assignment pa WHERE pa.package_id=d.package_id AND pa.workspace_id=?)");
+            args.add(workspace);
         }
         sql.append(" ORDER BY d.updated_at DESC,d.draft_id DESC LIMIT ?"); args.add(limit);
         return jdbc.query(sql.toString(), mapper, args.toArray());

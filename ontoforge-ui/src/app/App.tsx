@@ -6,7 +6,8 @@ import QualityMvpWorkspace from '../features/analysis/impact/QualityMvpWorkspace
 import DataBindingWorkspace from '../features/integration/bindings/DataBindingWorkspace';
 import ObjectRuntimeWorkspace from '../features/objects/explorer/ObjectRuntimeWorkspace';
 import ObjectSetWorkspace from '../features/analysis/objectsets/ObjectSetWorkspace';
-import {authenticationMode,canManageAccounts,initializeIdentity,signOut,WorkspaceIdentity} from '../shared/api/auth';
+import {authenticationMode,canManageAccounts,initializeIdentity,reloadIdentity,signOut,WorkspaceIdentity} from '../shared/api/auth';
+import WorkspaceManager from '../features/platform/workspaces/WorkspaceManager';
 import LoginPanel from '../features/platform/authentication/LoginPanel';
 import AccountWorkspace from '../features/platform/accounts/AccountWorkspace';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../shared/ui/yak/dialog';
@@ -32,6 +33,7 @@ const planned=[
   {title:'数据权限与策略',detail:'Object/Field Policy',icon:ShieldCheck,stage:'P1'}
 ];
 export default function App() {
+  const authEpoch=useRef(0);
   const [status,setStatus]=useState<LoadState>({kind:'loading'});
   const [auth,setAuth]=useState<{kind:'checking'|'missing'|'error'|'ready';identity?:WorkspaceIdentity;message?:string}>({kind:'checking'});
   useEffect(()=>{
@@ -40,14 +42,14 @@ export default function App() {
       if(active)setAuth(identity?{kind:'ready',identity}:{kind:'missing'});
     }).catch(e=>{if(active)setAuth({kind:'error',message:e instanceof Error?e.message:'身份初始化失败'});});
     // Keep the mounted editor behind the recovery dialog so the same user can resume unsaved work.
-    const expired=()=>setAuth(current=>({...current,kind:'missing'}));
+    const expired=()=>{authEpoch.current++;setAuth(current=>({...current,kind:'missing'}));};
     window.addEventListener('ontoforge-auth-expired',expired);
     return ()=>{active=false;window.removeEventListener('ontoforge-auth-expired',expired);};
   },[]);
   const logout=async()=>{
     if(dirtyRef.current&&!window.confirm('尚有未保存编辑。退出会放弃当前编辑，是否继续？'))return;
     try {
-      await signOut();onDirtyChange(false);setAuth({kind:'missing'});navigate('#/system');
+      await signOut();authEpoch.current++;onDirtyChange(false);setAuth({kind:'missing'});navigate('#/system');
     } catch(failure) {
       setAuth(current=>({...current,kind:'error',message:failure instanceof Error?failure.message:'退出会话失败'}));
     }
@@ -64,6 +66,40 @@ export default function App() {
   const objectRuntime=location.startsWith('#/mvp/objects');
   const objectSet=location.startsWith('#/mvp/object-sets');
   const accountManagement=location.startsWith('#/platform/accounts');
+  const workspaceManagement=location.startsWith('#/platform/workspaces');
+  // Yak workspace-context selection pattern: persisted per principal and always validated
+  // against /api/me. This filters the UI; every server resource still checks stored grants.
+  const [preference,setPreference]=useState<{principalId:string;workspaceId:string}|null>(null);
+  const [workspaceError,setWorkspaceError]=useState('');
+  const identity=auth.identity;
+  let preferred=identity&&preference?.principalId===identity.principalId?preference.workspaceId:null;
+  if(identity&&preferred===null){try{preferred=localStorage.getItem('ontoforge:workspace:'+identity.principalId);}catch{/* memory-only selection */}}
+  const selected=identity?.workspaces.find(space=>space.workspaceId===preferred)??identity?.workspaces[0];
+  useEffect(()=>{
+    if(!identity||!selected)return;
+    setPreference(current=>current?.principalId===identity.principalId&&current.workspaceId===selected.workspaceId?current:{principalId:identity.principalId,workspaceId:selected.workspaceId});
+    try{localStorage.setItem('ontoforge:workspace:'+identity.principalId,selected.workspaceId);}catch{/* memory-only selection */}
+  },[identity?.principalId,selected?.workspaceId]);
+  const scopedIdentity=identity?{...identity,workspaces:selected?[selected]:[]}:undefined;
+  const scopePackages=identity&&identity.issuer!=='local-mvp'?selected?.packageIds??[]:undefined;
+  function selectWorkspace(id:string){
+    if(!identity||id===selected?.workspaceId||!identity.workspaces.some(space=>space.workspaceId===id))return;
+    if(dirtyRef.current&&!window.confirm('切换工作空间会放弃尚未保存的编辑，是否继续？'))return;
+    onDirtyChange(false);setPreference({principalId:identity.principalId,workspaceId:id});
+    try{localStorage.setItem('ontoforge:workspace:'+identity.principalId,id);}catch{/* memory-only selection */}
+    navigate('#/model/packages');
+  }
+  async function refreshIdentity(){
+    const epoch=authEpoch.current;
+    const fresh=await reloadIdentity();
+    if(epoch!==authEpoch.current)return;
+    setAuth(current=>current.kind==='ready'&&current.identity?.principalId===fresh.principalId?{kind:'ready',identity:fresh}:current);
+  }
+  async function refreshWorkspaces(){
+    if(dirtyRef.current&&!window.confirm('刷新成员权限可能关闭已失去权限的空间编辑，是否继续？'))return;
+    setWorkspaceError('');
+    try{await refreshIdentity();}catch(failure){setWorkspaceError(failure instanceof Error?failure.message:'刷新成员权限失败');}
+  }
   const mvp=binding||quality||objectRuntime||objectSet;
   async function reload() {
     setStatus({kind:'loading'});
@@ -98,15 +134,18 @@ export default function App() {
     if(hash!==window.location.hash)window.location.hash=hash;
   }
   function loggedIn(identity:WorkspaceIdentity) {
+    authEpoch.current++;
     if(auth.identity && auth.identity.principalId!==identity.principalId)onDirtyChange(false);
     setAuth({kind:'ready',identity});
   }
   return <AppShell location={location} navigate={navigate} identity={auth.identity} dirty={dirty} logout={()=>void logout()}
+    selectedWorkspace={selected?.workspaceId??''} selectWorkspace={selectWorkspace} refreshWorkspaces={()=>void refreshWorkspaces()}
     signIn={()=>navigate('#/model/packages')}>
-      {(model||mvp||accountManagement)?(Boolean(auth.identity)
-        ? <React.Fragment key={auth.identity!.principalId}>{accountManagement?(canManageAccounts()?<AccountWorkspace principalId={auth.identity!.principalId} onDirtyChange={onDirtyChange}/>:<Card className="panel auth-panel"><h1>账号管理</h1><p role="alert">当前账号无权管理本地账号。</p></Card>):binding?<DataBindingWorkspace route={location} navigate={navigate} onDirtyChange={onDirtyChange}/>:quality?<QualityMvpWorkspace navigate={navigate}/>:objectSet?<ObjectSetWorkspace route={location} navigate={navigate}/>:objectRuntime?<ObjectRuntimeWorkspace route={location} navigate={navigate}/>:location.startsWith('#/model/runtime-types/')
+      {workspaceError&&<p role="alert">{workspaceError}</p>}
+      {(model||mvp||accountManagement||workspaceManagement)?(Boolean(auth.identity)
+        ? <React.Fragment key={auth.identity!.principalId+(workspaceManagement?'management':selected?.workspaceId??'')}>{workspaceManagement?(authenticationMode()!=='mvp-local'?<WorkspaceManager onDirtyChange={onDirtyChange} changed={refreshIdentity}/>:<Card><p>本机开发模式未启用工作空间权限。</p></Card>):accountManagement?(canManageAccounts()?<AccountWorkspace principalId={auth.identity!.principalId} onDirtyChange={onDirtyChange}/>:<Card className="panel auth-panel"><h1>账号管理</h1><p role="alert">当前账号无权管理本地账号。</p></Card>):binding?<DataBindingWorkspace scopePackages={scopePackages} route={location} navigate={navigate} onDirtyChange={onDirtyChange}/>:quality?(scopePackages&&!scopePackages.includes('manufacturing.quality')?<Card><p>当前空间未分配质量演示包。</p></Card>:<QualityMvpWorkspace navigate={navigate}/>):objectSet?<ObjectSetWorkspace scopePackages={scopePackages} route={location} navigate={navigate}/>:objectRuntime?<ObjectRuntimeWorkspace scopePackages={scopePackages} route={location} navigate={navigate}/>:location.startsWith('#/model/runtime-types/')
           ? <RuntimeTypeWorkspace route={location} navigate={navigate}/>
-          : <NativeModelWorkspace identity={auth.identity!} onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>}</React.Fragment>
+          : <NativeModelWorkspace workspaceId={identity?.issuer==='local-mvp'?undefined:selected?.workspaceId} identity={scopedIdentity!} onDirtyChange={onDirtyChange} route={location} navigate={navigate}/>}</React.Fragment>
         : <Card className="panel auth-panel" aria-live="polite">
             <h1>{authenticationMode()==='oidc-jwt'?'可信身份验证':'登录 OntoForge'}</h1>
             {auth.kind==='checking'?<p>正在核对身份…</p>:<>
