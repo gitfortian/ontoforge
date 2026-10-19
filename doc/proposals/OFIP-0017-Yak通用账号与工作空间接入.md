@@ -1,12 +1,12 @@
 # OFIP-0017：复用 Yak 本地账号、Session 与工作空间
 
-**Status:** Discussion
+**Status:** Accepted
 
-**Discussion:** 待创建本提案 PR；提案与生产代码分别提交。
+**Discussion:** [PR #94](https://github.com/gitfortian/ontoforge/pull/94)；提案与生产代码分别提交。
 
-**Decision:** Pending — 维护者已于 2026-10-19 在任务中确认“本地账号 + Session 为默认，OIDC/JWT 作为可选兼容模式”；以下接口、持久化与授权合同待明确决定。
+**Decision:** [VOTE] Accepted — 2026-10-19，维护者明确接受本合同并授权 B1 → B2 → C1 实施；[永久决定记录](https://github.com/gitfortian/ontoforge/pull/94#issuecomment-6261109442)。
 
-**Implementation:** Not Started — 本提案不包含账号或空间生产代码；已有 B0 JWT/包授权及公共 UI 不属于本提案的新实现。
+**Implementation:** In Progress — B1 工作分支正在实现；本提案 PR 不包含生产代码。已有 B0 JWT/包授权及公共 UI 不属于本提案的新实现。
 
 **Release:** Not Released
 
@@ -125,4 +125,4 @@ Session 全部变更方法（含登录、退出、密码）要求 CSRF，登录�
 
 ---
 
-**Decision Gate:** 提案 PR 需维护者明确记录 `[VOTE] Accepted` / `Rejected`；合并或绿色 CI 不自动形成批准。确认后按 B1 → B2 → C1 顺序实施，不将本提案标为已实现或已发布。
+**Decision Gate:** 已取得上方明确接受决定；按 B1 → B2 → C1 顺序实施。合并或绿色 CI 不自动形成实现/发布签收；重大改变本合同需重新审议。
