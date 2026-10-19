@@ -60,4 +60,10 @@ public class AuthorizationRepository {
                  ORDER BY pa.package_id
                 """, (rs,i) -> rs.getString(1), issuer, subject);
     }
+    public boolean workspaceMember(String issuer,String subject,UUID workspace) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT EXISTS (SELECT 1 FROM b0_principal p JOIN b0_workspace_membership m ON m.principal_id=p.principal_id
+                 WHERE p.issuer=? AND p.subject=? AND m.workspace_id=?)
+                """,Boolean.class,issuer,subject,workspace));
+    }
 }

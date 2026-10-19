@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Actual Flyway V8 migration and PostgreSQL constraints against the isolated
+ * Actual Flyway V10 migration (after Yak account V8/workspace V9) and PostgreSQL constraints against the isolated
  * ontoforge_test_* test database, never the developer's application database.
  * These are metadata admission tests, not the M8.1 HTTP/React/Traverse acceptance.
  */
@@ -35,7 +35,7 @@ class LinkBindingSchemaIntegrationTest {
         }
         assertThat(jdbc.queryForObject("""
                 SELECT count(*) FROM flyway_schema_history
-                WHERE version='8' AND success=true
+                WHERE version='10' AND success=true
                 """, Integer.class)).isEqualTo(1);
     }
 

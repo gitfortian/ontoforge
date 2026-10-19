@@ -103,6 +103,40 @@ class B0IdentityAuthorizationTest {
         return B0TestSecurityConfiguration.token(jwtEncoder, "outsider-A");
     }
 
+    @Test void jwtWorkspaceCreationAndExplicitRoleGrantUseStoredIssuer() throws Exception {
+        // Independent principals: this story must not change the original editor-A fixture.
+        String creatorSubject="space-creator-"+UUID.randomUUID(),reviewSubject="space-reviewer-"+UUID.randomUUID();
+        UUID reviewer=UUID.randomUUID();
+        upsertPrincipal(UUID.randomUUID(),creatorSubject,"Workspace Creator");
+        upsertPrincipal(reviewer,reviewSubject,"Workspace Reviewer");
+        String token=B0TestSecurityConfiguration.token(jwtEncoder,creatorSubject);
+        String reviewToken=B0TestSecurityConfiguration.token(jwtEncoder,reviewSubject);
+        String key="jwt-"+UUID.randomUUID().toString().replace("-","");
+        var created=call(HttpMethod.POST,"/api/platform/workspaces",token,
+                mapper.writeValueAsString(java.util.Map.of("workspaceKey",key,"displayName","JWT workspace")));
+        assertThat(created.getStatusCode().value()).isEqualTo(201);
+        JsonNode space=mapper.readTree(created.getBody());String id=space.path("workspaceId").asText();
+        assertThat(space.path("roles").toString()).isEqualTo("[\"OWNER\"]");
+        var added=call(HttpMethod.PUT,"/api/platform/workspaces/"+id+"/members/"+reviewer,token,
+                "{\"expectedVersion\":1,\"roles\":[\"REVIEWER\"]}");
+        assertThat(added.getStatusCode().value()).isEqualTo(200);
+        assertThat(call(HttpMethod.GET,"/api/platform/workspaces/"+id+"/members",reviewToken,null).getStatusCode().value()).isEqualTo(200);
+        assertThat(call(HttpMethod.GET,"/api/platform/workspaces/"+id,outsiderToken(),null).getStatusCode().value()).isEqualTo(403);
+        // Current issuer only: a registered principal from another realm cannot be granted.
+        UUID alien=UUID.randomUUID();
+        jdbc.update("INSERT INTO b0_principal(principal_id,issuer,subject,display_name) VALUES (?,?,?,?)",alien,"https://other-issuer.invalid","other","Other realm");
+        assertThat(call(HttpMethod.PUT,"/api/platform/workspaces/"+id+"/members/"+alien,token,
+                "{\"expectedVersion\":2,\"roles\":[\"OWNER\"]}").getStatusCode().value()).isEqualTo(409);
+        String pkg="jwt.new"+UUID.randomUUID().toString().replace("-","");
+        assertThat(call(HttpMethod.POST,"/api/platform/workspaces/"+id+"/packages",token,
+                mapper.writeValueAsString(java.util.Map.of("packageId",pkg))).getStatusCode().value()).isEqualTo(200);
+        var draft=call(HttpMethod.POST,"/api/model/drafts",token,mapper.writeValueAsString(java.util.Map.of("packageId",pkg)));
+        assertThat(draft.getStatusCode().value()).isEqualTo(201);
+        String draftId=mapper.readTree(draft.getBody()).path("draftId").asText();
+        assertThat(call(HttpMethod.GET,"/api/model/drafts/"+draftId,reviewToken,null).getStatusCode().value()).isEqualTo(200);
+        assertThat(call(HttpMethod.PUT,"/api/model/drafts/"+draftId,reviewToken,"{}").getStatusCode().value()).isEqualTo(403);
+    }
+
     private String createAuthorizedDraft() throws Exception {
         String packageId = "manufacturing.b0" + UUID.randomUUID().toString().replace("-", "");
         jdbc.update("INSERT INTO b0_package_assignment(workspace_id,package_id) VALUES (?,?)",

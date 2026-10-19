@@ -5,7 +5,7 @@
 
 ## Purpose and verified current scope
 
-Branch delta for PR #17: B0 JWT/package authorization is an unapproved Draft implementation candidate, documented in its [runbook](doc/implementation/S0-MVP-0.5-B0-可信身份与模型包权限实施说明-20261016.md). It requires external OIDC configuration and explicit database package grants; there is no shipped login UI, permission administration, production security acceptance or OFIP-0005 approval. The S0 statements below describe the accepted baseline. All integration suites, including B0, must retain isolated TEST_DB_* and signed-token negative cases.
+Branch delta: [OFIP-0017 maintainer decision](https://github.com/gitfortian/ontoforge/pull/94#issuecomment-6261109442) authorizes Yak account reuse. B1 adds default local Session login/logout, CSRF and per-user cursors; OIDC/JWT is explicit compatibility mode. Read the [B1 runbook](doc/implementation/Yak-B1-本地账号Session接入.md) before changing authentication, bootstrap or deployment. B2 adds account administration and self-service password changes; C1 adds [workspace/member/package administration](doc/implementation/Yak-C1-工作空间与模型包归属.md), stored-role authorization and per-user workspace selection; no production security acceptance, release or OFIP-0005 approval is implied. Retain isolated TEST_DB_* and signed-token negative cases.
 
 OntoForge is an independent enterprise/industrial operational ontology platform. **Do not couple it to data-ops** or claim that S0 implements authentication, trusted authorization, real object querying, connectors, production policies or Actions. S0 **does** now implement local Native ObjectType/LinkType editing and immutable schema snapshot history.
 
@@ -30,7 +30,7 @@ Authoritative design references:
 
 - `ontoforge-boot`: Spring Boot entry, HTTP/security adapters and explicit module assembly. `ontoforge-business` owns Draft/Snapshot/Binding/Object/quality and local-query-v1 ObjectSet use cases and their transactions; `ontoforge-platform` owns stored-identity authorization and platform status.
 - `ontoforge-ui`: current single Vite/React application. No fictitious `apps/web`, multi-app workspace or extra shared component library before there are real consumers.
-- `ontoforge-core` owns existing Native editor/schema validation; `ontoforge-dao` owns SQL, bounded PostgreSQL source reads and the unchanged Flyway V1–V7 sequence. `ontoforge-configuration` owns local environment guards; `ontoforge-common` owns shared byte digests. For module changes, read the [module plan and current implementation](doc/implementation/S0-工程模块规划与命名规范.md), and run `scripts/ci/test_module_structure.py`.
+- `ontoforge-core` owns existing Native editor/schema validation; `ontoforge-dao` owns SQL, bounded PostgreSQL source reads and forward-only Flyway migrations (V1–V8 immutable; V9 workspace versions). `ontoforge-configuration` owns local environment guards; `ontoforge-common` owns shared byte digests. For module changes, read the [module plan and current implementation](doc/implementation/S0-工程模块规划与命名规范.md), and run `scripts/ci/test_module_structure.py`.
 - SPI/plugins/task-execution/dist and other future modules remain planned; create them when a real owner, caller, dependency direction and tests justify them.
 - Domain core owns Native ObjectType/LinkType/AST/contracts, not database/HTTP/LLM implementation details. Persistence and integrations are adapters; no Core → Boot, Business → Boot or Core → Connector reverse dependency.
 - Native Schema/Typed AST, semantic facts, Data Binding, ObjectSet query/evidence, deterministic Function/Decision and policy-controlled Action are **different contracts**. Do not collapse states or let a client choose its own authorization context.
@@ -38,7 +38,7 @@ Authoritative design references:
 
 ## Safety, migrations, documentation
 
-- S0 has **no authentication/authorization/isolation**. Bind local services to loopback; do not expose to public networks or real industrial production data.
+- Explicit `mvp-local` has **no multi-user authentication/authorization/isolation**; B1 Session is a development candidate. Bind local services to loopback; do not expose to public networks or real industrial production data.
 - Never commit database passwords, connection tokens, operational secrets, action permissions or sensitive source payloads to code, docs, Git history, tests or logs. `DB_PASSWORD` must be supplied externally for local PostgreSQL.
 - Flyway migrations already applied must stay immutable. Add forward migrations and real database tests; do not erase local databases or use repair as a shortcut.
 - Action execution and industrial physical control are **not** authorized by any prompt, model output or inference. P0/S0 must not activate dangerous tools or fabricate policy enforcement.

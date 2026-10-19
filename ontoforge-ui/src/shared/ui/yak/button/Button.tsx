@@ -1,0 +1,90 @@
+import type { Button as BaseButtonNS } from "@base-ui/react/button";
+import { Button as BaseButton } from "@base-ui/react/button";
+import { cva, type VariantProps } from "class-variance-authority";
+import { forwardRef, type ForwardedRef } from "react";
+
+import { cn } from "../cn";
+import { Spinner } from "../spinner";
+
+export const buttonVariants = cva(
+  "inline-flex cursor-pointer items-center justify-center whitespace-nowrap font-medium outline-none transition-[background-color,border-color,color,box-shadow,transform] duration-150 focus-visible:ring-[3px] focus-visible:ring-[var(--yak-components-button-focus-ring)] data-disabled:cursor-not-allowed data-disabled:opacity-45",
+  {
+    variants: {
+      variant: {
+        primary:
+          "border border-[var(--yak-components-button-primary-bg)] bg-[var(--yak-components-button-primary-bg)] [color:var(--yak-components-button-primary-text)] hover:border-[var(--yak-components-button-primary-bg-hover)] hover:bg-[var(--yak-components-button-primary-bg-hover)] active:border-[var(--yak-components-button-primary-bg-active)] active:bg-[var(--yak-components-button-primary-bg-active)]",
+        secondary:
+          "border border-transparent bg-[var(--yak-components-button-secondary-bg)] [color:var(--yak-components-button-secondary-text)] hover:bg-[var(--yak-components-button-secondary-bg-hover)] active:bg-[var(--yak-components-button-secondary-bg-active)]",
+        ghost:
+          "border border-transparent bg-transparent [color:var(--yak-components-button-ghost-text)] hover:bg-[var(--yak-components-button-ghost-bg-hover)] hover:[color:var(--yak-components-button-secondary-text)] active:bg-[var(--yak-components-button-secondary-bg-active)]",
+        danger:
+          "border border-transparent bg-[var(--yak-components-button-danger-bg)] [color:var(--yak-components-button-danger-text)] hover:bg-[var(--yak-components-button-danger-bg-hover)] active:bg-[var(--yak-components-button-danger-bg-active)]",
+      },
+      size: {
+        small:
+          "h-7 gap-1.5 rounded-[var(--yak-radius-control-small)] px-2.5 text-[length:var(--yak-font-size-control-small)]",
+        medium:
+          "h-[34px] gap-[7px] rounded-[var(--yak-radius-control-medium)] px-[13px] text-[length:var(--yak-font-size-control-medium)]",
+        large:
+          "h-10 gap-2 rounded-[var(--yak-radius-control-large)] px-4 text-[length:var(--yak-font-size-control-large)]",
+      },
+    },
+    defaultVariants: {
+      variant: "secondary",
+      size: "medium",
+    },
+  },
+);
+
+export type ButtonProps = Omit<BaseButtonNS.Props, "className" | "ref"> &
+  VariantProps<typeof buttonVariants> & {
+    className?: string;
+    loading?: boolean;
+  };
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    children,
+    className,
+    disabled,
+    focusableWhenDisabled,
+    loading = false,
+    size,
+    type = "button",
+    variant,
+    ...props
+  },
+  ref,
+) {
+  return (
+    <BaseButton
+      {...props}
+      ref={ref as ForwardedRef<HTMLElement>}
+      type={type}
+      disabled={disabled || loading}
+      focusableWhenDisabled={focusableWhenDisabled ?? loading}
+      aria-busy={loading || undefined}
+      className={cn(
+        buttonVariants({ size, variant }),
+        loading && "relative data-disabled:cursor-wait data-disabled:opacity-100",
+        className,
+      )}
+    >
+      {loading ? (
+        <span className="inline-flex items-center gap-[inherit] opacity-0">{children}</span>
+      ) : (
+        children
+      )}
+      {loading ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center"
+        >
+          <Spinner size={size ?? "medium"} className="text-current" />
+        </span>
+      ) : null}
+    </BaseButton>
+  );
+});
+
+Button.displayName = "Button";

@@ -55,6 +55,7 @@ jobs:
       TEST_DB_URL: jdbc:postgresql://127.0.0.1:5432/ontoforge_test_e2e
       TEST_DB_USERNAME: ontology
       TEST_DB_PASSWORD: ontology_dev_only
+      ONTOFORGE_SECURITY_AUTHENTICATION_MODE: oidc-jwt
       E2E_AUTH_FILE: /tmp/ontoforge-b0-private-fixture.json
       E2E_M5_BINDING_EVIDENCE: /tmp/ontoforge-m5-binding-acceptance.json
       E2E_M7_CURSOR_EVIDENCE: /tmp/ontoforge-m7-cursor-acceptance.json
@@ -478,3 +479,97 @@ jobs:
           path: /tmp/ontoforge-e2e-evidence/
           if-no-files-found: warn
           retention-days: 14
+  session-stories:
+    name: Real Local Session User Stories
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: ontoforge_test_session_e2e
+          POSTGRES_USER: ontology
+          POSTGRES_PASSWORD: ontology_dev_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ontology -d ontoforge_test_session_e2e"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    env:
+      DB_URL: jdbc:postgresql://127.0.0.1:5432/ontoforge_test_session_e2e
+      DB_USERNAME: ontology
+      DB_PASSWORD: ontology_dev_only
+      TEST_DB_URL: jdbc:postgresql://127.0.0.1:5432/ontoforge_test_session_e2e
+      TEST_DB_USERNAME: ontology
+      TEST_DB_PASSWORD: ontology_dev_only
+      SESSION_E2E_AUTH_FILE: /tmp/ontoforge-session-private.json
+      ONTOFORGE_BOOTSTRAP_ADMIN_ENABLED: 'true'
+      ONTOFORGE_OBJECTSET_CURSOR_SIGNING_SECRET: ontoforge-e2e-local-session-cursor-secret-2026
+      S0_HOST: 127.0.0.1
+      E2E_SHOTS: /tmp/ontoforge-session-screens
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ontoforge-ui/package-lock.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Build and prepare private test credentials
+        run: |
+          mvn -B -pl ontoforge-boot -am -DskipTests install
+          mvn -B -pl ontoforge-boot dependency:build-classpath -Dmdep.outputFile=target/e2e-classpath
+          java -cp "ontoforge-boot/target/test-classes:$(cat ontoforge-boot/target/e2e-classpath)" io.ontoforge.boot.LocalSessionBrowserFixture prepare "$SESSION_E2E_AUTH_FILE"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          fixture = json.loads(Path(os.environ['SESSION_E2E_AUTH_FILE']).read_text())
+          print('::add-mask::' + fixture['password'])
+          with open(os.environ['GITHUB_ENV'], 'a') as stream:
+              stream.write('ONTOFORGE_BOOTSTRAP_ADMIN_USERNAME=' + fixture['username'] + '\n')
+              stream.write('ONTOFORGE_BOOTSTRAP_ADMIN_PASSWORD=' + fixture['password'] + '\n')
+          PY
+      - name: Start default Session server and explicitly grant the test workspace
+        run: |
+          java -jar ontoforge-boot/target/ontoforge-boot-0.1.0-SNAPSHOT.jar >/tmp/ontoforge-session-api.log 2>&1 &
+          echo $! >/tmp/ontoforge-session-api.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8080/api/system/status >/dev/null; then break; fi
+            sleep 1
+          done
+          java -cp "ontoforge-boot/target/test-classes:$(cat ontoforge-boot/target/e2e-classpath)" io.ontoforge.boot.LocalSessionBrowserFixture provision "$SESSION_E2E_AUTH_FILE"
+          cd ontoforge-ui
+          npm ci
+          npm run dev -- --host 127.0.0.1 --port 5173 >/tmp/ontoforge-session-vite.log 2>&1 &
+          echo $! >/tmp/ontoforge-session-vite.pid
+      - name: Run real password, Cookie, CSRF, save, logout and recovery stories
+        run: |
+          python -m pip install playwright==1.57.0
+          python -m playwright install --with-deps chromium
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          python -m unittest discover -s ontoforge-ui/e2e -p session_stories.py -v
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ontoforge-local-session-real-e2e
+          path: |
+            /tmp/ontoforge-session-api.log
+            /tmp/ontoforge-session-vite.log
+            /tmp/ontoforge-session-screens/
+          retention-days: 14
+      - name: Stop this job's application processes
+        if: always()
+        run: |
+          for file in /tmp/ontoforge-session-api.pid /tmp/ontoforge-session-vite.pid; do
+            if test -f "$file"; then kill "$(cat "$file")" 2>/dev/null || true; fi
+          done

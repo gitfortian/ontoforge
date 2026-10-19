@@ -1,3 +1,4 @@
+import { Button } from '../../../shared/ui/yak/button';
 import React, {useEffect, useState} from 'react';
 import {ArrowLeft, BadgeCheck, Database, RefreshCw, ShieldAlert} from 'lucide-react';
 import './model.css';
@@ -147,15 +148,15 @@ export default function RuntimeTypeWorkspace({route,navigate}:{route:string;navi
         <p>读取通过校验的 Native ObjectType 定义及其明确来源。这里只展示类型合同，不代表已绑定业务实例、正式发布或可执行 Action。</p>
       </div>
       <div className="model-actions">
-        <button className="model-btn" onClick={()=>setRefreshKey(value=>value+1)} disabled={loading||detailLoading}><RefreshCw size={15}/> 重新核验</button>
-        <button className="model-btn" onClick={()=>navigate(returnHash)}><ArrowLeft size={15}/> 返回来源</button>
+        <Button className="model-btn" onClick={()=>setRefreshKey(value=>value+1)} disabled={loading||detailLoading}><RefreshCw size={15}/> 重新核验</Button>
+        <Button className="model-btn" onClick={()=>navigate(returnHash)}><ArrowLeft size={15}/> 返回来源</Button>
       </div>
     </div>
 
     {loading&&<section className="model-panel"><p role="status">正在读取 Native 来源并核验类型合同…</p></section>}
     {error&&<section className="model-panel"><div className="model-alert error" role="alert">{error}</div>
       <p className="model-help">草稿来源需要当前 revision 为 VALID；快照来源需要摘要、规范化字节与 JSONB 镜像核验成功。</p>
-      <button className="model-btn" onClick={()=>setRefreshKey(value=>value+1)}><RefreshCw size={15}/> 重试读取</button>
+      <Button className="model-btn" onClick={()=>setRefreshKey(value=>value+1)}><RefreshCw size={15}/> 重试读取</Button>
     </section>}
 
     {catalog&& !error&&<>
@@ -196,18 +197,18 @@ export default function RuntimeTypeWorkspace({route,navigate}:{route:string;navi
           <header className="model-panel-head"><div><h2>对象类型</h2><p>按稳定 ObjectType ID 排序；选择类型查看属性合同。</p></div><span className="model-count">{catalog.items.length}</span></header>
           {catalog.items.length===0
             ?<div className="model-empty compact"><strong>当前来源没有对象类型</strong><span>回到建模工作台添加对象类型，并保存、校验或冻结新快照。</span></div>
-            :catalog.items.map(item=><button key={item.objectTypeId} className={'runtime-type-item '+(selectedId===item.objectTypeId?'selected':'')}
+            :catalog.items.map(item=><Button key={item.objectTypeId} className={'runtime-type-item '+(selectedId===item.objectTypeId?'selected':'')}
                 onClick={()=>setSelectedId(item.objectTypeId)} aria-pressed={selectedId===item.objectTypeId}>
                 <span><b>{item.label||item.apiName}</b><small>{item.apiName} · {item.objectTypeId}</small><small>主键：{item.primaryKeyRef} · 属性 {item.propertyCount}</small></span>
                 <span aria-hidden="true">›</span>
-              </button>)}
+              </Button>)}
           <div className="model-footnote"><ShieldAlert size={14}/> 类型定义不等于对象实例或数据绑定。</div>
         </section>
 
         <section className="model-panel runtime-type-detail">
           <header className="model-panel-head"><div><h2>类型详情</h2><p>只读 Native RuntimeTypeDescriptor</p></div>
             <div className="model-actions">
-              {detail&&snapshotId&&<button className="model-btn primary" onClick={()=>navigate('#/mvp/bindings?packageId='+encodeURIComponent(detail.packageId)+'&snapshotId='+encodeURIComponent(snapshotId)+'&objectTypeId='+encodeURIComponent(detail.objectTypeId))}><Database size={14}/> 创建绑定</button>}
+              {detail&&snapshotId&&<Button className="model-btn primary" onClick={()=>navigate('#/mvp/bindings?packageId='+encodeURIComponent(detail.packageId)+'&snapshotId='+encodeURIComponent(snapshotId)+'&objectTypeId='+encodeURIComponent(detail.objectTypeId))}><Database size={14}/> 创建绑定</Button>}
               {detail&&<span className="model-status valid">{detail.lifecycle}</span>}
             </div></header>
           {detailLoading&&<div className="model-empty compact" role="status">正在读取类型详情…</div>}

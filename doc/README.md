@@ -39,8 +39,11 @@
 
 ## 证据与参考研究（非第二套架构权威）
 
+当前 C1 空间、成员及包归属见 [C1 操作说明](./implementation/Yak-C1-工作空间与模型包归属.md)；B1/B2 初始化、登录、账号及兼容模式见 [Yak B1 操作说明](./implementation/Yak-B1-本地账号Session接入.md)；设计已获 [OFIP-0017 接受](https://github.com/gitfortian/ontoforge/pull/94#issuecomment-6261109442)，实现、验收及发布状态分别记录。
+
 | 材料 | 用途 |
 |---|---|
+| [通用底座现状与 Yak Ops 复用评估](./research/2026-10-19-OntoForge-通用底座现状与Yak-Ops复用评估.md) | 固定源码核验、公共能力覆盖与分批复用顺序；区分 Yak 已实现功能与需另行建设的能力 |
 | [Palantir Ontology 官方材料深度研究](./research/2026-10-15-Palantir-Ontology-运营核心深度研究.md) | 公开产品事实、抽象关系与设计边界；不代表知晓厂商私有实现 |
 | [GB/T 48000.3 专项差距矩阵](./research/2026-10-14-GBT48000.3-本体建模要求差距矩阵.md) | 标准数字化专业建模 Profile 与通用企业本体的适用范围 |
 | [OMBOK / GB/T 48000.4 研究](./research/2026-10-14-OMBOK-GBT48000.4-蒸馏与差距分析.md) | 治理、语义共识及质量的研究证据 |
@@ -50,6 +53,7 @@
 
 | 文件 | 状态与用途 |
 | --- | --- |
+| [OFIP-0017：Yak 通用账号与工作空间接入](./proposals/OFIP-0017-Yak通用账号与工作空间接入.md) | **Accepted（[维护者决定](https://github.com/gitfortian/ontoforge/pull/94#issuecomment-6261109442)）/ B1 In Progress / Not Released**；默认本地账号 + Session、显式 OIDC 兼容；可信身份、前向迁移、管理员/空间授权与逐用户 cursor 验收合同 |
 | [OFIP-0001：需求提案、文档治理与 CI 证据门禁](./proposals/OFIP-0001-需求提案文档治理与CI证据门禁.md) | **Accepted / 分阶段实施**：规范和可信 CI 已独立交付；当前门禁、保护配置和实际证据见下方 CI 手册，后续按真实场景演进 |
 | [OFIP-0002：Native ObjectType 草稿建模 MVP](./proposals/OFIP-0002-ObjectType-草稿建模MVP.md) | **Accepted / Code Merged（[PR #7](https://github.com/gitfortian/ontoforge/pull/7)）/ Not Released**；对象/属性编辑与校验的设计及实现入口，当前环境验收统一见产品进度总账 |
 | [OFIP-0003：模型快照、结构差异与发布边界](./proposals/OFIP-0003-S0-MVP-0.3-模型快照与发布边界.md) | **Accepted / Code Merged（[PR #11](https://github.com/gitfortian/ontoforge/pull/11)）/ Not Released**；本地不可变历史和结构风险；正式 Release 未实现；当前环境验收统一见产品进度总账 |

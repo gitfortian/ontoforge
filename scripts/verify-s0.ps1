@@ -69,8 +69,11 @@ try {
 if ($status.service -ne 'ontoforge' -or $status.version -ne 'S0-MVP-0.3' -or $status.database -ne 'CONNECTED') {
     throw 'The status API did not report the expected real S0-MVP-0.3 service and PostgreSQL connection.'
 }
-if ($status.modelModule -ne 'DRAFT_AVAILABLE' -or $status.snapshotModule -ne 'LOCAL_SNAPSHOT_AVAILABLE' -or $status.authModule -ne 'JWT_PACKAGE_AUTHORIZATION') {
-    throw 'Expected draft modeling, local snapshots and B0 JWT package authorization.'
+$expectedAuthModule = if (($env:SPRING_PROFILES_ACTIVE -split ',') -contains 'mvp-local') { 'LOCAL_MVP_ONLY' }
+    elseif ($env:ONTOFORGE_SECURITY_AUTHENTICATION_MODE -eq 'oidc-jwt') { 'JWT_PACKAGE_AUTHORIZATION' }
+    else { 'SESSION_PACKAGE_AUTHORIZATION' }
+if ($status.modelModule -ne 'DRAFT_AVAILABLE' -or $status.snapshotModule -ne 'LOCAL_SNAPSHOT_AVAILABLE' -or $status.authModule -ne $expectedAuthModule) {
+    throw "Expected draft modeling, local snapshots and configured authentication mode $expectedAuthModule."
 }
 if ($status.installationId -ne $databaseInstallationId) {
     throw "API installationId does not match the PostgreSQL row. Check that both target the same database."

@@ -17,7 +17,7 @@ import org.springframework.test.context.ContextConfiguration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Real Spring Boot HTTP negative contracts with isolated Flyway V8, no mocked endpoints. */
+/** Real Spring Boot HTTP negative contracts with isolated Flyway V10, no mocked endpoints. */
 @org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"mvp-local", "integration-test"})

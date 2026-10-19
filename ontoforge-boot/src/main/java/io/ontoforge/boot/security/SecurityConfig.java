@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
@@ -22,6 +23,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 /** B0 trusted authentication boundary. No request header or JSON field is an identity or role. */
 @Configuration
 @Profile("!mvp-local")
+@ConditionalOnProperty(name="ontoforge.security.authentication-mode",havingValue="oidc-jwt")
 @EnableMethodSecurity
 public class SecurityConfig {
 
@@ -31,8 +33,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/system/status").permitAll()
+                        .requestMatchers("/api/system/status","/api/auth/context").permitAll()
                         .requestMatchers("/api/me").authenticated()
+                        .requestMatchers("/api/platform/workspaces","/api/platform/workspaces/**").authenticated()
                         .requestMatchers("/api/model/**").authenticated()
                         .requestMatchers("/api/mvp/quality/**").authenticated()
                         .requestMatchers("/api/runtime/sources/**", "/api/runtime/bindings", "/api/runtime/bindings/**", "/api/runtime/link-bindings", "/api/runtime/link-bindings/**", "/api/runtime/objects/**", "/api/runtime/object-sets/**").authenticated()

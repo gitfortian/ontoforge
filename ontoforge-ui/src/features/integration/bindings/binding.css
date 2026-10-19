@@ -1,52 +1,52 @@
 .binding-page .model-head{align-items:flex-start}
-.binding-page .binding-notice{margin:14px 0;padding:12px 15px;border:1px solid #dce7f2;border-radius:9px;background:#f5f9fd;color:#48637d;font-size:12px;line-height:1.65}
+.binding-page .binding-notice{margin:14px 0;padding:12px 15px;border:1px solid var(--yak-color-border);border-radius:9px;background:var(--yak-color-background);color:var(--yak-color-text-primary);font-size:12px;line-height:1.65}
 .binding-page .binding-flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:17px 0}
-.binding-page .binding-flow span{padding:11px 12px;border:1px solid #e2e9f1;border-radius:8px;background:#fff;color:#8998aa;font-size:12px;font-weight:650}
-.binding-page .binding-flow span.active{background:#eaf3fc;border-color:#c9dff4;color:#215f9f}
+.binding-page .binding-flow span{padding:11px 12px;border:1px solid var(--yak-color-border);border-radius:8px;background:var(--yak-color-background);color:var(--yak-color-text-secondary);font-size:12px;font-weight:650}
+.binding-page .binding-flow span.active{background:var(--of-info-bg);border-color:var(--of-info-border);color:var(--of-info-text)}
 .binding-page .binding-contract{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:15px 0 22px}
-.binding-page .binding-contract>div{min-width:0;padding:12px 14px;border:1px solid #e8edf4;border-radius:8px;background:#fafcff}
-.binding-page .binding-contract span{display:block;color:#8292a5;font-size:11px;margin-bottom:7px}
-.binding-page .binding-contract code{display:block;overflow-wrap:anywhere;font-size:11px;color:#465e78}
-.binding-page .binding-contract b{font-size:12px;color:#30445b}
+.binding-page .binding-contract>div{min-width:0;padding:12px 14px;border:1px solid var(--yak-color-border);border-radius:8px;background:var(--yak-color-background)}
+.binding-page .binding-contract span{display:block;color:var(--yak-color-text-secondary);font-size:11px;margin-bottom:7px}
+.binding-page .binding-contract code{display:block;overflow-wrap:anywhere;font-size:11px;color:var(--yak-color-text-primary)}
+.binding-page .binding-contract b{font-size:12px;color:var(--yak-color-text-primary)}
 .binding-page .binding-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:23px}
-.binding-page .binding-form-grid label,.binding-page .binding-package-search label{display:flex;flex-direction:column;gap:7px;color:#60748b;font-size:12px;font-weight:650;min-width:0}
-.binding-page .binding-form-grid select,.binding-page .binding-package-search input,.binding-page .binding-map-table select{min-width:0;width:100%;border:1px solid #dce5ef;border-radius:7px;background:#fff;color:#31465c;padding:10px 11px;font:inherit;font-weight:500;font-size:12px}
+.binding-page .binding-form-grid label,.binding-page .binding-package-search label{display:flex;flex-direction:column;gap:7px;color:var(--yak-color-text-secondary);font-size:12px;font-weight:650;min-width:0}
+.binding-page .binding-form-grid select,.binding-page .binding-package-search input,.binding-page .binding-map-table select{min-width:0;width:100%;border:1px solid var(--yak-color-border);border-radius:7px;background:var(--yak-color-background);color:var(--yak-color-text-primary);padding:10px 11px;font:inherit;font-weight:500;font-size:12px}
 .binding-page .binding-map-head,.binding-page .binding-preview-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:20px 0 12px}
 .binding-page .binding-map-head h3,.binding-page .binding-preview-head h3{margin:0 0 5px;font-size:14px}
-.binding-page .binding-map-head p,.binding-page .binding-preview-head p{margin:0;color:#7f90a4;font-size:11px;line-height:1.6}
-.binding-page .binding-map-head>span{color:#70869d;font-size:11px;white-space:nowrap}
-.binding-page .binding-map-table{width:100%;overflow-x:auto;border:1px solid #e5ebf3;border-radius:9px}
+.binding-page .binding-map-head p,.binding-page .binding-preview-head p{margin:0;color:var(--yak-color-text-secondary);font-size:11px;line-height:1.6}
+.binding-page .binding-map-head>span{color:var(--yak-color-text-secondary);font-size:11px;white-space:nowrap}
+.binding-page .binding-map-table{width:100%;overflow-x:auto;border:1px solid var(--yak-color-border);border-radius:9px}
 .binding-page .binding-map-table .model-table{min-width:650px;margin:0}
 .binding-page .binding-map-table .model-table td,.binding-page .binding-map-table .model-table th{padding:12px 14px}
-.binding-page .binding-map-table .model-table td small,.binding-page .binding-history-row small{display:block;color:#8494a7;font-size:10px;margin-top:5px;overflow-wrap:anywhere}
+.binding-page .binding-map-table .model-table td small,.binding-page .binding-history-row small{display:block;color:var(--yak-color-text-secondary);font-size:10px;margin-top:5px;overflow-wrap:anywhere}
 .binding-page .binding-map-table select{min-width:175px}
-.binding-page .binding-chip{display:inline-flex;align-items:center;border:1px solid #dce5ef;border-radius:5px;padding:4px 7px;color:#627a94;background:#f7f9fc;font-size:10px;white-space:nowrap}
-.binding-page .binding-chip.required{border-color:#e8d9bc;background:#fffaf0;color:#946b2b}
-.binding-page .binding-chip.valid{border-color:#cce5d9;background:#f2fbf6;color:#2c7958}
+.binding-page .binding-chip{display:inline-flex;align-items:center;border:1px solid var(--yak-color-border);border-radius:5px;padding:4px 7px;color:var(--yak-color-text-secondary);background:var(--yak-color-surface);font-size:10px;white-space:nowrap}
+.binding-page .binding-chip.required{border-color:var(--of-warning-border);background:var(--yak-color-background);color:var(--of-warning-text)}
+.binding-page .binding-chip.valid{border-color:var(--yak-color-border);background:var(--yak-color-surface);color:var(--of-success-text)}
 .binding-page .binding-actions{display:flex;flex-wrap:wrap;gap:9px;margin:17px 0 6px}
 .binding-page .binding-actions .model-btn{display:inline-flex;align-items:center;gap:7px}
-.binding-page .binding-actions .primary,.binding-page .model-btn.primary{background:#215f9f;border-color:#215f9f;color:white}
-.binding-page .binding-preview{margin-top:21px;border:1px solid #e2e9f1;border-radius:9px;padding:16px;background:#fbfdff}
+.binding-page .binding-actions .primary,.binding-page .model-btn.primary{background:var(--of-solid);border-color:var(--of-info-border);color:var(--of-on-accent)}
+.binding-page .binding-preview{margin-top:21px;border:1px solid var(--yak-color-border);border-radius:9px;padding:16px;background:var(--yak-color-background)}
 .binding-page .binding-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
 .binding-page .binding-preview-grid>div{min-width:0}
-.binding-page .binding-preview-grid h4{font-size:11px;color:#657b93;margin:0 0 8px}
-.binding-page .binding-preview-grid pre{margin:0;max-height:300px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid #e6edf5;border-radius:7px;background:#fff;padding:12px;color:#3b536d;font-size:10px;line-height:1.6}
-.binding-page .binding-validation{margin-top:14px;border:1px solid #d8e7f2;border-radius:8px;padding:13px 15px;font-size:12px}
-.binding-page .binding-validation.pass{background:#f3fbf6;border-color:#cce5d9;color:#2c7958}
-.binding-page .binding-validation.fail{background:#fff9f0;border-color:#ead9bd;color:#946b2b}
+.binding-page .binding-preview-grid h4{font-size:11px;color:var(--yak-color-text-secondary);margin:0 0 8px}
+.binding-page .binding-preview-grid pre{margin:0;max-height:300px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid var(--yak-color-border);border-radius:7px;background:var(--yak-color-background);padding:12px;color:var(--yak-color-text-primary);font-size:10px;line-height:1.6}
+.binding-page .binding-validation{margin-top:14px;border:1px solid var(--yak-color-border);border-radius:8px;padding:13px 15px;font-size:12px}
+.binding-page .binding-validation.pass{background:var(--yak-color-surface);border-color:var(--yak-color-border);color:var(--of-success-text)}
+.binding-page .binding-validation.fail{background:var(--yak-color-background);border-color:var(--of-warning-border);color:var(--of-warning-text)}
 .binding-page .binding-validation p{font-size:11px;margin:6px 0 0;opacity:.85}
 .binding-page .binding-validation ul{padding-left:19px;line-height:1.7}
-.binding-page .binding-footnote{display:flex;gap:7px;align-items:flex-start;color:#8292a5;font-size:11px;line-height:1.7;margin-top:17px}
+.binding-page .binding-footnote{display:flex;gap:7px;align-items:flex-start;color:var(--yak-color-text-secondary);font-size:11px;line-height:1.7;margin-top:17px}
 .binding-page .binding-footnote svg{flex:none;margin-top:2px}
 .binding-page .binding-package-search{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:14px 0 18px}
 .binding-page .binding-package-search label{flex:1 1 220px}
 .binding-page .binding-package-search .model-btn{flex:none}
 .binding-page .binding-start{margin-top:17px}
-.binding-page .binding-section-title{font-size:13px;margin:24px 0 11px;color:#405a75}
+.binding-page .binding-section-title{font-size:13px;margin:24px 0 11px;color:var(--yak-color-text-primary)}
 .binding-page .binding-history{display:flex;flex-direction:column;gap:8px}
-.binding-page .binding-history-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 13px;border:1px solid #e6edf4;border-radius:8px;background:#fbfdff}
+.binding-page .binding-history-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 13px;border:1px solid var(--yak-color-border);border-radius:8px;background:var(--yak-color-background)}
 .binding-page .binding-history-row>div{min-width:0;display:flex;flex-direction:column;gap:5px}
-.binding-page .binding-history-row code{font-size:10px;color:#6f8399;overflow-wrap:anywhere}
+.binding-page .binding-history-row code{font-size:10px;color:var(--yak-color-text-secondary);overflow-wrap:anywhere}
 .binding-page .binding-history-row .model-btn{flex:none}
 @media(max-width:850px){.binding-page .binding-contract{grid-template-columns:repeat(2,minmax(0,1fr))}.binding-page .binding-preview-grid{grid-template-columns:1fr}}
 @media(max-width:620px){.binding-page .binding-flow{grid-template-columns:repeat(2,minmax(0,1fr))}.binding-page .binding-form-grid{grid-template-columns:1fr}.binding-page .binding-contract{grid-template-columns:1fr}.binding-page .binding-history-row{align-items:flex-start;flex-direction:column}.binding-page .model-head{gap:12px}}

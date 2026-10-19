@@ -33,7 +33,7 @@ const post=(body:unknown):RequestInit=>({method:'POST',headers:{'Content-Type':'
 const put=(body:unknown):RequestInit=>({...post(body),method:'PUT'});
 const message=(e:ApiError)=>[e.code,e.message||'执行失败，未显示任何结果载荷。'].filter(Boolean).join(' · ');
 
-export default function LinkTraversalWorkspace({packageId,initialSnapshotId='',initialLinkTypeId='',navigate}:{packageId:string;initialSnapshotId?:string;initialLinkTypeId?:string;navigate:(hash:string)=>void}){
+export default function LinkTraversalWorkspace({packageId,scopePackages,initialSnapshotId='',initialLinkTypeId='',navigate}:{packageId:string;scopePackages?:string[];initialSnapshotId?:string;initialLinkTypeId?:string;navigate:(hash:string)=>void}){
   const [expanded,setExpanded]=useState(false);
   const [busy,setBusy]=useState(false);
   const [notice,setNotice]=useState('');
@@ -110,12 +110,15 @@ export default function LinkTraversalWorkspace({packageId,initialSnapshotId='',i
   },[packageId]);
 
   useEffect(()=>{
-    if(!packageId.trim()||!initialSnapshotId||!initialLinkTypeId)return;
+    if(!packageId.trim()||(scopePackages&&!scopePackages.includes(packageId.trim()))||!initialSnapshotId||!initialLinkTypeId)return;
     setExpanded(true);
     void refresh(initialSnapshotId,initialLinkTypeId);
   },[packageId,initialSnapshotId,initialLinkTypeId]);
 
-  async function refresh(preferredSnapshotId='',preferredLinkTypeId=''){ 
+  async function refresh(preferredSnapshotId='',preferredLinkTypeId=''){
+    if(scopePackages&&!scopePackages.includes(packageId.trim())){
+      setError({code:'WORKSPACE_PACKAGE_REQUIRED',message:'请选择当前工作空间已登记的模型包。'});return;
+    }
     if(!packageId.trim())return;
     const g=++generation.current;
     setBusy(true);setError(null);setNotice('');setValidation(null);setCurrentLink(null);setResult(null);
@@ -267,6 +270,8 @@ export default function LinkTraversalWorkspace({packageId,initialSnapshotId='',i
     }catch(e){setResult(null);setError(e as ApiError);}
     finally{inFlight.current=false;setBusy(false);}
   }
+
+  if(scopePackages&&packageId.trim()&&!scopePackages.includes(packageId.trim()))return <section className="model-panel m8-workspace" aria-label="关系与一跳遍历 M8.1"><div role="alert">当前工作空间未登记这个模型包；请切换工作空间或使用已授权的模型包。</div></section>;
 
   return <section className="model-panel m8-workspace" aria-label="关系与一跳遍历 M8.1">
     <header className="model-panel-head"><div><span className="model-eyebrow">M8.1 / LINK BINDING → ONE-HOP TRAVERSE</span>

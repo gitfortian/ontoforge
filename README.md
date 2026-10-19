@@ -33,15 +33,23 @@
 
 ## 工程模块化（2026-10-19）
 
+**B1 认证接入候选**：普通默认现为 Yak 本地账号 + Session；首次显式初始化管理员，已有 OIDC 安装设置 `ONTOFORGE_SECURITY_AUTHENTICATION_MODE=oidc-jwt`。登录/退出、CSRF、主体和逐用户游标及显式包授权见 [B1 操作说明](./doc/implementation/Yak-B1-本地账号Session接入.md)。B2 已增加账号管理与用户自行改密；C1 已增加 [空间、成员及模型包归属管理](./doc/implementation/Yak-C1-工作空间与模型包归属.md)；不自动获得历史包权限，尚未生产发布或签收。
+
 当前真实后端模块为 `core → common`、`configuration`、`platform → dao`、`business → core/platform/dao` 与 `boot` 组装；箭头表示编译依赖，准确关系见 [完整工程模块规划](./doc/implementation/S0-工程模块规划与命名规范.md)。七份历史 Flyway 迁移统一由 DAO 提供，API、模型/绑定格式、安装 UUID 和认证模式保持原合同。前端仍为单一 npm 工程，按 `app / features / shared` 组织。
 
 在仓库根执行 `.\scripts\run-local.ps1`，脚本先构建实际 Reactor，再启动可执行 Boot jar；已有构建可传 `-SkipBuild`。它沿用当前终端的 DB/Profile/OIDC/来源配置。若使用 `mvn -pl ontoforge-boot spring-boot:run`，须先 `mvn -pl ontoforge-boot -am -DskipTests install` 安装内部依赖。下列有日期的 AS-IS 材料保留其历史基线；最新工程归属以模块规划和代码为准。
 
 沿用 main 的 M7 配置约束：非 `mvp-local` 环境须通过 `ONTOFORGE_OBJECTSET_CURSOR_SIGNING_SECRET` 提供至少 32 字符的稳定私有游标签名密钥。
 
+### 公共 UI 与主题
+
+工作台已复用 Yak Ops 的按钮、输入框、卡片、表格、空状态、加载和弹层组件，以及浅色/深色主题。点击右上角「外观」可选择浅色、深色或跟随系统；偏好保存在当前浏览器，切换主题不会丢失未保存的本体编辑。窄屏下顶部显示现有六个功能入口。组件来源、固定提交、许可证与逐文件摘要见 [Yak UI 来源记录](./ontoforge-ui/src/shared/ui/yak/README.md)。
+
+这一批仅调整现有页面的公共呈现与交互；账号、空间及其他通用能力的现状与复用顺序见 [通用底座复用评估](./doc/research/2026-10-19-OntoForge-通用底座现状与Yak-Ops复用评估.md)。认证配置仍按下述现有运行方式使用。
+
 ## 当前精简 MVP：无需登录的本机隔离运行（需显式启用）
 
-**开发优先级已调整**：本体定义 → 测试数据绑定 → ObjectSet/多结果查询 → 工业业务追溯。登录、用户和角色不是 MVP 核心能力；未来优先复用 [yak-ops](https://github.com/weifuwan/yak-ops) 的 `HttpSession` 认证，而不是单独开发 OntoForge 身份产品。
+**开发优先级已调整**：本体定义 → 测试数据绑定 → ObjectSet/多结果查询 → 工业业务追溯。登录、用户和角色不是 MVP 核心能力；通用认证按 OFIP-0017 复用 [yak-ops](https://github.com/weifuwan/yak-ops) 的 `HttpSession`；当前 B1 候选操作见上方说明。
 
 #17 的 JWT/OIDC 已经合并 main，**没有直接删除或改写已执行的 Flyway V5**。本 PR 增加单独的 `mvp-local` Spring Profile（**不是默认开启**），把本地建模和追溯从企业 OIDC 的前置要求中释放出来，已有 JWT 分支先作为独立兼容运行方式保留，不当做今后优选方向。
 
@@ -59,7 +67,7 @@ $env:DB_PASSWORD = [System.Net.NetworkCredential]::new('', (Read-Host 'Local tes
 
 此模式后端只接受 `server.address=127.0.0.1/localhost` 和本机 `ontoforge` / `ontoforge_test_*` 数据库；**不需要 OIDC 配置、Token、管理员预分配模型包**，但没有多用户权限边界。UI 显示“本机隔离 MVP”，可自行创建草稿、编辑/校验/冻结和进入质量追溯。不能使用公网代理、隧道或端口转发，不能接生产数据；需要更严格隔离时请只用 `ontoforge_test_*` 库。
 
-不启用 `mvp-local` 的原有 JWT/OIDC 路径仍 **fail-closed**，必须配置 IdP，不得因本地体验而全局放行。
+不启用 `mvp-local` 时普通默认使用上述本地 Session；显式选择 `oidc-jwt` 的兼容路径仍须配置 IdP 并保持 fail-closed。
 
 详细决策、[yak-ops](https://github.com/weifuwan/yak-ops) 复用边界和 ObjectSet 下一步任务见[核心 MVP 优先级与认证复用决策](./doc/implementation/MVP-核心优先与yak-ops认证复用决策-20261017.md)。
 
