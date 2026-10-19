@@ -421,6 +421,26 @@ class LinkBindingFullIntegrationTest {
         assertThat(new java.math.BigDecimal(uniqueSum.path("aggregate").path("value").asText()))
                 .isEqualByComparingTo("100");
 
+        // Real PG17 fanout is checked before success, not sampled down to one
+        // false-positive "COMPLETE" row. Both linked candidates exist.
+        ObjectNode limitedJoin = traverseRequest(pkg, snapshotId, equipment, lot, id,
+                "equipment-inspections", "OUT", "EQ-001", 50);
+        limitedJoin.putObject("limits").put("maxJoinCandidates", 1);
+        ResponseEntity<String> joinBudget = traverse(limitedJoin);
+        assertThat(joinBudget.getStatusCode().value()).isEqualTo(429);
+        assertThat(joinBudget.getBody()).contains("QUERY_BUDGET_EXCEEDED");
+        assertThat(joinBudget.getBody()).doesNotContain("LOT-11", "LOT-12");
+        ObjectNode limitedPhysical = traverseRequest(pkg, snapshotId, equipment, lot, id,
+                "equipment-inspections", "OUT", "EQ-001", 50);
+        limitedPhysical.putObject("limits").put("maxPhysicalRows", 2);
+        ResponseEntity<String> scanned = traverse(limitedPhysical);
+        assertThat(scanned.getStatusCode().value()).isEqualTo(429);
+        assertThat(scanned.getBody()).doesNotContain("LOT-11", "LOT-12");
+
+        ObjectNode unapprovedField = limitedJoin.deepCopy();
+        unapprovedField.put("clientSql", "SELECT * FROM pg_catalog.pg_roles");
+        assertThat(traverse(unapprovedField).getStatusCode().value()).isEqualTo(422);
+
         ObjectNode paged = traverseRequest(pkg, snapshotId, equipment, lot, id,
                 "equipment-inspections", "OUT", "EQ-001", 1);
         ResponseEntity<String> firstPage = traverse(paged);
