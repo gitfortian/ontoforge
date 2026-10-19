@@ -65,7 +65,7 @@ public class LinkTraverseService {
     private final Map<String, Frozen> frozen = new ConcurrentHashMap<>();
 
     private record Frozen(String id, String actor, Instant expiresAt, ObjectNode full,
-            int pageSize, String pkg, String snapshotId,
+            int pageSize, String direction, String pkg, String snapshotId,
             String linkId, long linkRevision, String linkDigest,
             String sourceBindingId, long sourceRevision, String sourceDigest,
             String targetBindingId, long targetRevision, String targetDigest,
@@ -341,7 +341,7 @@ public class LinkTraverseService {
         if (frozen.size() >= 10) throw fail(429, "RESULT_SNAPSHOT_BUDGET",
                 "当前冻结结果容量已满，请稍后重新执行", "limits");
         Frozen saved = new Frozen(frozenId, actorKey(auth), now.plusSeconds(300), result.deepCopy(),
-                request.pageSize(), request.packageId(), request.snapshotId(),
+                request.pageSize(), request.direction(), request.packageId(), request.snapshotId(),
                 link.linkBindingId(), link.revision(), link.digest(),
                 sourceBinding.bindingId(), sourceBinding.revision(), sourceBinding.digest(),
                 targetBinding.bindingId(), targetBinding.revision(), targetBinding.digest(),
@@ -465,9 +465,9 @@ public class LinkTraverseService {
             JsonNode object = allObjects.get(i);
             objects.add(object.deepCopy());
             String wanted = object.path("objectRef").toString();
-            boolean out = page.path("rootTypeRef").path("objectTypeId").asText()
-                    .equals(allLinks.size() > 0 ? allLinks.get(0).path("source")
-                            .path("objectTypeId").asText() : "");
+            // Direction was frozen with this query; type-name equality is not
+            // enough to decide the side for a self-referential LinkType.
+            boolean out = "OUT".equals(saved.direction());
             for (JsonNode edge : allLinks) {
                 if ((out ? edge.path("target") : edge.path("source")).toString().equals(wanted)) {
                     links.add(edge.deepCopy());
