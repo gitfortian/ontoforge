@@ -6,7 +6,7 @@
 
 **Decision:** [VOTE] Accepted — 2026-10-19，维护者明确接受本合同并授权 B1 → B2 → C1 实施；[永久决定记录](https://github.com/gitfortian/ontoforge/pull/94#issuecomment-6261109442)。
 
-**Implementation:** In Progress — B1 工作分支正在实现；本提案 PR 不包含生产代码。已有 B0 JWT/包授权及公共 UI 不属于本提案的新实现。
+**Implementation:** In Progress — [B1 / PR #96](https://github.com/gitfortian/ontoforge/pull/96)、[B2 / PR #97](https://github.com/gitfortian/ontoforge/pull/97)、[C1 / PR #98](https://github.com/gitfortian/ontoforge/pull/98) 已分别提交并合入各自目标功能分支；这些堆叠合并不等于进入 main。最终汇总由 `codex/integrate-yak-platform` 面向 main 提交，实际验证记录在对应 PR。用户既有安装验收和生产发布仍未完成。
 
 **Release:** Not Released
 

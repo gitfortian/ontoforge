@@ -6,7 +6,7 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Exercises an existing V2 installation -> V7, in a new owned test schema only. */
+/** Exercises V2 -> V8 credentials/grants -> V9, in a new owned test schema only. */
 class NativeMigrationUpgradeTest {
     @Test void upgradePreservesExistingInstallationAndDraft() throws Exception {
         String url=System.getenv("TEST_DB_URL");
@@ -31,8 +31,28 @@ class NativeMigrationUpgradeTest {
                 try(var row=sql.executeQuery("SELECT installation_id::text FROM platform_installation")) {
                     row.next();installation=row.getString(1);
                 }
+                Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).target("8").load().migrate();
+                UUID principal=UUID.randomUUID(),account=UUID.randomUUID(),workspace=UUID.randomUUID();
+                sql.execute("INSERT INTO b0_principal(principal_id,issuer,subject,display_name) VALUES ('"+principal+"','urn:ontoforge:local','"+account+"','Migration Owner')");
+                sql.execute("INSERT INTO platform_local_account(account_id,principal_id,username,password_hash,credential_version,version) VALUES ('"+account+"','"+principal+"','migration.owner','migration-fixture-hash',4,7)");
+                sql.execute("INSERT INTO b0_workspace(workspace_id,workspace_key,display_name) VALUES ('"+workspace+"','migration-space','Preserved Space')");
+                sql.execute("INSERT INTO b0_workspace_membership(workspace_id,principal_id,role) VALUES ('"+workspace+"','"+principal+"','OWNER')");
+                sql.execute("INSERT INTO b0_package_assignment(workspace_id,package_id) VALUES ('"+workspace+"','manufacturing.assigned')");
                 var current=Flyway.configure().dataSource(url,user,password).schemas(schema).defaultSchema(schema).load();
                 current.migrate();
+                try(var row=sql.executeQuery("SELECT w.workspace_id,w.version,w.display_name,m.principal_id,m.role,a.account_id,a.password_hash,a.credential_version,a.version,p.package_id FROM b0_workspace w JOIN b0_workspace_membership m USING(workspace_id) JOIN platform_local_account a USING(principal_id) JOIN b0_package_assignment p USING(workspace_id)")) {
+                    assertThat(row.next()).isTrue();
+                    assertThat(row.getObject(1,UUID.class)).isEqualTo(workspace);
+                    assertThat(row.getLong(2)).isEqualTo(1);
+                    assertThat(row.getString(3)).isEqualTo("Preserved Space");
+                    assertThat(row.getObject(4,UUID.class)).isEqualTo(principal);
+                    assertThat(row.getString(5)).isEqualTo("OWNER");
+                    assertThat(row.getObject(6,UUID.class)).isEqualTo(account);
+                    assertThat(row.getString(7)).isEqualTo("migration-fixture-hash");
+                    assertThat(row.getLong(8)).isEqualTo(4);assertThat(row.getLong(9)).isEqualTo(7);
+                    assertThat(row.getString(10)).isEqualTo("manufacturing.assigned");
+                    assertThat(row.next()).isFalse();
+                }
                 try(var row=sql.executeQuery("SELECT installation_id::text FROM platform_installation")) {
                     row.next();assertThat(row.getString(1)).isEqualTo(installation);
                 }
@@ -43,7 +63,7 @@ class NativeMigrationUpgradeTest {
                 }
                 assertThat(current.migrate().migrationsExecuted).isZero();
                 try(var row=sql.executeQuery("SELECT count(*) FROM flyway_schema_history WHERE success")) {
-                    row.next();assertThat(row.getInt(1)).isEqualTo(7);
+                    row.next();assertThat(row.getInt(1)).isEqualTo(9);
                 }
                 try(var row=sql.executeQuery("SELECT count(*) FROM mvp_source_batches")) {
                     row.next();assertThat(row.getInt(1)).isEqualTo(2);

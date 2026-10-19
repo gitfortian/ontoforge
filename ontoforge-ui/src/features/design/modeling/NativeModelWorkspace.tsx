@@ -49,8 +49,8 @@ async function call<T>(path:string, init?:RequestInit):Promise<T> {
 const post=(obj:unknown):RequestInit=>({method:'POST',body:JSON.stringify(obj)});
 const put=(obj:unknown):RequestInit=>({method:'PUT',body:JSON.stringify(obj)});
 
-export default function NativeModelWorkspace({identity,onDirtyChange,route,navigate}:{
-  identity:WorkspaceIdentity;onDirtyChange:(value:boolean)=>void;route:string;navigate:(hash:string)=>void;
+export default function NativeModelWorkspace({identity,onDirtyChange,route,navigate,workspaceId}:{
+  identity:WorkspaceIdentity;onDirtyChange:(value:boolean)=>void;route:string;navigate:(hash:string)=>void;workspaceId?:string;
 }) {
   // Only present verified grants from /api/me, but never substitute UI for server ACL.
   const localMvp=identity.issuer==='local-mvp';
@@ -102,7 +102,7 @@ export default function NativeModelWorkspace({identity,onDirtyChange,route,navig
     const generation=view.current.generation;
     setListLoading(true);setMessage(null);
     try {
-      const result=await call<Page>('?pageSize=20'+(nextCursor?'&cursor='+encodeURIComponent(nextCursor):''));
+      const result=await call<Page>('?pageSize=20'+(nextCursor?'&cursor='+encodeURIComponent(nextCursor):'')+(workspaceId?'&workspaceId='+encodeURIComponent(workspaceId):''));
       if(!stillCurrent(generation))return;
       setItems(result.items);setCursor(result.nextCursor);setListPage(page);
     } catch(e){if(stillCurrent(generation)){const err=explain(e);alert(err.code+' · '+err.message,'error')}}

@@ -34,7 +34,6 @@ import org.springframework.dao.QueryTimeoutException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 
 /**
@@ -211,7 +210,11 @@ public class ObjectRuntimeService {
                     List.copyOf(values), raw.rows().size(), Math.max(0, raw.rows().size() - 1),
                     selectedRefs, List.of(new BindingVersion(binding.bindingId(), binding.revision(),
                     binding.digest(), binding.sourceId(), "OBJECT")), sourceReadRef,
-                    authentication instanceof JwtAuthenticationToken ? "JWT_AUTHORIZED" : "LOCAL_ISOLATED",
+                    switch (authorization.accessMode(authentication)) {
+                        case "JWT_AUTHENTICATED" -> "JWT_AUTHORIZED";
+                        case "SESSION_AUTHENTICATED" -> "SESSION_AUTHORIZED";
+                        default -> "LOCAL_ISOLATED";
+                    },
                     new QualityEnvelope("EXACT", "COMPLETE", "UNKNOWN", "REQUESTED_SCOPE"));
             try {
                 if (mapper.writeValueAsBytes(result).length > MAX_OUTPUT_BYTES) {
