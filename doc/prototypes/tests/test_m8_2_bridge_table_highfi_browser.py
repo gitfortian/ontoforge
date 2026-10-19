@@ -596,6 +596,15 @@ class M82BridgeTableUXHighBrowser(unittest.TestCase):
         self.assertTrue(self.page.locator("#view-validate").is_visible())
         self.assertEqual("0", self.page.locator("#tab-validate").get_attribute("tabindex"))
 
+    def test_errors_are_focusable_and_announced_to_keyboard_users(self):
+        self.page.locator("#source-binding").select_option("foreign")
+        self.page.locator("#to-validate").click()
+        self.page.locator("#run-validation").click()
+        err=self.page.locator("#validation-outcome")
+        self.assertEqual("alert", err.get_attribute("role"))
+        self.assertEqual("validation-outcome", self.page.evaluate("document.activeElement.id"))
+        self.assertIn("LINK_ENDPOINT_VERSION_MISMATCH", err.inner_text())
+
     def test_reset_returns_to_unbound_empty_state(self):
         self.save()
         self.assertTrue(self.model()["saved"])
