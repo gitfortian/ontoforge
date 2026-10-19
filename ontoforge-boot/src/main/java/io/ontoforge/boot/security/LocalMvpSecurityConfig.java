@@ -25,6 +25,8 @@ public class LocalMvpSecurityConfig {
         LocalMvpSettings.requireIsolatedEnvironment(bindAddress,jdbcUrl);
         http.csrf(csrf->csrf.disable())
             .authorizeHttpRequests(authorize->authorize
+                .requestMatchers(org.springframework.http.HttpMethod.POST,"/api/agent/v1/runs").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/context/v1/evidence/*").permitAll()
                 .requestMatchers("/api/system/status","/api/auth/context","/api/me","/api/model/**",
                                  "/api/mvp/quality/**", "/api/runtime/sources/**",
                                  "/api/runtime/bindings", "/api/runtime/bindings/**", "/api/runtime/link-bindings", "/api/runtime/link-bindings/**", "/api/runtime/objects/**", "/api/runtime/object-sets/**").permitAll()

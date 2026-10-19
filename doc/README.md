@@ -19,6 +19,7 @@
 - **[当前实际技术/数据/执行架构全景 AS-IS](./implementation/OntoForge-AS-IS-实际架构全景-20261017.md)**：运行模块、DB ER、重要调用链、部署与限制；不替代 V1.3。
 - **[M3 Native 对象集合浏览与标量字段筛选（PR #40 开发候选）](./implementation/M3-Native-ObjectSet-对象浏览实现与验收-20261017.md)**：用户选择对象类型、筛选、去重与来源追溯。
 - **[M2 质量追溯 ObjectSet 影响集合与分页实施说明](./implementation/M2-ObjectSet-制造质量影响集合实现与验收-20261017.md)**：一个批次完整关系路径/去重订单/断链和分页，#38 开发候选。
+- **[M13 OpenAI 兼容只读 Agent 本机说明](./implementation/M13-OpenAI兼容只读Agent.md)**：服务端模型配置、固定资源范围的只读工具调用、HTTP/CLI 与原执行证据；开发候选，真实供应商及正式对外服务未验收。
 - **[精简 MVP 核心优先与 yak-ops HttpSession 复用决策](./implementation/MVP-核心优先与yak-ops认证复用决策-20261017.md)**：含本机开发路径、#17 修正、ObjectSet 下一轮验收。
 - [MVP 历史总账与未来范围 F01–F29](./implementation/OntoForge-MVP-产品功能全景与成熟度矩阵.md)
 - [S0-MVP-0.3 本轮交付说明与下一步进度](./implementation/S0-MVP-0.3-交付说明-20261016.md)
@@ -68,7 +69,7 @@
 | [OFIP-0012：M10 发行边界与运行时版本锁](./proposals/OFIP-0012-M10-发行边界与运行时版本锁.md) | **Discussion / Decision Pending / Implementation Not Started / Not Released**；Issue [#49](https://github.com/gitfortian/ontoforge/issues/49) 已完成需求 Review；复用 OFIP-0005，区分 M10-A 本地版本锁与 M10-B 正式发行/激活，Core 范围待决 |
 | [OFIP-0013：M11 通用 Ontology Studio](./proposals/OFIP-0013-M11-通用OntologyStudio.md) | **Discussion / Decision Pending / Implementation Not Started / Not Released**；Issue [#50](https://github.com/gitfortian/ontoforge/issues/50) 已完成需求 Review；连续工作流/上下文一致性收口，M5–M9 各自仍须先交付 UI；原型 Gate 保留 |
 | [OFIP-0014：M12 沙箱受控 Action](./proposals/OFIP-0014-M12-沙箱受控Action.md) | **Discussion / Decision Pending / Implementation Not Started / Not Released**；Issue [#51](https://github.com/gitfortian/ontoforge/issues/51) 已完成需求 Review；独立模拟系统、可信双主体审批、持久幂等、UNKNOWN 对账和结果核验；不接生产写/物理控制 |
-| [OFIP-0015：M13 Agent 只读本体上下文](./proposals/OFIP-0015-M13-Agent只读上下文.md) | **Accepted / Implementation Not Started / Not Released**；Issue [#52](https://github.com/gitfortian/ontoforge/issues/52) 原需求 Review 完成；2026-10-19 维护者明确接受 OpenAI 兼容模型配置与受限只读工具循环修订（PR #104 决定记录）；MCP 后续独立适配，正式对外需 M10 与身份安全 Gate |
+| [OFIP-0015：M13 Agent 只读本体上下文](./proposals/OFIP-0015-M13-Agent只读上下文.md) | **Accepted / Implementation In Progress / Not Released**；Issue [#52](https://github.com/gitfortian/ontoforge/issues/52) 原需求 Review 完成；2026-10-19 维护者明确接受 OpenAI 兼容模型配置与受限只读工具循环修订（PR #104 决定记录）；MCP 后续独立适配，正式对外需 M10 与身份安全 Gate |
 | [OFIP-0016：M14 多领域 MVP 验收与交付证据](./proposals/OFIP-0016-M14-多领域验收与交付证据.md) | **Discussion / Decision Pending / Implementation Not Started / Not Released**；Issue [#53](https://github.com/gitfortian/ontoforge/issues/53) 已完成需求 Review；作为 Core/Extended 共用验收出口，M10/Core 口径待维护者决定；不新建第二套总账 |
 | [S0-MVP-0.3 功能说明、全面 Review 与验收矩阵](./implementation/S0-MVP-0.3-功能说明与全面Review验收矩阵.md) | 基于 PR #11 实际代码核查冻结事务、JCS 摘要、不可变 PG V3、REST、Type-scoped Diff、React 历史跨页和 Windows 验收；列出 T1–T12 覆盖/缺口、真实回归与 Not Released 边界 |
 | [Yak Ops YOIP、文档体系和 CI 研究](./research/2026-10-15-Yak-Ops-YOIP-文档治理与CI蒸馏.md) | 外部工程治理蒸馏及 OntoForge 适配建议；仅研究证据，不能取代 V1.3 或已实现代码 |
