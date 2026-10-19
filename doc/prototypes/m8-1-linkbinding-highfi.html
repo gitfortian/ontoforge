@@ -22,6 +22,26 @@ main{max-width:1470px;padding:27px 34px 54px}.crumb{font-size:11px;color:#8798a4
 @media(max-width:1100px){.tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.relation-flow{gap:10px}}
 @media(max-width:900px){.shell{display:block}nav{display:flex;overflow-x:auto;gap:6px;white-space:nowrap;border-right:0;border-bottom:1px solid #e1e8ed;padding:9px 12px}nav .nav-cap,nav .nav-note,nav h2{display:none}nav button{flex:none;min-width:0;margin:0}main{padding:20px 17px}.top{padding:0 16px}.summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.topproject,.head-small{display:none}.heading h1{font-size:20px}.summary,.stateboard,.fields,.evidence{grid-template-columns:1fr}.relation-flow{flex-direction:column;gap:7px}.relation-edge b{transform:rotate(90deg)}.tabs{grid-template-columns:repeat(2,minmax(0,1fr))}.tabs button{padding:7px;font-size:10px}.panel{padding:15px}.stage-caption span:last-child{display:none}.columns{grid-template-columns:1fr}.modal-foot{flex-wrap:wrap}.modal-foot button{flex:1}.top{height:58px}.brand{font-size:14px}.brandmark{width:30px;height:30px}.topbadge{font-size:9px}.header-status{align-self:flex-start}}
+/* Mobile usability sign-off: preserve evidence without placing the primary task after a long stack. */
+.mobile-jump{display:none}
+@media(max-width:600px){
+ main{padding:14px 11px 25px}.crumb{margin-bottom:6px;gap:4px}.heading{margin:6px 0 10px;align-items:flex-start;flex-direction:row;flex-wrap:wrap}
+ .heading h1{font-size:19px}.heading p{font-size:11px;line-height:1.45}.header-status{width:100%;justify-content:space-between;align-items:center;gap:7px}
+ .mobile-jump{display:inline-flex;align-items:center;justify-content:center;font-size:11px;padding:5px 9px;min-height:32px;background:#eaf3f8;border:1px solid #c6dbe8;color:#285a78}
+ .flow-context{padding:10px;margin-bottom:8px}.flow-title{margin-bottom:5px}
+ .relation-flow{flex-direction:row;gap:5px;flex-wrap:nowrap}.relation-node{min-width:0;flex:1;padding:8px 7px}
+ .relation-node strong{font-size:11px}.relation-node small{font-size:9px;line-height:1.25;overflow-wrap:anywhere}
+ .relation-edge{font-size:8px;flex:none;width:62px;line-height:1.25}.relation-edge b{transform:none;font-size:17px}
+ .flow-context p{font-size:9px;line-height:1.4;margin-top:6px}
+ .stateboard{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-bottom:8px}
+ .stateitem{padding:8px 7px}.stateitem span{font-size:9px;margin-bottom:3px}.stateitem strong{font-size:10px;line-height:1.32}
+ .stateitem small{font-size:9px;line-height:1.3;margin-top:4px}
+ .summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:10px}
+ .summary>div{padding:8px 9px}.summary b{margin-bottom:2px}.summary span{font-size:10px;line-height:1.35}
+ .stage-caption{margin:10px 0 6px}.tabs{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-bottom:10px}
+ .tabs button{font-size:9px;min-height:36px;line-height:1.3;gap:4px}
+ .tabs button span{font-size:9px}.panel{scroll-margin-top:7px}
+}
 
 </style>
 </head>
@@ -31,7 +51,7 @@ main{max-width:1470px;padding:27px 34px 54px}.crumb{font-size:11px;color:#8798a4
 <nav aria-label="产品导航"><h2>建模与运行</h2><div class="nav-cap">本体设计</div><button id="nav-type" data-nav="type"><span class="nav-ico">◇</span> 关系类型</button><button id="nav-config" data-nav="config" aria-current="page"><span class="nav-ico">⇄</span> 实例关系绑定</button><div class="nav-cap">运行与分析</div><button id="nav-query" data-nav="query"><span class="nav-ico">⌕</span> 对象集合查询</button><button id="nav-evidence" data-nav="evidence"><span class="nav-ico">▤</span> 查询证据</button><div class="nav-note">已有本体能力的自然入口。此设计不增加独立图谱工具菜单。</div></nav>
 <main>
 <p class="crumb">制造运营模型 <span>›</span> 本体建模 <span>›</span> 关系类型 <span>›</span> <strong>equipment-inspections</strong></p>
-<div class="heading"><div><h1 id="page-title">实例关联配置</h1><p id="page-description">先核验关系来源，再保存版本；查询属于下一步，不会在保存时自动执行。</p></div><div class="header-status"><span id="head-status" class="tag strong">未配置</span><span class="head-small">本地演示 · 合成事实</span></div></div>
+<div class="heading"><div><h1 id="page-title">实例关联配置</h1><p id="page-description">先核验关系来源，再保存版本；查询属于下一步，不会在保存时自动执行。</p></div><div class="header-status"><span id="head-status" class="tag strong">未配置</span><span class="head-small">本地演示 · 合成事实</span><button type="button" class="mobile-jump" id="jump-work">前往当前工作区 ↓</button></div></div>
 <div class="flow-context"><div class="flow-title">关系定义 / 来源证据闭包</div><div class="relation-flow"><span class="relation-node"><strong>Equipment</strong><small>SOURCE · PK equipment_code</small></span><span class="relation-edge">ONE_TO_MANY <b>→</b></span><span class="relation-node"><strong>InspectionLot</strong><small>TARGET · FK equipment_code</small></span></div><p>LinkType 只是关系规则；保存 LinkBinding 才具备查询来源。反向 IN 不改变关系的原始起点与终点。</p></div>
 <div class="stateboard" aria-label="设计态、修订态与执行资格"><div class="stateitem"><span>工作草稿</span><strong id="draft-pill">未修改</strong><small>未保存的编辑不会覆盖历史</small></div><div class="stateitem"><span>已保存修订</span><strong id="persist-pill">尚无 LinkBinding</strong><small>CAS · Immutable Revision</small></div><div class="stateitem"><span>当前核验资格</span><strong id="eligible-pill">待 FULL 核验</strong><small>VALID / 孤儿 / 失效单独呈现</small></div></div>
 <div class="summary" aria-label="当前模型与版本证据">
@@ -382,6 +402,7 @@ $("#simulate-late-page").onclick=()=>{
 ["source-binding","target-binding","fk-owner","fk-column"].forEach(id=>$("#"+id).addEventListener("change",syncStateCards));
 ["run-validation","continue-save","save-binding","lookup-save","config-undo"].forEach(id=>$("#"+id).addEventListener("click",()=>queueMicrotask(syncStateCards)));
 ["query-root","query-direction","query-root-mode"].forEach(id=>$("#"+id).addEventListener("change",()=>{pageToken++;}));
+$("#jump-work").onclick=()=>$("#view-"+state.view).scrollIntoView({block:"start",behavior:"auto"});
 refreshRootOptions();navigate("config",false);
 window.__uxHighDemo=window.__uxLowDemo={getState:()=>({view:state.view,dirty:state.dirty,validated:state.validated,quality:state.validationQuality,revision:state.revision,saved:!!state.saved,execution:state.lastResult?.executionId,snapshot:state.lastResult?.snapshot,retired:[...state.retired],failure:state.failure,qualityResult:state.lastResult?.quality})};
 })();
