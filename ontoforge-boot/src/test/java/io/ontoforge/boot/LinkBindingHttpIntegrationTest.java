@@ -1,6 +1,8 @@
 package io.ontoforge.boot;
 
 import java.util.UUID;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.ontoforge.core.compiler.M8TraverseSchema;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -86,6 +88,27 @@ class LinkBindingHttpIntegrationTest {
                 url("?packageId=m8.snapshot.not.found"), String.class);
         assertThat(list.getStatusCode().value()).isEqualTo(200);
         assertThat(list.getBody()).isEqualTo("[]");
+    }
+
+    @Test
+    void v2HttpErrorResponsesObeyDeployedFailureSchema() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        String endpoint = "http://127.0.0.1:" + port + "/api/runtime/object-sets/traverse";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        ResponseEntity<String> invalid = client.postForEntity(endpoint,
+                new HttpEntity<>("{\"queryVersion\":\"local-query-v2\",\"steps\":[]}", headers),
+                String.class);
+        assertThat(invalid.getStatusCode().value()).isEqualTo(422);
+        assertThat(invalid.getBody()).contains("TRAVERSE_CONTRACT_INVALID");
+        assertThat(M8TraverseSchema.validResult(mapper.readTree(invalid.getBody()))).isTrue();
+        assertThat(invalid.getBody()).doesNotContain("objects", "links", "sourceReadRefs");
+
+        ResponseEntity<String> missingJson = client.postForEntity(endpoint,
+                new HttpEntity<>("{ not valid JSON", headers), String.class);
+        assertThat(missingJson.getStatusCode().value()).isEqualTo(400);
+        assertThat(M8TraverseSchema.validResult(mapper.readTree(missingJson.getBody()))).isTrue();
+        assertThat(mapper.readTree(missingJson.getBody()).has("fieldPath")).isFalse();
     }
 
     @Test
