@@ -1,6 +1,7 @@
 package io.ontoforge.boot.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.ontoforge.business.connection.DataBindingService.BindingFailure;
 import io.ontoforge.business.connection.LinkBindingService.LinkFailure;
@@ -41,6 +42,8 @@ public class LinkTraverseController {
 
 @RestControllerAdvice(assignableTypes = LinkTraverseController.class)
 class LinkTraverseErrorAdvice {
+    // Optional fieldPath is ABSENT, never JSON null, per local-result-v2 failure schema.
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     record Failure(String status, String executionId, String queryVersion, String code,
                    String message, String fieldPath) {}
 
