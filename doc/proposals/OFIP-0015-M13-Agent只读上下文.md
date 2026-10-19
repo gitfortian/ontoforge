@@ -6,7 +6,7 @@
 
 **Decision:** [VOTE] Accepted — [维护者 2026-10-19 明确接受 OpenAI 兼容只读首切片修订](https://github.com/gitfortian/ontoforge/pull/104#issuecomment-6269890450)；按用户明确授权由 Codex 记录，不代表实现或发布。
 
-**Implementation:** In Progress — 已进入本机只读实现；当前使用与限制见 [M13 操作说明](../implementation/M13-OpenAI兼容只读Agent.md)，测试/PR 证据单独记录，不代表正式对外服务完成。
+**Implementation:** Development Candidate — [PR #105](https://github.com/gitfortian/ontoforge/pull/105) 交付本机 HTTP/CLI 只读首切片，当前使用与限制见 [M13 操作说明](../implementation/M13-OpenAI兼容只读Agent.md)；实际测试以该 PR 最新 head 证据为准，不代表正式对外服务、完整 Context/MCP/Agent UI 或发布完成。
 
 **Release:** Not Released
 

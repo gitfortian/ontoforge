@@ -90,19 +90,28 @@ public class AgentController {
             Authentication authentication) {
         requireEnabled();
         ObjectNode result = bounded(cancellation -> {
-            cancellation.run();
-            identity(request, authentication);
-            ObjectNode value;
-            if (reference.startsWith("query:")) value = queries.evidence(reference.substring(6), authentication);
-            else if (reference.startsWith("traverse:")) value = traversals.evidence(reference.substring(9), authentication);
-            else throw new AgentException(400, "INVALID_EVIDENCE_REF");
-            String packageId = value.path("packageId").asText(value.path("rootTypeRef").path("packageId").asText());
-            if (!settings.allowedPackages().contains(packageId)) throw new AgentException(403, "AGENT_SCOPE_FORBIDDEN");
-            identity(request, authentication);
-            if (value.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 65536)
-                throw new AgentException(422, "AGENT_OUTPUT_BUDGET_EXCEEDED");
-            cancellation.run();
-            return value;
+            try {
+                cancellation.run();
+                identity(request, authentication);
+                ObjectNode value;
+                if (reference.startsWith("query:")) value = queries.evidence(reference.substring(6), authentication);
+                else if (reference.startsWith("traverse:")) value = traversals.evidence(reference.substring(9), authentication);
+                else throw new AgentException(400, "INVALID_EVIDENCE_REF");
+                String packageId = value.path("packageId").asText(value.path("rootTypeRef").path("packageId").asText());
+                if (!settings.allowedPackages().contains(packageId)) throw new AgentException(403, "AGENT_SCOPE_FORBIDDEN");
+                identity(request, authentication);
+                if (value.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 65536)
+                    throw new AgentException(422, "AGENT_OUTPUT_BUDGET_EXCEEDED");
+                cancellation.run();
+                return value;
+            } catch (RuntimeException failure) {
+                try {
+                    // Owning services compare the original actor before invalidating any frozen handle.
+                    if (reference.startsWith("query:")) queries.invalidateResult(reference.substring(6), authentication);
+                    else if (reference.startsWith("traverse:")) traversals.invalidateResult(reference.substring(9), authentication);
+                } catch (RuntimeException ignored) { /* Preserve the original safe failure even if cleanup cannot finish. */ }
+                throw failure;
+            }
         }, 60);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(result);
     }

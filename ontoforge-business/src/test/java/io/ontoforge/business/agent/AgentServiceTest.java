@@ -134,6 +134,39 @@ class AgentServiceTest {
         noToolExecution();
     }
 
+    @Test void repeatedOpaqueToolIdsAcrossTurnsKeepEachAssistantAndToolResultPaired() {
+        when(tools.execute(same(scope), eq("query_objects"), any(), same(auth), anyLong())).thenReturn(queryOutput());
+        AtomicInteger modelCalls = new AtomicInteger();
+        AtomicReference<ObjectNode> finalRequest = new AtomicReference<>();
+        String callId = "call.0:供应商/ref";
+        AgentModelClient model = (input, deadline) -> {
+            if (modelCalls.getAndIncrement() < 2) return toolCall(callId, "{}");
+            finalRequest.set(input.deepCopy());
+            return response("stop", "Interpretation from two separately requested tool executions.");
+        };
+        ObjectNode result = service(model).run(request(), auth, () -> { });
+        assertThat(result.path("status").asText()).isEqualTo("COMPLETE");
+        assertThat(result.path("budget").path("modelRequests").asInt()).isEqualTo(3);
+        assertThat(result.path("budget").path("toolCalls").asInt()).isEqualTo(2);
+        ArrayNode messages = (ArrayNode) finalRequest.get().path("messages");
+        assertThat(messages.size()).isEqualTo(6);
+        for (int assistantIndex : new int[]{2, 4}) {
+            JsonNode assistant = messages.get(assistantIndex), tool = messages.get(assistantIndex + 1);
+            assertThat(assistant.path("role").asText()).isEqualTo("assistant");
+            assertThat(assistant.path("tool_calls").get(0).path("id").asText()).isEqualTo(callId);
+            assertThat(tool.path("role").asText()).isEqualTo("tool");
+            assertThat(tool.path("tool_call_id").asText()).isEqualTo(callId);
+        }
+    }
+
+    @Test void blankOversizedAndControlCharacterToolIdsStillFailBeforeDispatch() {
+        for (String id : new String[]{" ", "x".repeat(129), "call\nid"}) {
+            expectFailure(() -> service((input, deadline) -> toolCall(id, "{}")).run(request(), auth, () -> { }),
+                    502, "MODEL_PROTOCOL_ERROR");
+        }
+        noToolExecution();
+    }
+
     @Test void disabledAndInvalidRequestsNeverResolveScopeOrCallModel() {
         AgentModelClient model = mock(AgentModelClient.class);
         expectFailure(() -> service(model, false).run(request(), auth, () -> { }), 503, "AGENT_DISABLED");

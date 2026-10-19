@@ -9,7 +9,9 @@ import io.ontoforge.business.agent.AgentTools;
 import io.ontoforge.business.query.LinkTraverseService;
 import io.ontoforge.business.query.ObjectSetQueryService;
 import io.ontoforge.configuration.AgentSettings;
+import io.ontoforge.platform.identity.LocalAccountPrincipal;
 import io.ontoforge.platform.identity.LocalAccountService;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -25,6 +27,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -33,10 +36,47 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AgentControllerTest {
+    @Test void revocationAfterEvidenceReadInvalidatesTheOwnersHandleAndPreservesTheAuthenticationFailure() {
+        ObjectMapper mapper = new ObjectMapper();
+        LocalAccountPrincipal principal = new LocalAccountPrincipal(UUID.randomUUID(), UUID.randomUUID(), 1,
+                "test.owner", "Test Owner", false);
+        Authentication auth = UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of());
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/context/v1/evidence/query:owned-result");
+        HttpSessionAccounts sessionManager = new HttpSessionAccounts(Duration.ofMinutes(30));
+        sessionManager.login(request, principal);
+        @SuppressWarnings("unchecked") ObjectProvider<HttpSessionAccounts> sessions = mock(ObjectProvider.class);
+        when(sessions.getIfAvailable()).thenReturn(sessionManager);
+        LocalAccountService accounts = mock(LocalAccountService.class);
+        when(accounts.current(principal.accountId(), principal.credentialVersion())).thenReturn(principal, null);
+        ObjectSetQueryService queries = mock(ObjectSetQueryService.class);
+        when(queries.evidence("owned-result", auth)).thenReturn(mapper.createObjectNode()
+                .put("packageId", "demo.synthetic").put("executionId", "original-execution"));
+        doThrow(new IllegalStateException("cleanup-failure-details")).when(queries).invalidateResult("owned-result", auth);
+        AgentSettings settings = new AgentSettings(true, "http://127.0.0.1:1/v1", "test-only-key", "test-model",
+                "demo.synthetic", "127.0.0.1");
+        ExecutorService workers = Executors.newSingleThreadExecutor();
+        try {
+            AgentController controller = new AgentController(mock(AgentService.class), mapper, settings, accounts,
+                    sessions, mock(Environment.class), workers, queries, mock(LinkTraverseService.class));
+            assertThatThrownBy(() -> controller.evidence("query:owned-result", request, auth))
+                    .isInstanceOfSatisfying(AgentException.class, failure -> {
+                        assertThat(failure.http()).isEqualTo(401);
+                        assertThat(failure.code()).isEqualTo("AUTHENTICATION_REQUIRED");
+                        assertThat(failure).hasNoCause();
+                    });
+            verify(accounts, times(2)).current(principal.accountId(), principal.credentialVersion());
+            verify(queries).evidence("owned-result", auth);
+            verify(queries).invalidateResult("owned-result", auth);
+        } finally { workers.shutdownNow(); }
+    }
+
     @Test void timedOutRunCannotSendToTheModelAfterABlockedCheckSwallowsItsInterrupt() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         AgentTools tools = mock(AgentTools.class);

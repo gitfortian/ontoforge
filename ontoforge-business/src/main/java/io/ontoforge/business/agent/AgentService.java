@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.security.core.Authentication;
@@ -58,7 +57,6 @@ public final class AgentService {
         ArrayNode evidenceRefs = mapper.createArrayNode();
         ArrayNode executionIds = mapper.createArrayNode();
         ArrayNode usages = mapper.createArrayNode();
-        Set<String> seenCalls = new HashSet<>();
         String requestId = UUID.randomUUID().toString();
         long sentBytes = 0;
         int completedCalls = 0;
@@ -110,8 +108,9 @@ public final class AgentService {
                 }
                 JsonNode call = toolCalls.get(0);
                 JsonNode function = call.path("function");
-                if (!call.path("id").isTextual() || !call.path("id").asText().matches("[A-Za-z0-9_-]{1,128}")
-                        || !seenCalls.add(call.path("id").asText()) || !"function".equals(call.path("type").asText())
+                String callId = call.path("id").asText();
+                if (!call.path("id").isTextual() || callId.isBlank() || callId.length() > 128
+                        || callId.codePoints().anyMatch(Character::isISOControl) || !"function".equals(call.path("type").asText())
                         || !function.path("name").isTextual() || !function.path("name").asText().matches("[a-z_]{1,64}")
                         || !function.path("arguments").isTextual() || bytes(function.path("arguments").asText()) > 65536) throw protocol();
                 JsonNode arguments;
