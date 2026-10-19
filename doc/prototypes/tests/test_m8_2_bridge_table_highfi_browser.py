@@ -32,7 +32,10 @@ class M82BridgeTableUXHighBrowser(unittest.TestCase):
         self.page.on("pageerror", lambda error: self.errors.append(str(error)))
         self.page.goto(PROTOTYPE.as_uri())
         self.page.get_by_role("heading", name="配置桥表实例来源").wait_for()
-        self.page.wait_for_function("typeof window.__m82uxHigh?.getState === 'function'", timeout=3500)
+        self.assertTrue(
+            self.page.evaluate("Boolean(window.__m82uxHigh?.getState)"),
+            "UX-High JS controller failed to initialize: " + repr(self.errors),
+        )
 
     def tearDown(self):
         directory = os.environ.get("UX_SCREENSHOT_DIR")
