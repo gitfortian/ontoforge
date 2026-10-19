@@ -127,6 +127,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
       <div><b>SOURCE 修订</b><span>B-MO/r2 · identityDomain-MO</span></div>
       <div><b>TARGET 修订</b><span>B-EQ/r3 · identityDomain-EQ</span></div>
       <div><b>BRIDGE 来源</b><span>public.maintenance_order_equipment · schemaFingerprint（模拟）</span></div>
+      <div><b>质量桶互斥对账</b><span id="validation-buckets">—</span></div>
     </div>
     <div class="actions"><button class="main-action" id="continue-save" disabled>核验通过，继续保存 →</button></div>
   </section>
@@ -186,7 +187,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
     </div>
     <div class="notice" id="evidence-summary"><b>尚无执行证据</b>保存后，只有明确执行并授权成功才展示对应的来源读取记录。</div>
     <div class="notice" id="failure-evidence" hidden></div>
-    <div class="actions"><button class="main-action" id="retry-query">重新执行（新快照）</button><button id="repair-config">修正映射 / 重新核验</button></div>
+    <div class="actions"><button class="main-action" id="retry-query">模拟修复来源后重新执行（新快照）</button><button id="repair-config">修正映射 / 重新核验</button></div>
   </section>
   <div class="demo"><h3>低保真产品原型 · 审查须知</h3><p>所有 SQL、Bridge、SELECT、版本与 cursor 都是本地模拟数据。此页面只验证用户操作次序与状态语义，**不**代表真实 Java/PG17/JWT/React 已实现。M8.3 两跳不在本页。</p></div>
 </main>
@@ -228,8 +229,20 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
  function ledgerFor(s){
    const rows=factsFor(s),valid=rows.filter(([a,b])=>a&&b&&a!=="MO-999"&&b!=="E99");
    const pairs=new Set(valid.map(row=>row.join("::")));
-   const nullRows=rows.filter(([a,b])=>!a||!b).length;
-   return {rows:rows.length,pairs:pairs.size,duplicates:valid.length-pairs.size,nullRows,orphans:rows.filter(([a,b])=>a==="MO-999"||b==="E99").length};
+   const buckets={nullBoth:0,nullSourceOnly:0,nullTargetOnly:0,sourceOrphanOnly:0,targetOrphanOnly:0,bothOrphan:0,matched:0};
+   for(const [a,b] of rows){
+     if(a===null&&b===null)buckets.nullBoth++;
+     else if(a===null)buckets.nullSourceOnly++;
+     else if(b===null)buckets.nullTargetOnly++;
+     else if(a==="MO-999"&&b==="E99")buckets.bothOrphan++;
+     else if(a==="MO-999")buckets.sourceOrphanOnly++;
+     else if(b==="E99")buckets.targetOrphanOnly++;
+     else buckets.matched++;
+   }
+   const nullRows=buckets.nullBoth+buckets.nullSourceOnly+buckets.nullTargetOnly;
+   const orphans=buckets.sourceOrphanOnly+buckets.targetOrphanOnly+buckets.bothOrphan;
+   if(Object.values(buckets).reduce((sum,v)=>sum+v,0)!==rows.length)throw Error("invalid FULL bucket ledger");
+   return {rows:rows.length,pairs:pairs.size,duplicates:valid.length-pairs.size,nullRows,orphans,buckets};
  }
  function validation(){
    const m=mapping(),scenario=$("#validation-scenario").value;
@@ -257,6 +270,10 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
      $("#validation-coverage").textContent="FULL · READ ONLY / REPEATABLE_READ";
      $("#validation-pairs").textContent=l.pairs+" 个逻辑 pair / "+l.rows+" 条 Bridge 物理行";
      $("#validation-quality").textContent="重复 "+l.duplicates+" · NULL "+l.nullRows+" · 孤儿 "+l.orphans;
+     const b=l.buckets;
+     $("#validation-buckets").textContent="双 NULL "+b.nullBoth+" / 仅 SOURCE NULL "+b.nullSourceOnly+" / 仅 TARGET NULL "+b.nullTargetOnly+
+       " / SOURCE 孤儿 "+b.sourceOrphanOnly+" / TARGET 孤儿 "+b.targetOrphanOnly+
+       " / 双端孤儿 "+b.bothOrphan+" / 有效物理行 "+b.matched+" = 总 "+l.rows;
      setStatus("validation-outcome",l.orphans?"warn":"good",quality+" · FULL",
         "三方来源资格通过；物理重复 "+l.duplicates+"、NULL "+l.nullRows+"、可确认孤儿 "+l.orphans+
         "。完整校验不自动写入 LinkBinding。");
@@ -266,6 +283,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
      if(scenario!=="budget")$("#validation-coverage").textContent="FAILED · 无有效 FULL";
      $("#validation-pairs").textContent="未提供";
      $("#validation-quality").textContent="失败不返回全局孤儿计数";
+     $("#validation-buckets").textContent="未取得完整三方来源资格，不返回互斥桶";
    }
  }
  function save(){
@@ -285,7 +303,8 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
      state.operationId="operation-DEMO-"+state.revision;
    }
    state.dirty=false;$("#dirty-note").hidden=true;
-   $("#main-status").textContent="LinkBinding r"+state.revision+" · 已保存";
+   $("#commit-binding").disabled=true; // Same operation cannot accidentally create a second immutable revision.
+   $("#main-status".textContent="LinkBinding r"+state.revision+" · 已保存";
    $("#type-status").textContent="BRIDGE_TABLE / revision r"+state.revision;
    if(fault==="unknown"){
      state.saveUnknown=true;$("#lookup-operation").hidden=false;
@@ -409,7 +428,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{text-align:left;p
      $("#failure-evidence").hidden=false;
      setStatus("failure-evidence","bad","旧结果已失效 · "+state.failure.code,
         state.failure.message+"；旧快照不会复用。必须确认 Bridge 当前授权/指纹，再发起新查询。");
-     setStatus("evidence-summary","warn","错误证据而非查询结果","撤权/漂移失败不返回对象、LinkFact 或敏感桥表明细。");
+     setStatus("evidence-summary","warn","错误证据而非查询结果","撤权/漂移失败不返回对象、LinkFact 或敏感桥表明细。下方按钮仅模拟授权/结构已被外部修复，并显式签发新执行；不能复活旧 cursor。");
      return;
    }
    $("#failure-evidence").hidden=true;
