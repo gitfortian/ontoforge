@@ -6,7 +6,7 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Exercises an existing V2 installation -> V7, in a new owned test schema only. */
+/** Exercises an existing V2 installation -> V8, in a new owned test schema only. */
 class NativeMigrationUpgradeTest {
     @Test void upgradePreservesExistingInstallationAndDraft() throws Exception {
         String url=System.getenv("TEST_DB_URL");
@@ -43,12 +43,12 @@ class NativeMigrationUpgradeTest {
                 }
                 assertThat(current.migrate().migrationsExecuted).isZero();
                 try(var row=sql.executeQuery("SELECT count(*) FROM flyway_schema_history WHERE success")) {
-                    row.next();assertThat(row.getInt(1)).isEqualTo(7);
+                    row.next();assertThat(row.getInt(1)).isEqualTo(8);
                 }
                 try(var row=sql.executeQuery("SELECT count(*) FROM mvp_source_batches")) {
                     row.next();assertThat(row.getInt(1)).isEqualTo(2);
                 }
-                // V6/V7 may only add disposable test fixtures and M5 binding schema; old
+                // V6/V7/V8 may only add new fixtures and versioned runtime metadata; old
                 // installation, V2 user draft, V4 facts, and V5 grants remain intact.
                 try(var row=sql.executeQuery("SELECT count(*) FROM demo_impact_lots WHERE lot_no='LOT-900'")) {
                     row.next();assertThat(row.getInt(1)).isEqualTo(3);
