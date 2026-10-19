@@ -122,6 +122,27 @@ class M82BridgeTableUXLowBrowser(unittest.TestCase):
         self.assertTrue(self.model()["validated"])
         self.assertTrue(self.page.locator("#continue-save").is_enabled())
 
+    def test_full_quality_buckets_are_mutually_exclusive_and_accounted(self):
+        self.validate("orphan")
+        ledger = self.page.locator("#validation-buckets").inner_text()
+        self.assertIn("SOURCE 孤儿 1", ledger)
+        self.assertIn("TARGET 孤儿 1", ledger)
+        self.assertIn("有效物理行 3 = 总 5", ledger)
+        self.page.locator("#validation-scenario").select_option("null")
+        self.page.locator("#run-validation").click()
+        ledger = self.page.locator("#validation-buckets").inner_text()
+        self.assertIn("双 NULL 1", ledger)
+        self.assertIn("仅 SOURCE NULL 1", ledger)
+        self.assertIn("仅 TARGET NULL 1", ledger)
+        self.assertIn("有效物理行 3 = 总 6", ledger)
+
+    def test_success_save_button_does_not_duplicate_immutable_revision(self):
+        self.save()
+        self.assertEqual(1, self.model()["revision"])
+        self.assertTrue(self.page.locator("#commit-binding").is_disabled())
+        self.page.locator("#reopen-revision").click()
+        self.assertEqual(1, self.model()["revision"])
+
     def test_duplicate_bridge_pair_is_not_extra_logical_link(self):
         self.save("duplicate")
         self.assertEqual("duplicate", self.model()["savedScenario"])
@@ -184,7 +205,6 @@ class M82BridgeTableUXLowBrowser(unittest.TestCase):
         self.page.locator("#lookup-operation").click()
         self.assertEqual(op, self.model()["operationId"])
         self.assertEqual(1, self.model()["revision"])
-        self.assertEqual("none", self.page.locator("#save-fault").input_value()) if False else None
         self.page.locator("#reopen-revision").click()
         self.assertIn("重开已保存修订 r1", self.page.locator("#save-outcome").inner_text())
         self.assertEqual(1, self.model()["revision"])
