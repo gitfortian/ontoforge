@@ -67,6 +67,17 @@ class LinkTraverseRealBrowserTest(unittest.TestCase):
         self.assertTrue(panel.get_by_label("M8 Target Filter Field").is_visible())
         self.assertTrue(panel.get_by_role("button", name="执行一跳查询").is_disabled())
         panel.get_by_label("M8 Root Selector").select_option("OBJECT_REF")
+        # The real React page must separate object pages from scalar aggregates:
+        # unsupported/unbound numeric source must not enable SUM execution.
+        panel.get_by_label("M8 Result Mode").select_option("COUNT_DISTINCT")
+        self.assertTrue(panel.get_by_role("button", name="执行一跳查询").is_disabled())
+        panel.get_by_label("M8 Result Mode").select_option("SUM")
+        self.assertTrue(panel.get_by_label("M8 Sum Field").is_visible())
+        self.assertTrue(panel.get_by_role("button", name="执行一跳查询").is_disabled())
+        panel.get_by_label("M8 Result Mode").select_option("PAGE")
+        self.assertTrue(panel.get_by_label("M8 Sort Field").is_visible())
+        self.assertTrue(panel.get_by_label("M8 Project Field").is_visible())
+
         self.assertEqual(panel.locator(".m8-links tr").count(), 0)
         self.assertNotIn("SUCCESS", panel.locator(".m8-result").all_text_contents())
 
