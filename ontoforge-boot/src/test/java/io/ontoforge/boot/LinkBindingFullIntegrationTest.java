@@ -9,6 +9,9 @@ import io.ontoforge.business.model.NativeDraftService;
 import io.ontoforge.business.model.NativeSnapshotService;
 import java.net.URI;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -124,6 +127,8 @@ class LinkBindingFullIntegrationTest {
         ArrayNode links = editor.putArray("linkTypes");
         link(links, "equipment-inspections", "equipmentInspections", "ONE_TO_MANY");
         link(links, "equipment-single-inspection", "equipmentSingleInspection", "ONE_TO_ONE");
+        link(links, "equipment-parallel-inspections", "equipmentParallelInspections", "ONE_TO_MANY");
+        link(links, "equipment-competing-inspections", "equipmentCompetingInspections", "ONE_TO_MANY");
         ObjectNode reversed = links.addObject();
         reversed.put("id", "inspection-equipment");
         reversed.put("apiName", "inspectionEquipment");
@@ -567,6 +572,95 @@ class LinkBindingFullIntegrationTest {
         ResponseEntity<String> stale = put("/" + id, oldCasNewKey);
         assertThat(stale.getStatusCode().value()).isEqualTo(409);
         assertThat(stale.getBody()).contains("BINDING_REVISION_CONFLICT");
+
+        // Real simultaneous HTTP writers against the SAME metadata PG17 database.
+        // Without an operation-key lock, the second identical UPDATE sees no
+        // receipt and may return a false stale-CAS 409 after the first commits.
+        ObjectNode concurrentUpdate = next.deepCopy();
+        concurrentUpdate.put("expectedRevision", 2);
+        concurrentUpdate.put("idempotencyKey", UUID.randomUUID().toString());
+        try (var workers = Executors.newFixedThreadPool(2)) {
+            CountDownLatch go = new CountDownLatch(1);
+            var left = workers.submit(() -> {go.await(); return put("/" + id, concurrentUpdate.deepCopy());});
+            var right = workers.submit(() -> {go.await(); return put("/" + id, concurrentUpdate.deepCopy());});
+            go.countDown();
+            ResponseEntity<String> leftResult = left.get(30, TimeUnit.SECONDS);
+            ResponseEntity<String> rightResult = right.get(30, TimeUnit.SECONDS);
+            assertThat(leftResult.getStatusCode().value()).as(leftResult.getBody()).isEqualTo(200);
+            assertThat(rightResult.getStatusCode().value()).as(rightResult.getBody()).isEqualTo(200);
+            assertThat(mapper.readTree(leftResult.getBody()).path("revision").asLong()).isEqualTo(3);
+            assertThat(mapper.readTree(rightResult.getBody()).path("revision").asLong()).isEqualTo(3);
+        }
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM runtime_link_binding_revision WHERE link_binding_id=?::uuid
+                """, Integer.class, id)).isEqualTo(3);
+
+        // Different UUIDs racing the same expected revision must not create two
+        // immutable revisions or return an unhandled SQL 500.
+        ObjectNode competingUpdateA = next.deepCopy();
+        competingUpdateA.put("expectedRevision", 3);
+        competingUpdateA.put("idempotencyKey", UUID.randomUUID().toString());
+        ObjectNode competingUpdateB = competingUpdateA.deepCopy();
+        competingUpdateB.put("idempotencyKey", UUID.randomUUID().toString());
+        try (var workers = Executors.newFixedThreadPool(2)) {
+            CountDownLatch go = new CountDownLatch(1);
+            var left = workers.submit(() -> {go.await(); return put("/" + id, competingUpdateA);});
+            var right = workers.submit(() -> {go.await(); return put("/" + id, competingUpdateB);});
+            go.countDown();
+            ResponseEntity<String> leftResult = left.get(30, TimeUnit.SECONDS);
+            ResponseEntity<String> rightResult = right.get(30, TimeUnit.SECONDS);
+            assertThat(java.util.List.of(leftResult.getStatusCode().value(), rightResult.getStatusCode().value()))
+                    .containsExactlyInAnyOrder(200, 409);
+            assertThat((leftResult.getStatusCode().value() == 409 ? leftResult : rightResult).getBody())
+                    .contains("BINDING_REVISION_CONFLICT");
+        }
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM runtime_link_binding_revision WHERE link_binding_id=?::uuid
+                """, Integer.class, id)).isEqualTo(4);
+
+        // CREATE same UUID: both clients must recover the same durable Head.
+        ObjectNode concurrentCreate = request.deepCopy();
+        concurrentCreate.put("linkTypeId", "equipment-parallel-inspections");
+        concurrentCreate.put("idempotencyKey", UUID.randomUUID().toString());
+        try (var workers = Executors.newFixedThreadPool(2)) {
+            CountDownLatch go = new CountDownLatch(1);
+            var left = workers.submit(() -> {go.await(); return post("", concurrentCreate.deepCopy());});
+            var right = workers.submit(() -> {go.await(); return post("", concurrentCreate.deepCopy());});
+            go.countDown();
+            ResponseEntity<String> leftResult = left.get(30, TimeUnit.SECONDS);
+            ResponseEntity<String> rightResult = right.get(30, TimeUnit.SECONDS);
+            assertThat(leftResult.getStatusCode().value()).as(leftResult.getBody()).isEqualTo(201);
+            assertThat(rightResult.getStatusCode().value()).as(rightResult.getBody()).isEqualTo(201);
+            assertThat(mapper.readTree(leftResult.getBody()).path("linkBindingId").asText())
+                    .isEqualTo(mapper.readTree(rightResult.getBody()).path("linkBindingId").asText());
+        }
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM runtime_link_binding
+                 WHERE package_id=? AND link_type_id='equipment-parallel-inspections'
+                """, Integer.class, pkg)).isEqualTo(1);
+
+        // CREATE different UUIDs for the same identity: exactly one Head.
+        ObjectNode competingCreateA = request.deepCopy();
+        competingCreateA.put("linkTypeId", "equipment-competing-inspections");
+        competingCreateA.put("idempotencyKey", UUID.randomUUID().toString());
+        ObjectNode competingCreateB = competingCreateA.deepCopy();
+        competingCreateB.put("idempotencyKey", UUID.randomUUID().toString());
+        try (var workers = Executors.newFixedThreadPool(2)) {
+            CountDownLatch go = new CountDownLatch(1);
+            var left = workers.submit(() -> {go.await(); return post("", competingCreateA);});
+            var right = workers.submit(() -> {go.await(); return post("", competingCreateB);});
+            go.countDown();
+            ResponseEntity<String> leftResult = left.get(30, TimeUnit.SECONDS);
+            ResponseEntity<String> rightResult = right.get(30, TimeUnit.SECONDS);
+            assertThat(java.util.List.of(leftResult.getStatusCode().value(), rightResult.getStatusCode().value()))
+                    .containsExactlyInAnyOrder(201, 409);
+            assertThat((leftResult.getStatusCode().value() == 409 ? leftResult : rightResult).getBody())
+                    .contains("LINK_BINDING_ALREADY_EXISTS");
+        }
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM runtime_link_binding
+                 WHERE package_id=? AND link_type_id='equipment-competing-inspections'
+                """, Integer.class, pkg)).isEqualTo(1);
 
         ResponseEntity<String> historical = http.getForEntity(URI.create(url("/" + id)
                 + "?packageId=" + pkg + "&revision=1"), String.class);
