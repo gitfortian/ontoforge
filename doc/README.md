@@ -50,6 +50,7 @@
 
 | 文件 | 状态与用途 |
 | --- | --- |
+| [OFIP-0017：Yak 通用账号与工作空间接入](./proposals/OFIP-0017-Yak通用账号与工作空间接入.md) | **Accepted（[维护者决定](https://github.com/gitfortian/ontoforge/pull/94#issuecomment-6261109442)）/ B1 In Progress / Not Released**；默认本地账号 + Session、显式 OIDC 兼容；可信身份、前向迁移、管理员/空间授权与逐用户 cursor 验收合同 |
 | [OFIP-0001：需求提案、文档治理与 CI 证据门禁](./proposals/OFIP-0001-需求提案文档治理与CI证据门禁.md) | **Accepted / 分阶段实施**：规范和可信 CI 已独立交付；当前门禁、保护配置和实际证据见下方 CI 手册，后续按真实场景演进 |
 | [OFIP-0002：Native ObjectType 草稿建模 MVP](./proposals/OFIP-0002-ObjectType-草稿建模MVP.md) | **Accepted / Code Merged（[PR #7](https://github.com/gitfortian/ontoforge/pull/7)）/ Not Released**；对象/属性编辑与校验的设计及实现入口，当前环境验收统一见产品进度总账 |
 | [OFIP-0003：模型快照、结构差异与发布边界](./proposals/OFIP-0003-S0-MVP-0.3-模型快照与发布边界.md) | **Accepted / Code Merged（[PR #11](https://github.com/gitfortian/ontoforge/pull/11)）/ Not Released**；本地不可变历史和结构风险；正式 Release 未实现；当前环境验收统一见产品进度总账 |
