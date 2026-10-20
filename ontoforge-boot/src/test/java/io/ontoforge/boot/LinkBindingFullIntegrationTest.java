@@ -1158,6 +1158,9 @@ class LinkBindingFullIntegrationTest {
 
         // C09: a real Bridge DDL changes its independently frozen schema.
         // The UI must revalidate instead of silently using a saved revision.
+        String ddlCursor = mapper.readTree(traverse(out).getBody())
+                .path("nextCursor").asText();
+        assertThat(ddlCursor).startsWith("v2.");
         jdbc.execute("ALTER TABLE public." + BRIDGE + " ADD COLUMN t5_schema_probe TEXT");
         try {
             ResponseEntity<String> drift = post("/validate", request);
@@ -1170,12 +1173,16 @@ class LinkBindingFullIntegrationTest {
             ResponseEntity<String> staleTraverse = traverse(out);
             assertThat(staleTraverse.getStatusCode().value()).isIn(403, 409);
             assertThat(staleTraverse.getBody()).doesNotContain("EQ-001", "LOT-11", BRIDGE);
+            ResponseEntity<String> driftedPage = traversePage(ddlCursor);
+            assertThat(driftedPage.getStatusCode().value()).isIn(403, 409, 410);
+            assertThat(driftedPage.getBody()).doesNotContain("EQ-001", "LOT-11", BRIDGE);
         } finally {
             jdbc.execute("ALTER TABLE public." + BRIDGE + " DROP COLUMN t5_schema_probe");
         }
         // After restoring the original schema, a fresh authorized FULL works;
         // retired cursors still remain retired from the preceding revoke.
         assertThat(post("/validate", request).getStatusCode().value()).isEqualTo(200);
+        assertThat(traversePage(ddlCursor).getStatusCode().value()).isEqualTo(410);
 
         // All THREE physical reads must share one 10k budget: no truncation to
         // a misleading success result when a bridge becomes over-budget.
