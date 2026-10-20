@@ -1204,6 +1204,29 @@ class LinkBindingFullIntegrationTest {
         assertThat(post("/validate", request).getStatusCode().value()).isEqualTo(200);
         assertThat(traversePage(ddlCursor).getStatusCode().value()).isEqualTo(410);
 
+        // B14/C06: a real, authorized root with NO Bridge pair is a true
+        // COMPLETE empty answer, not a source failure or inferred PARTIAL.
+        jdbc.execute("INSERT INTO public." + EQUIPMENT
+                + "(equipment_code,label,site,cost) VALUES ('EQ-003','Idle','C',300)");
+        try {
+            ObjectNode emptyRoot = traverseRequest(pkg, snap, equipment, lot, id,
+                    "equipment-inspections-bridge", "OUT", "EQ-003", 50);
+            ((ObjectNode) emptyRoot.withArray("steps").get(0).path("linkBindingRef"))
+                    .put("revision", 2);
+            ResponseEntity<String> noEdges = traverse(emptyRoot);
+            assertThat(noEdges.getStatusCode().value()).as(noEdges.getBody()).isEqualTo(200);
+            JsonNode zero = mapper.readTree(noEdges.getBody());
+            assertThat(zero.path("quality").path("completeness").asText())
+                    .isEqualTo("COMPLETE");
+            assertThat(zero.path("quality").path("knownOrphanCount").asInt()).isZero();
+            assertThat(zero.path("objects").size()).isZero();
+            assertThat(zero.path("links").size()).isZero();
+            assertThat(zero.path("linkCount").asInt()).isZero();
+            assertThat(zero.path("budget").path("physicalRows").asInt()).isEqualTo(21);
+        } finally {
+            jdbc.execute("DELETE FROM public." + EQUIPMENT + " WHERE equipment_code='EQ-003'");
+        }
+
         // C07/B08: two genuinely concurrent Spring HTTP requests compete
         // for the SAME persisted Head and expectedRevision=2. Exactly one
         // request may advance to immutable revision 3; the loser is 409.
