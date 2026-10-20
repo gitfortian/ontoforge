@@ -100,6 +100,10 @@ class RealBridgeReactGoldenStory(unittest.TestCase):
         self.assertTrue(recovery.get_by_role("button", name="使用原操作键重试保存").is_enabled())
         recovery.get_by_role("button", name="使用原操作键重试保存").click()
         panel.locator(".m8-current").get_by_text("revision 1").wait_for(timeout=20000)
+        # H04: one FULL qualification grants one successful immutable save.
+        # A second click must not silently create revision 2; unknown-network
+        # retry above used the original UUID before success.
+        expect(panel.get_by_role("button", name="保存新 revision")).to_be_disabled()
         self.assertEqual(state["aborted"], True)
         self.assertEqual(recovery.count(), 0)
         saved = api("/runtime/link-bindings?packageId=" + quote(self.package))
@@ -161,6 +165,7 @@ class RealBridgeReactGoldenStory(unittest.TestCase):
             "m8_cell_event_bridge", timeout=20000)
         self.assertEqual(panel.get_by_label("M8 Bridge SOURCE FK").input_value(), "cell_code")
         self.assertEqual(panel.get_by_label("M8 Bridge TARGET FK").input_value(), "event_code")
+        expect(panel.get_by_role("button", name="保存新 revision")).to_be_disabled()
 
         page.set_viewport_size({"width": 375, "height": 812})
         expect(panel.get_by_role("button", name="收起工作台")).to_be_visible()
