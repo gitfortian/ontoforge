@@ -113,6 +113,16 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     }
     setResult(null);setError(null);
   }
+  function discardUnsafeEvidence(e:ApiError){
+    // A revoked ACL or changed source means the previously displayed FULL
+    // counters/current revision cannot be treated as visible evidence.
+    if(['FORBIDDEN','LINK_SOURCE_UNAVAILABLE','SOURCE_NOT_ALLOWED',
+      'LINK_SOURCE_SCHEMA_DRIFT','SOURCE_UNAVAILABLE','LINK_VERSION_UNAVAILABLE']
+      .includes(e.code||'')){
+      setValidation(null);setSaveQualified(false);setCurrentLink(null);
+      setNotice('来源授权或版本证据已失效。旧质量和关系已撤下；修复后请重开已保存版本，再重新执行。');
+    }
+  }
   function invalidateDraft(){
     validationGeneration.current++;
     setSaveQualified(false);
@@ -316,7 +326,9 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
       const output=await request<OneHopResult>('/api/runtime/object-sets/traverse',
         {...post(query),signal:controller.signal});
       if(queryAttempt===queryGeneration.current)setResult(output);
-    }catch(e){if(queryAttempt===queryGeneration.current){setError(e as ApiError);setResult(null);}}
+    }catch(e){if(queryAttempt===queryGeneration.current){
+      discardUnsafeEvidence(e as ApiError);setError(e as ApiError);setResult(null);
+    }}
     finally{if(queryAttempt===queryGeneration.current){
       queryController.current=null;inFlight.current=false;setBusy(false);
     }}
@@ -333,7 +345,9 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
       if(queryAttempt!==queryGeneration.current)return;
       if(output.resultSnapshotRef!==current.resultSnapshotRef)throw {code:'RESULT_SNAPSHOT_MISMATCH',message:'冻结快照不一致，已停止展示。'} as ApiError;
       setResult(output);
-    }catch(e){if(queryAttempt===queryGeneration.current){setResult(null);setError(e as ApiError);}}
+    }catch(e){if(queryAttempt===queryGeneration.current){
+      discardUnsafeEvidence(e as ApiError);setResult(null);setError(e as ApiError);
+    }}
     finally{if(queryAttempt===queryGeneration.current){
       queryController.current=null;inFlight.current=false;setBusy(false);
     }}
