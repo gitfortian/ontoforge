@@ -1250,6 +1250,25 @@ class LinkBindingFullIntegrationTest {
             jdbc.execute("DELETE FROM public." + EQUIPMENT + " WHERE equipment_code='EQ-003'");
         }
 
+        // T5 C08/B10: a real >8 MiB Bridge FK value must be refused by
+        // the three-source byte admission guard before any partial object
+        // result can be returned. Generate the payload inside PostgreSQL;
+        // never upload an 8 MiB HTTP request or log the sensitive value.
+        jdbc.execute("INSERT INTO public." + BRIDGE
+                + "(equipment_code,lot_code) VALUES (repeat('X',8388609),'LOT-11')");
+        try {
+            ResponseEntity<String> oversized = traverse(out);
+            assertThat(oversized.getStatusCode().value()).as(oversized.getBody())
+                    .isIn(429, 503);
+            assertThat(oversized.getBody()).doesNotContain("LOT-11", "EQ-001",
+                    "8388609", "objectRef", "sourceReadRefs");
+            assertThat(oversized.getBody()).containsAnyOf(
+                    "QUERY_BUDGET_EXCEEDED", "QUERY_TIMEOUT");
+        } finally {
+            jdbc.execute("DELETE FROM public." + BRIDGE
+                    + " WHERE length(equipment_code)>8388608");
+        }
+
         // C07/B08: two genuinely concurrent Spring HTTP requests compete
         // for the SAME persisted Head and expectedRevision=2. Exactly one
         // request may advance to immutable revision 3; the loser is 409.
@@ -1295,25 +1314,6 @@ class LinkBindingFullIntegrationTest {
                     """, Long.class, id)).isEqualTo(3L);
         } finally {
             executor.shutdownNow();
-        }
-
-        // T5 C08/B10: a real >8 MiB Bridge FK value must be refused by
-        // the three-source byte admission guard before any partial object
-        // result can be returned. Generate the payload inside PostgreSQL;
-        // never upload an 8 MiB HTTP request or log the sensitive value.
-        jdbc.execute("INSERT INTO public." + BRIDGE
-                + "(equipment_code,lot_code) VALUES (repeat('X',8388609),'LOT-11')");
-        try {
-            ResponseEntity<String> oversized = traverse(out);
-            assertThat(oversized.getStatusCode().value()).as(oversized.getBody())
-                    .isIn(429, 503);
-            assertThat(oversized.getBody()).doesNotContain("LOT-11", "EQ-001",
-                    "8388609", "objectRef", "sourceReadRefs");
-            assertThat(oversized.getBody()).containsAnyOf(
-                    "QUERY_BUDGET_EXCEEDED", "QUERY_TIMEOUT");
-        } finally {
-            jdbc.execute("DELETE FROM public." + BRIDGE
-                    + " WHERE length(equipment_code)>8388608");
         }
 
         // All THREE physical reads must share one 10k budget: no truncation to
