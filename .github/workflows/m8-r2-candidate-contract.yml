@@ -8,6 +8,7 @@ on:
       - 'doc/design/candidates/m8-2/**'
       - 'doc/design/tests/test_m8_2_bridge_candidate_contract.py'
       - 'doc/design/tests/test_m8_2_bridge_migration_candidate.py'
+      - 'doc/design/tests/m8_2_bridge_candidate_pg17.sql'
       - '.github/workflows/m8-r2-candidate-contract.yml'
   workflow_dispatch:
 
@@ -33,3 +34,38 @@ jobs:
         run: python -m unittest discover -s doc/design/tests -p 'test_m8_2_bridge_candidate_contract.py' -v
       - name: Review forward-only V10 compatibility of proposed M8.2 Bridge migration (no PG execution)
         run: python -m unittest discover -s doc/design/tests -p 'test_m8_2_bridge_migration_candidate.py' -v
+
+  m8-2-pg17-candidate-upgrade:
+    name: M8.2 PG17 V10 Forward Candidate Compatibility (NON-PRODUCTION)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: m8review
+          POSTGRES_PASSWORD: m8review
+          POSTGRES_DB: m8review
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U m8review -d m8review"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout candidate and actual V10
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Execute original V10 and Bridge proposal in isolated PG17
+        env:
+          PGPASSWORD: m8review
+        run: >-
+          psql -X -h 127.0.0.1 -p 5432 -U m8review -d m8review
+          -v ON_ERROR_STOP=1 -f doc/design/tests/m8_2_bridge_candidate_pg17.sql
+      - name: Scope notice
+        if: always()
+        run: |
+          echo "Review-only: isolated PostgreSQL 17 V10 + Bridge DDL candidate."
+          echo "No Flyway application upgrade, production writes, or runtime authorization."
