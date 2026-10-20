@@ -1236,7 +1236,7 @@ class LinkBindingFullIntegrationTest {
                     WHERE link_binding_id=?::uuid AND revision=3
                     """, Integer.class, id)).isEqualTo(1);
             assertThat(jdbc.queryForObject("""
-                    SELECT current_revision FROM runtime_link_binding_head WHERE id=?::uuid
+                    SELECT current_revision FROM runtime_link_binding WHERE link_binding_id=?::uuid
                     """, Long.class, id)).isEqualTo(3L);
         } finally {
             executor.shutdownNow();
