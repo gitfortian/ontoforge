@@ -51,6 +51,7 @@ ALTER TABLE runtime_link_binding_revision
             AND referenced_identity_column IS NULL
             AND bridge_source_id IS NOT NULL
             AND length(bridge_source_id) BETWEEN 1 AND 200
+            AND bridge_schema IS NOT NULL
             AND bridge_schema = 'public'
             AND bridge_table IS NOT NULL
             AND bridge_table ~ '^[a-z][a-z0-9_]{0,62}$'
