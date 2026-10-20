@@ -144,7 +144,7 @@ public class LinkTraverseService {
                     || System.nanoTime() > deadline) {
                 throw fail(System.nanoTime() > deadline ? 503 : 429,
                         System.nanoTime() > deadline ? "QUERY_TIMEOUT" : "QUERY_BUDGET_EXCEEDED",
-                        "双端真实来源扫描超过总预算，不会以截断结果返回成功", "limits");
+                        "来源物理扫描超过统一预算，不会以截断结果返回成功", "limits");
             }
         }
     }
@@ -322,21 +322,12 @@ public class LinkTraverseService {
         String readSourceId = UUID.randomUUID().toString();
         String readTargetId = UUID.randomUUID().toString();
         String readBridgeId = bridgeLink == null ? null : UUID.randomUUID().toString();
+        // R2-A04: source-quality counters on a TRAVERSAL_SCOPE belong to
+        // this user's selected roots, not unrelated pairs in the full bridge.
+        // The saved FULL report is immutable and must not be reused as current facts.
         int bridgeDuplicateRows = 0;
-        if (bridgeRows != null) {
-            // The saved FULL report is immutable evidence of an earlier read,
-            // not proof of current source content. Count duplicates from THIS
-            // bounded three-table query, including pairs outside selected roots.
-            Set<Pair> presentPairs = new HashSet<>();
-            for (Pair pair : bridgeRows.pairs()) {
-                if (pair.source() != null && pair.target() != null
-                        && leftIndex.containsKey(pair.source())
-                        && rightIndex.containsKey(pair.target())
-                        && !presentPairs.add(pair)) {
-                    bridgeDuplicateRows++;
-                }
-            }
-        }
+        Set<Pair> scopedMatchedPairs = new HashSet<>();
+        Set<Pair> scopedOrphanPairs = new HashSet<>();
         ArrayNode resultObjects = mapper.createArrayNode();
         ArrayNode resultLinks = mapper.createArrayNode();
         Set<String> distinctOutput = new HashSet<>();
@@ -360,13 +351,15 @@ public class LinkTraverseService {
                 // Only an orphan attached to a *selected* root makes this
                 // query PARTIAL; unrelated broken Bridge rows do not infect it.
                 if (src == null || dst == null) {
-                    if ((out && src != null) || (!out && dst != null)) orphans++;
+                    if (((out && src != null) || (!out && dst != null))
+                            && scopedOrphanPairs.add(pair)) orphans++;
                     continue;
                 }
                 if (++candidates > request.maxJoin()) {
                     throw fail(429, "QUERY_BUDGET_EXCEEDED", "Bridge Join 候选超过预算", "limits");
                 }
                 if (!matches(out ? dst : src, request.targetConditions())) continue;
+                if (!scopedMatchedPairs.add(pair)) bridgeDuplicateRows++;
                 int before = resultLinks.size();
                 addEdge(request, link, sourceBinding, targetBinding, src, dst,
                         outputKeyType, sourceKeyType, targetKeyType, out, readSourceId, readTargetId,
@@ -529,7 +522,8 @@ public class LinkTraverseService {
             result.put("bridgeDuplicatePairRowCount", bridgeDuplicateRows);
         }
         ObjectNode budget = result.putObject("budget");
-        budget.put("physicalRows", rows.source().size() + rows.target().size());
+        budget.put("physicalRows", rows.source().size() + rows.target().size()
+                + (bridgeRows == null ? 0 : bridgeRows.pairs().size()));
         budget.put("joinCandidates", candidates);
         budget.put("distinctObjects", distinctOutput.size());
         budget.put("distinctLinks", distinctLink.size());
