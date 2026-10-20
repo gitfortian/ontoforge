@@ -1062,6 +1062,14 @@ class LinkBindingFullIntegrationTest {
         ResponseEntity<String> tamperedCursor = traversePage(forgedCursor);
         assertThat(tamperedCursor.getStatusCode().value()).isEqualTo(400);
         assertThat(tamperedCursor.getBody()).doesNotContain("LOT-11", BRIDGE);
+        // C09/B11: frozen pages are stable even if CURRENT source facts change
+        // after page one. A new execution sees the new facts instead.
+        assertThat(jdbc.update("DELETE FROM public." + BRIDGE
+                + " WHERE equipment_code='EQ-001' AND lot_code='LOT-12'")).isEqualTo(2);
+        JsonNode freshAfterDelete = mapper.readTree(traverse(out).getBody());
+        assertThat(freshAfterDelete.path("objects").size()).isEqualTo(1);
+        assertThat(freshAfterDelete.path("nextCursor").isMissingNode()).isTrue();
+        assertThat(freshAfterDelete.path("budget").path("physicalRows").asInt()).isEqualTo(18);
         ResponseEntity<String> pageTwo = traversePage(pageToken);
         assertThat(pageTwo.getStatusCode().value()).as(pageTwo.getBody()).isEqualTo(200);
         JsonNode two = mapper.readTree(pageTwo.getBody());
@@ -1071,6 +1079,9 @@ class LinkBindingFullIntegrationTest {
         assertThat(two.path("nextCursor").isMissingNode()).isTrue();
         assertThat(two.path("objects").get(0).path("objectRef").path("key"))
                 .isNotEqualTo(one.path("objects").get(0).path("objectRef").path("key"));
+        assertThat(two.path("budget").path("physicalRows").asInt()).isEqualTo(20);
+        jdbc.execute("INSERT INTO public." + BRIDGE
+                + "(equipment_code,lot_code) VALUES ('EQ-001','LOT-12'),('EQ-001','LOT-12')");
 
         ObjectNode clean = traverseRequest(pkg, snap, equipment, lot, id,
                 "equipment-inspections-bridge", "OUT", "EQ-002", 50);
