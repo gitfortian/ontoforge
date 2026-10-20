@@ -53,6 +53,9 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
   const [bridgeTargetColumn,setBridgeTargetColumn]=useState('');
   const [tables,setTables]=useState<SourceTable[]>([]);
   const [validation,setValidation]=useState<Validation|null>(null);
+  // A successful FULL authorizes exactly one immutable save. Historical
+  // quality is display evidence, not a fresh license to create a revision.
+  const [saveQualified,setSaveQualified]=useState(false);
   const [currentLink,setCurrentLink]=useState<LinkDetail|null>(null);
   const [opKey,setOpKey]=useState('');
   const [direction,setDirection]=useState<'OUT'|'IN'>('OUT');
@@ -112,6 +115,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
   }
   function invalidateDraft(){
     validationGeneration.current++;
+    setSaveQualified(false);
     setValidation(null);setCurrentLink(null);setOpKey('');reqKey.current='';setNotice('');clearExecution();
   }
   function selectType(id:string){
@@ -127,7 +131,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     generation.current++;
     setSnapshots([]);setSnapshotId('');setSnapshot(null);setBindings([]);setLinkHeads([]);
     setBridgeTable('');setBridgeSourceColumn('');setBridgeTargetColumn('');
-    setLinkTypeId('');setValidation(null);setCurrentLink(null);setResult(null);setError(null);
+    setLinkTypeId('');setSaveQualified(false);setValidation(null);setCurrentLink(null);setResult(null);setError(null);
     setNotice('');reqKey.current='';setOpKey('');
     validationGeneration.current++;clearExecution();
   },[packageId]);
@@ -145,7 +149,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     if(!packageId.trim())return;
     const g=++generation.current;
     validationGeneration.current++;clearExecution();
-    setBusy(true);setError(null);setNotice('');setValidation(null);setCurrentLink(null);setResult(null);
+    setBusy(true);setError(null);setNotice('');setValidation(null);setSaveQualified(false);setCurrentLink(null);setResult(null);
     try{
       const [m5,heads,available]=await Promise.all([
         request<BindingSummary[]>('/api/runtime/bindings?packageId='+encodeURIComponent(packageId)),
@@ -215,13 +219,14 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
   const canValidate=Boolean(source&&target&&type&&(bridgeMode?bridgeReady:fkColumn)&&!busy);
   async function validate(){
     if(!canValidate||inFlight.current)return;
-    inFlight.current=true;setBusy(true);setError(null);setNotice('');setValidation(null);clearExecution();
+    inFlight.current=true;setBusy(true);setError(null);setNotice('');setValidation(null);setSaveQualified(false);clearExecution();
     const validationAttempt=++validationGeneration.current;
     try{
       const key=reqKey.current||crypto.randomUUID();reqKey.current=key;setOpKey(key);
       const v=await request<Validation>('/api/runtime/link-bindings/validate',post(requestBody(key)));
       if(validationAttempt!==validationGeneration.current)return;
       setValidation(v);
+      setSaveQualified(v.coverage==='FULL'&&['VALID','VALID_WITH_ORPHANS'].includes(v.status));
       setNotice(v.status==='VALID_WITH_ORPHANS'
         ?'FULL 校验完成：存在真实孤儿。仅相关根的遍历结果可能为 PARTIAL。'
         :bridgeMode?'三表 FULL 校验完成：桥表双端已通过校验，可保存不可变版本。'
@@ -230,7 +235,8 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     finally{inFlight.current=false;setBusy(false);}
   }
   async function save(){
-    if(!validation||!['VALID','VALID_WITH_ORPHANS'].includes(validation.status)||inFlight.current)return;
+    if(!saveQualified||!validation||validation.coverage!=='FULL'
+      ||!['VALID','VALID_WITH_ORPHANS'].includes(validation.status)||inFlight.current)return;
     inFlight.current=true;setBusy(true);setError(null);
     const key=reqKey.current||crypto.randomUUID();reqKey.current=key;setOpKey(key);
     try{
@@ -239,6 +245,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
         chosenHead?put(requestBody(key)):post(requestBody(key))
       );
       setCurrentLink(saved);
+      setSaveQualified(false);
       setLinkHeads(old=>[...old.filter(x=>x.id!==saved.linkBindingId),
         {id:saved.linkBindingId,packageId,snapshotId,linkTypeId,revision:saved.revision}]);
       setNotice('已保存不可变 LinkBinding revision '+saved.revision+'。可以选择根对象执行一跳遍历。');
@@ -248,7 +255,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
   }
   async function openSaved(){
     if(!chosenHead||inFlight.current)return;
-    inFlight.current=true;setBusy(true);setError(null);clearExecution();
+    inFlight.current=true;setBusy(true);setError(null);setSaveQualified(false);clearExecution();
     try{
       const detail=await request<LinkDetail>('/api/runtime/link-bindings/'+chosenHead.id+'?packageId='+encodeURIComponent(packageId));
       setCurrentLink(detail);
@@ -394,7 +401,8 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
             <p className="object-set-hint">只使用同一个授权 PostgreSQL 来源的 public 桥表。两端 ObjectBinding 及 sourceKey 已冻结；Bridge 是第三份来源证据，不会创建第三个 ObjectType。</p>
           </>}
           <div className="m8-actions"><button className="model-btn" type="button" onClick={()=>void validate()} disabled={!canValidate}><CheckCircle2 size={14}/> 执行 FULL 验证</button>
-            <button className="model-btn primary" type="button" disabled={busy||!validation||!['VALID','VALID_WITH_ORPHANS'].includes(validation.status)||!source||!target}
+            <button className="model-btn primary" type="button" disabled={busy||!saveQualified||!validation||validation.coverage!=='FULL'
+              ||!['VALID','VALID_WITH_ORPHANS'].includes(validation.status)||!source||!target}
               onClick={()=>void save()}><Save size={14}/> {chosenHead?'保存新 revision':'保存 LinkBinding'}</button>
             {chosenHead&&<button className="model-btn" type="button" onClick={()=>void openSaved()} disabled={busy}>重开已保存</button>}</div>
           {validation&&<div className="m8-validation" data-quality={validation.status}>
@@ -414,7 +422,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
           </div>}
           {opKey&&<div className="m8-operation" role="status">保存操作键（UNKNOWN 响应时保持同一个请求和键）：
             <code>{opKey}</code>
-            <button className="model-btn" type="button" disabled={busy||!validation}
+            <button className="model-btn" type="button" disabled={busy||!saveQualified||!validation}
               onClick={()=>void save()}>使用原操作键重试保存</button>
           </div>}
         </div>
