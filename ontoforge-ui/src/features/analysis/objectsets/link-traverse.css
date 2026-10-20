@@ -68,3 +68,19 @@
   .m8-actions>* {flex:1;justify-content:center;}
   .m8-workspace .model-panel-head button {width:100%;justify-content:center;}
 }
+
+/* M8.2: the approved Bridge variant lives INSIDE ObjectSet's existing Yak shell. */
+.m8-bridge-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0;}
+.m8-bridge-fields label {min-width:0;}
+.m8-bridge-quality {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:9px 0 0;}
+.m8-bridge-quality>div {min-width:0;display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid var(--border,#dce3ee);border-radius:8px;padding:9px;background:var(--surface,#fff);}
+.m8-bridge-quality span {font-size:11px;color:var(--text-muted,#64748b);}
+.m8-bridge-quality strong {font-size:15px;font-variant-numeric:tabular-nums;}
+.m8-operation .model-btn {display:block;margin-top:10px;max-width:100%;}
+.m8-source-detail {border:1px solid var(--border,#dce3ee);border-radius:7px;padding:9px 11px;margin-top:5px;min-width:0;}
+.m8-source-detail summary {cursor:pointer;font-weight:650;overflow-wrap:anywhere;}
+.m8-source-detail code,.m8-source-detail small {display:block;font-size:11px;margin-top:6px;overflow-wrap:anywhere;}
+@media(max-width:560px){
+  .m8-bridge-fields,.m8-bridge-quality {grid-template-columns:1fr;}
+  .m8-source-detail {max-width:100%;}
+}
