@@ -1194,7 +1194,7 @@ public class LinkTraverseService {
                         throw fail(403, "SOURCE_NOT_ALLOWED", "不允许的来源表", "steps");
                     }
                     try (PreparedStatement lock = c.prepareStatement(
-                            "LOCK TABLE public.\\"" + table + "\\" IN ACCESS SHARE MODE")) {
+                            "LOCK TABLE public.\"" + table + "\" IN ACCESS SHARE MODE")) {
                         lock.setQueryTimeout(Math.max(1, r.timeout()));
                         lock.execute();
                     }
@@ -1235,8 +1235,8 @@ public class LinkTraverseService {
                 || !IDENT.matcher(to).matches() || from.equals(to)) {
             throw fail(422, "LINK_MAPPING_DRIFT", "冻结 Bridge 列不是有效的两个不同列", "steps");
         }
-        String sql = "SELECT \\"" + from + "\\", \\"" + to
-                + "\\" FROM public.\\"" + table + "\\" LIMIT ?";
+        String sql = "SELECT \"" + from + "\", \"" + to
+                + "\" FROM public.\"" + table + "\" LIMIT ?";
         List<Pair> result = new ArrayList<>();
         try (PreparedStatement statement = c.prepareStatement(sql)) {
             statement.setFetchSize(10);
