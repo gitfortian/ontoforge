@@ -859,7 +859,10 @@ public class LinkTraverseService {
     }
 
     private static void ensureResultContract(JsonNode result) {
-        if (!M8TraverseSchema.validResult(result)) {
+        boolean valid = result.has("linkMappingMode")
+                ? M8TraverseSchema.validBridgeResult(result)
+                : M8TraverseSchema.validResult(result);
+        if (!valid) {
             throw fail(503, "TRAVERSE_RESULT_CONTRACT_DRIFT",
                     "本次响应无法满足已冻结 v2 合同，已拒绝返回对象和来源证据", "result");
         }
