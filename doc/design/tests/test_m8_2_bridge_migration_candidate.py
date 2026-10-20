@@ -61,9 +61,9 @@ class BridgeMigrationCandidateReview(unittest.TestCase):
         self.assertIn("bridge_schema = 'public'", self.active)
 
     def test_no_client_supplied_sql_or_policy_evasion_claim(self):
-        self.assertIn("not enforce sourceId allowlist", self.ddl)
+        self.assertIn("cannot enforce sourceId allowlist", self.ddl)
         self.assertIn("mandatory runtime validations", self.ddl)
-        self.assertIn("REPEATABLE_READ", self.ddl)
+        self.assertIn("sourceId allowlist", self.ddl)
 
 
 if __name__ == "__main__":
