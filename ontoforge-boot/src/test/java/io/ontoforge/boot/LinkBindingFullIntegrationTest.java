@@ -978,6 +978,29 @@ class LinkBindingFullIntegrationTest {
         assertThat(mapper.readTree(full.getBody()).path("status").asText())
                 .isEqualTo("VALID_WITH_ORPHANS");
 
+        // T5 B05/C06: empty-string Bridge foreign keys are NOT SQL NULL.
+        // They are non-NULL values without a matching endpoint identity, and
+        // must land in the corresponding orphan bucket; cleanup is mandatory
+        // so the immutable T2 baseline stays at nine physical rows.
+        jdbc.execute("INSERT INTO public." + BRIDGE
+                + "(equipment_code,lot_code) VALUES ('','LOT-11'),('EQ-001','')");
+        try {
+            ResponseEntity<String> emptyFk = post("/validate", request);
+            assertThat(emptyFk.getStatusCode().value()).as(emptyFk.getBody()).isEqualTo(200);
+            JsonNode buckets = mapper.readTree(emptyFk.getBody()).path("quality");
+            assertThat(buckets.path("bridgePhysicalRows").asInt()).isEqualTo(11);
+            assertThat(buckets.path("nullBoth").asInt()).isEqualTo(1);
+            assertThat(buckets.path("nullSourceOnly").asInt()).isEqualTo(1);
+            assertThat(buckets.path("nullTargetOnly").asInt()).isEqualTo(1);
+            assertThat(buckets.path("orphanSourceOnly").asInt()).isEqualTo(2);
+            assertThat(buckets.path("orphanTargetOnly").asInt()).isEqualTo(2);
+            assertThat(buckets.path("orphanBoth").asInt()).isEqualTo(1);
+            assertThat(buckets.path("matchedPhysicalRows").asInt()).isEqualTo(3);
+        } finally {
+            jdbc.execute("DELETE FROM public." + BRIDGE
+                    + " WHERE equipment_code='' OR lot_code=''");
+        }
+
         ResponseEntity<String> savedResponse = post("", request);
         assertThat(savedResponse.getStatusCode().value()).as(savedResponse.getBody()).isEqualTo(201);
         JsonNode first = mapper.readTree(savedResponse.getBody());
