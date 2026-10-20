@@ -1025,9 +1025,12 @@ class LinkBindingFullIntegrationTest {
         assertThat(put("/" + id, conflict).getStatusCode().value()).isEqualTo(409);
 
         // T3: query one frozen Bridge revision against the actual PG17 source.
-        // Adding a later row does not rewrite the immutable admission revision.
+        // Later physical duplicates and orphan duplicates must not rewrite the
+        // immutable FULL revision. They must update CURRENT root-scoped evidence.
         jdbc.execute("INSERT INTO public." + BRIDGE
-                + "(equipment_code,lot_code) VALUES ('EQ-001','LOT-12'),('EQ-001','LOT-12')");
+                + "(equipment_code,lot_code) VALUES "
+                + "('EQ-001','LOT-12'),('EQ-001','LOT-12'),"
+                + "('EQ-002','LOT-12'),('EQ-001','LOT-NO')");
         ObjectNode out = traverseRequest(pkg, snap, equipment, lot, id,
                 "equipment-inspections-bridge", "OUT", "EQ-001", 1);
         ((ObjectNode) out.withArray("steps").get(0).path("linkBindingRef")).put("revision", 2);
@@ -1037,6 +1040,11 @@ class LinkBindingFullIntegrationTest {
         assertExactJsonBudget(one);
         assertThat(one.path("linkMappingMode").asText()).isEqualTo("BRIDGE_TABLE");
         assertThat(one.path("bridgeDuplicatePairRowCount").asInt()).isEqualTo(2);
+        // 2 SOURCE rows + 5 TARGET rows + 13 BRIDGE rows. Omitting BRIDGE
+        // would produce a misleading 7-row budget despite consuming 20 rows.
+        assertThat(one.path("budget").path("physicalRows").asInt()).isEqualTo(20);
+        // An unrelated EQ-002 duplicate must NOT leak into EQ-001's
+        // TRAVERSAL_SCOPE duplicate count (the global count is now 3).
         assertThat(one.path("quality").path("completeness").asText()).isEqualTo("PARTIAL");
         assertThat(one.path("quality").path("knownOrphanCount").asInt()).isEqualTo(1);
         assertThat(one.path("sourceReadRefs").size()).isEqualTo(3);
@@ -1070,6 +1078,9 @@ class LinkBindingFullIntegrationTest {
         JsonNode scoped = mapper.readTree(traverse(clean).getBody());
         assertThat(scoped.path("quality").path("completeness").asText()).isEqualTo("COMPLETE");
         assertThat(scoped.path("linkCount").asInt()).isEqualTo(1);
+        assertThat(scoped.path("bridgeDuplicatePairRowCount").asInt()).isEqualTo(1);
+        assertThat(scoped.path("quality").path("knownOrphanCount").asInt()).isZero();
+        assertThat(scoped.path("budget").path("physicalRows").asInt()).isEqualTo(20);
 
         ObjectNode inbound = traverseRequest(pkg, snap, lot, equipment, id,
                 "equipment-inspections-bridge", "IN", "LOT-11", 50);
