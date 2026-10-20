@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run test:workspace-pattern && tsc --noEmit && vite build",
+    "test:workspace-pattern": "node scripts/test-workspace-pattern.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "audit:dependencies": "npm audit --audit-level=high"
   },

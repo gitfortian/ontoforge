@@ -89,12 +89,15 @@ function WorkspaceForm({target,close,saved,dirty}:{target:Form;close:()=>void;sa
   useEffect(()=>{dirtyCallback.current(changed);},[changed]);
   useEffect(()=>()=>dirtyCallback.current(false),[]);
   async function submit(event:React.FormEvent){
-    event.preventDefault();if(busy)return;setBusy(true);setError('');
+    event.preventDefault();if(busy)return;
+    const normalizedName=name.trim();
+    if((target.kind==='create'||target.kind==='rename')&&!normalizedName){setError('空间名称不能为空');return;}
+    setBusy(true);setError('');
     try{
       let id:string;
-      if(target.kind==='create')id=(await createWorkspace(key,name)).workspaceId;
+      if(target.kind==='create')id=(await createWorkspace(key,normalizedName)).workspaceId;
       else {id=target.space.workspaceId;
-        if(target.kind==='rename')await renameWorkspace(target.space,name);
+        if(target.kind==='rename')await renameWorkspace(target.space,normalizedName);
         else if(target.kind==='package')await registerPackage(id,packageId);
         else if(target.kind==='member')await saveMember(target.space,target.member.principalId,selection);
       }
@@ -105,7 +108,7 @@ function WorkspaceForm({target,close,saved,dirty}:{target:Form;close:()=>void;sa
   return <form className="workspace-form" onSubmit={event=>void submit(event)}>
     <DialogTitle>{target.kind==='create'?'创建工作空间':target.kind==='rename'?'修改空间名称':target.kind==='package'?'登记模型包':'设置成员角色'}</DialogTitle>
     <DialogDescription>{target.kind==='package'?'登记空的新模型包标识后可创建草稿。历史未归属模型包仅系统管理员可分配，已有其他空间归属的模型包不能重复登记。':target.kind==='member'?'角色作用于此空间全部模型包。至少保留一位当前认证模式下可用的 OWNER。成员和名称修改使用空间版本，冲突时须刷新核对。':'空间标识创建后不可更改，创建者成为 OWNER。'}</DialogDescription>
-    {target.kind==='create'&&<><label htmlFor="workspace-key">空间标识</label><Input id="workspace-key" value={key} required minLength={3} maxLength={64} pattern="[a-z][a-z0-9-]{2,63}" disabled={busy} onChange={event=>setKey(event.target.value)}/></>}
+    {target.kind==='create'&&<><label htmlFor="workspace-key">空间标识</label><Input id="workspace-key" value={key} required minLength={3} maxLength={64} pattern={"[a-z][a-z0-9\\x2d]{2,63}"} disabled={busy} onChange={event=>setKey(event.target.value)}/></>}
     {(target.kind==='create'||target.kind==='rename')&&<><label htmlFor="workspace-name">空间名称</label><Input id="workspace-name" value={name} required maxLength={100} disabled={busy} onChange={event=>setName(event.target.value)}/></>}
     {target.kind==='package'&&<><label htmlFor="workspace-package">模型包 ID</label><Input id="workspace-package" value={packageId} required maxLength={160} disabled={busy} onChange={event=>setPackageId(event.target.value)}/></>}
     {target.kind==='member'&&<><p>{target.member.displayName} · {target.member.username}</p><fieldset disabled={busy} className="workspace-roles"><legend>工作空间角色</legend>{roles.map(([role,description])=><label key={role}><input type="checkbox" checked={selection.includes(role)} onChange={event=>setSelection(current=>event.target.checked?[...current,role]:current.filter(value=>value!==role))}/><span><strong>{role}</strong> · {description}</span></label>)}</fieldset></>}
