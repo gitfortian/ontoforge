@@ -928,6 +928,7 @@ class LinkBindingFullIntegrationTest {
                 "equipment-label", "label", "equipment-site", "site");
         addType(types, "inspection-lot", "InspectionLot", "lot-code", "lotCode",
                 "equipment-ref", "equipmentRef", "inspection-status", "status");
+        decimalProperty((ArrayNode) types.get(1).path("properties"), "inspection-amount", "amount");
         ArrayNode links = editor.putArray("linkTypes");
         link(links, "equipment-inspections-bridge", "equipmentInspectionsBridge", "MANY_TO_MANY");
         var saved = drafts.save(UUID.fromString(draft.draftId()), draft.revision(), editor);
@@ -940,7 +941,7 @@ class LinkBindingFullIntegrationTest {
                         {"equipment-label","label"},{"equipment-site","site"}});
         var lot = createBinding(snap, "inspection-lot", INSPECTION, "lot_code",
                 new String[][]{{"lot-code","lot_code"},{"equipment-ref","equipment_code"},
-                        {"inspection-status","status"}});
+                        {"inspection-status","status"}, {"inspection-amount","amount"}});
         String bridgeFp = bindings.listTables(pkg, null).stream().filter(t -> BRIDGE.equals(t.table()))
                 .findFirst().orElseThrow().schemaFingerprint();
         ObjectNode request = mapper.createObjectNode();
@@ -1023,6 +1024,78 @@ class LinkBindingFullIntegrationTest {
         conflict.put("idempotencyKey", UUID.randomUUID().toString());
         assertThat(put("/" + id, conflict).getStatusCode().value()).isEqualTo(409);
 
+        // T3: query one frozen Bridge revision against the actual PG17 source.
+        // Adding a later row does not rewrite the immutable admission revision.
+        jdbc.execute("INSERT INTO public." + BRIDGE
+                + "(equipment_code,lot_code) VALUES ('EQ-001','LOT-12')");
+        ObjectNode out = traverseRequest(pkg, snap, equipment, lot, id,
+                "equipment-inspections-bridge", "OUT", "EQ-001", 1);
+        ((ObjectNode) out.withArray("steps").get(0).path("linkBindingRef")).put("revision", 2);
+        ResponseEntity<String> firstPage = traverse(out);
+        assertThat(firstPage.getStatusCode().value()).as(firstPage.getBody()).isEqualTo(200);
+        JsonNode one = mapper.readTree(firstPage.getBody());
+        assertExactJsonBudget(one);
+        assertThat(one.path("linkMappingMode").asText()).isEqualTo("BRIDGE_TABLE");
+        assertThat(one.path("bridgeDuplicatePairRowCount").asInt()).isEqualTo(1);
+        assertThat(one.path("quality").path("completeness").asText()).isEqualTo("PARTIAL");
+        assertThat(one.path("quality").path("knownOrphanCount").asInt()).isEqualTo(1);
+        assertThat(one.path("sourceReadRefs").size()).isEqualTo(3);
+        assertThat(one.path("versionLock").path("sourceSchemaFingerprints").size()).isEqualTo(3);
+        assertThat(one.path("sourceReadRefs").toString()).contains("BRIDGE");
+        assertThat(one.path("links").get(0).path("sourceReadRefs").size()).isEqualTo(3);
+        assertThat(one.path("links").get(0).path("source").path("objectTypeId").asText())
+                .isEqualTo("equipment");
+        assertThat(one.path("links").get(0).path("target").path("objectTypeId").asText())
+                .isEqualTo("inspection-lot");
+        String pageToken = one.path("nextCursor").asText();
+        assertThat(pageToken).startsWith("v2.");
+        ResponseEntity<String> pageTwo = traversePage(pageToken);
+        assertThat(pageTwo.getStatusCode().value()).as(pageTwo.getBody()).isEqualTo(200);
+        JsonNode two = mapper.readTree(pageTwo.getBody());
+        assertExactJsonBudget(two);
+        assertThat(two.path("objects").size()).isEqualTo(1);
+        assertThat(two.path("resultSnapshotRef")).isEqualTo(one.path("resultSnapshotRef"));
+        assertThat(two.path("nextCursor").isMissingNode()).isTrue();
+        assertThat(two.path("objects").get(0).path("objectRef").path("key"))
+                .isNotEqualTo(one.path("objects").get(0).path("objectRef").path("key"));
+
+        ObjectNode clean = traverseRequest(pkg, snap, equipment, lot, id,
+                "equipment-inspections-bridge", "OUT", "EQ-002", 50);
+        ((ObjectNode) clean.withArray("steps").get(0).path("linkBindingRef")).put("revision", 2);
+        JsonNode scoped = mapper.readTree(traverse(clean).getBody());
+        assertThat(scoped.path("quality").path("completeness").asText()).isEqualTo("COMPLETE");
+        assertThat(scoped.path("linkCount").asInt()).isEqualTo(1);
+
+        ObjectNode inbound = traverseRequest(pkg, snap, lot, equipment, id,
+                "equipment-inspections-bridge", "IN", "LOT-11", 50);
+        ((ObjectNode) inbound.withArray("steps").get(0).path("linkBindingRef")).put("revision", 2);
+        ResponseEntity<String> inboundResponse = traverse(inbound);
+        assertThat(inboundResponse.getStatusCode().value()).as(inboundResponse.getBody()).isEqualTo(200);
+        JsonNode reverse = mapper.readTree(inboundResponse.getBody());
+        assertThat(reverse.path("quality").path("completeness").asText()).isEqualTo("PARTIAL");
+        assertThat(reverse.path("quality").path("knownOrphanCount").asInt()).isEqualTo(1);
+        assertThat(reverse.path("linkCount").asInt()).isEqualTo(1);
+        assertThat(reverse.path("links").get(0).path("source").path("objectTypeId").asText())
+                .isEqualTo("equipment");
+
+        ObjectNode aggregate = out.deepCopy();
+        ArrayNode steps = aggregate.withArray("steps");
+        steps.remove(steps.size() - 1);
+        steps.addObject().put("kind", "AGGREGATE").put("operation", "SUM")
+                .put("propertyRef", "inspection-amount");
+        ResponseEntity<String> aggregateResponse = traverse(aggregate);
+        assertThat(aggregateResponse.getStatusCode().value()).as(aggregateResponse.getBody()).isEqualTo(200);
+        JsonNode sum = mapper.readTree(aggregateResponse.getBody());
+        assertThat(sum.path("aggregate").path("matchedObjects").asInt()).isEqualTo(2);
+        assertThat(sum.path("aggregate").path("value").asText()).isEqualTo("30");
+        assertThat(sum.path("quality").path("answerScope").asText()).isEqualTo("KNOWN_SUBSET");
+        ((ObjectNode) steps.get(steps.size() - 1)).put("operation", "COUNT_DISTINCT").remove("propertyRef");
+        JsonNode distinctCount = mapper.readTree(traverse(aggregate).getBody());
+        assertThat(distinctCount.path("aggregate").path("value").asText()).isEqualTo("2");
+
+        String revokeCursor = mapper.readTree(traverse(out).getBody()).path("nextCursor").asText();
+        assertThat(revokeCursor).startsWith("v2.");
+
         // A revoked Bridge grant forbids retrieval of past full source/quality.
         jdbc.execute("REVOKE SELECT ON public." + BRIDGE + " FROM ontoforge_binding_reader");
         try {
@@ -1030,9 +1103,13 @@ class LinkBindingFullIntegrationTest {
                     + "?packageId=" + pkg)), String.class);
             assertThat(denied.getStatusCode().value()).isEqualTo(403);
             assertThat(denied.getBody()).doesNotContain("EQ-001", BRIDGE, bridgeFp);
+            ResponseEntity<String> revoked = traversePage(revokeCursor);
+            assertThat(revoked.getStatusCode().value()).isIn(403,409,410);
+            assertThat(revoked.getBody()).doesNotContain("LOT-11", BRIDGE);
         } finally {
             jdbc.execute("GRANT SELECT ON public." + BRIDGE + " TO ontoforge_binding_reader");
         }
+        assertThat(traversePage(revokeCursor).getStatusCode().value()).isEqualTo(410);
 
         // All THREE physical reads must share one 10k budget: no truncation to
         // a misleading success result when a bridge becomes over-budget.
