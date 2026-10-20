@@ -1193,6 +1193,76 @@ class LinkBindingFullIntegrationTest {
                     + " WHERE lot_code='LOT-T5-WRITER'");
         }
 
+        // T5 B10/B11/C08: actual Bridge-specific high fanout, not the old
+        // FK-only stress fixture. 1,000 valid new pairs must remain bounded,
+        // distinct, and stable across a frozen cursor when the source changes.
+        jdbc.execute("INSERT INTO public." + INSPECTION
+                + " (lot_code,equipment_code,status,amount)"
+                + " SELECT 'T5-FAN-' || lpad(g::text,4,'0'), 'EQ-002','PASS',1.00"
+                + " FROM generate_series(1,1000) AS g");
+        jdbc.execute("INSERT INTO public." + BRIDGE
+                + " (equipment_code,lot_code)"
+                + " SELECT 'EQ-002','T5-FAN-' || lpad(g::text,4,'0')"
+                + " FROM generate_series(1,1000) AS g");
+        try {
+            jdbc.execute("ANALYZE public." + BRIDGE);
+            String planJson = sourceJdbc.queryForObject("""
+                    EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+                    SELECT t.lot_code FROM public.m8_equipment_inspection_bridge b
+                    JOIN public.m8_inspection_source t ON t.lot_code=b.lot_code
+                    WHERE b.equipment_code='EQ-002'
+                    """, String.class);
+            JsonNode plan = mapper.readTree(planJson).get(0);
+            assertThat(plan.path("Plan").path("Actual Rows").asInt())
+                    .as("One thousand new physical Bridge pairs plus two existing EQ-002 rows")
+                    .isEqualTo(1002);
+            assertThat(plan.path("Execution Time").asDouble()).isLessThan(3000.0);
+
+            ObjectNode fan = clean.deepCopy();
+            ((ObjectNode) fan.withArray("steps").get(1)).put("pageSize", 50);
+            ResponseEntity<String> fullFan = traverse(fan);
+            assertThat(fullFan.getStatusCode().value()).as(fullFan.getBody()).isEqualTo(200);
+            JsonNode fanPage = mapper.readTree(fullFan.getBody());
+            assertThat(fanPage.path("quality").path("completeness").asText())
+                    .isEqualTo("COMPLETE");
+            assertThat(fanPage.path("linkCount").asInt()).isEqualTo(1001);
+            assertThat(fanPage.path("budget").path("physicalRows").asInt())
+                    .isEqualTo(2020);
+            assertThat(fanPage.path("objects").size()).isEqualTo(50);
+            String signedPage = fanPage.path("nextCursor").asText();
+            assertThat(signedPage).startsWith("v2.");
+
+            ObjectNode joinLimited = fan.deepCopy();
+            joinLimited.putObject("limits").put("maxJoinCandidates", 1000);
+            ResponseEntity<String> overJoin = traverse(joinLimited);
+            assertThat(overJoin.getStatusCode().value()).as(overJoin.getBody())
+                    .isEqualTo(429);
+            assertThat(overJoin.getBody()).contains("QUERY_BUDGET_EXCEEDED")
+                    .doesNotContain("T5-FAN-0001", "objectRef", "nextCursor");
+
+            // Signed result pages keep their originally validated snapshot
+            // even after the source no longer contains the 1,000 new pairs.
+            jdbc.execute("DELETE FROM public." + BRIDGE
+                    + " WHERE lot_code LIKE 'T5-FAN-%'");
+            jdbc.execute("DELETE FROM public." + INSPECTION
+                    + " WHERE lot_code LIKE 'T5-FAN-%'");
+            ResponseEntity<String> preserved = traversePage(signedPage);
+            assertThat(preserved.getStatusCode().value()).as(preserved.getBody())
+                    .isEqualTo(200);
+            JsonNode frozenFan = mapper.readTree(preserved.getBody());
+            assertThat(frozenFan.path("objects").size()).isEqualTo(50);
+            assertThat(frozenFan.path("resultSnapshotRef"))
+                    .isEqualTo(fanPage.path("resultSnapshotRef"));
+            JsonNode latestFan = mapper.readTree(traverse(clean).getBody());
+            assertThat(latestFan.path("objects").size()).isEqualTo(1);
+            assertThat(latestFan.path("linkCount").asInt()).isEqualTo(1);
+        } finally {
+            jdbc.execute("DELETE FROM public." + BRIDGE
+                    + " WHERE lot_code LIKE 'T5-FAN-%'");
+            jdbc.execute("DELETE FROM public." + INSPECTION
+                    + " WHERE lot_code LIKE 'T5-FAN-%'");
+        }
+
         ObjectNode inbound = traverseRequest(pkg, snap, lot, equipment, id,
                 "equipment-inspections-bridge", "IN", "LOT-11", 50);
         ((ObjectNode) inbound.withArray("steps").get(0).path("linkBindingRef")).put("revision", 2);
