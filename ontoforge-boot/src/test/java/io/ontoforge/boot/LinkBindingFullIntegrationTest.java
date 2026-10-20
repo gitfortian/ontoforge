@@ -1195,6 +1195,53 @@ class LinkBindingFullIntegrationTest {
         assertThat(post("/validate", request).getStatusCode().value()).isEqualTo(200);
         assertThat(traversePage(ddlCursor).getStatusCode().value()).isEqualTo(410);
 
+        // C07/B08: two genuinely concurrent Spring HTTP requests compete
+        // for the SAME persisted Head and expectedRevision=2. Exactly one
+        // request may advance to immutable revision 3; the loser is 409.
+        // This proves same-process PG lock/CAS, NOT multi-JVM recovery.
+        ObjectNode concurrentA = update.deepCopy();
+        concurrentA.put("expectedRevision", 2);
+        concurrentA.put("idempotencyKey", UUID.randomUUID().toString());
+        ObjectNode concurrentB = concurrentA.deepCopy();
+        concurrentB.put("idempotencyKey", UUID.randomUUID().toString());
+        java.util.concurrent.ExecutorService executor =
+                java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        try {
+            var firstWriter = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                try {
+                    start.await();
+                    return put("/" + id, concurrentA);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(ex);
+                }
+            }, executor);
+            var secondWriter = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                try {
+                    start.await();
+                    return put("/" + id, concurrentB);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(ex);
+                }
+            }, executor);
+            start.countDown();
+            ResponseEntity<String> a = firstWriter.get(20, java.util.concurrent.TimeUnit.SECONDS);
+            ResponseEntity<String> b = secondWriter.get(20, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(java.util.Set.of(a.getStatusCode().value(), b.getStatusCode().value()))
+                    .containsExactlyInAnyOrder(200, 409);
+            assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM runtime_link_binding_revision
+                    WHERE link_binding_id=?::uuid AND revision=3
+                    """, Integer.class, id)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("""
+                    SELECT current_revision FROM runtime_link_binding_head WHERE id=?::uuid
+                    """, Long.class, id)).isEqualTo(3L);
+        } finally {
+            executor.shutdownNow();
+        }
+
         // All THREE physical reads must share one 10k budget: no truncation to
         // a misleading success result when a bridge becomes over-budget.
         jdbc.execute("INSERT INTO public." + BRIDGE
