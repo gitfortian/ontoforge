@@ -1027,7 +1027,7 @@ class LinkBindingFullIntegrationTest {
         // T3: query one frozen Bridge revision against the actual PG17 source.
         // Adding a later row does not rewrite the immutable admission revision.
         jdbc.execute("INSERT INTO public." + BRIDGE
-                + "(equipment_code,lot_code) VALUES ('EQ-001','LOT-12')");
+                + "(equipment_code,lot_code) VALUES ('EQ-001','LOT-12'),('EQ-001','LOT-12')");
         ObjectNode out = traverseRequest(pkg, snap, equipment, lot, id,
                 "equipment-inspections-bridge", "OUT", "EQ-001", 1);
         ((ObjectNode) out.withArray("steps").get(0).path("linkBindingRef")).put("revision", 2);
@@ -1036,7 +1036,7 @@ class LinkBindingFullIntegrationTest {
         JsonNode one = mapper.readTree(firstPage.getBody());
         assertExactJsonBudget(one);
         assertThat(one.path("linkMappingMode").asText()).isEqualTo("BRIDGE_TABLE");
-        assertThat(one.path("bridgeDuplicatePairRowCount").asInt()).isEqualTo(1);
+        assertThat(one.path("bridgeDuplicatePairRowCount").asInt()).isEqualTo(2);
         assertThat(one.path("quality").path("completeness").asText()).isEqualTo("PARTIAL");
         assertThat(one.path("quality").path("knownOrphanCount").asInt()).isEqualTo(1);
         assertThat(one.path("sourceReadRefs").size()).isEqualTo(3);
