@@ -1042,8 +1042,10 @@ class LinkBindingFullIntegrationTest {
         ObjectNode alienSource = request.deepCopy();
         ((ObjectNode) alienSource.path("bridgeSourceRef")).put("sourceId", "remote-warehouse");
         ResponseEntity<String> wrongSource = post("/validate", alienSource);
-        assertThat(wrongSource.getStatusCode().value()).as(wrongSource.getBody()).isEqualTo(409);
-        assertThat(wrongSource.getBody()).contains("LINK_ENDPOINT_UNAVAILABLE")
+        // Invalid sourceId is rejected by the strict v2 request contract
+        // before endpoint congruence checks; do not weaken that gate.
+        assertThat(wrongSource.getStatusCode().value()).as(wrongSource.getBody()).isEqualTo(422);
+        assertThat(wrongSource.getBody()).contains("MALFORMED_LINK_CONTRACT")
                 .doesNotContain("EQ-001", "LOT-11", "sourceReadRefs");
 
         ObjectNode missingBridgeColumn = request.deepCopy();
