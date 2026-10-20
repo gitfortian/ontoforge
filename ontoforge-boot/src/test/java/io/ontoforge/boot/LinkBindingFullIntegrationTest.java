@@ -1225,7 +1225,10 @@ class LinkBindingFullIntegrationTest {
             JsonNode fanPage = mapper.readTree(fullFan.getBody());
             assertThat(fanPage.path("quality").path("completeness").asText())
                     .isEqualTo("COMPLETE");
-            assertThat(fanPage.path("linkCount").asInt()).isEqualTo(1001);
+            // linkCount is PAGE-local (50), while the frozen distinctLinks
+            // evidence covers all 1,001 valid logical links across pages.
+            assertThat(fanPage.path("linkCount").asInt()).isEqualTo(50);
+            assertThat(fanPage.path("budget").path("distinctLinks").asInt()).isEqualTo(1001);
             assertThat(fanPage.path("budget").path("physicalRows").asInt())
                     .isEqualTo(2020);
             assertThat(fanPage.path("objects").size()).isEqualTo(50);
