@@ -218,6 +218,12 @@ public class LinkBindingService {
             throw fail(404, "LINK_REVISION_NOT_FOUND", "不存在此修订", "revision");
         }
         LinkDetail stored = detail(id, packageId, revision, revision != head.revision());
+        // A BridgeTable revision has a THIRD independent source grant and must
+        // never be returned through a FK-only detail DTO that drops its mode.
+        if (stored.fkOwner() == null) {
+            throw fail(422, "LINK_BINDING_MODE_MISMATCH",
+                    "Bridge v2 需校验第三方来源后读取", "linkBindingId");
+        }
         // A visible package alone cannot grant continued access to historical
         // source identities after a database SELECT grant has been revoked.
         DataBindingService.BindingDetail sourceBinding = bindings.getBinding(
