@@ -303,10 +303,10 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     finally{inFlight.current=false;setBusy(false);}
   }
 
-  if(scopePackages&&packageId.trim()&&!scopePackages.includes(packageId.trim()))return <section className="model-panel m8-workspace" aria-label="关系与一跳遍历 M8.1"><div role="alert">当前工作空间未登记这个模型包；请切换工作空间或使用已授权的模型包。</div></section>;
+  if(scopePackages&&packageId.trim()&&!scopePackages.includes(packageId.trim()))return <section className="model-panel m8-workspace" aria-label="关系与一跳遍历 M8"><div role="alert">当前工作空间未登记这个模型包；请切换工作空间或使用已授权的模型包。</div></section>;
 
-  return <section className="model-panel m8-workspace" aria-label="关系与一跳遍历 M8.1">
-    <header className="model-panel-head"><div><span className="model-eyebrow">M8.1 / LINK BINDING → ONE-HOP TRAVERSE</span>
+  return <section className="model-panel m8-workspace" aria-label="关系与一跳遍历 M8">
+    <header className="model-panel-head"><div><span className="model-eyebrow">M8 / LINK BINDING → ONE-HOP TRAVERSE</span>
       <h2>关系配置与一跳遍历</h2><p>基于已冻结的 Native LinkType 与双端 Object Binding，在真实受控来源上验证关系并执行 OUT / IN 查询。</p></div>
       <div className="model-actions">
         {initialSnapshotId&&<button className="model-btn" type="button"
@@ -327,34 +327,71 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
           <label>Local Snapshot<select aria-label="M8 Local Snapshot" value={snapshotId} disabled={busy||snapshots.length===0}
             onChange={e=>void loadSnapshot(e.target.value)}><option value="">请选择已保存的快照</option>{snapshots.map(x=><option key={x} value={x}>{x}</option>)}</select></label>
           <label>LinkType<select aria-label="M8 LinkType" value={linkTypeId} disabled={busy||!snapshot}
-            onChange={e=>selectType(e.target.value)}><option value="">选择关系类型</option>{snapshot?.snapshotContent.linkTypes.filter(t=>t.cardinality!=='MANY_TO_MANY').map(t=><option key={t.id} value={t.id}>{t.label||t.apiName} · {t.cardinality}</option>)}</select></label>
+            onChange={e=>selectType(e.target.value)}><option value="">选择关系类型</option>{snapshot?.snapshotContent.linkTypes.map(t=><option key={t.id} value={t.id}>{t.label||t.apiName} · {t.cardinality}</option>)}</select></label>
           <div className="m8-endpoints"><div><span>SOURCE / 对象绑定</span><strong>{type?.sourceTypeRef||'未选择'}</strong><small>{source?'revision '+source.revision+' · '+source.sourceTable:'缺少通过验证的 M5 Binding'}</small></div>
             <ArrowRightLeft size={18}/><div><span>TARGET / 对象绑定</span><strong>{type?.targetTypeRef||'未选择'}</strong><small>{target?'revision '+target.revision+' · '+target.sourceTable:'缺少通过验证的 M5 Binding'}</small></div></div>
           {source&&target&&<div className="m8-digests"><span>来源摘要</span><code>{source.digest.slice(0,14)}… / {target.digest.slice(0,14)}…</code></div>}
         </div>
         <div className="m8-pane">
-          <h3>02 · FOREIGN_KEY / FULL 验证</h3>
-          <label>外键所在端<select aria-label="M8 FK Owner" value={fkOwner} disabled={busy}
+          <h3>02 · {bridgeMode?'BRIDGE_TABLE / 三方 FULL 验证':'FOREIGN_KEY / FULL 验证'}</h3>
+          {!bridgeMode?<><label>外键所在端<select aria-label="M8 FK Owner" value={fkOwner} disabled={busy}
             onChange={e=>selectOwner(e.target.value as 'SOURCE'|'TARGET')}>
             <option value="SOURCE">SOURCE → TARGET（MANY_TO_ONE / ONE_TO_ONE）</option>
             <option value="TARGET">TARGET → SOURCE（ONE_TO_MANY / ONE_TO_ONE）</option></select></label>
           <label>受控 FK 来源列<select aria-label="M8 FK Column" value={fkColumn} disabled={busy||!fkTable}
             onChange={e=>{setFkColumn(e.target.value);invalidateDraft();}}>
             <option value="">选择来源列</option>{fkTable?.columns.map(col=><option key={col.name} value={col.name}>{col.name} · {col.udtName}</option>)}</select></label>
-          <p className="object-set-hint">对端权威主键由已保存的 M5 Binding 决定，不能由客户端指定。仅 FULL 验证可保存。</p>
+          <p className="object-set-hint">对端权威主键由已保存的 M5 Binding 决定，不能由客户端指定。仅 FULL 验证可保存。</p></>:<>
+            <label>Bridge 来源表<select aria-label="M8 Bridge Table" value={bridgeTable} disabled={busy}
+              onChange={e=>{setBridgeTable(e.target.value);setBridgeSourceColumn('');setBridgeTargetColumn('');invalidateDraft();}}>
+              <option value="">选择当前授权的桥表</option>
+              {tables.filter(t=>t.table!==source?.sourceTable&&t.table!==target?.sourceTable)
+                .map(t=><option value={t.table} key={t.table}>{t.schema}.{t.table}</option>)}
+            </select></label>
+            <div className="m8-bridge-fields">
+              <label>Bridge → SOURCE 的 FK 列<select aria-label="M8 Bridge SOURCE FK" value={bridgeSourceColumn}
+                disabled={busy||!selectedBridge} onChange={e=>{setBridgeSourceColumn(e.target.value);invalidateDraft();}}>
+                <option value="">选择关联 SOURCE.sourceKey 的列</option>
+                {selectedBridge?.columns.map(c=><option key={c.name} value={c.name}>{c.name} · {c.udtName}</option>)}
+              </select></label>
+              <label>Bridge → TARGET 的 FK 列<select aria-label="M8 Bridge TARGET FK" value={bridgeTargetColumn}
+                disabled={busy||!selectedBridge} onChange={e=>{setBridgeTargetColumn(e.target.value);invalidateDraft();}}>
+                <option value="">选择关联 TARGET.sourceKey 的列</option>
+                {selectedBridge?.columns.map(c=><option key={c.name} value={c.name}>{c.name} · {c.udtName}</option>)}
+              </select></label>
+            </div>
+            {bridgeSourceColumn&&bridgeTargetColumn&&bridgeSourceColumn===bridgeTargetColumn
+              &&<p role="alert">Bridge 的 SOURCE 和 TARGET FK 列不能相同，请分别选择。</p>}
+            <p className="object-set-hint">只使用同一个授权 PostgreSQL 来源的 public 桥表。两端 ObjectBinding 及 sourceKey 已冻结；Bridge 是第三份来源证据，不会创建第三个 ObjectType。</p>
+          </>}
           <div className="m8-actions"><button className="model-btn" type="button" onClick={()=>void validate()} disabled={!canValidate}><CheckCircle2 size={14}/> 执行 FULL 验证</button>
             <button className="model-btn primary" type="button" disabled={busy||!validation||!['VALID','VALID_WITH_ORPHANS'].includes(validation.status)||!source||!target}
               onClick={()=>void save()}><Save size={14}/> {chosenHead?'保存新 revision':'保存 LinkBinding'}</button>
             {chosenHead&&<button className="model-btn" type="button" onClick={()=>void openSaved()} disabled={busy}>重开已保存</button>}</div>
           {validation&&<div className="m8-validation" data-quality={validation.status}>
             <strong>{validation.status} · {validation.coverage||'FULL'}</strong>
-            <span>已扫描 {validation.scannedRows} 行 · 匹配 {validation.matchedLinks} · SQL NULL {validation.nullFkCount} · 孤儿 {validation.orphanCount}</span>
+            {bridgeMode&&validation.quality?<div className="m8-bridge-quality" aria-label="M8 Bridge FULL 质量">
+              <div><span>桥表物理行</span><strong>{validation.quality.bridgePhysicalRows}</strong></div>
+              <div><span>匹配物理行</span><strong>{validation.quality.matchedPhysicalRows}</strong></div>
+              <div><span>唯一 Pair</span><strong>{validation.quality.uniquePairCount}</strong></div>
+              <div><span>重复物理 Pair</span><strong>{validation.quality.duplicatePairRowCount}</strong></div>
+              <div><span>双 NULL</span><strong>{validation.quality.nullBoth}</strong></div>
+              <div><span>仅 SOURCE NULL</span><strong>{validation.quality.nullSourceOnly}</strong></div>
+              <div><span>仅 TARGET NULL</span><strong>{validation.quality.nullTargetOnly}</strong></div>
+              <div><span>SOURCE 孤儿</span><strong>{validation.quality.orphanSourceOnly}</strong></div>
+              <div><span>TARGET 孤儿</span><strong>{validation.quality.orphanTargetOnly}</strong></div>
+              <div><span>双孤儿</span><strong>{validation.quality.orphanBoth}</strong></div>
+            </div>:<span>已扫描 {validation.scannedRows} 行 · 匹配 {validation.matchedLinks} · SQL NULL {validation.nullFkCount} · 孤儿 {validation.orphanCount}</span>}
           </div>}
-          {opKey&&<small className="m8-operation">保存操作键（响应未知时保持不变）：<code>{opKey}</code></small>}
+          {opKey&&<div className="m8-operation" role="status">保存操作键（UNKNOWN 响应时保持同一个请求和键）：
+            <code>{opKey}</code>
+            <button className="model-btn" type="button" disabled={busy||!validation}
+              onClick={()=>void save()}>使用原操作键重试保存</button>
+          </div>}
         </div>
       </div>
       <div className="m8-pane m8-query">
-        <h3>03 · 已保存关系的一跳遍历</h3>
+        <h3>03 · 已保存关系的双向一跳遍历 {bridgeMode?'· Bridge M:N':''}</h3>
         {currentLink?<div className="m8-current"><CheckCircle2 size={16}/><strong>{currentLink.linkTypeId} · revision {currentLink.revision}</strong><span>{currentLink.validationStatus} · 来源检查来自不可变修订</span></div>
           :<p className="object-set-hint">先验证并保存 LinkBinding，或使用“重开已保存”。未保存的前端草稿不能参与遍历。</p>}
         <div className="m8-query-controls"><label>方向<select aria-label="M8 Traverse Direction" value={direction} onChange={e=>{
@@ -419,7 +456,13 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
           {result.resultKind==='PAGE'&&<div className="m8-links">{result.links.length===0?<div className="m8-empty"><CheckCircle2 size={20}/><strong>{result.quality.completeness==='COMPLETE'?'成功 · 0 条关系':'已知子集 · 0 条有效关系'}</strong><p>{result.quality.completeness==='COMPLETE'?'当前根确实没有可关联对象。':'当前根存在已确认的未匹配 FK；不能把 0 条有效关系解释为完整的业务世界。'}</p></div>
             :<table className="model-table"><thead><tr><th>Source ObjectRef</th><th>Target ObjectRef</th><th>LinkType</th></tr></thead><tbody>
             {result.links.map((fact,i)=><tr key={i}><td><b>{fact.source.key.value}</b><small>{fact.source.objectTypeId}</small></td><td><b>{fact.target.key.value}</b><small>{fact.target.objectTypeId}</small></td><td>{fact.linkTypeId}</td></tr>)}</tbody></table>}</div>}
-          <div className="m8-evidence"><strong>冻结来源与版本证据</strong><span>双端 SourceReadRefs：{result.sourceReadRefs.length} · 版本锁：{result.bindingVersions.length} · 总扫描：{result.budget.physicalRows} 行 · 查询候选：{result.budget.joinCandidates}</span>
+          <div className="m8-evidence"><strong>冻结来源与版本证据</strong><span>{result.linkMappingMode==='BRIDGE_TABLE'?'三方':'双端'} SourceReadRefs：{result.sourceReadRefs.length} · 版本锁：{result.bindingVersions.length} · 总扫描：{result.budget.physicalRows} 行 · 查询候选：{result.budget.joinCandidates}</span>
+             {result.linkMappingMode==='BRIDGE_TABLE'&&<span>本次物理重复 Pair 行：{result.bridgeDuplicatePairRowCount} · LinkFact 和聚合仍按唯一对象去重</span>}
+             {result.sourceReadRefs.map(read=><details key={read.id} className="m8-source-detail">
+               <summary>{read.role} · {read.schema}.{read.table}</summary>
+               <code>{read.schemaFingerprint}</code>
+               <small>sourceReadRef {read.id} · checkpoint {read.checkpoint.status}</small>
+             </details>)}
             <small>结果快照 {result.resultSnapshotRef} · 到期 {result.expiresAt} · 不声明历史源时刻或新鲜度保证</small></div>
           {result.nextCursor&&<button className="model-btn" disabled={busy} type="button" onClick={()=>void nextPage()}>下一页 <ChevronRight size={14}/></button>}
         </div>}
