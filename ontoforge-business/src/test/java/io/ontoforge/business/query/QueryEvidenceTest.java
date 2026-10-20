@@ -238,7 +238,8 @@ class QueryEvidenceTest {
         full.putArray("links");
         Object saved = retained("LinkTraverseService$Frozen", id, "SESSION_AUTHENTICATED:owner", expires, full, 100L, 1,
                 "OUT", PACKAGE, SNAPSHOT, LINK, 1L, "link-digest", BINDING, 1L, "binding-digest",
-                TARGET_BINDING, 1L, "binding-digest", "source-fingerprint", "source-fingerprint");
+                TARGET_BINDING, 1L, "binding-digest", "source-fingerprint", "source-fingerprint",
+                null, null);
         retainedMap(service, "frozen").put(id, saved);
         return "local-result:" + id;
     }
