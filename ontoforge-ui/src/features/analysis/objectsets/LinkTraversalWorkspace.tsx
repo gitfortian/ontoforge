@@ -72,6 +72,11 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
   const generation=useRef(0);
   const reqKey=useRef('');
   const inFlight=useRef(false);
+  // Request generations guard against late genuine HTTP results after changing
+  // root, direction, filter, mapping, package, or canceling an in-flight query.
+  const queryGeneration=useRef(0);
+  const validationGeneration=useRef(0);
+  const queryController=useRef<AbortController|null>(null);
 
   const type=snapshot?.snapshotContent.linkTypes.find(x=>x.id===linkTypeId)||null;
   const source=bindings.find(x=>x.snapshotId===snapshotId&&x.objectTypeId===type?.sourceTypeRef)||null;
@@ -97,8 +102,16 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     &&(!targetFilterField||(chosenTargetProperty&&targetFilterValue.trim()))
     &&(terminal!=='SUM'||numericOutput.some(p=>p.id===sumField))&&!busy);
 
-  function clearExecution(){setResult(null);setError(null);}
+  function clearExecution(){
+    queryGeneration.current++;
+    if(queryController.current){
+      queryController.current.abort();queryController.current=null;
+      inFlight.current=false;setBusy(false);
+    }
+    setResult(null);setError(null);
+  }
   function invalidateDraft(){
+    validationGeneration.current++;
     setValidation(null);setCurrentLink(null);setOpKey('');reqKey.current='';setNotice('');clearExecution();
   }
   function selectType(id:string){
@@ -116,6 +129,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     setBridgeTable('');setBridgeSourceColumn('');setBridgeTargetColumn('');
     setLinkTypeId('');setValidation(null);setCurrentLink(null);setResult(null);setError(null);
     setNotice('');reqKey.current='';setOpKey('');
+    validationGeneration.current++;clearExecution();
   },[packageId]);
 
   useEffect(()=>{
@@ -130,6 +144,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     }
     if(!packageId.trim())return;
     const g=++generation.current;
+    validationGeneration.current++;clearExecution();
     setBusy(true);setError(null);setNotice('');setValidation(null);setCurrentLink(null);setResult(null);
     try{
       const [m5,heads,available]=await Promise.all([
@@ -201,15 +216,17 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
   async function validate(){
     if(!canValidate||inFlight.current)return;
     inFlight.current=true;setBusy(true);setError(null);setNotice('');setValidation(null);clearExecution();
+    const validationAttempt=++validationGeneration.current;
     try{
       const key=reqKey.current||crypto.randomUUID();reqKey.current=key;setOpKey(key);
       const v=await request<Validation>('/api/runtime/link-bindings/validate',post(requestBody(key)));
+      if(validationAttempt!==validationGeneration.current)return;
       setValidation(v);
       setNotice(v.status==='VALID_WITH_ORPHANS'
         ?'FULL 校验完成：存在真实孤儿。仅相关根的遍历结果可能为 PARTIAL。'
         :bridgeMode?'三表 FULL 校验完成：桥表双端已通过校验，可保存不可变版本。'
            :'FULL 校验完成：双端外键关联符合本次可保存资格。');
-    }catch(e){setError(e as ApiError);}
+    }catch(e){if(validationAttempt===validationGeneration.current)setError(e as ApiError);}
     finally{inFlight.current=false;setBusy(false);}
   }
   async function save(){
@@ -257,6 +274,9 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
       setError({code:'UNSUPPORTED_IDENTITY_TYPE',message:'当前端点主键类型不支持，请重新选择 ObjectType。'});return;
     }
     inFlight.current=true;setBusy(true);clearExecution();
+    inFlight.current=true;setBusy(true);
+    const controller=new AbortController();queryController.current=controller;
+    const queryAttempt=queryGeneration.current;
     try{
       const rootSelector=selectorMode==='OBJECT_REF'
         ?{kind:'OBJECT_REF',objectRef:{
@@ -286,21 +306,30 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
         rootBindingRef:{bindingId:root.bindingId,revision:root.revision},
         rootSelector,steps
       };
-      const output=await request<OneHopResult>('/api/runtime/object-sets/traverse',post(query));
-      setResult(output);
-    }catch(e){setError(e as ApiError);setResult(null);}
-    finally{inFlight.current=false;setBusy(false);}
+      const output=await request<OneHopResult>('/api/runtime/object-sets/traverse',
+        {...post(query),signal:controller.signal});
+      if(queryAttempt===queryGeneration.current)setResult(output);
+    }catch(e){if(queryAttempt===queryGeneration.current){setError(e as ApiError);setResult(null);}}
+    finally{if(queryAttempt===queryGeneration.current){
+      queryController.current=null;inFlight.current=false;setBusy(false);
+    }}
   }
   async function nextPage(){
     if(!result?.nextCursor||inFlight.current)return;
     const current=result;
     inFlight.current=true;setBusy(true);setError(null);
+    const controller=new AbortController();queryController.current=controller;
+    const queryAttempt=++queryGeneration.current;
     try{
-      const output=await request<OneHopResult>('/api/runtime/object-sets/traverse/pages',post({cursor:current.nextCursor}));
+      const output=await request<OneHopResult>('/api/runtime/object-sets/traverse/pages',
+        {...post({cursor:current.nextCursor}),signal:controller.signal});
+      if(queryAttempt!==queryGeneration.current)return;
       if(output.resultSnapshotRef!==current.resultSnapshotRef)throw {code:'RESULT_SNAPSHOT_MISMATCH',message:'冻结快照不一致，已停止展示。'} as ApiError;
       setResult(output);
-    }catch(e){setResult(null);setError(e as ApiError);}
-    finally{inFlight.current=false;setBusy(false);}
+    }catch(e){if(queryAttempt===queryGeneration.current){setResult(null);setError(e as ApiError);}}
+    finally{if(queryAttempt===queryGeneration.current){
+      queryController.current=null;inFlight.current=false;setBusy(false);
+    }}
   }
 
   if(scopePackages&&packageId.trim()&&!scopePackages.includes(packageId.trim()))return <section className="model-panel m8-workspace" aria-label="关系与一跳遍历 M8"><div role="alert">当前工作空间未登记这个模型包；请切换工作空间或使用已授权的模型包。</div></section>;
@@ -416,13 +445,14 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
             </select></label><label>根筛选值（EQ）<input aria-label="M8 Root Filter Value" value={rootFilterValue} onChange={e=>{setRootFilterValue(e.target.value);clearExecution();}} placeholder="完全匹配值"/></label></>}
           <label>每页<select aria-label="M8 Traverse Page Size" value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));clearExecution();}}>
             <option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-          <button className="model-btn primary" type="button" disabled={!queryReady} onClick={()=>void execute()}><GitBranch size={15}/> {busy?'执行中…':'执行一跳查询'}</button></div>
+          <button className="model-btn primary" type="button" disabled={!queryReady} onClick={()=>void execute()}><GitBranch size={15}/> {busy?'执行中…':'执行一跳查询'}</button>
+          {busy&&queryController.current&&<button className="model-btn" type="button" onClick={clearExecution}>取消查询</button>}</div>
         <div className="m8-filter-controls">
           <label>输出端条件（可选）<select aria-label="M8 Target Filter Field" value={targetFilterField} onChange={e=>{setTargetFilterField(e.target.value);clearExecution();}}>
             <option value="">不过滤输出端</option>{outputProperties.map(p=><option key={p.id} value={p.id}>{p.apiName} · {p.valueType}</option>)}
           </select></label>
           {targetFilterField&&<label>目标属性匹配值（EQ）<input aria-label="M8 Target Filter Value" value={targetFilterValue}
-            placeholder="输出端可检索属性值" onChange={e=>{setTargetFilterValue(e.target.value);clearExecution();}}/></label>}
+            placeholder="输出端可检索属性值" value={targetFilterValue} onChange={e=>{setTargetFilterValue(e.target.value);clearExecution();}}/></label>}
         </div>
         <div className="m8-operator-controls">
           <label>输出形式<select aria-label="M8 Result Mode" value={terminal} onChange={e=>{setTerminal(e.target.value as 'PAGE'|'COUNT_DISTINCT'|'SUM');clearExecution();}}>
@@ -452,6 +482,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
             <span>{result.aggregate.operation}{result.aggregate.propertyRef?' · '+result.aggregate.propertyRef:''}</span>
             <strong>{result.aggregate.value}</strong>
             <small>{result.aggregate.valueType} · {result.aggregate.matchedObjects} 个去重目标对象 · {result.quality.completeness}</small>
+            {result.quality.completeness==='PARTIAL'&&<p role="status">已知子集小计（非全量）：存在当前根相关的未匹配关系，不得将此数值当作完整业务合计。</p>}
           </div>}
           {result.resultKind==='PAGE'&&<div className="m8-links">{result.links.length===0?<div className="m8-empty"><CheckCircle2 size={20}/><strong>{result.quality.completeness==='COMPLETE'?'成功 · 0 条关系':'已知子集 · 0 条有效关系'}</strong><p>{result.quality.completeness==='COMPLETE'?'当前根确实没有可关联对象。':'当前根存在已确认的未匹配 FK；不能把 0 条有效关系解释为完整的业务世界。'}</p></div>
             :<table className="model-table"><thead><tr><th>Source ObjectRef</th><th>Target ObjectRef</th><th>LinkType</th></tr></thead><tbody>
