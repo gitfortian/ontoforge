@@ -1036,6 +1036,33 @@ class LinkBindingFullIntegrationTest {
         fakeForeignKey.put("fkOwner", "SOURCE");
         assertThat(post("/validate", fakeForeignKey).getStatusCode().value()).isEqualTo(422);
 
+        // T5 B02/B07/C02: no alternate source IDs, unknown Bridge columns,
+        // or tables outside the allowlist may be accepted as authoritative
+        // evidence; the response must not disclose any physical ObjectRefs.
+        ObjectNode alienSource = request.deepCopy();
+        ((ObjectNode) alienSource.path("bridgeSourceRef")).put("sourceId", "remote-warehouse");
+        ResponseEntity<String> wrongSource = post("/validate", alienSource);
+        assertThat(wrongSource.getStatusCode().value()).as(wrongSource.getBody()).isEqualTo(409);
+        assertThat(wrongSource.getBody()).contains("LINK_ENDPOINT_UNAVAILABLE")
+                .doesNotContain("EQ-001", "LOT-11", "sourceReadRefs");
+
+        ObjectNode missingBridgeColumn = request.deepCopy();
+        ((ObjectNode) missingBridgeColumn.path("bridgeSourceRef"))
+                .put("sourceFkColumn", "unknown_source_fk");
+        ResponseEntity<String> missingColumn = post("/validate", missingBridgeColumn);
+        assertThat(missingColumn.getStatusCode().value()).as(missingColumn.getBody())
+                .isEqualTo(422);
+        assertThat(missingColumn.getBody()).contains("LINK_FK_INCOMPATIBLE")
+                .doesNotContain("EQ-001", "LOT-11", "sourceReadRefs");
+
+        ObjectNode unlistedBridge = request.deepCopy();
+        ((ObjectNode) unlistedBridge.path("bridgeSourceRef")).put("table", "pg_catalog");
+        ResponseEntity<String> notAllowlisted = post("/validate", unlistedBridge);
+        assertThat(notAllowlisted.getStatusCode().value()).as(notAllowlisted.getBody())
+                .isEqualTo(403);
+        assertThat(notAllowlisted.getBody()).contains("SOURCE_NOT_ALLOWED")
+                .doesNotContain("EQ-001", "LOT-11", "sourceReadRefs");
+
         ObjectNode update = request.deepCopy();
         update.put("expectedRevision", 1);
         update.put("idempotencyKey", UUID.randomUUID().toString());
