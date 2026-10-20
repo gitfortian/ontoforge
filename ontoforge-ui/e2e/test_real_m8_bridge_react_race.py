@@ -48,12 +48,14 @@ class BridgeReactRaceGoldenStory(unittest.IsolatedAsyncioTestCase):
                     "revision 1", timeout=25000)
 
                 delivered = {"calls": 0, "held": False}
+                first_real_response = asyncio.Event()
                 async def delay_real_response(route):
                     delivered["calls"] += 1
                     try:
                         response = await route.fetch(timeout=25000)
                         if delivered["calls"] == 1:
                             delivered["held"] = True
+                            first_real_response.set()
                             await asyncio.sleep(2)
                         await route.fulfill(response=response)
                     except PlaywrightError:
@@ -66,6 +68,9 @@ class BridgeReactRaceGoldenStory(unittest.IsolatedAsyncioTestCase):
                 await panel.get_by_role("button", name="执行一跳查询").click()
                 await expect(panel.get_by_role("button", name="取消查询")).to_be_visible(
                     timeout=12000)
+                # Do not accidentally cancel before HTTP reaches the backend:
+                # wait for a GENUINE server result to be held at the browser edge.
+                await asyncio.wait_for(first_real_response.wait(), timeout=20)
 
                 # Root change revokes the old request's presentation rights.
                 # This must permit immediately running a different root.
