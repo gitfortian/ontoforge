@@ -49,6 +49,7 @@ class BridgeReactRaceGoldenStory(unittest.IsolatedAsyncioTestCase):
 
                 delivered = {"calls": 0, "held": False}
                 first_real_response = asyncio.Event()
+                cancel_real_response = asyncio.Event()
                 async def delay_real_response(route):
                     delivered["calls"] += 1
                     try:
@@ -56,6 +57,9 @@ class BridgeReactRaceGoldenStory(unittest.IsolatedAsyncioTestCase):
                         if delivered["calls"] == 1:
                             delivered["held"] = True
                             first_real_response.set()
+                            await asyncio.sleep(2)
+                        elif delivered["calls"] == 3:
+                            cancel_real_response.set()
                             await asyncio.sleep(2)
                         await route.fulfill(response=response)
                     except PlaywrightError:
@@ -90,6 +94,12 @@ class BridgeReactRaceGoldenStory(unittest.IsolatedAsyncioTestCase):
                 # Explicit cancel also removes visible objects, clears busy,
                 # and avoids replacing the new root with an obsolete result.
                 await panel.get_by_label("M8 Root Object Key").fill("CELL-01")
+                await panel.get_by_role("button", name="执行一跳查询").click()
+                await asyncio.wait_for(cancel_real_response.wait(), timeout=20)
+                await panel.get_by_role("button", name="取消查询").click()
+                await expect(result).to_have_count(0)
+                await asyncio.sleep(2.25)
+                await expect(result).to_have_count(0)
                 await panel.get_by_role("button", name="执行一跳查询").click()
                 await expect(result).to_contain_text("QE-11", timeout=25000)
                 self.assertEqual(errors, [])
