@@ -419,7 +419,7 @@ public class BridgeLinkBindingService {
                 for (String table : tables) {
                     checkDeadline(deadline);
                     try (PreparedStatement lock = db.prepareStatement(
-                            "LOCK TABLE public.\\\"" + table + "\\\" IN ACCESS SHARE MODE")) {
+                            "LOCK TABLE public.\"" + table + "\" IN ACCESS SHARE MODE")) {
                         lock.setQueryTimeout(3);
                         lock.execute();
                     }
