@@ -185,7 +185,8 @@ class QueryEvidenceTest {
     }
 
     private LinkTraverseService traverseService() {
-        return new LinkTraverseService(links, bindings, snapshots, authorization, sourceProvider, mapper, KEY);
+        return new LinkTraverseService(links, mock(io.ontoforge.business.connection.BridgeLinkBindingService.class),
+                bindings, snapshots, authorization, sourceProvider, mapper, KEY);
     }
 
     private DataBindingService.BindingDetail binding(String id) {
