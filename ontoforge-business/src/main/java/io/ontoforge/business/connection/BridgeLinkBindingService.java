@@ -410,8 +410,8 @@ public class BridgeLinkBindingService {
             db.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
             db.setAutoCommit(false);
             try {
-                List<String> tables = new ArrayList<>(Set.of(c.sourceTable().table(),
-                        c.targetTable().table(), c.bridgeTable().table()));
+                List<String> tables = new ArrayList<>(new HashSet<>(List.of(
+                        c.sourceTable().table(), c.targetTable().table(), c.bridgeTable().table())));
                 tables.sort(Comparator.naturalOrder());
                 // AccessShare locks pin schema identity against concurrent DDL
                 // for the full validation; SELECT permissions are checked by
