@@ -234,8 +234,17 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     inFlight.current=true;setBusy(true);setError(null);clearExecution();
     try{
       const detail=await request<LinkDetail>('/api/runtime/link-bindings/'+chosenHead.id+'?packageId='+encodeURIComponent(packageId));
-      setCurrentLink(detail);setFkOwner(detail.fkOwner);setFkColumn(detail.fkSourceColumn);
-      setValidation(detail.validationQuality as Validation);
+      setCurrentLink(detail);
+      if(detail.mappingMode==='BRIDGE_TABLE'&&detail.bridgeSourceRef){
+        setBridgeTable(detail.bridgeSourceRef.table);
+        setBridgeSourceColumn(detail.bridgeSourceRef.sourceFkColumn);
+        setBridgeTargetColumn(detail.bridgeSourceRef.targetFkColumn);
+        setValidation({status:detail.validationStatus,coverage:'FULL',checkedAt:'',
+          quality:detail.validationQuality as BridgeQuality});
+      }else{
+        setFkOwner(detail.fkOwner||'TARGET');setFkColumn(detail.fkSourceColumn||'');
+        setValidation(detail.validationQuality as Validation);
+      }
       setNotice('已重开服务器保存的关系修订与来源质量证据。');
     }catch(e){setError(e as ApiError);}
     finally{inFlight.current=false;setBusy(false);}
