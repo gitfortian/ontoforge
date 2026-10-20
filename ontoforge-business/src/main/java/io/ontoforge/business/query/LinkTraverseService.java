@@ -322,6 +322,21 @@ public class LinkTraverseService {
         String readSourceId = UUID.randomUUID().toString();
         String readTargetId = UUID.randomUUID().toString();
         String readBridgeId = bridgeLink == null ? null : UUID.randomUUID().toString();
+        int bridgeDuplicateRows = 0;
+        if (bridgeRows != null) {
+            // The saved FULL report is immutable evidence of an earlier read,
+            // not proof of current source content. Count duplicates from THIS
+            // bounded three-table query, including pairs outside selected roots.
+            Set<Pair> presentPairs = new HashSet<>();
+            for (Pair pair : bridgeRows.pairs()) {
+                if (pair.source() != null && pair.target() != null
+                        && leftIndex.containsKey(pair.source())
+                        && rightIndex.containsKey(pair.target())
+                        && !presentPairs.add(pair)) {
+                    bridgeDuplicateRows++;
+                }
+            }
+        }
         ArrayNode resultObjects = mapper.createArrayNode();
         ArrayNode resultLinks = mapper.createArrayNode();
         Set<String> distinctOutput = new HashSet<>();
@@ -511,8 +526,7 @@ public class LinkTraverseService {
         quality.put("knownOrphanCount", orphans);
         if (bridgeLink != null) {
             result.put("linkMappingMode", "BRIDGE_TABLE");
-            result.put("bridgeDuplicatePairRowCount", bridgeLink.validationQuality()
-                    .path("duplicatePairRowCount").asLong());
+            result.put("bridgeDuplicatePairRowCount", bridgeDuplicateRows);
         }
         ObjectNode budget = result.putObject("budget");
         budget.put("physicalRows", rows.source().size() + rows.target().size());
