@@ -9,6 +9,7 @@ on:
       - 'doc/design/tests/test_m8_2_bridge_candidate_contract.py'
       - 'doc/design/tests/test_m8_2_bridge_migration_candidate.py'
       - 'doc/design/tests/m8_2_bridge_candidate_pg17.sql'
+      - 'ontoforge-dao/src/main/resources/db/migration/V11__bridge_link_binding_mapping_mode.sql'
       - '.github/workflows/m8-r2-candidate-contract.yml'
   workflow_dispatch:
 
@@ -64,8 +65,14 @@ jobs:
         run: >-
           psql -X -h 127.0.0.1 -p 5432 -U m8review -d m8review
           -v ON_ERROR_STOP=1 -f doc/design/tests/m8_2_bridge_candidate_pg17.sql
+      - name: Execute the actual V11 migration on a separate PG17 historical fixture database
+        env:
+          PGPASSWORD: m8review
+        run: |
+          psql -X -h 127.0.0.1 -p 5432 -U m8review -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE m8production;'
+          sed 's@doc/design/candidates/m8-2/V11__bridge_link_binding_candidate.sql@ontoforge-dao/src/main/resources/db/migration/V11__bridge_link_binding_mapping_mode.sql@' doc/design/tests/m8_2_bridge_candidate_pg17.sql | psql -X -h 127.0.0.1 -p 5432 -U m8review -d m8production -v ON_ERROR_STOP=1
       - name: Scope notice
         if: always()
         run: |
-          echo "Review-only: isolated PostgreSQL 17 V10 + Bridge DDL candidate."
-          echo "No Flyway application upgrade, production writes, or runtime authorization."
+          echo "Isolated PostgreSQL 17 exercises original V10 + doc-only candidate AND production V11 SQL in separate databases."
+          echo "No Flyway application upgrade of existing real installations, source reads, or runtime authorization."
