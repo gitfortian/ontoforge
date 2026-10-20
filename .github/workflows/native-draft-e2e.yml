@@ -69,7 +69,7 @@ jobs:
       ONTOFORGE_BINDING_SOURCE_URL: jdbc:postgresql://127.0.0.1:5432/ontoforge_test_e2e
       ONTOFORGE_BINDING_SOURCE_USERNAME: ontoforge_binding_login
       ONTOFORGE_BINDING_SOURCE_PASSWORD: m5_test_reader_only
-      ONTOFORGE_BINDING_SOURCE_ALLOWED_TABLES: m5_supplier_source,m8_factory_cells,m8_quality_events
+      ONTOFORGE_BINDING_SOURCE_ALLOWED_TABLES: m5_supplier_source,m8_factory_cells,m8_quality_events,m8_cell_event_bridge
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
@@ -155,7 +155,7 @@ jobs:
           pg_container=$(docker ps --format '{{.ID}} {{.Image}}' | awk '$2 ~ /^postgres:17/ {print $1; exit}')
           test -n "$pg_container" || exit 1
           docker exec -i "$pg_container" psql -X -v ON_ERROR_STOP=1 -U ontology -d ontoforge_test_e2e < scripts/m8-onehop-e2e-source.sql
-          docker exec "$pg_container" psql -X -qAt -U ontology -d ontoforge_test_e2e -c "SELECT has_table_privilege('ontoforge_binding_login','public.m8_factory_cells','SELECT') AND has_table_privilege('ontoforge_binding_login','public.m8_quality_events','SELECT') AND NOT has_table_privilege('ontoforge_binding_login','public.m8_quality_events','INSERT')" | grep -qx t
+          docker exec "$pg_container" psql -X -qAt -U ontology -d ontoforge_test_e2e -c "SELECT has_table_privilege('ontoforge_binding_login','public.m8_factory_cells','SELECT') AND has_table_privilege('ontoforge_binding_login','public.m8_quality_events','SELECT') AND has_table_privilege('ontoforge_binding_login','public.m8_cell_event_bridge','SELECT') AND NOT has_table_privilege('ontoforge_binding_login','public.m8_quality_events','INSERT')" | grep -qx t
 
       - name: Launch real Vite React application
         env:
