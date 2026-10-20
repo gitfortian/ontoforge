@@ -5,6 +5,7 @@ real frozen MANY_TO_MANY Bridge revision and executes actual ObjectSet v2.
 Only one intentional one-shot aborted POST simulates UNKNOWN network recovery;
 the retry uses the REAL HTTP server with the original idempotency key.
 """
+import json
 import os
 import unittest
 from pathlib import Path
@@ -79,12 +80,14 @@ class RealBridgeReactGoldenStory(unittest.TestCase):
 
         # The first POST fails at transport, before reaching the source DB.
         # UI must retain same operation key and permit an explicit retry.
-        state = {"aborted": False}
+        state = {"aborted": False, "request": None}
         def fail_once(route):
             if route.request.method == "POST" and not state["aborted"]:
                 state["aborted"] = True
                 route.abort("failed")
             else:
+                if route.request.method == "POST":
+                    state["request"] = route.request.post_data_json
                 route.continue_()
         page.route("**/api/runtime/link-bindings", fail_once)
         panel.get_by_role("button", name="保存 LinkBinding").click()
@@ -107,6 +110,14 @@ class RealBridgeReactGoldenStory(unittest.TestCase):
         self.assertEqual(detail["bridgeSourceRef"]["table"], "m8_cell_event_bridge")
         self.assertEqual(detail["revision"], 1)
         self.assertEqual(detail["validationQuality"]["duplicatePairRowCount"], 1)
+        self.assertIsNotNone(state["request"], "Actual saved Bridge v2 body must be captured")
+        self.assertEqual(state["request"]["idempotencyKey"], operation_key)
+        # Feed the exact REAL browser/API body to a separate, post-browser
+        # two-JVM concurrency test. The file contains no JWT credentials.
+        if os.getenv("E2E_M8_BRIDGE_RECEIPT_EVIDENCE"):
+            Path(os.environ["E2E_M8_BRIDGE_RECEIPT_EVIDENCE"]).write_text(
+                json.dumps({"id": heads[0]["id"], "packageId": self.package,
+                            "request": state["request"]}, indent=2), encoding="utf-8")
 
         panel.get_by_label("M8 Root Object Key").fill("CELL-01")
         panel.get_by_role("button", name="执行一跳查询").click()
