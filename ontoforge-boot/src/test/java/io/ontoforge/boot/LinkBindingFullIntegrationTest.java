@@ -1049,6 +1049,11 @@ class LinkBindingFullIntegrationTest {
                 .isEqualTo("inspection-lot");
         String pageToken = one.path("nextCursor").asText();
         assertThat(pageToken).startsWith("v2.");
+        String forgedCursor = pageToken.substring(0, 3)
+                + (pageToken.charAt(3) == 'A' ? 'B' : 'A') + pageToken.substring(4);
+        ResponseEntity<String> tamperedCursor = traversePage(forgedCursor);
+        assertThat(tamperedCursor.getStatusCode().value()).isEqualTo(400);
+        assertThat(tamperedCursor.getBody()).doesNotContain("LOT-11", BRIDGE);
         ResponseEntity<String> pageTwo = traversePage(pageToken);
         assertThat(pageTwo.getStatusCode().value()).as(pageTwo.getBody()).isEqualTo(200);
         JsonNode two = mapper.readTree(pageTwo.getBody());
@@ -1093,6 +1098,18 @@ class LinkBindingFullIntegrationTest {
         JsonNode distinctCount = mapper.readTree(traverse(aggregate).getBody());
         assertThat(distinctCount.path("aggregate").path("value").asText()).isEqualTo("2");
 
+        ObjectNode limitedJoin = out.deepCopy();
+        limitedJoin.putObject("limits").put("maxJoinCandidates", 1);
+        ResponseEntity<String> joinBlocked = traverse(limitedJoin);
+        assertThat(joinBlocked.getStatusCode().value()).isEqualTo(429);
+        assertThat(joinBlocked.getBody()).contains("QUERY_BUDGET_EXCEEDED");
+        assertThat(joinBlocked.getBody()).doesNotContain("LOT-11", BRIDGE);
+        ObjectNode limitedPhysical = out.deepCopy();
+        limitedPhysical.putObject("limits").put("maxPhysicalRows", 2);
+        ResponseEntity<String> physicalBlocked = traverse(limitedPhysical);
+        assertThat(physicalBlocked.getStatusCode().value()).isEqualTo(429);
+        assertThat(physicalBlocked.getBody()).contains("QUERY_BUDGET_EXCEEDED");
+        assertThat(physicalBlocked.getBody()).doesNotContain("LOT-11", BRIDGE);
         String revokeCursor = mapper.readTree(traverse(out).getBody()).path("nextCursor").asText();
         assertThat(revokeCursor).startsWith("v2.");
 
