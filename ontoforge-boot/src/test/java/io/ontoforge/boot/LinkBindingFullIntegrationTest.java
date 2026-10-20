@@ -46,13 +46,14 @@ class LinkBindingFullIntegrationTest {
     private static final String PASSWORD = "m5_test_reader_only";
     private static final String EQUIPMENT = "m8_equipment_source";
     private static final String INSPECTION = "m8_inspection_source";
+    private static final String BRIDGE = "m8_equipment_inspection_bridge";
 
     @DynamicPropertySource
     static void sources(DynamicPropertyRegistry properties) {
         properties.add("ontoforge.binding.source.url", () -> System.getenv("TEST_DB_URL"));
         properties.add("ontoforge.binding.source.username", () -> "ontoforge_binding_login");
         properties.add("ontoforge.binding.source.password", () -> PASSWORD);
-        properties.add("ontoforge.binding.source.allowed-tables", () -> EQUIPMENT + "," + INSPECTION);
+        properties.add("ontoforge.binding.source.allowed-tables", () -> EQUIPMENT + "," + INSPECTION + "," + BRIDGE);
     }
 
     @Autowired NativeDraftService drafts;
@@ -77,6 +78,7 @@ class LinkBindingFullIntegrationTest {
                 """);
         jdbc.execute("ALTER ROLE ontoforge_binding_login WITH LOGIN PASSWORD 'm5_test_reader_only' NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT");
         jdbc.execute("GRANT ontoforge_binding_reader TO ontoforge_binding_login");
+        jdbc.execute("DROP TABLE IF EXISTS public." + BRIDGE);
         jdbc.execute("DROP TABLE IF EXISTS public." + INSPECTION);
         jdbc.execute("DROP TABLE IF EXISTS public." + EQUIPMENT);
         jdbc.execute("""
@@ -99,12 +101,25 @@ class LinkBindingFullIntegrationTest {
                        ('LOT-13',NULL,'HOLD',NULL),('LOT-14','EQ-NO','FAIL',40.00),
                        ('LOT-15','','FAIL',50.00)
                 """);
+        jdbc.execute("""
+                CREATE TABLE public.m8_equipment_inspection_bridge (
+                    equipment_code TEXT NULL, lot_code TEXT NULL)
+                """);
+        jdbc.execute("""
+                INSERT INTO public.m8_equipment_inspection_bridge(equipment_code, lot_code)
+                VALUES ('EQ-001','LOT-11'),('EQ-001','LOT-11'),('EQ-002','LOT-12'),
+                       (NULL,'LOT-13'),('EQ-001',NULL),(NULL,NULL),
+                       ('EQ-NO','LOT-11'),('EQ-001','LOT-NO'),('EQ-NO','LOT-NO')
+                """);
+        jdbc.execute("GRANT SELECT ON public." + BRIDGE + " TO ontoforge_binding_reader");
         jdbc.execute("GRANT SELECT ON public." + EQUIPMENT + " TO ontoforge_binding_reader");
         jdbc.execute("GRANT SELECT ON public." + INSPECTION + " TO ontoforge_binding_reader");
     }
 
     @AfterEach
     void teardown() {
+        jdbc.execute("GRANT SELECT ON public." + BRIDGE + " TO ontoforge_binding_reader");
+        jdbc.execute("DROP TABLE IF EXISTS public." + BRIDGE);
         jdbc.execute("DROP TABLE IF EXISTS public." + INSPECTION);
         jdbc.execute("DROP TABLE IF EXISTS public." + EQUIPMENT);
     }
@@ -900,6 +915,129 @@ class LinkBindingFullIntegrationTest {
         assertThat(result.path("budget").path("serializedResultBytes").asLong())
                 .as("UTF-8 bytes must include the final digit width of the budget field itself")
                 .isEqualTo(actual);
+    }
+
+    @Test
+    void bridgeV2RealPgHttpFullBucketsCasReplayRevokeAndBudget() throws Exception {
+        String pkg = "m82.test." + UUID.randomUUID().toString().replace("-", "");
+        NativeDraftService.DraftDetail draft = drafts.create(pkg);
+        ObjectNode editor = mapper.createObjectNode();
+        editor.put("editorSchemaVersion", "0.1.0");
+        ArrayNode types = editor.putArray("objectTypes");
+        addType(types, "equipment", "Equipment", "equipment-code", "equipmentCode",
+                "equipment-label", "label", "equipment-site", "site");
+        addType(types, "inspection-lot", "InspectionLot", "lot-code", "lotCode",
+                "equipment-ref", "equipmentRef", "inspection-status", "status");
+        ArrayNode links = editor.putArray("linkTypes");
+        link(links, "equipment-inspections-bridge", "equipmentInspectionsBridge", "MANY_TO_MANY");
+        var saved = drafts.save(UUID.fromString(draft.draftId()), draft.revision(), editor);
+        assertThat(drafts.validate(UUID.fromString(draft.draftId()), saved.revision()).status())
+                .isEqualTo("VALID");
+        String snap = snapshots.freeze(UUID.fromString(draft.draftId()),
+                saved.revision(), UUID.randomUUID()).snapshot().snapshotId();
+        var equipment = createBinding(snap, "equipment", EQUIPMENT, "equipment_code",
+                new String[][]{{"equipment-code","equipment_code"},
+                        {"equipment-label","label"},{"equipment-site","site"}});
+        var lot = createBinding(snap, "inspection-lot", INSPECTION, "lot_code",
+                new String[][]{{"lot-code","lot_code"},{"equipment-ref","equipment_code"},
+                        {"inspection-status","status"}});
+        String bridgeFp = bindings.listTables(pkg, null).stream().filter(t -> BRIDGE.equals(t.table()))
+                .findFirst().orElseThrow().schemaFingerprint();
+        ObjectNode request = mapper.createObjectNode();
+        request.put("contractVersion", "local-link-binding-v2");
+        request.putObject("modelSourceRef").put("kind", "LOCAL_SNAPSHOT").put("snapshotId", snap);
+        request.put("packageId", pkg);
+        request.put("linkTypeId", "equipment-inspections-bridge");
+        ref(request.putObject("sourceBindingRef"), equipment);
+        ref(request.putObject("targetBindingRef"), lot);
+        request.put("mode", "BRIDGE_TABLE");
+        request.putObject("bridgeSourceRef")
+                .put("sourceId", "local-pg-sandbox").put("schema", "public")
+                .put("table", BRIDGE).put("sourceFkColumn", "equipment_code")
+                .put("targetFkColumn", "lot_code");
+        request.put("expectedRevision", 0);
+        request.put("idempotencyKey", UUID.randomUUID().toString());
+        request.putObject("expectedSchemaFingerprints")
+                .put("source", equipment.sourceSchemaFingerprint())
+                .put("target", lot.sourceSchemaFingerprint()).put("bridge", bridgeFp);
+        request.putObject("validationScope").put("kind", "VALIDATION_SCOPE")
+                .put("coverage", "FULL");
+
+        ResponseEntity<String> full = post("/validate", request);
+        assertThat(full.getStatusCode().value()).as(full.getBody()).isEqualTo(200);
+        JsonNode quality = mapper.readTree(full.getBody()).path("quality");
+        assertThat(quality.path("bridgePhysicalRows").asInt()).isEqualTo(9);
+        assertThat(quality.path("matchedPhysicalRows").asInt()).isEqualTo(3);
+        assertThat(quality.path("uniquePairCount").asInt()).isEqualTo(2);
+        assertThat(quality.path("duplicatePairRowCount").asInt()).isEqualTo(1);
+        for (String key : new String[]{"nullBoth","nullSourceOnly","nullTargetOnly",
+                "orphanSourceOnly","orphanTargetOnly","orphanBoth"}) {
+            assertThat(quality.path(key).asInt()).as(key).isEqualTo(1);
+        }
+        assertThat(mapper.readTree(full.getBody()).path("status").asText())
+                .isEqualTo("VALID_WITH_ORPHANS");
+
+        ResponseEntity<String> savedResponse = post("", request);
+        assertThat(savedResponse.getStatusCode().value()).as(savedResponse.getBody()).isEqualTo(201);
+        JsonNode first = mapper.readTree(savedResponse.getBody());
+        String id = first.path("linkBindingId").asText();
+        assertThat(first.path("mappingMode").asText()).isEqualTo("BRIDGE_TABLE");
+        assertThat(first.path("validationQuality").path("duplicatePairRowCount").asInt())
+                .isEqualTo(1);
+        assertThat(first.path("bridgeSourceRef").path("table").asText()).isEqualTo(BRIDGE);
+        assertThat(first.path("digest").asText()).matches("[0-9a-f]{64}");
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM runtime_link_binding_revision
+                WHERE link_binding_id=?::uuid AND mapping_mode='BRIDGE_TABLE'
+                  AND fk_owner IS NULL AND fk_source_column IS NULL
+                  AND referenced_identity_column IS NULL
+                """, Integer.class, id)).isEqualTo(1);
+
+        ResponseEntity<String> replay = post("", request);
+        assertThat(replay.getStatusCode().value()).as(replay.getBody()).isEqualTo(201);
+        assertThat(mapper.readTree(replay.getBody()).path("digest").asText())
+                .isEqualTo(first.path("digest").asText());
+
+        ObjectNode altered = request.deepCopy();
+        altered.put("linkTypeId", "equipment-inspections-bridge");
+        ((ObjectNode) altered.path("bridgeSourceRef")).put("sourceFkColumn", "lot_code");
+        assertThat(post("", altered).getBody()).contains("IDEMPOTENCY_KEY_CONFLICT");
+
+        ObjectNode unapproved = request.deepCopy();
+        unapproved.put("clientSql", "SELECT current_user");
+        unapproved.put("idempotencyKey", UUID.randomUUID().toString());
+        assertThat(post("/validate", unapproved).getStatusCode().value()).isEqualTo(422);
+        ObjectNode fakeForeignKey = request.deepCopy();
+        fakeForeignKey.put("fkOwner", "SOURCE");
+        assertThat(post("/validate", fakeForeignKey).getStatusCode().value()).isEqualTo(422);
+
+        ObjectNode update = request.deepCopy();
+        update.put("expectedRevision", 1);
+        update.put("idempotencyKey", UUID.randomUUID().toString());
+        ResponseEntity<String> second = put("/" + id, update);
+        assertThat(second.getStatusCode().value()).as(second.getBody()).isEqualTo(200);
+        assertThat(mapper.readTree(second.getBody()).path("revision").asLong()).isEqualTo(2);
+        assertThat(put("/" + id, update).getStatusCode().value()).isEqualTo(200);
+        ObjectNode conflict = update.deepCopy();
+        conflict.put("idempotencyKey", UUID.randomUUID().toString());
+        assertThat(put("/" + id, conflict).getStatusCode().value()).isEqualTo(409);
+
+        // A revoked Bridge grant forbids retrieval of past full source/quality.
+        jdbc.execute("REVOKE SELECT ON public." + BRIDGE + " FROM ontoforge_binding_reader");
+        try {
+            ResponseEntity<String> denied = http.getForEntity(URI.create(url("/" + id
+                    + "?packageId=" + pkg)), String.class);
+            assertThat(denied.getStatusCode().value()).isEqualTo(403);
+            assertThat(denied.getBody()).doesNotContain("EQ-001", BRIDGE, bridgeFp);
+        } finally {
+            jdbc.execute("GRANT SELECT ON public." + BRIDGE + " TO ontoforge_binding_reader");
+        }
+
+        // All THREE physical reads must share one 10k budget: no truncation to
+        // a misleading success result when a bridge becomes over-budget.
+        jdbc.execute("INSERT INTO public." + BRIDGE
+                + " SELECT 'EQ-001','LOT-11' FROM generate_series(1,10001)");
+        assertThat(post("/validate", request).getStatusCode().value()).isEqualTo(429);
     }
 
     private DataBindingService.BindingDetail createBinding(String snapshot, String type,
