@@ -452,7 +452,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
             <option value="">不过滤输出端</option>{outputProperties.map(p=><option key={p.id} value={p.id}>{p.apiName} · {p.valueType}</option>)}
           </select></label>
           {targetFilterField&&<label>目标属性匹配值（EQ）<input aria-label="M8 Target Filter Value" value={targetFilterValue}
-            placeholder="输出端可检索属性值" value={targetFilterValue} onChange={e=>{setTargetFilterValue(e.target.value);clearExecution();}}/></label>}
+            placeholder="输出端可检索属性值" onChange={e=>{setTargetFilterValue(e.target.value);clearExecution();}}/></label>}
         </div>
         <div className="m8-operator-controls">
           <label>输出形式<select aria-label="M8 Result Mode" value={terminal} onChange={e=>{setTerminal(e.target.value as 'PAGE'|'COUNT_DISTINCT'|'SUM');clearExecution();}}>
