@@ -1132,6 +1132,15 @@ class LinkBindingFullIntegrationTest {
         assertThat(physicalBlocked.getStatusCode().value()).isEqualTo(429);
         assertThat(physicalBlocked.getBody()).contains("QUERY_BUDGET_EXCEEDED");
         assertThat(physicalBlocked.getBody()).doesNotContain("LOT-11", BRIDGE);
+        // C08: the same three-source scan obeys a reduced REAL byte
+        // budget, not only row and Join counters. A rejection cannot expose
+        // partially scanned object or LinkFact payloads.
+        ObjectNode limitedBytes = out.deepCopy();
+        limitedBytes.putObject("limits").put("maxSourceBytes", 64);
+        ResponseEntity<String> bytesBlocked = traverse(limitedBytes);
+        assertThat(bytesBlocked.getStatusCode().value()).isEqualTo(429);
+        assertThat(bytesBlocked.getBody()).contains("QUERY_BUDGET_EXCEEDED");
+        assertThat(bytesBlocked.getBody()).doesNotContain("EQ-001", "LOT-11", BRIDGE);
         String revokeCursor = mapper.readTree(traverse(out).getBody()).path("nextCursor").asText();
         assertThat(revokeCursor).startsWith("v2.");
 
