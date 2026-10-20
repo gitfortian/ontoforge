@@ -142,6 +142,7 @@ class RealBridgeReactGoldenStory(unittest.TestCase):
         result.locator(".m8-aggregate").get_by_text("SUM").wait_for(timeout=20000)
         self.assertIn("30", result.locator(".m8-aggregate").inner_text())
         self.assertIn("PARTIAL", result.locator(".m8-aggregate").inner_text())
+        self.assertIn("已知子集小计（非全量）", result.locator(".m8-aggregate").inner_text())
 
         panel.get_by_label("M8 Result Mode").select_option("PAGE")
         panel.get_by_label("M8 Traverse Direction").select_option("IN")
