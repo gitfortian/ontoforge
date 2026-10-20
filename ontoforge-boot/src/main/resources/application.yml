@@ -28,6 +28,12 @@ spring:
     validate-on-migrate: true
 
 ontoforge:
+  agent:
+    enabled: ${ONTOFORGE_AGENT_ENABLED:false}
+    base-url: ${ONTOFORGE_AGENT_BASE_URL:}
+    api-key: ${ONTOFORGE_AGENT_API_KEY:}
+    model: ${ONTOFORGE_AGENT_MODEL:}
+    allowed-packages: ${ONTOFORGE_AGENT_ALLOWED_PACKAGES:}
   binding:
     source:
       # URL and credentials are intentionally not defaulted: M5 fails closed until a dedicated reader is provisioned.

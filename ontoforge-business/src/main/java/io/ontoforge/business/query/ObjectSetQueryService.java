@@ -10,6 +10,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.ontoforge.platform.identity.B0AuthorizationService;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -358,6 +359,72 @@ public class ObjectSetQueryService {
         return pageResult(snapshot, payload.offset(), snapshot.executionId);
     }
 
+    /**
+     * Reads evidence from the original bounded result, including single-page and
+     * aggregate executions. A result reference identifies evidence; it grants no access.
+     * Source data is never queried again to reconstruct an earlier execution.
+     */
+    public ObjectNode evidence(String resultSnapshotRef, Authentication authentication) {
+        String errorExecutionId = UUID.randomUUID().toString();
+        cleanupExpired();
+        String id = evidenceSnapshotId(resultSnapshotRef, errorExecutionId);
+        StoredSnapshot snapshot = snapshots.get(id);
+        if (snapshot == null || !snapshot.expiresAt.isAfter(Instant.now())) {
+            throw fail(410, "RESULT_EXPIRED", "查询证据已过期或不可用，请重新执行查询", "resultSnapshotRef", errorExecutionId);
+        }
+        if (!snapshot.actorKey.equals(actorKey(authentication))) {
+            throw fail(403, "FORBIDDEN", "结果引用不属于当前主体；引用本身不授予访问权限", "resultSnapshotRef", errorExecutionId);
+        }
+        try {
+            revalidateForPage(snapshot, authentication, errorExecutionId);
+        } catch (RuntimeException ex) {
+            invalidateSnapshot(id);
+            throw ex;
+        }
+        if (snapshots.get(id) != snapshot || !snapshot.expiresAt.isAfter(Instant.now())) {
+            invalidateSnapshot(id);
+            throw fail(410, "RESULT_EXPIRED", "查询证据已过期或不可用，请重新执行查询", "resultSnapshotRef", errorExecutionId);
+        }
+        ObjectNode result = mapper.createObjectNode();
+        result.put("evidenceVersion", "local-evidence-v1");
+        result.put("status", "SUCCESS");
+        result.put("executionId", snapshot.executionId);
+        result.put("executedAt", snapshot.executedAt.toString());
+        result.put("queryVersion", "local-query-v1");
+        result.put("packageId", snapshot.binding.packageId());
+        result.put("resultSnapshotRef", snapshot.resultSnapshotRef);
+        result.put("expiresAt", snapshot.expiresAt.toString());
+        result.put("queryDigest", snapshot.queryDigest);
+        result.put("payloadSha256", snapshot.binding.payloadSha256());
+        result.put("accessMode", snapshot.accessMode);
+        result.set("typeSourceRef", mapper.valueToTree(snapshot.typeSourceRef));
+        result.set("versionLock", mapper.valueToTree(snapshot.versionLock));
+        result.set("bindingVersions", mapper.valueToTree(snapshot.bindingVersions));
+        result.set("sourceReadRef", mapper.valueToTree(snapshot.sourceReadRef));
+        result.set("quality", mapper.valueToTree(snapshot.quality));
+        result.set("budget", mapper.valueToTree(snapshot.budget));
+        return result;
+    }
+
+    /** Ends only this actor's retained execution after the caller observes a terminal failure. */
+    public void invalidateResult(String resultSnapshotRef, Authentication authentication) {
+        String id = evidenceSnapshotId(resultSnapshotRef, UUID.randomUUID().toString());
+        StoredSnapshot snapshot = snapshots.get(id);
+        if (snapshot != null && snapshot.actorKey.equals(actorKey(authentication))) invalidateSnapshot(id);
+    }
+
+    private static String evidenceSnapshotId(String resultSnapshotRef, String executionId) {
+        if (resultSnapshotRef != null && resultSnapshotRef.startsWith("local-result:")) {
+            String id = resultSnapshotRef.substring("local-result:".length());
+            try {
+                if (UUID.fromString(id).toString().equals(id)) return id;
+            } catch (IllegalArgumentException ignored) {
+                // Malformed references share one stable failure without echoing input.
+            }
+        }
+        throw fail(400, "INVALID_EVIDENCE_REF", "证据引用必须是有效的本机查询结果引用", "resultSnapshotRef", executionId);
+    }
+
     private void revalidateForPage(StoredSnapshot snapshot, Authentication authentication, String executionId) {
         DataBindingService.BindingDetail current = getBinding(UUID.fromString(snapshot.binding.bindingId()),
                 snapshot.binding.revision(), authentication, executionId);
@@ -372,7 +439,13 @@ public class ObjectSetQueryService {
             invalidateSnapshot(snapshot.id);
             throw fail(409, "BINDING_UNAVAILABLE", "分页期间 ObjectType 版本不再可用；旧结果已失效", "typeSourceRef", executionId);
         }
-        DataBindingService.SourceTable table = currentSourceTable(current, authentication, executionId);
+        DataBindingService.SourceTable table;
+        try {
+            table = bindings.revalidateSource(current, authentication,
+                    System.nanoTime() + TimeUnit.SECONDS.toNanos(QUERY_TIMEOUT_SECONDS));
+        } catch (DataBindingService.BindingFailure ex) {
+            throw fail(ex.http, ex.code, ex.getMessage(), ex.fieldPath, executionId);
+        }
         if (!Objects.equals(table.schemaFingerprint(), snapshot.schemaFingerprint)) {
             invalidateSnapshot(snapshot.id);
             throw fail(409, "BINDING_SCHEMA_DRIFT", "分页期间来源结构发生变化；旧结果已失效，请重新核验绑定", "sourceSchemaFingerprint", executionId);

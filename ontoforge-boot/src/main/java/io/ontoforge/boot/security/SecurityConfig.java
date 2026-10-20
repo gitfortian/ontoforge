@@ -33,6 +33,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers(org.springframework.http.HttpMethod.POST,"/api/agent/v1/runs").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/context/v1/evidence/*").authenticated()
                         .requestMatchers("/api/system/status","/api/auth/context").permitAll()
                         .requestMatchers("/api/me").authenticated()
                         .requestMatchers("/api/platform/workspaces","/api/platform/workspaces/**").authenticated()

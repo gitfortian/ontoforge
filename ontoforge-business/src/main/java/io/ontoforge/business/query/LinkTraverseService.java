@@ -38,7 +38,6 @@ import java.util.regex.Pattern;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -475,10 +474,7 @@ public class LinkTraverseService {
             throw fail(409, "LINK_VERSION_UNAVAILABLE", "查询执行期间关系版本变化", "steps");
         }
         if (System.nanoTime() > deadline) throw fail(503, "QUERY_TIMEOUT", "来源执行整体超时", "limits");
-        if (request.aggregateOperation() != null) {
-            ensureResultContract(result);
-            return result;
-        }
+        if (request.aggregateOperation() != null) ensureResultContract(result);
         long frozenBytes = result.toString().getBytes(StandardCharsets.UTF_8).length;
         Frozen saved = new Frozen(frozenId, actorKey(auth), now.plusSeconds(300), result.deepCopy(),
                 frozenBytes, request.pageSize(), request.direction(), request.packageId(), request.snapshotId(),
@@ -499,6 +495,7 @@ public class LinkTraverseService {
             frozen.put(frozenId, saved);
         }
         try {
+            if (request.aggregateOperation() != null) return result;
             return buildPage(saved, 0);
         } catch (RuntimeException ex) {
             frozen.remove(frozenId);
@@ -567,6 +564,59 @@ public class LinkTraverseService {
         return buildPage(record, offset);
     }
 
+    /** Reads original one-hop evidence with the same current checks as frozen paging. */
+    public ObjectNode evidence(String resultSnapshotRef, Authentication auth) {
+        String id = evidenceSnapshotId(resultSnapshotRef);
+        Frozen record = frozen.get(id);
+        if (record == null || !record.expiresAt().isAfter(Instant.now())) {
+            if (record != null) frozen.remove(id, record);
+            throw fail(410, "RESULT_EXPIRED", "查询证据已过期或不可用，请重新执行查询", "resultSnapshotRef");
+        }
+        if (!record.actor().equals(actorKey(auth))) {
+            throw fail(403, "FORBIDDEN", "结果引用不属于当前主体；引用本身不授予访问权限", "resultSnapshotRef");
+        }
+        try {
+            revalidate(record, auth);
+        } catch (RuntimeException ex) {
+            frozen.remove(id, record);
+            throw ex;
+        }
+        if (frozen.get(id) != record || !record.expiresAt().isAfter(Instant.now())) {
+            frozen.remove(id, record);
+            throw fail(410, "RESULT_EXPIRED", "查询证据已过期或不可用，请重新执行查询", "resultSnapshotRef");
+        }
+        ObjectNode result = mapper.createObjectNode();
+        result.put("evidenceVersion", "local-evidence-v1");
+        result.put("packageId", record.pkg());
+        // Copy only immutable metadata, never the frozen object/relationship values.
+        for (String field : List.of("status", "executionId", "executedAt", "queryVersion",
+                "resultSnapshotRef", "expiresAt", "queryDigest", "rootTypeRef", "outputTypeRef",
+                "versionLock", "bindingVersions", "sourceReadRefs", "quality", "budget")) {
+            JsonNode value = record.full().get(field);
+            if (value != null) result.set(field, value.deepCopy());
+        }
+        return result;
+    }
+
+    /** Ends only this actor's retained execution; no database or source read is attempted. */
+    public void invalidateResult(String resultSnapshotRef, Authentication auth) {
+        String id = evidenceSnapshotId(resultSnapshotRef);
+        Frozen record = frozen.get(id);
+        if (record != null && record.actor().equals(actorKey(auth))) frozen.remove(id, record);
+    }
+
+    private static String evidenceSnapshotId(String resultSnapshotRef) {
+        if (resultSnapshotRef != null && resultSnapshotRef.startsWith("local-result:")) {
+            String id = resultSnapshotRef.substring("local-result:".length());
+            try {
+                if (UUID.fromString(id).toString().equals(id)) return id;
+            } catch (IllegalArgumentException ignored) {
+                // Malformed references share one stable failure without echoing input.
+            }
+        }
+        throw fail(400, "INVALID_EVIDENCE_REF", "证据引用必须是有效的本机查询结果引用", "resultSnapshotRef");
+    }
+
     private void revalidate(Frozen saved, Authentication auth) {
         authorization.requirePackage(auth, saved.pkg(), B0AuthorizationService.Operation.READ_DRAFT);
         UUID snapshotId = UUID.fromString(saved.snapshotId());
@@ -589,16 +639,19 @@ public class LinkTraverseService {
         if (!saved.sourceDigest().equals(a.digest()) || !saved.targetDigest().equals(b.digest())) {
             throw fail(409, "LINK_ENDPOINT_VERSION_MISMATCH", "双端版本证据不再有效", "cursor");
         }
-        Map<String, DataBindingService.SourceTable> current = new HashMap<>();
-        for (DataBindingService.SourceTable table : bindings.listTables(saved.pkg(), auth)) {
-            current.put(table.table(), table);
-        }
-        if (!current.containsKey(a.sourceTable()) || !current.containsKey(b.sourceTable())) {
-            throw fail(403, "SOURCE_NOT_ALLOWED", "来源当前不可读", "cursor");
-        }
-        if (!saved.sourceFingerprint().equals(current.get(a.sourceTable()).schemaFingerprint())
-                || !saved.targetFingerprint().equals(current.get(b.sourceTable()).schemaFingerprint())) {
-            throw fail(409, "LINK_SOURCE_SCHEMA_DRIFT", "结果冻结后来源结构发生变化", "cursor");
+        long deadline = System.nanoTime() + DEADLINE_SECONDS * 1_000_000_000L;
+        try {
+            DataBindingService.SourceTable currentSource = bindings.revalidateSource(a, auth, deadline);
+            DataBindingService.SourceTable currentTarget = bindings.revalidateSource(b, auth, deadline);
+            if (!saved.sourceFingerprint().equals(currentSource.schemaFingerprint())
+                    || !saved.targetFingerprint().equals(currentTarget.schemaFingerprint())) {
+                throw fail(409, "LINK_SOURCE_SCHEMA_DRIFT", "结果冻结后来源结构发生变化", "cursor");
+            }
+        } catch (DataBindingService.BindingFailure ex) {
+            if ("BINDING_SCHEMA_DRIFT".equals(ex.code)) {
+                throw fail(409, "LINK_SOURCE_SCHEMA_DRIFT", "结果冻结后来源结构发生变化", "cursor");
+            }
+            throw fail(ex.http, ex.code, ex.getMessage(), "cursor");
         }
     }
 
@@ -691,13 +744,7 @@ public class LinkTraverseService {
             throw new IllegalStateException("M8 cursor signing unavailable", ex);
         }
     }
-    private static String actorKey(Authentication auth) {
-        if (auth instanceof JwtAuthenticationToken jwt) {
-            String issuer = jwt.getToken().getIssuer() == null ? "" : jwt.getToken().getIssuer().toString();
-            return "jwt:" + issuer + ":" + jwt.getToken().getSubject();
-        }
-        return "LOCAL_ISOLATED";
-    }
+    private String actorKey(Authentication auth) { return authorization.actorKey(auth); }
     private static String actorHash(String actor) {
         try {
             byte[] d = MessageDigest.getInstance("SHA-256")
