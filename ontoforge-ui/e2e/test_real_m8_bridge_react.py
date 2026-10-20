@@ -221,6 +221,8 @@ class RealBridgeReactGoldenStory(unittest.TestCase):
             expect(panel.locator(".object-set-error")).to_contain_text(
                 "LINK_SOURCE_UNAVAILABLE", timeout=20000)
             expect(panel.locator(".m8-result")).to_have_count(0)
+            expect(panel.locator(".m8-validation")).to_have_count(0)
+            expect(panel.locator(".m8-current")).to_have_count(0)
             expect(panel.locator(".m8-links tbody tr")).to_have_count(0)
             expect(panel.locator(".m8-source-detail")).to_have_count(0)
             self.assertNotIn("QE-11", panel.inner_text())
@@ -237,6 +239,10 @@ class RealBridgeReactGoldenStory(unittest.TestCase):
         # Permission restoration never magically resurrects an old result.
         # A deliberate fresh action produces new trusted current evidence.
         expect(panel.locator(".m8-result")).to_have_count(0)
+        expect(panel.get_by_role("button", name="执行一跳查询")).to_be_disabled()
+        panel.get_by_role("button", name="重开已保存").click()
+        expect(panel.locator(".m8-current")).to_contain_text("revision 1", timeout=20000)
+        expect(panel.get_by_role("button", name="保存新 revision")).to_be_disabled()
         panel.get_by_role("button", name="执行一跳查询").click()
         expect(panel.locator(".m8-result")).to_contain_text("QE-11", timeout=20000)
         self.assertEqual(panel.locator(".m8-source-detail").count(), 3)
