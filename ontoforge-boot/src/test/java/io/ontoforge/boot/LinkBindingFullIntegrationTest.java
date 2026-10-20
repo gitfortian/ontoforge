@@ -1466,6 +1466,38 @@ class LinkBindingFullIntegrationTest {
             executor.shutdownNow();
         }
 
+        // T5 B10/C08: deliberately hold an ACCESS EXCLUSIVE database lock
+        // from a DIFFERENT real PostgreSQL connection. Bridge FULL cannot
+        // wait indefinitely and must never return a fake VALID/zero result
+        // or expose source keys while the reader's ACCESS SHARE is blocked.
+        java.util.concurrent.ExecutorService lockExecutor =
+                java.util.concurrent.Executors.newSingleThreadExecutor();
+        try (java.sql.Connection lockHolder = jdbc.getDataSource().getConnection()) {
+            lockHolder.setAutoCommit(false);
+            try (java.sql.Statement hold = lockHolder.createStatement()) {
+                hold.execute("LOCK TABLE public." + BRIDGE + " IN ACCESS EXCLUSIVE MODE");
+            }
+            try {
+                long lockStart = System.nanoTime();
+                var blockedFull = lockExecutor.submit(() -> post("/validate", request));
+                ResponseEntity<String> denied = blockedFull.get(
+                        6, java.util.concurrent.TimeUnit.SECONDS);
+                long lockMillis = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(
+                        System.nanoTime() - lockStart);
+                assertThat(denied.getStatusCode().value()).as(denied.getBody())
+                        .isEqualTo(503);
+                assertThat(denied.getBody()).contains("SOURCE_UNAVAILABLE")
+                        .doesNotContain("EQ-001", "LOT-11", BRIDGE,
+                                "sourceReadRefs", "objects", "links");
+                assertThat(lockMillis).as("The source lock wait must be bounded")
+                        .isLessThan(6000L);
+            } finally {
+                lockHolder.rollback();
+            }
+        } finally {
+            lockExecutor.shutdownNow();
+        }
+
         // All THREE physical reads must share one 10k budget: no truncation to
         // a misleading success result when a bridge becomes over-budget.
         jdbc.execute("INSERT INTO public." + BRIDGE
