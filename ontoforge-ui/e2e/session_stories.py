@@ -81,8 +81,8 @@ class LocalSessionBrowserTest(SessionBrowserCase):
         self.assertFalse(self.page.evaluate("Object.values(localStorage).some(value => value.includes('password') || value.includes('access_token'))"))
         self.screenshot('session-editor.png')
         self.page.get_by_role('button', name='退出会话', exact=True).click()
-        self.page.get_by_role('button', name='Native 本体建模', exact=True).click()
         self.page.get_by_role('heading', name='登录 OntoForge', exact=True).wait_for()
+        self.assertEqual(self.page.locator('.app-sidebar').count(), 0)
         self.assertEqual(self.page.request.get(BASE + '/api/me').status, 401)
 
     def test_missing_csrf_and_invalid_password_are_visible(self):
