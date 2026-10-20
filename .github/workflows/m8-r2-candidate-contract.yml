@@ -7,6 +7,7 @@ on:
       - 'doc/design/tests/test_m8_r2_candidate_contract.py'
       - 'doc/design/candidates/m8-2/**'
       - 'doc/design/tests/test_m8_2_bridge_candidate_contract.py'
+      - 'doc/design/tests/test_m8_2_bridge_migration_candidate.py'
       - '.github/workflows/m8-r2-candidate-contract.yml'
   workflow_dispatch:
 
@@ -30,3 +31,5 @@ jobs:
         run: python -m unittest discover -s doc/design/tests -p 'test_m8_r2_candidate_contract.py' -v
       - name: Validate M8.2 R2 bridge draft schemas, evidence roles and v1 regression
         run: python -m unittest discover -s doc/design/tests -p 'test_m8_2_bridge_candidate_contract.py' -v
+      - name: Review forward-only V10 compatibility of proposed M8.2 Bridge migration (no PG execution)
+        run: python -m unittest discover -s doc/design/tests -p 'test_m8_2_bridge_migration_candidate.py' -v
