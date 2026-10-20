@@ -744,10 +744,23 @@ public class LinkTraverseService {
                     .path("payloadSha256").asText())) {
             throw fail(409, "LINK_VERSION_UNAVAILABLE", "模型快照身份已变化", "cursor");
         }
-        LinkBindingService.LinkDetail link = links.get(UUID.fromString(saved.linkId()),
-                saved.pkg(), saved.linkRevision(), auth);
-        if (link.historical() || !saved.linkDigest().equals(link.digest())) {
-            throw fail(409, "LINK_VERSION_UNAVAILABLE", "关系修订已不再可执行", "cursor");
+        if (saved.bridgeTable() == null) {
+            LinkBindingService.LinkDetail link = links.get(UUID.fromString(saved.linkId()),
+                    saved.pkg(), saved.linkRevision(), auth);
+            if (link.historical() || !saved.linkDigest().equals(link.digest())) {
+                throw fail(409, "LINK_VERSION_UNAVAILABLE", "关系修订已不再可执行", "cursor");
+            }
+        } else {
+            // Current three-party grant, fingerprint and latest-revision check
+            // must happen for EVERY PAGE and evidence fetch. Once denied, caller
+            // removes the frozen record, so re-grant never resurrects cursor.
+            BridgeLinkBindingService.Detail link = bridge.get(UUID.fromString(saved.linkId()),
+                    saved.pkg(), saved.linkRevision(), auth);
+            if (link.historical() || !saved.linkDigest().equals(link.digest())
+                    || !Objects.equals(saved.bridgeFingerprint(), link.bridgeSchemaFingerprint())
+                    || !Objects.equals(saved.bridgeTable(), link.bridgeSourceRef().table())) {
+                throw fail(409, "LINK_VERSION_UNAVAILABLE", "Bridge 冻结版本/三方来源不再有效", "cursor");
+            }
         }
         DataBindingService.BindingDetail a = bindings.getBinding(UUID.fromString(saved.sourceBindingId()),
                 saved.sourceRevision(), auth);
@@ -1150,6 +1163,91 @@ public class LinkTraverseService {
         var names = node.fieldNames();
         while (names.hasNext()) if (!allowed.contains(names.next())) return false;
         return true;
+    }
+
+    /**
+     * Bridge mode reads both endpoints and the complete allowlisted bridge in
+     * ONE read-only REPEATABLE_READ source transaction. No user-supplied SQL,
+     * no cross-source join, and no partial success after exhausting budgets.
+     */
+    private BridgeRows readBridgeSource(Requested r, DataBindingService.BindingDetail a,
+            DataBindingService.BindingDetail b, BridgeLinkBindingService.Detail link,
+            Map<String, String> sourceColumns, Map<String, String> targetColumns,
+            long deadline, Authentication auth) {
+        JdbcTemplate jdbc = sourceProvider.getIfAvailable();
+        if (jdbc == null || jdbc.getDataSource() == null) {
+            throw fail(503, "SOURCE_UNAVAILABLE", "独立只读来源连接不存在", "steps");
+        }
+        Instant started = Instant.now();
+        try (Connection c = jdbc.getDataSource().getConnection()) {
+            c.setReadOnly(true);
+            c.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+            c.setAutoCommit(false);
+            try {
+                Set<String> names = new java.util.TreeSet<>(List.of(
+                        a.sourceTable(), b.sourceTable(), link.bridgeSourceRef().table()));
+                for (String table : names) {
+                    if (!IDENT.matcher(table).matches()) {
+                        throw fail(403, "SOURCE_NOT_ALLOWED", "不允许的来源表", "steps");
+                    }
+                    try (PreparedStatement lock = c.prepareStatement(
+                            "LOCK TABLE public.\\"" + table + "\\" IN ACCESS SHARE MODE")) {
+                        lock.setQueryTimeout(Math.max(1, r.timeout()));
+                        lock.execute();
+                    }
+                }
+                Map<String, DataBindingService.SourceTable> current = new HashMap<>();
+                bindings.listTables(r.packageId(), auth).forEach(t -> current.put(t.table(), t));
+                if (!Objects.equals(a.sourceSchemaFingerprint(),
+                        current.containsKey(a.sourceTable()) ? current.get(a.sourceTable()).schemaFingerprint() : null)
+                        || !Objects.equals(b.sourceSchemaFingerprint(),
+                            current.containsKey(b.sourceTable()) ? current.get(b.sourceTable()).schemaFingerprint() : null)
+                        || !Objects.equals(link.bridgeSchemaFingerprint(),
+                            current.containsKey(link.bridgeSourceRef().table())
+                                ? current.get(link.bridgeSourceRef().table()).schemaFingerprint() : null)) {
+                    throw fail(409, "LINK_SOURCE_SCHEMA_DRIFT",
+                            "三方表锁定后的当前来源证据不一致", "steps");
+                }
+                Budget budget = new Budget();
+                List<Fact> sourceRows = scan(c, a.sourceTable(), a.sourceKey(), null,
+                        sourceColumns, budget, r, deadline);
+                List<Fact> targetRows = scan(c, b.sourceTable(), b.sourceKey(), null,
+                        targetColumns, budget, r, deadline);
+                List<Pair> bridgePairs = scanBridge(c, link.bridgeSourceRef().table(),
+                        link.bridgeSourceRef().sourceFkColumn(),
+                        link.bridgeSourceRef().targetFkColumn(), budget, r, deadline);
+                return new BridgeRows(new SourceRows(sourceRows, targetRows, budget.bytes,
+                        started, Instant.now()), bridgePairs);
+            } finally {
+                c.rollback();
+            }
+        } catch (SQLException ex) {
+            throw fail(503, "SOURCE_UNAVAILABLE", "三方 Bridge 只读事务不可用", "steps");
+        }
+    }
+
+    private static List<Pair> scanBridge(Connection c, String table, String from,
+            String to, Budget budget, Requested r, long deadline) throws SQLException {
+        if (!IDENT.matcher(table).matches() || !IDENT.matcher(from).matches()
+                || !IDENT.matcher(to).matches() || from.equals(to)) {
+            throw fail(422, "LINK_MAPPING_DRIFT", "冻结 Bridge 列不是有效的两个不同列", "steps");
+        }
+        String sql = "SELECT \\"" + from + "\\", \\"" + to
+                + "\\" FROM public.\\"" + table + "\\" LIMIT ?";
+        List<Pair> result = new ArrayList<>();
+        try (PreparedStatement statement = c.prepareStatement(sql)) {
+            statement.setFetchSize(10);
+            statement.setQueryTimeout(Math.max(1, r.timeout()));
+            statement.setInt(1, r.maxRows() + 1);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    Pair row = new Pair(value(rs.getObject(1)), value(rs.getObject(2)));
+                    budget.accept(new Fact(row.source(), row.target(), Map.of()), r, deadline);
+                    result.add(row);
+                }
+            }
+        }
+        return result;
     }
 
     private SourceRows readSource(Requested r, DataBindingService.BindingDetail a,
