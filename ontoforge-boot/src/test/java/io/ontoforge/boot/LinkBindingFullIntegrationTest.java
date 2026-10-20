@@ -1000,7 +1000,8 @@ class LinkBindingFullIntegrationTest {
 
         ObjectNode altered = request.deepCopy();
         altered.put("linkTypeId", "equipment-inspections-bridge");
-        ((ObjectNode) altered.path("bridgeSourceRef")).put("sourceFkColumn", "lot_code");
+        ((ObjectNode) altered.path("expectedSchemaFingerprints"))
+                .put("bridge", bridgeFp.startsWith("0") ? "1".repeat(64) : "0".repeat(64));
         assertThat(post("", altered).getBody()).contains("IDEMPOTENCY_KEY_CONFLICT");
 
         ObjectNode unapproved = request.deepCopy();
