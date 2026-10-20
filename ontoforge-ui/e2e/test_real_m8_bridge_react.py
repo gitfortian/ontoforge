@@ -7,6 +7,7 @@ the retry uses the REAL HTTP server with the original idempotency key.
 """
 import json
 import os
+import subprocess
 import unittest
 from pathlib import Path
 from urllib.parse import quote
@@ -169,6 +170,71 @@ class RealBridgeReactGoldenStory(unittest.TestCase):
         self.assertEqual(panel.locator(".m8-bridge-quality").count(), 1)
         self.assertLessEqual(page.evaluate(
             "() => document.documentElement.scrollWidth - document.documentElement.clientWidth"), 24)
+
+        # H12 production (not UX prototype): verify each supported width
+        # and keyboard-focusable workflow controls against the actual React DOM.
+        for width in (768, 1024, 1440):
+            page.set_viewport_size({"width": width, "height": 900})
+            expect(panel.get_by_label("M8 Bridge Table")).to_be_visible()
+            expect(panel.get_by_role("button", name="执行一跳查询")).to_be_visible()
+            self.assertLessEqual(page.evaluate(
+                "() => document.documentElement.scrollWidth "
+                "- document.documentElement.clientWidth"), 24)
+            if os.getenv("E2E_SHOTS"):
+                folder = Path(os.environ["E2E_SHOTS"])
+                folder.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=str(folder / ("m8_bridge_react_" + str(width) + ".png")),
+                                full_page=True)
+
+        # H10 production authorization loss: genuinely revoke the dedicated
+        # PostgreSQL source role AFTER objects and SourceReadRefs were rendered.
+        # The second real HTTP query must fail closed; no old ObjectRefs or
+        # LinkFacts may remain in the React DOM. Restore the permission in
+        # finally so all other JWT/PG17 tests are independent.
+        pg_containers = subprocess.check_output(
+            ["docker", "ps", "--format", "{{.ID}} {{.Image}}"], text=True).splitlines()
+        pg_id = next((line.split()[0] for line in pg_containers
+                      if len(line.split()) > 1
+                      and line.split()[1].startswith("postgres:17")), None)
+        self.assertIsNotNone(pg_id, "Real PostgreSQL 17 fixture must exist")
+        def source_sql(sql):
+            subprocess.run(
+                ["docker", "exec", "-i", pg_id, "psql", "-X", "-v", "ON_ERROR_STOP=1",
+                 "-U", "ontology", "-d", "ontoforge_test_e2e"],
+                input=sql, text=True, capture_output=True, check=True)
+
+        panel.get_by_label("M8 Traverse Direction").select_option("OUT")
+        panel.get_by_label("M8 Root Object Key").fill("CELL-01")
+        panel.get_by_role("button", name="执行一跳查询").click()
+        result = panel.locator(".m8-result")
+        expect(result).to_contain_text("QE-11", timeout=20000)
+        expect(result).to_contain_text("BRIDGE")
+        source_sql("REVOKE SELECT ON public.m8_cell_event_bridge "
+                   "FROM ontoforge_binding_reader;")
+        try:
+            panel.get_by_role("button", name="执行一跳查询").click()
+            expect(panel.locator(".object-set-error")).to_contain_text(
+                "LINK_SOURCE_UNAVAILABLE", timeout=20000)
+            expect(panel.locator(".m8-result")).to_have_count(0)
+            expect(panel.locator(".m8-links tbody tr")).to_have_count(0)
+            expect(panel.locator(".m8-source-detail")).to_have_count(0)
+            self.assertNotIn("QE-11", panel.inner_text())
+            self.assertNotIn("QE-12", panel.inner_text())
+            if os.getenv("E2E_SHOTS"):
+                folder = Path(os.environ["E2E_SHOTS"])
+                folder.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=str(folder / "m8_bridge_react_h10_revoked.png"),
+                                full_page=True)
+        finally:
+            source_sql("GRANT SELECT ON public.m8_cell_event_bridge "
+                       "TO ontoforge_binding_reader;")
+
+        # Permission restoration never magically resurrects an old result.
+        # A deliberate fresh action produces new trusted current evidence.
+        expect(panel.locator(".m8-result")).to_have_count(0)
+        panel.get_by_role("button", name="执行一跳查询").click()
+        expect(panel.locator(".m8-result")).to_contain_text("QE-11", timeout=20000)
+        self.assertEqual(panel.locator(".m8-source-detail").count(), 3)
 
 
 if __name__ == "__main__":
