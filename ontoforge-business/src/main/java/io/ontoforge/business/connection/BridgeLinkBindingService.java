@@ -491,9 +491,17 @@ public class BridgeLinkBindingService {
         List<Pair> rows = fetch(db, table, key, null, budget, deadline);
         Set<String> ids = new HashSet<>();
         for (Pair value : rows) {
-            if (value.source() == null || !ids.add(value.source())) {
+            if (value.source() == null || value.source().isBlank()
+                    || value.source().length() > 4096) {
+                // A PostgreSQL TEXT PK may be '', yet the typed ObjectRef
+                // contract explicitly forbids empty/blank identity values.
+                // It is NOT SQL NULL and must not become a Bridge orphan.
+                throw fail(409, "OBJECT_IDENTITY_UNREPRESENTABLE",
+                        "端点主键值无法编码为合法 ObjectRef", "sourceKey");
+            }
+            if (!ids.add(value.source())) {
                 throw fail(409, "LINK_ENDPOINT_KEY_CONFLICT",
-                        "同一 ObjectType 端点身份键缺失或重复", "sourceKey");
+                        "同一 ObjectType 端点身份键重复", "sourceKey");
             }
         }
         return ids;
