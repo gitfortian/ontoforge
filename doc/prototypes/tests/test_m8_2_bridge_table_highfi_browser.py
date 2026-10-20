@@ -38,15 +38,34 @@ class M82BridgeTableUXHighBrowser(unittest.TestCase):
         )
 
     def tearDown(self):
-        directory = os.environ.get("UX_SCREENSHOT_DIR")
-        if directory and (self.errors or os.environ.get("UX_CAPTURE_SCREENSHOTS")):
-            target = Path(directory)
-            target.mkdir(parents=True, exist_ok=True)
-            self.page.screenshot(
-                path=str(target / (self.id().rsplit(".", 1)[-1] + ".png")), full_page=True
-            )
-        self.assertEqual([], self.errors, f"Uncaught JS errors: {self.errors}")
-        self.page.close()
+        try:
+            directory = os.environ.get("UX_SCREENSHOT_DIR")
+            if directory and (self.errors or os.environ.get("UX_CAPTURE_SCREENSHOTS")):
+                target = Path(directory)
+                target.mkdir(parents=True, exist_ok=True)
+                screenshot = str(target / (self.id().rsplit(".", 1)[-1] + ".png"))
+                try:
+                    self.page.screenshot(path=screenshot, full_page=True, timeout=12000)
+                except Exception as first_error:
+                    # Chromium occasionally refuses a full-page capture even when
+                    # the actual UI assertions all passed. Fall back to the current
+                    # viewport once, without suppressing a second capture failure.
+                    self.page.wait_for_timeout(150)
+                    try:
+                        self.page.screenshot(path=screenshot, full_page=False, timeout=12000)
+                    except Exception as second_error:
+                        self.fail(
+                            "Screenshot evidence unavailable after full-page and viewport "
+                            f"attempts: {first_error!s}; fallback: {second_error!s}"
+                        )
+                    print(
+                        "UX evidence fallback: viewport screenshot captured after "
+                        f"full-page protocol failure for {self.id()}",
+                        flush=True,
+                    )
+            self.assertEqual([], self.errors, f"Uncaught JS errors: {self.errors}")
+        finally:
+            self.page.close()
 
     def model(self):
         return self.page.evaluate("window.__m82uxHigh.getState()")
