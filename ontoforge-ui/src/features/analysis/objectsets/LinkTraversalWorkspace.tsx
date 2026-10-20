@@ -10,14 +10,16 @@ type Snapshot={snapshotId:string;packageId:string;payloadSha256:string;snapshotC
 type ObjectBinding={bindingId:string;revision:number;packageId:string;objectTypeId:string;snapshotId:string;digest:string;identityDomainId:string;sourceId:string;sourceSchema:string;sourceTable:string;sourceSchemaFingerprint:string;sourceKey:string;fieldMappings:Array<{propertyRef:string;sourceColumn:string}>;validationStatus:string;historical:boolean};
 type BindingSummary={bindingId:string;packageId:string;objectTypeId:string;currentRevision:number;validationStatus:string};
 type LinkHead={id:string;packageId:string;snapshotId:string;linkTypeId:string;revision:number};
-type LinkDetail={linkBindingId:string;revision:number;packageId:string;snapshotId:string;linkTypeId:string;digest:string;validationStatus:string;historical:boolean;fkOwner:'SOURCE'|'TARGET';fkSourceColumn:string;sourceBindingId:string;sourceBindingRevision:number;targetBindingId:string;targetBindingRevision:number;validationQuality:{status:string;coverage:string;checkedAt:string;scannedRows:number;matchedLinks:number;nullFkCount:number;orphanCount:number}};
+type BridgeRef={sourceId:string;schema:string;table:string;sourceFkColumn:string;targetFkColumn:string};
+type BridgeQuality={bridgePhysicalRows:number;matchedPhysicalRows:number;uniquePairCount:number;duplicatePairRowCount:number;nullBoth:number;nullSourceOnly:number;nullTargetOnly:number;orphanSourceOnly:number;orphanTargetOnly:number;orphanBoth:number;sourcePhysicalRows:number;targetPhysicalRows:number;joinCandidates:number};
+type LinkDetail={linkBindingId:string;revision:number;packageId:string;snapshotId:string;linkTypeId:string;digest:string;validationStatus:string;historical:boolean;mappingMode?:'BRIDGE_TABLE';bridgeSourceRef?:BridgeRef;fkOwner?:'SOURCE'|'TARGET';fkSourceColumn?:string;sourceBindingId:string;sourceBindingRevision:number;targetBindingId:string;targetBindingRevision:number;validationQuality:{status?:string;coverage?:string;checkedAt?:string;scannedRows?:number;matchedLinks?:number;nullFkCount?:number;orphanCount?:number}&Partial<BridgeQuality>};
 type SourceColumn={name:string;udtName:string;dataType:string};
 type SourceTable={table:string;schema:string;columns:SourceColumn[];schemaFingerprint:string};
-type Validation={status:string;coverage:string;scannedRows:number;matchedLinks:number;nullFkCount:number;orphanCount:number;checkedAt:string};
+type Validation={status:string;coverage:string;scannedRows?:number;matchedLinks?:number;nullFkCount?:number;orphanCount?:number;checkedAt:string;quality?:BridgeQuality};
 type ObjectRef={packageId:string;objectTypeId:string;identityDomainId:string;key:{valueType:string;value:string}};
 type ResultObject={objectRef:ObjectRef;properties:unknown[]};
 type LinkFact={linkTypeId:string;linkBindingId:string;linkBindingRevision:number;source:ObjectRef;target:ObjectRef;sourceReadRefs:string[]};
-type OneHopResult={status:'SUCCESS';resultKind:'PAGE'|'AGGREGATE';aggregate?:{operation:'COUNT_DISTINCT'|'SUM';propertyRef?:string;valueType:'INTEGER'|'DECIMAL';value:string;matchedObjects:number};executionId:string;resultSnapshotRef:string;queryVersion:string;expiresAt:string;pageNumber:number;nextCursor?:string;objects:ResultObject[];links:LinkFact[];linkCount:number;quality:{completeness:'COMPLETE'|'PARTIAL';answerScope:string;freshness:string;knownOrphanCount:number};budget:{physicalRows:number;joinCandidates:number;sourceBytes:number};bindingVersions:Array<{kind:string;revision:number;bindingId:string;digest:string}>;sourceReadRefs:Array<{id:string;role:string;schema:string;table:string;schemaFingerprint:string;checkpoint:{status:string}}>} ;
+type OneHopResult={status:'SUCCESS';linkMappingMode?:'BRIDGE_TABLE';bridgeDuplicatePairRowCount?:number;resultKind:'PAGE'|'AGGREGATE';aggregate?:{operation:'COUNT_DISTINCT'|'SUM';propertyRef?:string;valueType:'INTEGER'|'DECIMAL';value:string;matchedObjects:number};executionId:string;resultSnapshotRef:string;queryVersion:string;expiresAt:string;pageNumber:number;nextCursor?:string;objects:ResultObject[];links:LinkFact[];linkCount:number;quality:{completeness:'COMPLETE'|'PARTIAL';answerScope:string;freshness:string;knownOrphanCount:number};budget:{physicalRows:number;joinCandidates:number;sourceBytes:number};bindingVersions:Array<{kind:string;revision:number;bindingId:string;digest:string}>;sourceReadRefs:Array<{id:string;role:string;schema:string;table:string;schemaFingerprint:string;checkpoint:{status:string}}>} ;
 type ApiError={code?:string;message?:string;fieldPath?:string;executionId?:string;httpStatus?:number};
 
 async function request<T>(path:string,init:RequestInit={}):Promise<T>{
@@ -46,6 +48,9 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
   const [linkTypeId,setLinkTypeId]=useState('');
   const [fkOwner,setFkOwner]=useState<'SOURCE'|'TARGET'>('TARGET');
   const [fkColumn,setFkColumn]=useState('');
+  const [bridgeTable,setBridgeTable]=useState('');
+  const [bridgeSourceColumn,setBridgeSourceColumn]=useState('');
+  const [bridgeTargetColumn,setBridgeTargetColumn]=useState('');
   const [tables,setTables]=useState<SourceTable[]>([]);
   const [validation,setValidation]=useState<Validation|null>(null);
   const [currentLink,setCurrentLink]=useState<LinkDetail|null>(null);
@@ -72,6 +77,9 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
   const source=bindings.find(x=>x.snapshotId===snapshotId&&x.objectTypeId===type?.sourceTypeRef)||null;
   const target=bindings.find(x=>x.snapshotId===snapshotId&&x.objectTypeId===type?.targetTypeRef)||null;
   const fkTable=tables.find(x=>x.table===(fkOwner==='SOURCE'?source:target)?.sourceTable);
+  const bridgeMode=type?.cardinality==='MANY_TO_MANY';
+  const selectedBridge=tables.find(x=>x.table===bridgeTable);
+  const bridgeReady=Boolean(bridgeMode&&selectedBridge&&source&&target&&bridgeSourceColumn&&bridgeTargetColumn&&bridgeSourceColumn!==bridgeTargetColumn);
   const chosenHead=linkHeads.find(x=>x.snapshotId===snapshotId&&x.linkTypeId===linkTypeId)||null;
   const root=direction==='OUT'?source:target;
   const outputBinding=direction==='OUT'?target:source;
@@ -94,7 +102,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     setValidation(null);setCurrentLink(null);setOpKey('');reqKey.current='';setNotice('');clearExecution();
   }
   function selectType(id:string){
-    setLinkTypeId(id);setFkColumn('');
+    setLinkTypeId(id);setFkColumn('');setBridgeTable('');setBridgeSourceColumn('');setBridgeTargetColumn('');
     setRootFilterField('');setRootFilterValue('');
     setTargetFilterField('');setTargetFilterValue('');
     setSortField('');setProjectField('');setSumField('');
@@ -105,6 +113,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
   useEffect(()=>{
     generation.current++;
     setSnapshots([]);setSnapshotId('');setSnapshot(null);setBindings([]);setLinkHeads([]);
+    setBridgeTable('');setBridgeSourceColumn('');setBridgeTargetColumn('');
     setLinkTypeId('');setValidation(null);setCurrentLink(null);setResult(null);setError(null);
     setNotice('');reqKey.current='';setOpKey('');
   },[packageId]);
@@ -149,22 +158,35 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     finally{if(g===generation.current)setBusy(false);}
   }
   async function loadSnapshot(id:string,g=++generation.current,preferredLinkTypeId=''){
-    setSnapshotId(id);setSnapshot(null);setLinkTypeId('');setFkColumn('');invalidateDraft();
+    setSnapshotId(id);setSnapshot(null);setLinkTypeId('');setFkColumn('');
+    setBridgeTable('');setBridgeSourceColumn('');setBridgeTargetColumn('');invalidateDraft();
     try{
       const source=await request<Snapshot>('/api/model/snapshots/'+encodeURIComponent(id));
       if(g!==generation.current)return;
       if(source.packageId!==packageId)throw {code:'SNAPSHOT_PACKAGE_MISMATCH',message:'快照不属于当前模型包。'} as ApiError;
       setSnapshot(source);
-      const candidates=source.snapshotContent.linkTypes.filter(t=>t.cardinality!=='MANY_TO_MANY');
+      const candidates=source.snapshotContent.linkTypes;
       const chosen=preferredLinkTypeId
         ?candidates.find(t=>t.id===preferredLinkTypeId)
         :candidates[0];
       if(chosen)setLinkTypeId(chosen.id);
-      if(preferredLinkTypeId&&!chosen)setNotice('指定 LinkType 不存在或尚未获准使用单列 FK；不会自动切换到其他关系。');
-      else if(candidates.length===0)setNotice('该不可变快照暂无可供 M8.1 使用的单列外键 LinkType；请先在 Native 模型中定义并冻结。');
+      if(preferredLinkTypeId&&!chosen)setNotice('指定 LinkType 不属于当前冻结快照；不会自动切换到其他关系。');
+      else if(candidates.length===0)setNotice('该不可变快照暂无 LinkType；请先在 Native 模型中定义并冻结。');
     }catch(e){if(g===generation.current)setError(e as ApiError);}
   }
-  const requestBody=(key:string)=>({
+  const requestBody=(key:string)=>bridgeMode?({
+    contractVersion:'local-link-binding-v2',
+    modelSourceRef:{kind:'LOCAL_SNAPSHOT',snapshotId},packageId,linkTypeId,
+    sourceBindingRef:{bindingId:source?.bindingId,revision:source?.revision,digest:source?.digest},
+    targetBindingRef:{bindingId:target?.bindingId,revision:target?.revision,digest:target?.digest},
+    mode:'BRIDGE_TABLE',
+    bridgeSourceRef:{sourceId:'local-pg-sandbox',schema:'public',table:bridgeTable,
+      sourceFkColumn:bridgeSourceColumn,targetFkColumn:bridgeTargetColumn},
+    expectedRevision:chosenHead?.revision||0,idempotencyKey:key,
+    expectedSchemaFingerprints:{source:source?.sourceSchemaFingerprint,target:target?.sourceSchemaFingerprint,
+      bridge:selectedBridge?.schemaFingerprint},
+    validationScope:{kind:'VALIDATION_SCOPE',coverage:'FULL'}
+  }):({
     contractVersion:'local-link-binding-v1',
     modelSourceRef:{kind:'LOCAL_SNAPSHOT',snapshotId},
     packageId,linkTypeId,
@@ -175,7 +197,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     expectedSchemaFingerprints:{source:source?.sourceSchemaFingerprint,target:target?.sourceSchemaFingerprint},
     validationScope:{kind:'VALIDATION_SCOPE',coverage:'FULL'}
   });
-  const canValidate=Boolean(source&&target&&type&&fkColumn&&!busy);
+  const canValidate=Boolean(source&&target&&type&&(bridgeMode?bridgeReady:fkColumn)&&!busy);
   async function validate(){
     if(!canValidate||inFlight.current)return;
     inFlight.current=true;setBusy(true);setError(null);setNotice('');setValidation(null);clearExecution();
@@ -185,7 +207,8 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
       setValidation(v);
       setNotice(v.status==='VALID_WITH_ORPHANS'
         ?'FULL 校验完成：存在真实孤儿。仅相关根的遍历结果可能为 PARTIAL。'
-        :'FULL 校验完成：双端外键关联符合本次可保存资格。');
+        :bridgeMode?'三表 FULL 校验完成：桥表双端已通过校验，可保存不可变版本。'
+           :'FULL 校验完成：双端外键关联符合本次可保存资格。');
     }catch(e){setError(e as ApiError);}
     finally{inFlight.current=false;setBusy(false);}
   }
