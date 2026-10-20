@@ -6,3 +6,13 @@
 .login-panel [role=alert]{color:var(--of-danger-text);margin:6px 0}
 .auth-panel{max-width:540px;margin:48px auto;padding:32px}.auth-panel h1{font-size:24px;margin:0 0 20px}
 .session-recovery p{font-size:13px;line-height:1.7;color:var(--yak-color-text-secondary)}
+.login-gate{min-height:100vh;background:var(--yak-color-surface);color:var(--yak-color-text-primary);font-family:var(--yak-font-family)}
+.login-gate-header{height:52px;display:flex;align-items:center;gap:10px;padding:0 20px;background:#14171a;color:#fff}
+.login-gate-header strong{font-size:15px;letter-spacing:.2px}.login-gate-header strong span{margin-left:5px;color:#c4cbd5;font-size:12px;font-weight:400}
+.login-gate-mark{display:grid;place-items:center;width:28px;height:28px;border-radius:7px;background:#fff;color:#173657}
+.login-gate-main{min-height:calc(100vh - 52px);display:grid;place-items:center;padding:24px}
+.login-gate-card{width:min(100%,500px);padding:32px;border:1px solid var(--yak-color-border);border-radius:12px;background:var(--yak-color-background);box-shadow:0 6px 24px #13233e08}
+.login-gate-card h1{margin:0 0 12px;font-size:24px}.login-gate-card>p{color:var(--yak-color-text-secondary);font-size:13px;line-height:1.7}
+.login-gate-checking{display:flex;align-items:center;gap:9px;padding:12px 0;color:var(--yak-color-text-secondary);font-size:13px}
+.login-gate-error{color:var(--of-danger-text)!important}
+@media(max-width:500px){.login-gate-main{padding:16px}.login-gate-card{padding:24px}}

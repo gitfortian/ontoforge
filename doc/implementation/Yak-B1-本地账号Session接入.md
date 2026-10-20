@@ -36,6 +36,8 @@ Java 21、Node 22、PostgreSQL；数据库密码沿用外部 `DB_PASSWORD`。本
 
 第二终端 `cd ontoforge-ui; npm ci; npm run dev`，打开 `http://127.0.0.1:5173/#/model/packages`。Session Cookie 为 HttpOnly、SameSite=Lax、Path=/api，闲置 30 分钟到期；重启需重新登录。密码/Token 不进 localStorage/sessionStorage。
 
+在 `local-session` 模式下，应用启动先核对服务端身份。未登录时统一显示独立登录页，不显示系统概览、侧栏或其他工作台页面；直接打开模型页面也会先看到该登录页，登录成功后回到原页面。已登录后会话中途失效时，仍保留当前工作并显示重新登录恢复框。此登录页调整只适用于 `local-session`；OIDC 保持原有页面流程，`mvp-local` 继续使用无用户登录的本机隔离流程。
+
 ## B1 显式授权
 
 系统管理员不自动获得任何模型包。B2 已提供账号管理；C1 已提供 [空间/成员/包归属界面](./Yak-C1-工作空间与模型包归属.md)，正常使用优先通过 UI 明确授权。以下保留 B1 的数据库操作员示例，直接 SQL 变更须另行协调应用并发并刷新页面。本机测试库示例须替换真实用户名和目标 packageId；已有其他空间归属会使整个事务失败，不转移旧包：
