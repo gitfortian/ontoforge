@@ -919,7 +919,7 @@ class LinkBindingFullIntegrationTest {
 
     @Test
     void bridgeV2RealPgHttpFullBucketsCasReplayRevokeAndBudget() throws Exception {
-        String pkg = "m82.test." + UUID.randomUUID().toString().replace("-", "");
+        String pkg = "m8.bridge.p" + UUID.randomUUID().toString().replace("-", "");
         NativeDraftService.DraftDetail draft = drafts.create(pkg);
         ObjectNode editor = mapper.createObjectNode();
         editor.put("editorSchemaVersion", "0.1.0");
