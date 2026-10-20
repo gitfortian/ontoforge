@@ -1116,6 +1116,83 @@ class LinkBindingFullIntegrationTest {
         assertThat(scoped.path("quality").path("knownOrphanCount").asInt()).isZero();
         assertThat(scoped.path("budget").path("physicalRows").asInt()).isEqualTo(20);
 
+        // T5 B09/C03: an independent PostgreSQL writer must commit its
+        // TARGET row and BRIDGE edge atomically while real HTTP readers query.
+        // Any individual read must see the complete BEFORE or AFTER state,
+        // never an orphan edge or a partially visible three-table join.
+        java.util.concurrent.CountDownLatch stagedWriter =
+                new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch commitWriter =
+                new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CompletableFuture<Void> writer =
+                java.util.concurrent.CompletableFuture.runAsync(() -> {
+                    try (java.sql.Connection connection = jdbc.getDataSource().getConnection()) {
+                        connection.setAutoCommit(false);
+                        try (java.sql.Statement statement = connection.createStatement()) {
+                            statement.executeUpdate("INSERT INTO public." + INSPECTION
+                                    + "(lot_code,equipment_code,status,amount)"
+                                    + " VALUES ('LOT-T5-WRITER','EQ-002','PASS',7.00)");
+                            statement.executeUpdate("INSERT INTO public." + BRIDGE
+                                    + "(equipment_code,lot_code)"
+                                    + " VALUES ('EQ-002','LOT-T5-WRITER')");
+                        }
+                        stagedWriter.countDown();
+                        if (!commitWriter.await(15, java.util.concurrent.TimeUnit.SECONDS)) {
+                            throw new IllegalStateException("Bridge writer commit gate timed out");
+                        }
+                        connection.commit();
+                    } catch (Exception ex) {
+                        stagedWriter.countDown();
+                        throw new IllegalStateException("Bridge concurrent writer failed", ex);
+                    }
+                });
+        try {
+            assertThat(stagedWriter.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            ResponseEntity<String> beforeCommit = traverse(clean);
+            assertThat(beforeCommit.getStatusCode().value()).as(beforeCommit.getBody())
+                    .isEqualTo(200);
+            JsonNode beforeFacts = mapper.readTree(beforeCommit.getBody());
+            assertThat(beforeFacts.path("quality").path("completeness").asText())
+                    .isEqualTo("COMPLETE");
+            assertThat(beforeFacts.path("linkCount").asInt()).isEqualTo(1);
+            assertThat(beforeFacts.toString()).doesNotContain("LOT-T5-WRITER");
+
+            // Race an independent reader against the COMMIT boundary. Both
+            // legal snapshots have matching objects+edges and COMPLETE quality.
+            var overlappingRead = java.util.concurrent.CompletableFuture.supplyAsync(
+                    () -> traverse(clean));
+            commitWriter.countDown();
+            ResponseEntity<String> raced = overlappingRead.get(
+                    20, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(raced.getStatusCode().value()).as(raced.getBody()).isEqualTo(200);
+            JsonNode racedFacts = mapper.readTree(raced.getBody());
+            assertThat(racedFacts.path("quality").path("completeness").asText())
+                    .isEqualTo("COMPLETE");
+            assertThat(racedFacts.path("quality").path("knownOrphanCount").asInt()).isZero();
+            assertThat(racedFacts.path("linkCount").asInt()).isIn(1, 2);
+            assertThat(racedFacts.path("objects").size())
+                    .isEqualTo(racedFacts.path("linkCount").asInt());
+            writer.get(20, java.util.concurrent.TimeUnit.SECONDS);
+
+            ResponseEntity<String> afterCommit = traverse(clean);
+            assertThat(afterCommit.getStatusCode().value()).as(afterCommit.getBody())
+                    .isEqualTo(200);
+            JsonNode afterFacts = mapper.readTree(afterCommit.getBody());
+            assertThat(afterFacts.path("quality").path("completeness").asText())
+                    .isEqualTo("COMPLETE");
+            assertThat(afterFacts.path("quality").path("knownOrphanCount").asInt()).isZero();
+            assertThat(afterFacts.path("objects").size()).isEqualTo(2);
+            assertThat(afterFacts.path("linkCount").asInt()).isEqualTo(2);
+            assertThat(afterFacts.toString()).contains("LOT-T5-WRITER");
+        } finally {
+            commitWriter.countDown();
+            writer.get(20, java.util.concurrent.TimeUnit.SECONDS);
+            jdbc.execute("DELETE FROM public." + BRIDGE
+                    + " WHERE lot_code='LOT-T5-WRITER'");
+            jdbc.execute("DELETE FROM public." + INSPECTION
+                    + " WHERE lot_code='LOT-T5-WRITER'");
+        }
+
         ObjectNode inbound = traverseRequest(pkg, snap, lot, equipment, id,
                 "equipment-inspections-bridge", "IN", "LOT-11", 50);
         ((ObjectNode) inbound.withArray("steps").get(0).path("linkBindingRef")).put("revision", 2);
