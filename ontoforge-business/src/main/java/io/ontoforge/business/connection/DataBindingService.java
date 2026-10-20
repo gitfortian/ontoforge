@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.ontoforge.platform.identity.B0AuthorizationService;
 import io.ontoforge.dao.query.PostgresSourceRepository;
+import io.ontoforge.dao.query.ObjectSetSourceRepository;
 import java.sql.Timestamp;
 import java.sql.SQLException;
 import java.sql.SQLTimeoutException;
@@ -48,6 +49,7 @@ public class DataBindingService {
 
     private final io.ontoforge.dao.connection.DataBindingRepository repository;
     private final io.ontoforge.dao.query.PostgresSourceRepository sourceRepository;
+    private final ObjectSetSourceRepository sourceReadability;
     private final ObjectProvider<JdbcTemplate> sourceProvider;
     private final RuntimeTypeResolver typeResolver;
     private final B0AuthorizationService authorization;
@@ -56,12 +58,14 @@ public class DataBindingService {
 
     public DataBindingService(io.ontoforge.dao.connection.DataBindingRepository repository,
             io.ontoforge.dao.query.PostgresSourceRepository sourceRepository,
+            ObjectSetSourceRepository sourceReadability,
             @Qualifier("bindingSourceJdbcTemplate") ObjectProvider<JdbcTemplate> sourceProvider,
             RuntimeTypeResolver typeResolver, B0AuthorizationService authorization,
             ObjectMapper mapper,
             @Value("${ontoforge.binding.source.allowed-tables:m5_supplier_source}") String allowedTables) {
         this.repository = repository;
         this.sourceRepository = sourceRepository;
+        this.sourceReadability = sourceReadability;
         this.sourceProvider = sourceProvider;
         this.typeResolver = typeResolver;
         this.authorization = authorization;
@@ -146,19 +150,11 @@ public class DataBindingService {
     }
 
     /**
-     * Re-check one bound table without escaping the original M7 source-read deadline.
-     * This is used only for the final pre-publication schema revalidation of an ObjectSet.
+     * Re-check one bound table without escaping the original source-read deadline.
      */
     public SourceTable inspectTableWithDeadline(String packageId, String sourceId, String schema, String table,
             Authentication auth, long deadlineNanos) {
-        authorization.requirePackage(auth, packageId, B0AuthorizationService.Operation.READ_DRAFT);
-        if (deadlineNanos <= System.nanoTime()) {
-            throw fail(503, "SOURCE_TIMEOUT", "来源结构复核超过本次请求的端到端时间预算", "source");
-        }
-        if (!SOURCE_ID.equals(sourceId) || !"public".equals(schema) || table == null
-                || !IDENT.matcher(table).matches() || !allowedTables.contains(table)) {
-            throw fail(409, "BINDING_SCHEMA_DRIFT", "Binding 来源表不在当前服务端允许列表或已不存在", "sourceTable");
-        }
+        requireAllowedSource(packageId, sourceId, schema, table, auth, deadlineNanos);
         JdbcTemplate source = sourceJdbc();
         try {
             return sourceMetadata(sourceId, schema, table,
@@ -175,6 +171,44 @@ public class DataBindingService {
                 throw fail(503, "SOURCE_TIMEOUT", "来源结构复核超过本次请求的端到端时间预算", "source");
             }
             throw sourceFailure(ex);
+        }
+    }
+
+    /** Re-check the pinned source before delivering previously read Agent data to a model or caller. */
+    public SourceTable revalidateSource(BindingDetail binding, Authentication auth, long deadlineNanos) {
+        requireAllowedSource(binding.packageId(), binding.sourceId(), binding.sourceSchema(),
+                binding.sourceTable(), auth, deadlineNanos);
+        try {
+            // information_schema can hide an existing relation after SELECT is revoked.
+            // Check the independent permission contract first so denial is not reported as schema drift.
+            sourceReadability.verifyReadable(sourceJdbc(), new ObjectSetSourceRepository.SourceRef(
+                    binding.sourceSchema(), binding.sourceTable(), binding.sourceKey()), deadlineNanos);
+            SourceTable current = inspectTableWithDeadline(binding.packageId(), binding.sourceId(),
+                    binding.sourceSchema(), binding.sourceTable(), auth, deadlineNanos);
+            if (!Objects.equals(current.schemaFingerprint(), binding.sourceSchemaFingerprint())) {
+                throw fail(409, "BINDING_SCHEMA_DRIFT", "Binding 来源结构已变化，拒绝交付旧读取结果", "source");
+            }
+            return current;
+        } catch (ObjectSetSourceRepository.SourceFailure ex) {
+            throw fail("BINDING_SCHEMA_DRIFT".equals(ex.code()) ? 409 : 503,
+                    ex.code(), "Binding 来源不再符合当前只读访问条件，拒绝交付旧读取结果", "source");
+        } catch (DataAccessException ex) {
+            if (System.nanoTime() >= deadlineNanos || isSourceTimeout(ex)) {
+                throw fail(503, "SOURCE_TIMEOUT", "来源权限复核超过本次请求的端到端时间预算", "source");
+            }
+            throw sourceFailure(ex);
+        }
+    }
+
+    private void requireAllowedSource(String packageId, String sourceId, String schema, String table,
+            Authentication auth, long deadlineNanos) {
+        authorization.requirePackage(auth, packageId, B0AuthorizationService.Operation.READ_DRAFT);
+        if (deadlineNanos <= System.nanoTime()) {
+            throw fail(503, "SOURCE_TIMEOUT", "来源结构复核超过本次请求的端到端时间预算", "source");
+        }
+        if (!SOURCE_ID.equals(sourceId) || !"public".equals(schema) || table == null
+                || !IDENT.matcher(table).matches() || !allowedTables.contains(table)) {
+            throw fail(409, "BINDING_SCHEMA_DRIFT", "Binding 来源表不在当前服务端允许列表或已不存在", "sourceTable");
         }
     }
 

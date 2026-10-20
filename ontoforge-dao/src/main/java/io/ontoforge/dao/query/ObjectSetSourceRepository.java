@@ -174,7 +174,10 @@ public class ObjectSetSourceRepository {
                        to_regclass(quote_ident(?) || '.' || quote_ident(?)) IS NOT NULL AS relation_exists,
                        CASE WHEN to_regclass(quote_ident(?) || '.' || quote_ident(?)) IS NULL THEN FALSE
                             ELSE has_table_privilege(current_user,
-                                 to_regclass(quote_ident(?) || '.' || quote_ident(?)), 'SELECT') END AS can_select
+                                 to_regclass(quote_ident(?) || '.' || quote_ident(?)), 'SELECT') END AS can_select,
+                       COALESCE((SELECT relrowsecurity OR relforcerowsecurity
+                                   FROM pg_catalog.pg_class
+                                  WHERE oid=to_regclass(quote_ident(?) || '.' || quote_ident(?))), FALSE) AS row_security
                 """)) {
             if (deadlineNanos > 0) applyRemainingTimeout(connection, statement, deadlineNanos);
             else statement.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
@@ -182,6 +185,7 @@ public class ObjectSetSourceRepository {
             statement.setString(2, binding.sourceSchema()); statement.setString(3, binding.sourceTable());
             statement.setString(4, binding.sourceSchema()); statement.setString(5, binding.sourceTable());
             statement.setString(6, binding.sourceSchema()); statement.setString(7, binding.sourceTable());
+            statement.setString(8, binding.sourceSchema()); statement.setString(9, binding.sourceTable());
             try (ResultSet rs = statement.executeQuery()) {
                 if (!rs.next() || !rs.getBoolean("schema_usable")) {
                     throw fail("SOURCE_UNAVAILABLE", "来源不可用或当前只读账号没有 schema USAGE 权限；拒绝返回结果", "source");
@@ -191,6 +195,12 @@ public class ObjectSetSourceRepository {
                 }
                 if (!rs.getBoolean("can_select")) {
                     throw fail("SOURCE_UNAVAILABLE", "来源当前没有 SELECT 权限；拒绝返回结果", "source");
+                }
+                // Local bounded bindings do not pin row-security policy/role revisions.
+                // Even a table owner can bypass RLS, so reject the unsupported source instead of
+                // silently changing the meaning of a frozen full-resource read after a policy change.
+                if (rs.getBoolean("row_security")) {
+                    throw fail("SOURCE_NOT_ALLOWED", "来源不符合当前隔离只读访问条件；拒绝返回结果", "source");
                 }
             }
         }

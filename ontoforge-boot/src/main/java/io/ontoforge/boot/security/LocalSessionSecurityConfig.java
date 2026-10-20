@@ -40,6 +40,8 @@ public class LocalSessionSecurityConfig {
             .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.NEVER))
             .requestCache(cache->cache.disable()).formLogin(form->form.disable()).httpBasic(basic->basic.disable()).logout(logout->logout.disable())
             .authorizeHttpRequests(auth->auth
+                .requestMatchers(org.springframework.http.HttpMethod.POST,"/api/agent/v1/runs").authenticated()
+                .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/context/v1/evidence/*").authenticated()
                 .requestMatchers("/api/system/status","/api/auth/context","/api/auth/login","/api/auth/logout").permitAll()
                 .requestMatchers("/api/platform/workspaces","/api/platform/workspaces/**",
                         "/api/auth/password","/api/platform/accounts","/api/platform/accounts/**",
