@@ -1139,6 +1139,44 @@ class LinkBindingFullIntegrationTest {
         }
         assertThat(traversePage(revokeCursor).getStatusCode().value()).isEqualTo(410);
 
+        // C06: SQL empty TEXT is not SQL NULL. Although PostgreSQL accepts
+        // '' as a PK, M6 ObjectRef prohibits blank value and FULL must 409,
+        // not save a malformed identity or mislabel the row as an orphan.
+        jdbc.execute("INSERT INTO public." + EQUIPMENT
+                + "(equipment_code,label,site,cost) VALUES ('','bad identity','A',0)");
+        try {
+            ResponseEntity<String> rejected = post("/validate", request);
+            assertThat(rejected.getStatusCode().value()).isEqualTo(409);
+            assertThat(rejected.getBody()).contains("OBJECT_IDENTITY_UNREPRESENTABLE");
+            assertThat(rejected.getBody()).doesNotContain("EQ-001", BRIDGE);
+            ResponseEntity<String> invalidTraverse = traverse(out);
+            assertThat(invalidTraverse.getStatusCode().value()).isEqualTo(409);
+            assertThat(invalidTraverse.getBody()).doesNotContain("LOT-11", BRIDGE);
+        } finally {
+            jdbc.execute("DELETE FROM public." + EQUIPMENT + " WHERE equipment_code=''");
+        }
+
+        // C09: a real Bridge DDL changes its independently frozen schema.
+        // The UI must revalidate instead of silently using a saved revision.
+        jdbc.execute("ALTER TABLE public." + BRIDGE + " ADD COLUMN t5_schema_probe TEXT");
+        try {
+            ResponseEntity<String> drift = post("/validate", request);
+            assertThat(drift.getStatusCode().value()).isEqualTo(409);
+            assertThat(drift.getBody()).contains("LINK_SOURCE_SCHEMA_DRIFT");
+            ResponseEntity<String> staleDetail = http.getForEntity(
+                    URI.create(url("/" + id + "?packageId=" + pkg)), String.class);
+            assertThat(staleDetail.getStatusCode().value()).isIn(403, 409);
+            assertThat(staleDetail.getBody()).doesNotContain("EQ-001", "LOT-11", BRIDGE);
+            ResponseEntity<String> staleTraverse = traverse(out);
+            assertThat(staleTraverse.getStatusCode().value()).isIn(403, 409);
+            assertThat(staleTraverse.getBody()).doesNotContain("EQ-001", "LOT-11", BRIDGE);
+        } finally {
+            jdbc.execute("ALTER TABLE public." + BRIDGE + " DROP COLUMN t5_schema_probe");
+        }
+        // After restoring the original schema, a fresh authorized FULL works;
+        // retired cursors still remain retired from the preceding revoke.
+        assertThat(post("/validate", request).getStatusCode().value()).isEqualTo(200);
+
         // All THREE physical reads must share one 10k budget: no truncation to
         // a misleading success result when a bridge becomes over-budget.
         jdbc.execute("INSERT INTO public." + BRIDGE
