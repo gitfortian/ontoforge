@@ -95,6 +95,9 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
   const stagePanelId=(i:number)=>stageBase+'-stage-panel-'+i;
   const stageTargetId=(i:number)=>stageBase+'-stage-target-'+i;
   function selectStage(i:number){
+    // Leaving an active FULL/query stage revokes any late-response authority.
+    if(i!==1&&validationController.current)cancelValidation();
+    if(i!==3&&queryController.current)clearExecution();
     setActiveStage(i);
     document.getElementById(stageTargetId(i))?.scrollIntoView({block:'nearest',behavior:'smooth'});
   }
@@ -408,7 +411,10 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
           onClick={()=>navigate('#/model/runtime-types/snapshots/'+encodeURIComponent(initialSnapshotId))}>
           返回 Native 关系定义
         </button>}
-        <button className="model-btn" type="button" onClick={()=>setExpanded(x=>!x)} aria-expanded={expanded}>{expanded?'收起工作台':'展开关系工作台'} <ChevronRight size={14}/></button>
+        <button className="model-btn" type="button" onClick={()=>{
+          if(expanded){if(validationController.current)cancelValidation();if(queryController.current)clearExecution();}
+          setExpanded(x=>!x);
+        }} aria-expanded={expanded}>{expanded?'收起工作台':'展开关系工作台'} <ChevronRight size={14}/></button>
       </div></header>
     {expanded&&<>
       <div className="m8-steps" role="tablist" aria-label="关系建模工作阶段">
