@@ -60,6 +60,25 @@ class RealBridgeReactGoldenStory(unittest.TestCase):
         page.get_by_role("heading", name="对象集合查询", exact=True).wait_for(timeout=20000)
         panel = page.get_by_role("region", name="关系与一跳遍历 M8")
         panel.get_by_role("button", name="展开关系工作台").click()
+        # H12: real React five-stage WAI keyboard interaction (not static
+        # prototype): roving tab order, Arrow, Home/End, labelled live panel.
+        stages = panel.get_by_role("tablist", name="关系建模工作阶段")
+        self.assertEqual(stages.get_by_role("tab").count(), 5)
+        first = stages.get_by_role("tab", name="1 选择关系与端点")
+        first.focus()
+        first.press("ArrowRight")
+        second = stages.get_by_role("tab", name="2 FULL 验证")
+        expect(second).to_be_focused()
+        expect(second).to_have_attribute("aria-selected", "true")
+        self.assertIn("三表 FULL", panel.get_by_role("tabpanel").inner_text())
+        second.press("End")
+        fifth = stages.get_by_role("tab", name="5 证据恢复")
+        expect(fifth).to_be_focused()
+        expect(fifth).to_have_attribute("aria-selected", "true")
+        fifth.press("Home")
+        expect(first).to_be_focused()
+        expect(first).to_have_attribute("tabindex", "0")
+        self.assertEqual(panel.get_by_role("tabpanel").count(), 1)
         panel.get_by_role("button", name="读取当前配置").click()
         panel.get_by_label("M8 LinkType").locator(
             'option[value="cell-quality-bridge"]').wait_for(
