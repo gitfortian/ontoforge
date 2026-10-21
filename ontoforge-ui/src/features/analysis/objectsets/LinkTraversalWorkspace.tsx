@@ -80,6 +80,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
   const queryGeneration=useRef(0);
   const validationGeneration=useRef(0);
   const queryController=useRef<AbortController|null>(null);
+  const validationController=useRef<AbortController|null>(null);
 
   const type=snapshot?.snapshotContent.linkTypes.find(x=>x.id===linkTypeId)||null;
   const source=bindings.find(x=>x.snapshotId===snapshotId&&x.objectTypeId===type?.sourceTypeRef)||null;
@@ -123,8 +124,16 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
       setNotice('来源授权或版本证据已失效。旧质量和关系已撤下；修复后请重开已保存版本，再重新执行。');
     }
   }
-  function invalidateDraft(){
+  function cancelValidation(){
     validationGeneration.current++;
+    if(validationController.current){
+      validationController.current.abort();validationController.current=null;
+      inFlight.current=false;setBusy(false);
+    }
+    setValidation(null);setSaveQualified(false);
+  }
+  function invalidateDraft(){
+    cancelValidation();
     setSaveQualified(false);
     setValidation(null);setCurrentLink(null);setOpKey('');reqKey.current='';setNotice('');clearExecution();
   }
@@ -143,8 +152,14 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     setBridgeTable('');setBridgeSourceColumn('');setBridgeTargetColumn('');
     setLinkTypeId('');setSaveQualified(false);setValidation(null);setCurrentLink(null);setResult(null);setError(null);
     setNotice('');reqKey.current='';setOpKey('');
-    validationGeneration.current++;clearExecution();
+    cancelValidation();clearExecution();
   },[packageId]);
+
+  useEffect(()=>()=>{
+    // A slow FULL/query response has no right to revive a view after navigation.
+    validationGeneration.current++;queryGeneration.current++;
+    validationController.current?.abort();queryController.current?.abort();
+  },[]);
 
   useEffect(()=>{
     if(!packageId.trim()||(scopePackages&&!scopePackages.includes(packageId.trim()))||!initialSnapshotId||!initialLinkTypeId)return;
@@ -158,7 +173,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     }
     if(!packageId.trim())return;
     const g=++generation.current;
-    validationGeneration.current++;clearExecution();
+    cancelValidation();clearExecution();
     setBusy(true);setError(null);setNotice('');setValidation(null);setSaveQualified(false);setCurrentLink(null);setResult(null);
     try{
       const [m5,heads,available]=await Promise.all([
@@ -231,9 +246,11 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
     if(!canValidate||inFlight.current)return;
     inFlight.current=true;setBusy(true);setError(null);setNotice('');setValidation(null);setSaveQualified(false);clearExecution();
     const validationAttempt=++validationGeneration.current;
+    const controller=new AbortController();validationController.current=controller;
     try{
       const key=reqKey.current||crypto.randomUUID();reqKey.current=key;setOpKey(key);
-      const v=await request<Validation>('/api/runtime/link-bindings/validate',post(requestBody(key)));
+      const v=await request<Validation>('/api/runtime/link-bindings/validate',
+        {...post(requestBody(key)),signal:controller.signal});
       if(validationAttempt!==validationGeneration.current)return;
       setValidation(v);
       setSaveQualified(v.coverage==='FULL'&&['VALID','VALID_WITH_ORPHANS'].includes(v.status));
@@ -242,7 +259,9 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
         :bridgeMode?'三表 FULL 校验完成：桥表双端已通过校验，可保存不可变版本。'
            :'FULL 校验完成：双端外键关联符合本次可保存资格。');
     }catch(e){if(validationAttempt===validationGeneration.current)setError(e as ApiError);}
-    finally{inFlight.current=false;setBusy(false);}
+    finally{if(validationAttempt===validationGeneration.current){
+      validationController.current=null;inFlight.current=false;setBusy(false);
+    }}
   }
   async function save(){
     if(!saveQualified||!validation||validation.coverage!=='FULL'
@@ -415,6 +434,8 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
             <p className="object-set-hint">只使用同一个授权 PostgreSQL 来源的 public 桥表。两端 ObjectBinding 及 sourceKey 已冻结；Bridge 是第三份来源证据，不会创建第三个 ObjectType。</p>
           </>}
           <div className="m8-actions"><button className="model-btn" type="button" onClick={()=>void validate()} disabled={!canValidate}><CheckCircle2 size={14}/> 执行 FULL 验证</button>
+            {busy&&validationController.current&&<button className="model-btn" type="button"
+              onClick={()=>{cancelValidation();setNotice('本次 FULL 已取消；请确认映射后重新校验，旧回包不能恢复保存资格。');}}>取消 FULL 校验</button>}
             <button className="model-btn primary" type="button" disabled={busy||!saveQualified||!validation||validation.coverage!=='FULL'
               ||!['VALID','VALID_WITH_ORPHANS'].includes(validation.status)||!source||!target}
               onClick={()=>void save()}><Save size={14}/> {chosenHead?'保存新 revision':'保存 LinkBinding'}</button>
