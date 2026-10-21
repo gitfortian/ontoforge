@@ -40,6 +40,44 @@ class BridgeReactRaceGoldenStory(unittest.IsolatedAsyncioTestCase):
                 await panel.get_by_label("M8 Bridge Table").select_option("m8_cell_event_bridge")
                 await panel.get_by_label("M8 Bridge SOURCE FK").select_option("cell_code")
                 await panel.get_by_label("M8 Bridge TARGET FK").select_option("event_code")
+                # H08: hold real Spring Boot/PG17 FULL output at browser edge,
+                # cancel the first request, edit the draft, then navigate away
+                # while a second FULL is pending. Neither late response may
+                # re-enable a saved revision or revive validation counters.
+                full_events = [asyncio.Event(), asyncio.Event()]
+                full_requests = {"count": 0}
+                async def delay_real_full(route):
+                    full_requests["count"] += 1
+                    position = full_requests["count"]
+                    try:
+                        response = await route.fetch(timeout=25000)
+                        if position <= 2:
+                            full_events[position - 1].set()
+                            await asyncio.sleep(2)
+                        await route.fulfill(response=response)
+                    except PlaywrightError:
+                        pass
+                await page.route("**/api/runtime/link-bindings/validate", delay_real_full)
+                await panel.get_by_role("tab", name="2 FULL 验证").click()
+                await panel.get_by_role("button", name="执行 FULL 验证").click()
+                await asyncio.wait_for(full_events[0].wait(), timeout=20)
+                await panel.get_by_role("button", name="取消 FULL 校验").click()
+                await expect(panel.locator(".m8-validation")).to_have_count(0)
+                await expect(panel.get_by_role("button", name="保存 LinkBinding")).to_be_disabled()
+                await panel.get_by_label("M8 Bridge SOURCE FK").select_option("event_code")
+                await panel.get_by_label("M8 Bridge SOURCE FK").select_option("cell_code")
+                await asyncio.sleep(2.25)
+                await expect(panel.locator(".m8-validation")).to_have_count(0)
+                await expect(panel.get_by_role("button", name="保存 LinkBinding")).to_be_disabled()
+
+                await panel.get_by_role("button", name="执行 FULL 验证").click()
+                await asyncio.wait_for(full_events[1].wait(), timeout=20)
+                await panel.get_by_role("tab", name="4 一跳查询").click()
+                await asyncio.sleep(2.25)
+                await expect(panel.locator(".m8-validation")).to_have_count(0)
+                await expect(panel.get_by_role("button", name="保存 LinkBinding")).to_be_disabled()
+                await page.unroute("**/api/runtime/link-bindings/validate", delay_real_full)
+                await panel.get_by_role("tab", name="2 FULL 验证").click()
                 await panel.get_by_role("button", name="执行 FULL 验证").click()
                 await expect(panel.locator(".m8-validation")).to_contain_text(
                     "VALID_WITH_ORPHANS", timeout=25000)
