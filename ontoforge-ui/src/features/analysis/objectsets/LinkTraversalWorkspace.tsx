@@ -81,6 +81,32 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
   const validationGeneration=useRef(0);
   const queryController=useRef<AbortController|null>(null);
   const validationController=useRef<AbortController|null>(null);
+  const [activeStage,setActiveStage]=useState(0);
+  const stageBase=React.useId().replace(/:/g,'');
+  const stageTabs=useRef<(HTMLButtonElement|null)[]>([]);
+  const stageNames=['1 选择关系与端点','2 FULL 验证','3 保存版本','4 一跳查询','5 证据恢复'];
+  const stageHelp=[
+    '选择冻结的 Native LinkType，核对 SOURCE/TARGET 两端身份与 M5 Binding。',
+    '选择授权来源与 Bridge 双外键，执行真正的三表 FULL；校验失败或取消后不可保存。',
+    'FULL 资格只允许一次成功保存；网络回执未知必须使用原操作键恢复。',
+    '使用已保存版本执行 OUT/IN，一旦根、筛选或方向变化立即撤销旧查询。',
+    '检查实际查询的三方 SourceReadRefs；失权、漂移和过期后必须重开及重新执行。'];
+  const stageTabId=(i:number)=>stageBase+'-stage-tab-'+i;
+  const stagePanelId=(i:number)=>stageBase+'-stage-panel-'+i;
+  const stageTargetId=(i:number)=>stageBase+'-stage-target-'+i;
+  function selectStage(i:number){
+    setActiveStage(i);
+    document.getElementById(stageTargetId(i))?.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
+  function stageKeyDown(event:React.KeyboardEvent<HTMLButtonElement>,i:number){
+    let target=i;
+    if(event.key==='ArrowRight'||event.key==='ArrowDown')target=(i+1)%stageNames.length;
+    else if(event.key==='ArrowLeft'||event.key==='ArrowUp')target=(i-1+stageNames.length)%stageNames.length;
+    else if(event.key==='Home')target=0;
+    else if(event.key==='End')target=stageNames.length-1;
+    else return;
+    event.preventDefault();selectStage(target);stageTabs.current[target]?.focus();
+  }
 
   const type=snapshot?.snapshotContent.linkTypes.find(x=>x.id===linkTypeId)||null;
   const source=bindings.find(x=>x.snapshotId===snapshotId&&x.objectTypeId===type?.sourceTypeRef)||null;
@@ -385,13 +411,21 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
         <button className="model-btn" type="button" onClick={()=>setExpanded(x=>!x)} aria-expanded={expanded}>{expanded?'收起工作台':'展开关系工作台'} <ChevronRight size={14}/></button>
       </div></header>
     {expanded&&<>
-      <div className="m8-steps"><span>1 选择关系与端点</span><span>2 FULL 验证</span><span>3 保存版本</span><span>4 一跳查询</span></div>
+      <div className="m8-steps" role="tablist" aria-label="关系建模工作阶段">
+        {stageNames.map((name,i)=><button key={name} type="button" role="tab"
+          id={stageTabId(i)} aria-controls={stagePanelId(i)} aria-selected={activeStage===i}
+          tabIndex={activeStage===i?0:-1} ref={node=>{stageTabs.current[i]=node;}}
+          onKeyDown={event=>stageKeyDown(event,i)} onClick={()=>selectStage(i)}>{name}</button>)}
+      </div>
+      {stageNames.map((name,i)=><div key={name} id={stagePanelId(i)} role="tabpanel"
+        aria-labelledby={stageTabId(i)} tabIndex={0} hidden={activeStage!==i}
+        className="m8-stage-guide">{stageHelp[i]}</div>)}
       <div className="m8-identity"><span>模型包</span><b>{packageId||'尚未选择'}</b><button className="model-btn" type="button" onClick={()=>void refresh()} disabled={busy||!packageId.trim()}><RefreshCw size={14}/> {busy?'处理中…':'读取当前配置'}</button></div>
       {!packageId&&<p className="object-set-hint">请先在对象集合页面选择模型包，然后加载该包的关系配置。</p>}
       {error&&<div className="object-set-error" role="alert"><strong>{message(error)}</strong><p>本次失败不代表合法零关联；没有继续显示旧对象或 LinkFact 载荷。{error.fieldPath?'问题字段：'+error.fieldPath:''}</p></div>}
       {notice&&<p className="m8-note" role="status">{notice}</p>}
       <div className="m8-panel-grid">
-        <div className="m8-pane">
+        <div className="m8-pane" id={stageTargetId(0)} tabIndex={-1} aria-label="关系与端点配置">
           <h3>01 · 关系类型与两端证据</h3>
           <label>Local Snapshot<select aria-label="M8 Local Snapshot" value={snapshotId} disabled={busy||snapshots.length===0}
             onChange={e=>void loadSnapshot(e.target.value)}><option value="">请选择已保存的快照</option>{snapshots.map(x=><option key={x} value={x}>{x}</option>)}</select></label>
@@ -401,7 +435,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
             <ArrowRightLeft size={18}/><div><span>TARGET / 对象绑定</span><strong>{type?.targetTypeRef||'未选择'}</strong><small>{target?'revision '+target.revision+' · '+target.sourceTable:'缺少通过验证的 M5 Binding'}</small></div></div>
           {source&&target&&<div className="m8-digests"><span>来源摘要</span><code>{source.digest.slice(0,14)}… / {target.digest.slice(0,14)}…</code></div>}
         </div>
-        <div className="m8-pane">
+        <div className="m8-pane" id={stageTargetId(1)} tabIndex={-1} aria-label="FULL 来源配置和校验">
           <h3>02 · {bridgeMode?'BRIDGE_TABLE / 三方 FULL 验证':'FOREIGN_KEY / FULL 验证'}</h3>
           {!bridgeMode?<><label>外键所在端<select aria-label="M8 FK Owner" value={fkOwner} disabled={busy}
             onChange={e=>selectOwner(e.target.value as 'SOURCE'|'TARGET')}>
@@ -433,7 +467,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
               &&<p role="alert">Bridge 的 SOURCE 和 TARGET FK 列不能相同，请分别选择。</p>}
             <p className="object-set-hint">只使用同一个授权 PostgreSQL 来源的 public 桥表。两端 ObjectBinding 及 sourceKey 已冻结；Bridge 是第三份来源证据，不会创建第三个 ObjectType。</p>
           </>}
-          <div className="m8-actions"><button className="model-btn" type="button" onClick={()=>void validate()} disabled={!canValidate}><CheckCircle2 size={14}/> 执行 FULL 验证</button>
+          <div className="m8-actions" id={stageTargetId(2)} tabIndex={-1} aria-label="保存不可变 LinkBinding"><button className="model-btn" type="button" onClick={()=>void validate()} disabled={!canValidate}><CheckCircle2 size={14}/> 执行 FULL 验证</button>
             {busy&&validationController.current&&<button className="model-btn" type="button"
               onClick={()=>{cancelValidation();setNotice('本次 FULL 已取消；请确认映射后重新校验，旧回包不能恢复保存资格。');}}>取消 FULL 校验</button>}
             <button className="model-btn primary" type="button" disabled={busy||!saveQualified||!validation||validation.coverage!=='FULL'
@@ -462,7 +496,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
           </div>}
         </div>
       </div>
-      <div className="m8-pane m8-query">
+      <div className="m8-pane m8-query" id={stageTargetId(3)} tabIndex={-1} aria-label="一跳查询">
         <h3>03 · 已保存关系的双向一跳遍历 {bridgeMode?'· Bridge M:N':''}</h3>
         {currentLink?<div className="m8-current"><CheckCircle2 size={16}/><strong>{currentLink.linkTypeId} · revision {currentLink.revision}</strong><span>{currentLink.validationStatus} · 来源检查来自不可变修订</span></div>
           :<p className="object-set-hint">先验证并保存 LinkBinding，或使用“重开已保存”。未保存的前端草稿不能参与遍历。</p>}
@@ -530,7 +564,7 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
           {result.resultKind==='PAGE'&&<div className="m8-links">{result.links.length===0?<div className="m8-empty"><CheckCircle2 size={20}/><strong>{result.quality.completeness==='COMPLETE'?'成功 · 0 条关系':'已知子集 · 0 条有效关系'}</strong><p>{result.quality.completeness==='COMPLETE'?'当前根确实没有可关联对象。':'当前根存在已确认的未匹配 FK；不能把 0 条有效关系解释为完整的业务世界。'}</p></div>
             :<table className="model-table"><thead><tr><th>Source ObjectRef</th><th>Target ObjectRef</th><th>LinkType</th></tr></thead><tbody>
             {result.links.map((fact,i)=><tr key={i}><td><b>{fact.source.key.value}</b><small>{fact.source.objectTypeId}</small></td><td><b>{fact.target.key.value}</b><small>{fact.target.objectTypeId}</small></td><td>{fact.linkTypeId}</td></tr>)}</tbody></table>}</div>}
-          <div className="m8-evidence"><strong>冻结来源与版本证据</strong><span>{result.linkMappingMode==='BRIDGE_TABLE'?'三方':'双端'} SourceReadRefs：{result.sourceReadRefs.length} · 版本锁：{result.bindingVersions.length} · 总扫描：{result.budget.physicalRows} 行 · 查询候选：{result.budget.joinCandidates}</span>
+          <div className="m8-evidence" id={stageTargetId(4)} tabIndex={-1} aria-label="冻结来源与版本证据"><strong>冻结来源与版本证据</strong><span>{result.linkMappingMode==='BRIDGE_TABLE'?'三方':'双端'} SourceReadRefs：{result.sourceReadRefs.length} · 版本锁：{result.bindingVersions.length} · 总扫描：{result.budget.physicalRows} 行 · 查询候选：{result.budget.joinCandidates}</span>
              {result.linkMappingMode==='BRIDGE_TABLE'&&<span>本次物理重复 Pair 行：{result.bridgeDuplicatePairRowCount} · LinkFact 和聚合仍按唯一对象去重</span>}
              {result.sourceReadRefs.map(read=><details key={read.id} className="m8-source-detail">
                <summary>{read.role} · {read.schema}.{read.table}</summary>
@@ -541,6 +575,9 @@ export default function LinkTraversalWorkspace({packageId,scopePackages,initialS
           {result.nextCursor&&<button className="model-btn" disabled={busy} type="button" onClick={()=>void nextPage()}>下一页 <ChevronRight size={14}/></button>}
         </div>}
       </div>
+      {!result&&<div id={stageTargetId(4)} className="m8-evidence" tabIndex={-1} aria-label="证据恢复入口">
+        保存并查询后在此查看三方来源、版本锁和冻结结果；失权时旧证据不会保留。
+      </div>}
     </>}
   </section>;
 }
