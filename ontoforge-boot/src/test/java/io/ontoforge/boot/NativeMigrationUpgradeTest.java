@@ -6,7 +6,7 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Exercises V2 -> V8 local accounts -> V9 workspace -> V10 LinkBinding, in a new owned test schema only. */
+/** Exercises V2 -> V8 local accounts -> V9 workspace -> V10 FK -> V11 Bridge LinkBinding on a new owned test schema. */
 class NativeMigrationUpgradeTest {
     @Test void upgradePreservesExistingInstallationAndDraft() throws Exception {
         String url=System.getenv("TEST_DB_URL");
@@ -63,7 +63,53 @@ class NativeMigrationUpgradeTest {
                 }
                 assertThat(current.migrate().migrationsExecuted).isZero();
                 try(var row=sql.executeQuery("SELECT count(*) FROM flyway_schema_history WHERE success")) {
-                    row.next();assertThat(row.getInt(1)).isEqualTo(10);
+                    row.next();assertThat(row.getInt(1)).isEqualTo(11);
+                }
+                // V11 must extend V10 LinkBinding without rewriting V10 or breaking
+                // the original schema history. Existing FK-only rows get a safe
+                // discriminator default; Bridge-only columns are optional for them.
+                try(var row=sql.executeQuery("""
+                        SELECT version, description, success FROM flyway_schema_history
+                        WHERE version IN ('10','11') ORDER BY installed_rank
+                        """)) {
+                    assertThat(row.next()).isTrue();
+                    assertThat(row.getString(1)).isEqualTo("10");
+                    assertThat(row.getBoolean(3)).isTrue();
+                    assertThat(row.next()).isTrue();
+                    assertThat(row.getString(1)).isEqualTo("11");
+                    assertThat(row.getString(2)).containsIgnoringCase("bridge");
+                    assertThat(row.getBoolean(3)).isTrue();
+                    assertThat(row.next()).isFalse();
+                }
+                try(var row=sql.executeQuery("""
+                        SELECT column_name,is_nullable,column_default
+                        FROM information_schema.columns
+                        WHERE table_schema=current_schema()
+                          AND table_name='runtime_link_binding_revision'
+                          AND column_name IN ('mapping_mode','fk_owner','fk_source_column',
+                            'referenced_identity_column','bridge_schema','bridge_source_id')
+                        ORDER BY column_name
+                        """)) {
+                    int columns=0;
+                    while(row.next()) {
+                        columns++;
+                        String name=row.getString(1);
+                        if ("mapping_mode".equals(name)) {
+                            assertThat(row.getString(2)).isEqualTo("NO");
+                            assertThat(row.getString(3)).contains("FOREIGN_KEY");
+                        } else if (name.startsWith("fk_") || "referenced_identity_column".equals(name)) {
+                            assertThat(row.getString(2)).isEqualTo("YES");
+                        }
+                    }
+                    assertThat(columns).isEqualTo(6);
+                }
+                try(var row=sql.executeQuery("""
+                        SELECT count(*) FROM pg_constraint
+                        WHERE conname='ck_link_revision_mapping_exclusive'
+                          AND conrelid='runtime_link_binding_revision'::regclass
+                        """)) {
+                    assertThat(row.next()).isTrue();
+                    assertThat(row.getInt(1)).isEqualTo(1);
                 }
                 try(var row=sql.executeQuery("SELECT count(*) FROM mvp_source_batches")) {
                     row.next();assertThat(row.getInt(1)).isEqualTo(2);

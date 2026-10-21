@@ -64,12 +64,14 @@ jobs:
       E2E_M7_CURSOR_EVIDENCE: /tmp/ontoforge-m7-cursor-acceptance.json
       E2E_M8_CURSOR_EVIDENCE: /tmp/ontoforge-m8-cursor-acceptance.json
       E2E_M8_LINK_RECEIPT_EVIDENCE: /tmp/ontoforge-m8-write-receipt-acceptance.json
+      E2E_M8_BRIDGE_RECEIPT_EVIDENCE: /tmp/ontoforge-m8-bridge-create-acceptance.json
+      E2E_M8_BRIDGE_WORKER_EVIDENCE: /tmp/ontoforge-m8-bridge-worker-acceptance.json
       ONTOFORGE_OBJECTSET_CURSOR_SIGNING_SECRET: ontoforge-e2e-stable-cursor-signing-secret-2026
       S0_HOST: 127.0.0.1
       ONTOFORGE_BINDING_SOURCE_URL: jdbc:postgresql://127.0.0.1:5432/ontoforge_test_e2e
       ONTOFORGE_BINDING_SOURCE_USERNAME: ontoforge_binding_login
       ONTOFORGE_BINDING_SOURCE_PASSWORD: m5_test_reader_only
-      ONTOFORGE_BINDING_SOURCE_ALLOWED_TABLES: m5_supplier_source,m8_factory_cells,m8_quality_events
+      ONTOFORGE_BINDING_SOURCE_ALLOWED_TABLES: m5_supplier_source,m8_factory_cells,m8_quality_events,m8_cell_event_bridge
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
@@ -155,7 +157,7 @@ jobs:
           pg_container=$(docker ps --format '{{.ID}} {{.Image}}' | awk '$2 ~ /^postgres:17/ {print $1; exit}')
           test -n "$pg_container" || exit 1
           docker exec -i "$pg_container" psql -X -v ON_ERROR_STOP=1 -U ontology -d ontoforge_test_e2e < scripts/m8-onehop-e2e-source.sql
-          docker exec "$pg_container" psql -X -qAt -U ontology -d ontoforge_test_e2e -c "SELECT has_table_privilege('ontoforge_binding_login','public.m8_factory_cells','SELECT') AND has_table_privilege('ontoforge_binding_login','public.m8_quality_events','SELECT') AND NOT has_table_privilege('ontoforge_binding_login','public.m8_quality_events','INSERT')" | grep -qx t
+          docker exec "$pg_container" psql -X -qAt -U ontology -d ontoforge_test_e2e -c "SELECT has_table_privilege('ontoforge_binding_login','public.m8_factory_cells','SELECT') AND has_table_privilege('ontoforge_binding_login','public.m8_quality_events','SELECT') AND has_table_privilege('ontoforge_binding_login','public.m8_cell_event_bridge','SELECT') AND NOT has_table_privilege('ontoforge_binding_login','public.m8_quality_events','INSERT')" | grep -qx t
 
       - name: Launch real Vite React application
         env:
@@ -186,6 +188,24 @@ jobs:
         env:
           E2E_SHOTS: '${{ runner.temp }}/ontoforge-native-e2e-shots'
         run: python -m unittest discover -s ontoforge-ui/e2e -p 'test_*.py' -v
+      - name: Prove M8.2 Bridge CAS and receipt across two real Spring Boot JVMs
+        run: |
+          test -s "$E2E_M8_BRIDGE_RECEIPT_EVIDENCE" || {
+            echo 'Bridge production React did not generate a real saved v2 request'; exit 1;
+          }
+          nohup java -jar ontoforge-boot/target/ontoforge-boot-0.1.0-SNAPSHOT.jar \
+            --server.port=8081 >/tmp/ontoforge-api-worker2.log 2>&1 &
+          worker2_pid=$!
+          trap 'kill "$worker2_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 70); do
+            if curl -fsS http://127.0.0.1:8081/api/system/status >/dev/null; then break; fi
+            if ! kill -0 "$worker2_pid" 2>/dev/null; then
+              tail -80 /tmp/ontoforge-api-worker2.log; exit 1
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8081/api/system/status >/dev/null
+          python ontoforge-ui/e2e/verify_m8_bridge_workers.py
       - name: Verify M7 cursor rejects revoked B0 package authorization
         run: |
           python - <<'PY'
@@ -431,6 +451,12 @@ jobs:
                           "sameKeyDifferentBody": "HTTP_409"}, indent=2), encoding="utf-8")
           print("M8 UPDATE same operation UUID replayed revision 2, no revision 3, after real JVM restart")
           PY
+      - name: Verify M8.2 Bridge winning UUID replay after real JVM restart
+        run: |
+          test -s "$E2E_M8_BRIDGE_WORKER_EVIDENCE" || {
+            echo 'Two-JVM Bridge evidence not found'; exit 1;
+          }
+          python ontoforge-ui/e2e/verify_m8_bridge_workers.py --restart-replay
       - name: Recheck M5 binding revisions and digests after real backend restart
         run: |
           python - <<'PY'
@@ -473,6 +499,8 @@ jobs:
           cp /tmp/ontoforge-m7-cursor-restart-result.json /tmp/ontoforge-e2e-evidence/m7-cursor-restart-result.json 2>/dev/null || true
           cp /tmp/ontoforge-m8-cursor-restart-result.json /tmp/ontoforge-e2e-evidence/m8-cursor-restart-result.json 2>/dev/null || true
           cp /tmp/ontoforge-m8-write-restart-result.json /tmp/ontoforge-e2e-evidence/m8-write-restart-result.json 2>/dev/null || true
+          cp /tmp/ontoforge-api-worker2.log /tmp/ontoforge-e2e-evidence/bridge-worker2.log 2>/dev/null || true
+          cp "$E2E_M8_BRIDGE_WORKER_EVIDENCE" /tmp/ontoforge-e2e-evidence/m8-bridge-worker-acceptance.json 2>/dev/null || true
           cp /tmp/ontoforge-idp.log /tmp/ontoforge-e2e-evidence/test-idp.log 2>/dev/null || true
           cp -r '${{ runner.temp }}/ontoforge-native-e2e-shots' /tmp/ontoforge-e2e-evidence/screenshots 2>/dev/null || true
       - uses: actions/upload-artifact@v7
