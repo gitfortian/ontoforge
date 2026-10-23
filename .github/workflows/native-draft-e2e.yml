@@ -82,7 +82,7 @@ jobs:
           node-version: '22'
       - name: Verify shared Java/ECMAScript RFC 8785 golden vectors
         run: node scripts/ci/check_jcs_vectors.mjs
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Compile actual application and isolated test-classpath IdP
