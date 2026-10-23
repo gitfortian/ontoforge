@@ -14,7 +14,7 @@
     "audit:dependencies": "npm audit --audit-level=high"
   },
   "dependencies": {
-    "@base-ui/react": "1.8.0",
+    "@base-ui/react": "1.9.0",
     "class-variance-authority": "0.7.1",
     "lucide-react": "1.56.0",
     "react": "19.3.0",
