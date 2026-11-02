@@ -49,7 +49,9 @@ export default function App() {
   const logout=async()=>{
     if(dirtyRef.current&&!window.confirm('尚有未保存编辑。退出会放弃当前编辑，是否继续？'))return;
     try {
-      await signOut();authEpoch.current++;onDirtyChange(false);setAuth({kind:'missing'});navigate('#/system');
+      await signOut();authEpoch.current++;onDirtyChange(false);
+      const identity=await initializeIdentity();
+      setAuth(identity?{kind:'ready',identity}:{kind:'missing'});navigate('#/system');
     } catch(failure) {
       setAuth(current=>({...current,kind:'error',message:failure instanceof Error?failure.message:'退出会话失败'}));
     }
@@ -111,7 +113,10 @@ export default function App() {
       setStatus({kind:'ready',data});
     }catch{setStatus({kind:'error'});}
   }
-  useEffect(()=>{void reload()},[]);
+  useEffect(()=>{
+    const mode=authenticationMode();
+    if((auth.identity&&auth.kind==='ready')||(!auth.identity&&auth.kind!=='checking'&&mode!==null&&mode!=='local-session'))void reload();
+  },[auth.identity,auth.kind]);
   useEffect(()=>{
     const onHash=()=>{
       const next=window.location.hash;
@@ -138,6 +143,22 @@ export default function App() {
     if(auth.identity && auth.identity.principalId!==identity.principalId)onDirtyChange(false);
     setAuth({kind:'ready',identity});
   }
+  // Local Session starts at a standalone login page and keeps the requested hash for return.
+  // OIDC and explicit mvp-local retain their existing route behavior.
+  const mode=authenticationMode();
+  if(!auth.identity&&(mode==='local-session'||(mode===null&&auth.kind!=='ready')))return <div className="login-gate">
+    <header className="login-gate-header"><span className="login-gate-mark"><Blocks size={19}/></span><strong>OntoForge <span>砺元</span></strong></header>
+    <main className="login-gate-main">
+      <section className="login-gate-card" aria-live="polite">
+        <h1>登录 OntoForge</h1>
+        {auth.kind==='checking'?<div className="login-gate-checking"><Spinner label="正在核对身份"/>正在核对身份…</div>:<>
+          <p>请先登录，再进入本体工作台。</p>
+          {auth.message&&<p className="login-gate-error" role="alert">{auth.message}</p>}
+          {mode==='local-session'?<LoginPanel onLogin={loggedIn}/>:<Button type="button" variant="primary" onClick={()=>window.location.reload()}>重新加载并检查认证服务</Button>}
+        </>}
+      </section>
+    </main>
+  </div>;
   return <AppShell location={location} navigate={navigate} identity={auth.identity} dirty={dirty} logout={()=>void logout()}
     selectedWorkspace={selected?.workspaceId??''} selectWorkspace={selectWorkspace} refreshWorkspaces={()=>void refreshWorkspaces()}
     signIn={()=>navigate('#/model/packages')}>

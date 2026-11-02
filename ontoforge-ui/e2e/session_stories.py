@@ -39,7 +39,6 @@ class SessionBrowserCase(unittest.TestCase):
         self.page.get_by_role('heading', name='模型包', exact=True).wait_for()
         # This account may own additional spaces created by other stories. Select the explicit fixture grant.
         self.page.locator('#current-workspace').select_option(CONFIG['workspaceId'])
-        self.page.get_by_role('button', name='Native 本体建模', exact=True).click()
 
     def submit_login(self):
         self.page.locator('#login-username').fill(CONFIG['username'])
@@ -60,6 +59,14 @@ class SessionBrowserCase(unittest.TestCase):
             self.page.screenshot(path=str(directory / name), full_page=True)
 
 class LocalSessionBrowserTest(SessionBrowserCase):
+    def test_unauthenticated_system_route_requires_login(self):
+        self.page.goto(BASE + '/#/system')
+        self.page.get_by_role('heading', name='登录 OntoForge', exact=True).wait_for()
+        self.assertEqual(self.page.locator('.app-sidebar').count(), 0)
+        self.assertEqual(self.page.get_by_role('heading', name='系统概览', exact=True).count(), 0)
+        self.submit_login()
+        self.page.get_by_role('heading', name='系统概览', exact=True).wait_for()
+
     def test_password_login_real_save_refresh_and_server_logout(self):
         self.open_editor()
         self.page.locator('#obj-id').fill('session-object')
@@ -74,8 +81,8 @@ class LocalSessionBrowserTest(SessionBrowserCase):
         self.assertFalse(self.page.evaluate("Object.values(localStorage).some(value => value.includes('password') || value.includes('access_token'))"))
         self.screenshot('session-editor.png')
         self.page.get_by_role('button', name='退出会话', exact=True).click()
-        self.page.get_by_role('button', name='Native 本体建模', exact=True).click()
         self.page.get_by_role('heading', name='登录 OntoForge', exact=True).wait_for()
+        self.assertEqual(self.page.locator('.app-sidebar').count(), 0)
         self.assertEqual(self.page.request.get(BASE + '/api/me').status, 401)
 
     def test_missing_csrf_and_invalid_password_are_visible(self):
