@@ -5,6 +5,11 @@ on:
     paths:
       - 'doc/design/candidates/m8-r2/**'
       - 'doc/design/tests/test_m8_r2_candidate_contract.py'
+      - 'doc/design/candidates/m8-2/**'
+      - 'doc/design/tests/test_m8_2_bridge_candidate_contract.py'
+      - 'doc/design/tests/test_m8_2_bridge_migration_candidate.py'
+      - 'doc/design/tests/m8_2_bridge_candidate_pg17.sql'
+      - 'ontoforge-dao/src/main/resources/db/migration/V11__bridge_link_binding_mapping_mode.sql'
       - '.github/workflows/m8-r2-candidate-contract.yml'
   workflow_dispatch:
 
@@ -24,5 +29,50 @@ jobs:
           python-version: '3.12'
       - name: Install pinned schema validator
         run: python -m pip install jsonschema==4.25.1
-      - name: Validate M8 R2 draft schemas and negative fixtures
+      - name: Validate M8.1 R2 draft schemas and negative fixtures
         run: python -m unittest discover -s doc/design/tests -p 'test_m8_r2_candidate_contract.py' -v
+      - name: Validate M8.2 R2 bridge draft schemas, evidence roles and v1 regression
+        run: python -m unittest discover -s doc/design/tests -p 'test_m8_2_bridge_candidate_contract.py' -v
+      - name: Review forward-only V10 compatibility of proposed M8.2 Bridge migration (no PG execution)
+        run: python -m unittest discover -s doc/design/tests -p 'test_m8_2_bridge_migration_candidate.py' -v
+
+  m8-2-pg17-candidate-upgrade:
+    name: M8.2 PG17 V10 Forward Candidate Compatibility (NON-PRODUCTION)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: m8review
+          POSTGRES_PASSWORD: m8review
+          POSTGRES_DB: m8review
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U m8review -d m8review"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout candidate and actual V10
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Execute original V10 and Bridge proposal in isolated PG17
+        env:
+          PGPASSWORD: m8review
+        run: >-
+          psql -X -h 127.0.0.1 -p 5432 -U m8review -d m8review
+          -v ON_ERROR_STOP=1 -f doc/design/tests/m8_2_bridge_candidate_pg17.sql
+      - name: Execute the actual V11 migration on a separate PG17 historical fixture database
+        env:
+          PGPASSWORD: m8review
+        run: |
+          psql -X -h 127.0.0.1 -p 5432 -U m8review -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE m8production;'
+          sed 's@doc/design/candidates/m8-2/V11__bridge_link_binding_candidate.sql@ontoforge-dao/src/main/resources/db/migration/V11__bridge_link_binding_mapping_mode.sql@' doc/design/tests/m8_2_bridge_candidate_pg17.sql | psql -X -h 127.0.0.1 -p 5432 -U m8review -d m8production -v ON_ERROR_STOP=1
+      - name: Scope notice
+        if: always()
+        run: |
+          echo "Isolated PostgreSQL 17 exercises original V10 + doc-only candidate AND production V11 SQL in separate databases."
+          echo "No Flyway application upgrade of existing real installations, source reads, or runtime authorization."

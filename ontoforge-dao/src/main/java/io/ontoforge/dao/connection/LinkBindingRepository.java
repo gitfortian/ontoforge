@@ -145,6 +145,59 @@ public class LinkBindingRepository {
                 validationStatus, checkedAt, contentDigest);
     }
 
+    /**
+     * M8.2 immutable BridgeTable revision: only the mapped two endpoint identities
+     * are Object Bindings. The bridge is a third bounded source-read evidence,
+     * never a third Object Binding nor a placeholder FOREIGN_KEY.
+     *
+     * Caller MUST finish current authorization, three-source FULL, version locks,
+     * and content digest before entering the SAME metadata transaction as
+     * recordOperation and advanceHead. This method does not claim SourcePG
+     * and metadata PG share an atomic transaction.
+     */
+    public record BridgeColumns(String sourceId, String schema, String table,
+            String sourceFkColumn, String targetFkColumn, String schemaFingerprint) {}
+
+    public record BridgeRevision(
+            UUID id, long revision, UUID snapshotId, String modelDigest, String linkTypeHash,
+            UUID sourceBindingId, long sourceRevision, String sourceDigest,
+            UUID targetBindingId, long targetRevision, String targetDigest,
+            String sourceFingerprint, String targetFingerprint,
+            String validationScopeJson, String validationQualityJson, String validationStatus,
+            Timestamp checkedAt, String contentDigest, BridgeColumns bridge) {}
+
+    public void insertBridgeRevision(BridgeRevision r) {
+        if (r == null || r.bridge() == null) {
+            throw new IllegalArgumentException("Bridge evidence required");
+        }
+        // Explicitly set the three FK-only fields to NULL, never synthetic
+        // values. PostgreSQL V11 enforces the full mutually exclusive mode.
+        jdbc.update("""
+                INSERT INTO runtime_link_binding_revision (
+                    link_binding_id, revision, snapshot_id, model_payload_sha256, link_type_hash,
+                    source_binding_id, source_binding_revision, source_binding_digest,
+                    target_binding_id, target_binding_revision, target_binding_digest,
+                    fk_owner, fk_source_column, referenced_identity_column,
+                    source_schema_fingerprint, target_schema_fingerprint,
+                    validation_scope, validation_quality, validation_status,
+                    checked_at, content_digest,
+                    mapping_mode, bridge_source_id, bridge_schema, bridge_table,
+                    bridge_source_fk_column, bridge_target_fk_column, bridge_schema_fingerprint)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        NULL, NULL, NULL, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?,
+                        'BRIDGE_TABLE', ?, ?, ?, ?, ?, ?)
+                """,
+                r.id(), r.revision(), r.snapshotId(), r.modelDigest(), r.linkTypeHash(),
+                r.sourceBindingId(), r.sourceRevision(), r.sourceDigest(),
+                r.targetBindingId(), r.targetRevision(), r.targetDigest(),
+                r.sourceFingerprint(), r.targetFingerprint(),
+                r.validationScopeJson(), r.validationQualityJson(), r.validationStatus(),
+                r.checkedAt(), r.contentDigest(),
+                r.bridge().sourceId(), r.bridge().schema(), r.bridge().table(),
+                r.bridge().sourceFkColumn(), r.bridge().targetFkColumn(),
+                r.bridge().schemaFingerprint());
+    }
+
     public int advanceHead(UUID id, String packageId, long expectedRevision) {
         return jdbc.update("""
                 UPDATE runtime_link_binding

@@ -4,13 +4,13 @@
 
 **Discussion:** [初始设计 PR #58](https://github.com/gitfortian/ontoforge/pull/58) · [M8.1 研发准入决策 PR #88](https://github.com/gitfortian/ontoforge/pull/88)
 
-**Decision:** [VOTE] Accepted — 2026-10-19，仓库 Owner `gitfortian` 依据本轮受托授权，正式批准 **M8.1 单列 FK / OUT-IN 一跳**；批准依据、M8-D1–D8 裁决和两项 P1 约束见 [PR #88 决策永久链接](https://github.com/gitfortian/ontoforge/pull/88#issuecomment-6259511734)。
+**Decision:** [VOTE] Accepted — **M8.1** 2026-10-19 [PR #88 原决议](https://github.com/gitfortian/ontoforge/pull/88#issuecomment-6259511734)；**M8.2 Bridge ONLY** 2026-10-20 [PR #103 独立有范围的受托维护者决议](https://github.com/gitfortian/ontoforge/pull/103#issuecomment-6281584798)，明确同 PR 载体治理例外和 P1-01–07 强制门禁。没有 M8.3 授权。
 
-**Accepted Scope:** M8.1 ONLY — 单列外键 LinkBinding，双端 M5 Binding 锁定，FULL 校验、不可变 CAS/幂等修订、OUT/IN 一跳、受控分页与当前来源/权限复核。
+**Accepted Scope:** M8.1（原 [PR #88 决策](https://github.com/gitfortian/ontoforge/pull/88#issuecomment-6259511734)）+ **M8.2 BRIDGE_TABLE ONLY（2026-10-20 [#103 独立维护者受托授权决策](https://github.com/gitfortian/ontoforge/pull/103#issuecomment-6281584798)）**。M8.1 为单列 FK；M8.2 仅单同源桥表 M:N / 双端 M5 不变修订 / 3-way FULL / CAS 幂等 / OUT-IN 一跳 / 预算 / ACL / 三方版本证据。两次 Accepted 各自留独立权威链接。
 
-**Out of Scope / Pending Decisions:** M8.2 桥表 M:N、M8.3 显式两跳、跨来源/无界图遍历，**未经本次 Accepted 授权**；须未来独立产品及治理门禁。
+**Out of Scope / Pending Decisions:** **M8.3 显式两跳**、跨来源/无界图遍历、Action、时态平行关系仍 Pending、均未授权；M8.2 另有独立条件式实施许可，不应被解释为已经生产发布。
 
-**Implementation:** Not Started
+**Implementation:** M8.1 已有代码并合并 #93；M8.2 2026-10-20 获准启动 T1–T5，生产验收/发布尚未完成
 
 **Release:** Not Released
 
@@ -251,3 +251,38 @@ M8 主 Issue 作为上述切片的验收汇总；M8.1 完成只能勾选首切�
 `Status: Accepted` 表示 **M8.1 设计准入与生产研发启动授权**，不是本体实例关系功能已完成。`Implementation: Not Started` 与 `Release: Not Released` 继续真实保留。新 M8.1 纵向生产 PR 需要 Java 21 / Spring Boot + PostgreSQL 17/Flyway + React/TypeScript，真实 PG17/HTTP/Chromium 全链路、来源只读角色及 JWT 负例、CAS 并发/幂等/游标撤权和 M5–M7 回归；所有证据和 PR 同 head。研究型 [PG17 #89](https://github.com/gitfortian/ontoforge/pull/89) 的 14 项 PASS 与高保真原型 27 项 PASS 不能代替生产 E2E。
 
 本节替代上文任何基于以前时间点的“未投票”“Decision Pending”描述，但不改变其作为历史审查记录的含义。
+
+
+---
+
+## 2026-10-19 · M8.2 UX 双阶段产品签收后的专项决策申请（**待维护者 [VOTE]，不是 Accepted**）
+
+> **OFIP 顶部 Status: Accepted 与 Decision 的有效授权范围继续仅为 M8.1**，完全保留 [PR #88 维护者决策](https://github.com/gitfortian/ontoforge/pull/88#issuecomment-6259511734) 和已有历史 Revision；本节为独立的 M8.2 BridgeTable 请求裁决，**不擅自扩权**。M8.3 显式二跳仍 Pending。
+
+### 产品签收与自动化证据（本阶段已完成）
+
+- M8.2 在唯一 [Draft PR #103](https://github.com/gitfortian/ontoforge/pull/103) 内完成 [R1 领域范围 D1–D8](../design/M8-2-BridgeTable-R1-产品范围与LinkFact证据评审.md)、[R2 API/持久化/运行合同 A01–A10](../design/M8-2-BridgeTable-R2-API版本持久化查询与三方证据合同评审.md)。产品 Owner 明确批准进入原型流程，并在 [#103](https://github.com/gitfortian/ontoforge/pull/103#issuecomment-6269981683) 记下 UX-High **正式签收**，UX-Low 先前已独立 [签收](https://github.com/gitfortian/ontoforge/pull/103#issuecomment-6268995562)。
+- 高保真技术审查 [Review #5573005889](https://github.com/gitfortian/ontoforge/pull/103#pullrequestreview-5573005889)，对应静态 UX Chromium 58/58、低保真 44/44、R2 machine contracts、Docs、旧原型和 Required Quality 均已在 **UX-High 签收基线 head 57028e4f** 完成成功。此证据只支持原型/既有工程质量，并**非** M8.2 Java/PG17/React 正式业务 E2E。
+- 主线依旧是 Native 定义 → M5 双端绑定 → Bridge 两 FK 配置 → 同 PG FULL → 不可变 Revision + CAS → ObjectSet 一跳 OUT/IN → 三方来源/失败恢复。无第三 ObjectType、无时态平行边、无未经授权的 M8.3/Action。
+
+### 正式决议输入与阻断条件
+
+- **现行决策请求材料：** [M8.2 OFIP-0010 专项准入决策包 + R3 高保证审核](../implementation/M8-2-OFIP0010-专项准入决策包与R3高保证审核.md)。待维护者分别认可 **M82-D01–D10**，特别是 V10 FK-only 的前向互斥迁移兼容、v1 FK/v2 Bridge API 分流、三表受控 READ ONLY/REPEATABLE_READ、10k 总扫描/Join 前置预算、CAS/UNKNOWN 回执、三角色 SourceReadRef/ACL/cursor、PARTIAL SUM、M8.1/M7 旧合同回归。
+- **安全/一致性红线：** 不得修改 V10/旧 contentDigest/Operation receipt；不得用虚构 FK 值填 Bridge Revision；Bridge 不能绕过当前 SELECT 或因旧游标撤权恢复而复活；超预算必须 FAILED 而不是部分返回或 0。
+- **投票状态：** 仍需仓库维护者在 #103 留下具有署名、日期、原因、明确范围的真实 **[VOTE] Accepted / Request Changes / Rejected**，再以其 permalink 回填本 OFIP 的 **M8.2 独立 decision**。用户“签收，继续下一步”仅签收 UX-High，没有授权代为捏造维护者投票，也没有把 M8.2 添加到顶部既有 Accepted Scope。
+- **PR 承载约束：** M8 总功能纵向交付上限为三份（M8.1 #93 已合并，M8.2 当前 #103，M8.3 未来另 1 份）。按 M8.2 产品审定的例外，#103 在相同 Draft PR 内使用独立审议评论 + doc-only 决策提交，**必须由维护者明确确认此做法满足 OFIP-0001 的正式治理门槛**；若不同意，则先解决治理方式，不擅自开始生产开发。
+
+**实施 / 发布独立状态（M8.2）：NOT STARTED / NOT RELEASED。** 实际 PG17/HTTP/React B01–B18、C01–C12 仍全部 NOT RUN。下一步是维护者正式表决/准入裁决，**不是** Java/Flyway/React 开发；在决议之前本提案的顶部历史 M8.1-only Accepted 保持不变。
+
+
+---
+
+## 2026-10-20 · [VOTE] Accepted — M8.2 BRIDGE_TABLE ONLY（独立研发启动授权）
+
+**正式投票永久链接：** [GitHub PR #103 维护者受托投票 #6281584798](https://github.com/gitfortian/ontoforge/pull/103#issuecomment-6281584798)。此记录由有连接权限的 GitHub Owner 账号按用户在会话中对完整授权方案答复“好的，继续实施”受托提交，**不声称另一独立维护者参与投票，也不称用户本人手动输入 GitHub 评论**。
+
+**裁决范围与红线：** 批准 [R3 投票包](../implementation/M8-2-OFIP0010-专项准入决策包与R3高保证审核.md) M82-D01–D10，P1-01–P1-07 强制满足；仅同源单桥表 M:N、两端 M5 revisions、只读三方 FULL、不可变 CAS/幂等、受控 ObjectSet OUT/IN 一跳和三方来源资格。认可 M8 产品仅三个纵向 PR 的特定治理载体例外：**M8.2 继续只有 Draft #103**，但不豁免独立审查、测试和真实发布门禁。
+
+**下一状态：** M8.2 实施准入 **ACCEPTED**，实施与发布仍是单独状态；允许在 #103 开始真实 Java/Flyway/React T1–T5；V10 及旧摘要/回执不可改、旧 FK v1 与 M7/M13 兼容、真实 PG17 三表只读事务、预算/ACL/cursor 负例和用户实际验收必须逐项兑现。M8.3 显式二跳、Action、跨源/无界等依然 **NOT AUTHORIZED**。
+
+> 上文“2026-10-19 待维护者 [VOTE]”章节保留为当日历史快照，**由本节 2026-10-20 独立决议替代其待决状态**，并未删除旧事实和原 M8.1 的 Accepted 链接。

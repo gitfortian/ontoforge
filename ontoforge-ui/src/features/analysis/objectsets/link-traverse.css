@@ -3,7 +3,11 @@
 .m8-workspace .model-panel-head { align-items:flex-start; gap:16px; }
 .m8-workspace .model-eyebrow {font-size:11px;letter-spacing:.09em;font-weight:750;}
 .m8-workspace .m8-steps {display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 20px;}
-.m8-steps span {padding:7px 11px;border-radius:18px;border:1px solid var(--border,#dce3ee);background:var(--surface-muted,#f6f8fb);font-size:12px;font-weight:650;}
+.m8-steps button {padding:7px 11px;border-radius:18px;border:1px solid var(--border,#dce3ee);background:var(--surface-muted,#f6f8fb);color:var(--text,#17243b);font:inherit;font-size:12px;font-weight:650;cursor:pointer;}
+.m8-steps button[aria-selected="true"] {background:var(--surface,#fff);border-color:var(--primary,#346adc);color:var(--primary,#346adc);}
+.m8-steps button:focus-visible,.m8-stage-guide:focus-visible {outline:2px solid var(--primary,#346adc);outline-offset:3px;}
+.m8-stage-guide {padding:10px 13px;margin:-8px 0 14px;border-radius:8px;border:1px solid var(--border,#dce3ee);font-size:12px;color:var(--text-muted,#64748b);background:var(--surface-muted,#f6f8fb);}
+.m8-stage-guide[hidden] {display:none;}
 .m8-identity {display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 15px;border:1px solid var(--border,#dce3ee);border-radius:10px;margin-bottom:14px;}
 .m8-identity span,.m8-endpoints span,.m8-digests span {color:var(--text-muted,#64748b);font-size:12px;}
 .m8-identity b {font-size:13px;word-break:break-all;}
@@ -67,4 +71,20 @@
   .m8-query-controls,.m8-filter-controls,.m8-operator-controls,.m8-result-stats {grid-template-columns:1fr;}
   .m8-actions>* {flex:1;justify-content:center;}
   .m8-workspace .model-panel-head button {width:100%;justify-content:center;}
+}
+
+/* M8.2: the approved Bridge variant lives INSIDE ObjectSet's existing Yak shell. */
+.m8-bridge-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0;}
+.m8-bridge-fields label {min-width:0;}
+.m8-bridge-quality {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:9px 0 0;}
+.m8-bridge-quality>div {min-width:0;display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid var(--border,#dce3ee);border-radius:8px;padding:9px;background:var(--surface,#fff);}
+.m8-bridge-quality span {font-size:11px;color:var(--text-muted,#64748b);}
+.m8-bridge-quality strong {font-size:15px;font-variant-numeric:tabular-nums;}
+.m8-operation .model-btn {display:block;margin-top:10px;max-width:100%;}
+.m8-source-detail {border:1px solid var(--border,#dce3ee);border-radius:7px;padding:9px 11px;margin-top:5px;min-width:0;}
+.m8-source-detail summary {cursor:pointer;font-weight:650;overflow-wrap:anywhere;}
+.m8-source-detail code,.m8-source-detail small {display:block;font-size:11px;margin-top:6px;overflow-wrap:anywhere;}
+@media(max-width:560px){
+  .m8-bridge-fields,.m8-bridge-quality {grid-template-columns:1fr;}
+  .m8-source-detail {max-width:100%;}
 }

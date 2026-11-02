@@ -54,7 +54,10 @@ def build_source(package_id):
              "cardinality": "ONE_TO_MANY", "evidenceRequired": True},
             {"id": "cell-quality-receipt", "apiName": "cellQualityReceipt",
              "sourceTypeRef": "factory-cell", "targetTypeRef": "quality-event",
-             "cardinality": "ONE_TO_MANY", "evidenceRequired": True}
+             "cardinality": "ONE_TO_MANY", "evidenceRequired": True},
+            {"id": "cell-quality-bridge", "apiName": "cellQualityBridge",
+             "sourceTypeRef": "factory-cell", "targetTypeRef": "quality-event",
+             "cardinality": "MANY_TO_MANY", "evidenceRequired": True}
         ]
     }
     saved = api("/model/drafts/" + draft["draftId"], "PUT",
@@ -127,7 +130,7 @@ class RealM8BrowserGoldenStory(unittest.TestCase):
         links = page.get_by_role("region", name="已冻结关系类型")
         links.get_by_text("cell-quality", exact=True).wait_for(timeout=20000)
         links.locator("tbody tr").filter(has=page.get_by_text("cell-quality", exact=True)).get_by_role("button", name="配置实例关系").click()
-        panel = page.get_by_role("region", name="关系与一跳遍历 M8.1")
+        panel = page.get_by_role("region", name="关系与一跳遍历 M8")
         # The select mounts while the real HTTP M5/LinkBinding catalog is still
         # loading. Assert the resolved values, not merely that the form exists.
         # Playwright retries until the service completes or the gate times out;
@@ -143,7 +146,7 @@ class RealM8BrowserGoldenStory(unittest.TestCase):
         page.goto(BASE + "/#/mvp/object-sets?packageId=" + quote(self.package)
                   + "&bindingId=" + quote(left["bindingId"]) + "&bindingRevision=1")
         page.get_by_role("heading", name="对象集合查询", exact=True).wait_for(timeout=18000)
-        panel = page.get_by_role("region", name="关系与一跳遍历 M8.1")
+        panel = page.get_by_role("region", name="关系与一跳遍历 M8")
         panel.get_by_role("button", name="展开关系工作台").click()
         panel.get_by_role("button", name="读取当前配置").click()
         panel.get_by_label("M8 LinkType").locator('option[value="cell-quality"]').wait_for(

@@ -19,3 +19,15 @@ INSERT INTO public.m8_quality_events(event_code,cell_code,status,amount) VALUES
   ('QE-13',NULL,'HOLD',NULL),('QE-14','UNKNOWN-CELL','FAIL',40.00);
 GRANT SELECT ON TABLE public.m8_factory_cells,public.m8_quality_events
   TO ontoforge_binding_reader;
+
+-- M8.2: one explicit allowlisted Bridge fact table, not a third ObjectBinding.
+CREATE TABLE public.m8_cell_event_bridge (
+  cell_code TEXT NULL,
+  event_code TEXT NULL
+);
+INSERT INTO public.m8_cell_event_bridge(cell_code,event_code) VALUES
+  ('CELL-01','QE-11'),('CELL-01','QE-11'),
+  ('CELL-01','QE-12'),('CELL-02','QE-12'),
+  (NULL,'QE-13'),('CELL-01',NULL),(NULL,NULL),
+  ('CELL-NO','QE-11'),('CELL-01','QE-NO'),('CELL-NO','QE-NO');
+GRANT SELECT ON TABLE public.m8_cell_event_bridge TO ontoforge_binding_reader;

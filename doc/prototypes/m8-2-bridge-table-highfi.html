@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OntoForge 砺元 · M8.2 BridgeTable UX-High 可交互高保真产品评审</title>
+<style>
+
+:root{--bg:#f3f6f9;--ink:#253c4e;--muted:#718694;--border:#dce6ed;--white:#fff;--blue:#285774;--blue2:#447b9b;--bluewash:#eff7fb;--mint:#eaf6f0;--amber:#fcf5e9;--red:#fcf0ee;font:13px/1.6 Inter,system-ui,-apple-system,"Microsoft YaHei",sans-serif;color:var(--ink);background:var(--bg)}
+*{box-sizing:border-box}body{margin:0}button,select{font:inherit;color:inherit}button{cursor:pointer;border:1px solid #c9d7e2;border-radius:8px;background:#fff;min-height:39px;padding:9px 14px;transition:background .14s,border-color .14s,transform .1s}button:hover:not(:disabled){background:#eef6fa;border-color:#9cbdd1}button:active:not(:disabled){transform:translateY(1px)}button.main-action{background:#285774;color:white;border-color:#285774;font-weight:700;box-shadow:0 2px 6px #24506b24}button.main-action:hover:not(:disabled){background:#1c4764;color:white}button:disabled{cursor:not-allowed;opacity:.45}button:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:3px solid #86b5d3;outline-offset:2px}select{width:100%;border:1px solid #cbd9e3;border-radius:8px;min-height:42px;padding:9px 12px;background:#fff;max-width:100%}
+.top{height:69px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;gap:18px;background:#fff;border-bottom:1px solid var(--border);box-shadow:0 1px 6px #15364a08}
+.logo{display:flex;align-items:center;gap:10px;color:#294a60;font-size:17px;font-weight:800;letter-spacing:-.3px}.logo::before{content:"OF";width:35px;height:35px;border-radius:9px;background:#294f68;display:grid;place-items:center;color:#fff;font-size:11px;letter-spacing:.4px;box-shadow:0 3px 8px #15394a24}.logo .chip{margin-left:8px}.top .muted{font-size:11px;color:#80909e}.muted{color:var(--muted);font-size:12px}
+.frame{display:grid;grid-template-columns:222px minmax(0,1fr);min-height:calc(100vh - 69px)}aside{background:#fbfcfd;border-right:1px solid var(--border);padding:24px 13px}aside h2{color:#8c9ca7;font-size:10px;letter-spacing:1.6px;padding:0 10px;margin:3px 0 19px;text-transform:uppercase}aside button{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;border:0;border-radius:9px;text-align:left;margin-bottom:4px;background:transparent;font-size:12px;font-weight:650;color:#668094}aside button[aria-current=page]{background:#eaf3f9;color:#285978;box-shadow:inset 3px 0 #4780a2}aside button::before{content:"◇";font-size:15px;color:#7c9bb2}aside button[data-nav="query"]::before{content:"⌕"}aside button[data-nav="evidence"]::before{content:"▤"}aside .nav-sub{margin:0 9px 24px;color:#97a8b1;font-size:10px;line-height:1.7;border-top:1px solid #e5ebf0;padding-top:18px}
+main{width:100%;max-width:1470px;min-width:0;margin:0 auto;padding:28px 34px 46px}.crumb{font-size:11px;color:#8194a2;margin:0 0 11px}.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:0 0 16px}.page-head h1{font-size:25px;line-height:1.3;font-weight:770;letter-spacing:-.6px;color:#23445b;margin:0}.page-head p{font-size:12px;margin:7px 0 0;color:#8395a1;max-width:780px}.chip{border:1px solid #d1e1eb;color:#386681;background:#edf5fa;font-size:11px;font-weight:700;border-radius:20px;padding:4px 11px;white-space:normal}.top .chip{font-size:10px}
+.context{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:14px;align-items:stretch;margin:0 0 14px}.context .model-line{min-width:0;display:flex;align-items:center;justify-content:center;gap:13px;padding:18px 14px;border-radius:11px;border:1px solid #dfe8ef;background:linear-gradient(115deg,#fff,#f8fcff)}.object-token{border:1px solid #d8e5ed;padding:10px 14px;min-width:0;border-radius:9px;background:#fff;box-shadow:0 2px 12px #204b6610}.object-token b,.object-token span{display:block}.object-token b{font-size:12px;color:#31566d}.object-token span{font-size:10px;color:#8298a7}.bridge-token{text-align:center;border:1px dashed #adc5d5;background:#f4fafd;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;color:#376b89}.bridge-token small{display:block;font-weight:400;font-size:9px;color:#8ba0ad}.context-aside{border:1px solid #deebf1;border-radius:11px;background:#fff;padding:13px 16px}.context-aside strong{font-size:12px;display:block;color:#345b75}.context-aside p{color:#8a9dac;font-size:10px;margin:5px 0 0}.context-aside .chip{display:inline-block;margin-top:8px;font-size:10px;padding:2px 7px}
+.summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin:0 0 18px}.summary>div{border:1px solid #dfe8ed;background:white;padding:13px 16px;border-radius:10px;box-shadow:0 2px 13px #16364804;min-width:0}.summary b{display:block;color:#8b9eaa;font-size:10px;font-weight:660}.summary span{display:block;color:#37586b;margin-top:5px;font-size:11px;overflow-wrap:anywhere}
+.stage{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:17px}.stage button{display:flex;align-items:center;justify-content:flex-start;gap:7px;min-width:0;text-align:left;font-weight:700;min-height:47px;border:1px solid #dbe7ee;color:#678093;background:#fff;font-size:11px;padding:10px}.stage button::before{content:"";width:8px;height:8px;flex:none;border-radius:50%;background:#c5d2da}.stage button[aria-selected=true]{border-color:#a8cddd;background:#ecf6fb;color:#285a78;box-shadow:inset 0 -3px #4d86a8}.stage button[aria-selected=true]::before{background:#3c81aa}
+.panel{min-width:0;padding:24px 26px;border:1px solid #dfe8ef;background:#fff;border-radius:12px;box-shadow:0 3px 16px #1d42500a;margin:0 0 16px}.panel h2{color:#2c4d62;font-size:17px;line-height:1.4;margin:0 0 6px;letter-spacing:-.2px}.panel h3{font-size:13px;color:#3f6479;margin:11px 0}.panel p{margin:7px 0}.subhead{color:#7d919d;font-size:11px;margin:6px 0 16px!important}.cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.triple{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}.field{min-width:0}.field label{display:block;margin:0 0 7px;color:#557488;font-size:11px;font-weight:730}.field-note{font-size:10px;color:#879ca8;margin-top:6px}.readonly{background:#f9fbfc;border:1px solid #dfe8ee;border-radius:9px;padding:12px;min-width:0}.readonly b,.readonly span{display:block}.readonly b{font-size:11px;color:#46687b}.readonly span{font-size:10px;color:#8498a4;overflow-wrap:anywhere}.flow{display:flex;gap:9px;align-items:center;justify-content:center;margin:16px 0;flex-wrap:wrap;padding:18px 8px;background:#f7fafc;border:1px solid #e1eaf1;border-radius:9px}.flow span{padding:10px 12px;background:#fff;border:1px solid #d8e6ef;border-radius:8px;color:#315d78;font-size:11px}.flow strong{color:#6e9cb8}
+.actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:20px;padding-top:17px;border-top:1px solid #e8eef2}.notice{margin-top:12px;padding:13px 15px;background:#f5f9fc;border:1px solid #dbe7ee;border-left:4px solid #6995af;border-radius:8px;color:#4c687a;font-size:12px}.notice b{display:block;font-size:12px;color:#31566f;margin:0 0 4px}.notice.good{background:#eff9f4;border-color:#d3e8dc;border-left-color:#42a279}.notice.good b{color:#247757}.notice.bad{background:#fff3f1;border-color:#efdcd8;border-left-color:#c26d62}.notice.bad b{color:#994a40}.notice.warn{background:#fffaee;border-color:#f2e2c2;border-left-color:#c09a45}.notice.warn b{color:#94651b}
+.kv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.kv div{background:#f9fbfc;border:1px solid #e2eaf0;border-radius:8px;padding:13px;min-width:0}.kv b{display:block;font-size:10px;color:#8ca0ad}.kv span{font-size:11px;color:#395b70;overflow-wrap:anywhere}.demo{padding:14px 17px;background:#f7fafc;border:1px dashed #c7d9e4;border-radius:9px;margin:14px 0}.demo h3{font-size:12px;color:#42687d;margin:0}.demo p{font-size:11px;color:#8b9ca7}.metrics{display:flex;flex-wrap:wrap;gap:7px}.metrics span{border-radius:7px;padding:6px 10px;background:#edf5f9;border:1px solid #d5e5ee;color:#44677c;font-size:11px}.mono{font:11px ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.table-wrap{max-width:100%;overflow-x:auto;border:1px solid #e4edf2;border-radius:9px}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border-bottom:1px solid #e5ecf0;text-align:left;padding:11px 12px;vertical-align:top;overflow-wrap:anywhere}th{background:#f4f8fa;color:#668397}tr:last-child td{border-bottom:0}[hidden]{display:none!important}
+.review-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #d7e7f0;border-radius:10px;background:#f3f9fc;padding:12px 18px;margin-bottom:15px}.review-strip strong{font-size:12px;color:#3e6681}.review-strip span{font-size:10px;color:#849aa8}.review-strip button{font-size:11px;min-height:32px}.screen-title{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:15px}.screen-title .eyebrow{font-weight:750;font-size:10px;color:#6d96af;letter-spacing:.08em}.screen-title h2{margin:3px 0}.screen-title p{color:#8498a5;font-size:11px}
+.progressline{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}.progressline div{background:#f7fbfd;border:1px solid #deebf1;padding:11px 13px;border-radius:8px}.progressline b{display:block;font-size:11px;color:#577990}.progressline span{display:block;color:#8ba0ab;font-size:10px}
+.asyncbar{border-radius:8px;background:#edf5fa;border:1px solid #d4e7f0;color:#356782;padding:11px 14px;font-size:11px;display:flex;justify-content:space-between;gap:12px;margin:10px 0}.asyncbar.busy{background:#fff8ed;border-color:#efdbbb;color:#8e6425}.asyncbar.error{background:#fff3f1;border-color:#eccfc7;color:#8f453c}
+.inline-help{padding:10px 12px;border-radius:8px;border:1px solid #e1eaf0;background:#fafcfd;font-size:11px;color:#7190a2;margin-top:9px}.danger-hint{color:#9f655d}.summary-title{color:#4e7084;font-weight:800;font-size:11px;margin:0 0 9px}
+#result-panel[hidden],[hidden]{display:none!important}
+@media(max-width:1150px){.context{grid-template-columns:1fr}.stage{grid-template-columns:repeat(3,minmax(0,1fr))}} 
+@media(max-width:900px){.frame{display:block}aside{display:flex;gap:6px;overflow-x:auto;border-right:0;border-bottom:1px solid var(--border);padding:10px 12px}aside h2,aside .nav-sub{display:none}aside button{flex:none;white-space:nowrap;width:auto;min-height:38px;margin:0}main{padding:20px 16px}.summary{grid-template-columns:repeat(2,minmax(0,1fr))}.cols{grid-template-columns:1fr}.context{grid-template-columns:1fr}}
+@media(max-width:580px){.top{height:auto;min-height:58px;flex-wrap:wrap;padding:10px 12px}.logo{font-size:14px}.top .muted{font-size:9px}.frame{min-height:calc(100vh - 60px)}main{padding:13px 11px 30px}.page-head{flex-direction:column;gap:7px}.page-head h1{font-size:20px}.summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.summary>div{padding:10px}.stage{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.stage button{font-size:10px;min-height:38px}.panel{padding:16px 13px}.triple,.kv{grid-template-columns:1fr}.context .model-line{gap:5px;padding:10px 6px}.object-token{padding:8px 7px;flex:1}.object-token b{font-size:10px}.object-token span{font-size:9px}.bridge-token{font-size:9px;padding:6px;width:78px;flex:none}.flow{gap:4px;padding:12px 4px}.flow span{max-width:42%;font-size:9px;overflow-wrap:anywhere}.review-strip{flex-wrap:wrap;padding:10px}.progressline{grid-template-columns:1fr}.actions button{flex:1}.page-head p{font-size:11px}}
+
+</style>
+</head>
+<body>
+<header class="top"><div class="logo">OntoForge · 砺元 <span class="chip">UX-High · M8.2</span></div><div class="muted">设备维修域 / Local Snapshot S-042　 ·　 <strong>产品交互评审环境 / 合成数据</strong></div></header>
+<div class="frame">
+<aside aria-label="现有产品工作区导航">
+  <h2>产品工作区 / WORKSPACE</h2>
+  <button data-nav="type" id="nav-type">本体建模 · 关系类型</button>
+  <button data-nav="config" id="nav-config" aria-current="page">实例关联配置</button>
+  <button data-nav="query" id="nav-query">对象集合查询</button>
+  <button data-nav="evidence" id="nav-evidence">结果证据与恢复</button>
+<p class="nav-sub">核心用户路径与 M8.1 现有工作台保持一致，演示并不新增独立专业工具菜单。</p></aside>
+<main>
+  <div class="crumb">当前项目 / 设备维修域 / Local Snapshot S-042 / 工单关联设备</div>
+  <div class="page-head">
+    <div><h1 id="page-title">桥表关联配置</h1><p id="page-desc">使用受控桥表声明实例关联；先完整核验，再保存版本，查询单独执行。</p></div>
+    <span class="chip" id="main-status">未配置 LinkBinding</span>
+  </div>
+  <div class="context" aria-label="模型与 Bridge 来源关系概览"><div class="model-line"><div class="object-token"><b>维修工单</b><span>MaintenanceOrder · SOURCE</span></div><div class="bridge-token">BridgeTable <small>两列权威 FK</small></div><div class="object-token"><b>设备</b><span>Equipment · TARGET</span></div></div><div class="context-aside"><strong>多对多 · MANY_TO_MANY</strong><p>关系定义来自 Local Snapshot。Bridge 提供第三份来源事实，不会生成第三 ObjectType。</p><span class="chip">M8.2 · OUT / IN 一跳</span></div></div>
+  <div class="summary">
+    <div><b>模型关系</b><span>MaintenanceOrder → Equipment · MANY_TO_MANY</span></div>
+    <div><b>已绑定对象</b><span>SOURCE B-MO/r2 · TARGET B-EQ/r3</span></div>
+    <div><b>冻结定义</b><span>LOCAL_SNAPSHOT S-042 · LinkType order-equipment</span></div>
+  </div>
+  <div class="review-strip"><div><strong>交互设计评审 · 高保真候选</strong><span style="display:block">模拟加载、权限、CAS、快照与异常，不调用生产 API。UX-High 尚未产品签收。</span></div><button id="reset-demo">重置当前演示</button></div>
+  <div class="stage" role="tablist" aria-label="操作阶段">
+    <button data-stage="config" id="tab-config" role="tab" aria-selected="true">1 配置桥表</button>
+    <button data-stage="validate" id="tab-validate" role="tab" aria-selected="false">2 完整核验</button>
+    <button data-stage="save" id="tab-save" role="tab" aria-selected="false">3 保存修订</button>
+    <button data-stage="query" id="tab-query" role="tab" aria-selected="false">4 双向一跳</button>
+    <button data-stage="evidence" id="tab-evidence" role="tab" aria-selected="false">5 证据恢复</button>
+  </div>
+
+  <section id="view-type" class="panel" hidden>
+    <h2>本体建模 / 关系类型</h2>
+    <p>Native 仅声明“维修工单可以关联设备”。没有实例 LinkBinding 时，不会凭定义绘制任何真实关系。</p>
+    <div class="table-wrap"><table><thead><tr><th>关系类型</th><th>SOURCE</th><th>TARGET</th><th>基数</th><th>实例状态</th></tr></thead>
+    <tbody><tr><td>order-equipment</td><td>MaintenanceOrder</td><td>Equipment</td><td>MANY_TO_MANY</td><td id="type-status">尚未绑定实例关系</td></tr></tbody></table></div>
+    <div class="actions"><button class="main-action" id="open-config">配置实例关联 →</button></div>
+  </section>
+
+  <section id="view-config" class="panel">
+    <div class="screen-title"><div><span class="eyebrow">STEP 01 / DATA BINDING</span><h2>配置桥表实例来源</h2><p>先确定原始关系方向，再选择可读取的真实数据映射。</p></div><span class="chip">尚未执行来源写入</span></div>
+    <p class="subhead">桥表是第三份真实来源，并不是第三种 ObjectType。两端主键来自既有 M5 冻结绑定，不能自定义 SQL 或目标主键。</p>
+    <div class="cols">
+      <div class="field"><label for="source-binding">起点 · MaintenanceOrder 绑定修订</label>
+        <select id="source-binding"><option value="B-MO:r2">B-MO / r2 · 当前冻结版本</option><option value="B-MO:r1">B-MO / r1 · 历史修订</option><option value="foreign">另一个 Snapshot · 不合法</option></select>
+        <div class="field-note">SOURCE 主键由服务端确认：maintenance_order.work_order_no（STRING）。</div>
+      </div>
+      <div class="field"><label for="target-binding">终点 · Equipment 绑定修订</label>
+        <select id="target-binding"><option value="B-EQ:r3">B-EQ / r3 · 当前冻结版本</option><option value="B-EQ:r2">B-EQ / r2 · 历史修订</option><option value="foreign">另一个 Snapshot · 不合法</option></select>
+        <div class="field-note">TARGET 主键由服务端确认：equipment.equipment_code（STRING）。</div>
+      </div>
+    </div>
+    <div class="flow" aria-label="桥表映射示意"><span>MaintenanceOrder.work_order_no</span><strong>←</strong><span>BridgeTable 双 FK</span><strong>→</strong><span>Equipment.equipment_code</span></div>
+    <div class="cols">
+      <div class="field"><label for="bridge-table">关联桥表 · 当前来源白名单</label>
+        <select id="bridge-table"><option value="maintenance_order_equipment">public.maintenance_order_equipment · 受控来源</option><option value="unknown">不在允许目录中的表（负例）</option><option value="cross-source">另一个 PostgreSQL sourceId（负例）</option></select>
+      </div>
+      <div class="field"><label for="source-fk">桥表 SOURCE FK 列 → 工单主键</label>
+        <select id="source-fk"><option value="work_order_no">work_order_no (STRING)</option><option value="equipment_code">equipment_code（方向错）</option><option value="missing">不存在的列</option></select>
+      </div>
+      <div class="field"><label for="target-fk">桥表 TARGET FK 列 → 设备主键</label>
+        <select id="target-fk"><option value="equipment_code">equipment_code (STRING)</option><option value="work_order_no">work_order_no（方向错）</option><option value="bad-type">int_equipment_id（类型不兼容）</option></select>
+      </div>
+      <div class="field"><label>合同冻结</label>
+        <div class="readonly"><b>local-link-binding-v2 · BRIDGE_TABLE</b><span>两端 Binding digest + 三方 schemaFingerprint · FULL 才能保存</span></div>
+      </div>
+    </div>
+    <div class="notice"><b>关联身份与边界</b>同一工单与设备组成一个逻辑 LinkFact；桥表相同 pair 的物理重复只记证据，不重复计算设备。时态事件与关系业务属性不在本期。</div>
+    <div class="actions">
+      <button class="main-action" id="to-validate">下一步：只读完整核验 →</button>
+      <button id="restore-config">丢弃未保存的编辑</button>
+      <span class="chip" id="dirty-note" hidden>存在未保存的编辑</span>
+    </div>
+  </section>
+
+  <section id="view-validate" class="panel" hidden>
+    <div class="screen-title"><div><span class="eyebrow">STEP 02 / READ-ONLY VALIDATION</span><h2>完整来源核验 · 不写入数据</h2><p>完整且可证明的来源核验，是创建 LinkBinding 修订的唯一准入。</p></div><span class="chip">FULL · 不允许 SAMPLE 替代</span></div>
+    <p class="subhead">生产实现将以一条只读 REPEATABLE_READ 事务检查三表；此处仅以合成场景演示 FULL / FAILED / PARTIAL 判定。</p>
+    <div class="demo">
+      <h3>评审情境（模拟注入）</h3>
+      <p>选择只改变模拟的桥表物理事实/权限故障，不影响真实来源，测试可证明“样本不是 FULL”。</p>
+      <div class="field"><label for="validation-pace">演示请求速度（用于验证交互竞态）</label><select id="validation-pace"><option value="instant">正常模拟响应</option><option value="slow">延迟响应：可切换版本或场景取消旧请求</option></select></div><div class="field"><label for="validation-scenario">本次模拟来源情境</label><select id="validation-scenario">
+        <option value="clean">有效 3 个 pair：MO-001↔E01/E02，MO-002↔E02</option>
+        <option value="duplicate">同一 pair 重复物理桥表记录</option>
+        <option value="orphan">分别含缺失设备 / 缺失工单的孤儿引用</option>
+        <option value="null">含 NULL 双 FK / 单侧 NULL，属于合法无关系</option>
+        <option value="budget">FULL 扫描 10,001 行，触发预算失败</option>
+        <option value="revoke">BRIDGE SELECT 被撤销，不允许推断孤儿</option>
+        <option value="drift">Bridge 列指纹已变化</option>
+      </select></div>
+    </div>
+    <div class="asyncbar" id="validation-async" role="status" aria-live="polite">待执行三方只读校验：SOURCE + TARGET + BRIDGE <span>状态：IDLE</span></div>
+    <div class="actions"><button class="main-action" id="run-validation">执行完整核验（模拟）</button><button id="back-to-config">返回修正映射</button></div>
+    <div id="validation-outcome" role="status" class="notice"><b>尚未执行 FULL</b>没有 FULL 核验记录时，保存按钮不可使用。</div>
+    <div class="kv" id="validation-ledger" hidden style="margin-top:14px">
+      <div><b>核验覆盖</b><span id="validation-coverage">—</span></div>
+      <div><b>有效逻辑 Pair</b><span id="validation-pairs">—</span></div>
+      <div><b>桥表物理重复 / NULL / 孤儿</b><span id="validation-quality">—</span></div>
+      <div><b>SOURCE 修订</b><span id="validation-source-version">B-MO/r2 · identityDomain-MO</span></div>
+      <div><b>TARGET 修订</b><span id="validation-target-version">B-EQ/r3 · identityDomain-EQ</span></div>
+      <div><b>BRIDGE 来源</b><span>public.maintenance_order_equipment · schemaFingerprint（模拟）</span></div>
+      <div><b>质量桶互斥对账</b><span id="validation-buckets">—</span></div>
+    </div>
+    <div class="actions"><button class="main-action" id="continue-save" disabled>核验通过，继续保存 →</button></div>
+  </section>
+
+  <section id="view-save" class="panel" hidden>
+    <div class="screen-title"><div><span class="eyebrow">STEP 03 / IMMUTABLE REVISION</span><h2>保存不可变 LinkBinding 修订</h2><p>保存只冻结映射与证据；实际关联查询由用户另外启动。</p></div><span class="chip">CAS / Operation Receipt</span></div>
+    <p>明确保存的是 BRIDGE_TABLE 映射与三方来源证据，不生成实体关系缓存、不自动运行 ObjectSet 查询。</p>
+    <div class="kv">
+      <div><b>已核验版本</b><span id="save-versions">B-MO/r2 + B-EQ/r3</span></div>
+      <div><b>映射摘要</b><span id="save-mapping">maintenance_order_equipment</span></div>
+      <div><b>写入合同</b><span>CAS expectedRevision + idempotencyKey + canonical request digest</span></div>
+    </div>
+    <div class="demo">
+      <h3>保存异常情境（模拟注入）</h3>
+      <div class="field"><label for="save-fault">选择模拟响应</label><select id="save-fault"><option value="none">正常保存</option><option value="cas">409 修订竞争，不覆盖现有值</option><option value="unknown">提交成功，但 HTTP 响应丢失 UNKNOWN</option><option value="drift">409 保存前 Bridge 来源指纹漂移</option></select></div>
+    </div>
+    <div class="progressline"><div><b>乐观锁</b><span>Head expectedRevision=0</span></div><div><b>幂等恢复</b><span>原 Operation UUID，不新建第二 Revision</span></div><div><b>保存边界</b><span>不生成对象关系缓存 / 不发起查询</span></div></div>
+    <div class="actions">
+      <button class="main-action" id="commit-binding" disabled>保存不可变版本</button>
+      <button id="lookup-operation" hidden>用原幂等键查询保存回执</button>
+      <button id="reopen-revision" hidden>重新打开已保存修订</button>
+      <button id="to-query" hidden>继续到对象集合查询 →</button>
+    </div>
+    <div id="save-outcome" role="status" class="notice"><b>等待完整核验</b>未经 FULL 的配置不能创建有效版本。</div>
+  </section>
+
+  <section id="view-query" class="panel" hidden>
+    <div class="screen-title"><div><span class="eyebrow">STEP 04 / OBJECTSET ONE-HOP</span><h2>对象集合查询 · 单跳 OUT / IN</h2><p>对冻结的对象引用做有界遍历，原始 LinkFact 方向始终保持 SOURCE → TARGET。</p></div><span class="chip">最多 1 TRAVERSE</span></div>
+    <p class="subhead">复用现有查询工作台，查询服务端根据已保存 LinkBinding 自动决定 BRIDGE_TABLE；切换方向不改变 LinkFact 的 SOURCE → TARGET。</p>
+    <div class="cols">
+      <div class="field"><label for="query-direction">关联方向</label><select id="query-direction"><option value="OUT">OUT · 工单 → 设备</option><option value="IN">IN · 设备 → 工单</option></select></div>
+      <div class="field"><label for="root-mode">根范围</label><select id="root-mode"><option value="single">单个对象 Ref</option><option value="bounded">有界根集合（≤50）</option></select></div>
+      <div class="field"><label for="query-root">起点对象（冻结身份）</label><select id="query-root"><option>MO-001</option><option>MO-002</option><option>MO-003</option></select></div>
+      <div class="field"><label for="result-operation">结果处理</label><select id="result-operation"><option value="PAGE">对象与 LinkFact 列表</option><option value="COUNT_DISTINCT">COUNT_DISTINCT · 输出对象</option><option value="SUM">SUM · 输出对象数值属性（示意）</option></select></div>
+      <div class="field"><label for="aggregate-property">SUM 输出对象数值字段</label>
+        <select id="aggregate-property" disabled><option value="equipment-maintenance-cost">Equipment.maintenanceCost（10 / 20，模拟）</option></select>
+        <div class="field-note">仅 SUM 可用；切换 OUT/IN 后字段类型必须与新的输出对象一致。</div>
+      </div>
+      <div class="field"><label for="target-filter">输出端筛选（当前端点类型）</label><select id="target-filter"><option value="all">不筛选</option><option value="E02">设备 E02 / 工单 MO-002（按方向）</option></select></div>
+      <div class="field"><label for="query-fault">本次查询 / 分页故障注入</label><select id="query-fault"><option value="none">无故障</option><option value="slow">模拟慢请求：用于验证请求竞态</option><option value="timeout">执行超时 503</option><option value="budget">预算耗尽 429</option><option value="revoke-bridge">翻页时 BRIDGE SELECT 撤销</option><option value="drift-bridge">翻页时 BRIDGE 指纹漂移</option><option value="expired">冻结结果 TTL 到期 / 重启</option></select></div>
+    </div>
+    <div class="notice" id="root-scope">单个 SOURCE ObjectRef：MO-001 · identityDomain-MO。</div>
+    <div class="asyncbar" id="query-async" role="status" aria-live="polite">查询执行状态 <span>空闲 IDLE</span></div>
+    <div class="actions"><button class="main-action" id="run-query">明确执行新查询</button><button id="cancel-query" disabled>取消本次模拟请求</button><button id="edit-mapping">返回来源映射</button></div>
+    <div id="query-outcome" class="notice" role="status"><b>尚未执行</b>未保存有效 LinkBinding 时不能获得关系事实。</div>
+    <div id="result-panel" hidden>
+      <h3>冻结查询结果与质量</h3>
+      <div class="metrics" id="result-summary"></div>
+      <p class="subhead mono" id="result-snapshot"></p>
+      <div class="table-wrap" id="result-table"><table><thead><tr><th>输出对象</th><th>逻辑 LinkFact（原 SOURCE → TARGET）</th><th>真实来源角色（模拟）</th></tr></thead><tbody id="result-rows"></tbody></table></div>
+      <div class="notice" id="aggregate-panel" hidden></div>
+      <div class="actions"><span class="muted" id="page-number"></span><button id="next-page">下一页（同一冻结结果）</button><button id="open-evidence">查看完整来源证据 →</button></div>
+    </div>
+  </section>
+
+  <section id="view-evidence" class="panel" hidden>
+    <div class="screen-title"><div><span class="eyebrow">STEP 05 / EVIDENCE & RECOVERY</span><h2>三方来源证据 / 失败恢复</h2><p>当前读取资格、执行修订与 Bridge 指纹必须同时成立，结果才是可用证据。</p></div><span class="chip">SOURCE / TARGET / BRIDGE</span></div>
+    <p>来源指纹与 Binding 版本锁不是源数据内容快照；来源事实不能历史重放，freshness 统一标记 UNKNOWN。</p>
+    <div class="triple" id="three-read-roles">
+      <div class="readonly"><b>SOURCE · MaintenanceOrder</b><span id="evidence-source-version">Binding B-MO/r2 · READ ONLY · 同一 PG</span></div>
+      <div class="readonly"><b>TARGET · Equipment</b><span id="evidence-target-version">Binding B-EQ/r3 · READ ONLY · 同一 PG</span></div>
+      <div class="readonly"><b>BRIDGE · maintenance_order_equipment</b><span>两列 FK + Bridge schemaFingerprint · 独立 SELECT 资格</span></div>
+    </div>
+    <div class="kv" id="execution-lock" hidden style="margin-top:12px">
+      <div><b>查询与关系版本锁（模拟）</b><span id="lock-link" class="mono">—</span></div>
+      <div><b>三份来源读取 ID（模拟）</b><span id="lock-reads" class="mono">—</span></div>
+      <div><b>三份结构指纹（模拟）</b><span id="lock-fp" class="mono">—</span></div>
+    </div>
+    <div class="inline-help" id="provenance-rule">两个 OBJECT Binding + 一个 LINK Binding Revision；Bridge 只作为第三份 SourceReadRef，不是第三 ObjectType。所有 fingerprint 仅证明结构与读取上下文，不代表源数据内容快照。</div>
+    <div class="notice" id="evidence-summary"><b>尚无执行证据</b>保存后，只有明确执行并授权成功才展示对应的来源读取记录。</div>
+    <div class="notice" id="failure-evidence" hidden></div>
+    <div class="actions"><button class="main-action" id="retry-query">模拟修复来源后重新执行（新快照）</button><button id="repair-config">修正映射 / 重新核验</button></div>
+  </section>
+  <div class="demo"><h3>高保真交互产品评审 · 安全与边界</h3><p>所有 SQL、Bridge、SELECT、版本与 cursor 都是本地模拟数据。此页面展示全新 UX-High 视觉、真实浏览器交互与模拟异步竞态；不代表真实 Java / PostgreSQL 17 / JWT / React 已实现，也不代表用户已签收。M8.3 两跳不在本页。</p></div>
+</main>
+</div>
+<script>
+(() => {
+ "use strict";
+ const $=q=>document.querySelector(q), $$=q=>[...document.querySelectorAll(q)];
+ const original={source:"B-MO:r2",target:"B-EQ:r3",table:"maintenance_order_equipment",sourceFk:"work_order_no",targetFk:"equipment_code"};
+ const state={view:"config",dirty:false,validated:false,validationQuality:null,validationScenario:null,qualityLedger:null,saved:null,revision:0,saveUnknown:false,operationId:null,lastResult:null,retired:[],failure:null,sequence:0,queryGeneration:0,validationGeneration:0,queryPending:false,validationPending:false,asyncDiscarded:0};
+ const mapping=()=>({source:$("#source-binding").value,target:$("#target-binding").value,table:$("#bridge-table").value,sourceFk:$("#source-fk").value,targetFk:$("#target-fk").value});
+ const apply=x=>{$("#source-binding").value=x.source;$("#target-binding").value=x.target;$("#bridge-table").value=x.table;$("#source-fk").value=x.sourceFk;$("#target-fk").value=x.targetFk;};
+ const setStatus=(id,kind,title,message)=>{
+   let node=$("#"+id);node.className="notice "+kind;node.replaceChildren();
+   let b=document.createElement("b");b.textContent=title;
+   let msg=document.createElement("span");msg.textContent=message;node.append(b,msg);
+   if(kind==="bad" && node.getClientRects().length){
+     // A keyboard user must land on the *actual* error, not a distant tab.
+     node.tabIndex=-1;node.setAttribute("role","alert");node.focus({preventScroll:false});
+   }else{node.setAttribute("role","status");}
+ };
+ const resetValidation=()=>{state.validated=false;state.validationQuality=null;state.qualityLedger=null;$("#continue-save").disabled=true;$("#commit-binding").disabled=true;$("#validation-ledger").hidden=true;setStatus("validation-outcome","","尚未核验","桥表、两端修订或列变更，需要重新做 FULL。");};
+ const discard=()=>{apply(state.saved?state.saved.mapping:original);state.dirty=false;$("#dirty-note").hidden=true;resetValidation();};
+ const change=()=>{state.dirty=true;$("#dirty-note").hidden=false;resetValidation();};
+ const selectedStage=n=>{$$("[data-stage]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.stage===n)));};
+ function navigate(view,guard=true){
+   // Moving within configure -> FULL -> save keeps the draft. Leaving this
+   // workflow for a read-only workspace must guard ANY outstanding edit state.
+   if(guard && state.dirty && ["type","query","evidence"].includes(view) && view!==state.view){
+     if(!window.confirm("当前桥表映射存在未保存修改。离开并丢弃本次编辑吗？"))return false;
+     discard();
+   }
+   state.view=view;
+   $$("[id^=view-]").forEach(e=>e.hidden=e.id!=="view-"+view);
+   $$("[data-nav]").forEach(b=>{if(b.dataset.nav===view)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");});
+   selectedStage(view);
+   const h={type:["本体建模 / 关系类型","LinkType 只是定义，实例边需要受控来源"],config:["桥表关联配置","选择两端修订和单张受控 BridgeTable 的双 FK"],validate:["完整来源核验","只读 FULL 在保存前执行，不以 SAMPLE 冒充完成"],save:["保存关系修订","CAS + 幂等回执，保存与查询明确分开"],query:["一跳关联对象查询","正向 OUT / 反向 IN，三方证据不能遗漏"],evidence:["来源证据与恢复","授权撤销和漂移立即使旧 cursor 失效"]};
+   $("#page-title").textContent=h[view][0];$("#page-desc").textContent=h[view][1];
+   if(view==="evidence")renderEvidence();
+   return true;
+ }
+ const factsFor=scenario=>{
+   const rows=[["MO-001","E01"],["MO-001","E02"],["MO-002","E02"]];
+   if(scenario==="duplicate")rows.push(["MO-001","E01"]);
+   if(scenario==="orphan")rows.push(["MO-001","E99"],["MO-999","E02"]);
+   if(scenario==="null")rows.push(["MO-001",null],[null,"E02"],[null,null]);
+   return rows;
+ };
+ function ledgerFor(s){
+   const rows=factsFor(s),valid=rows.filter(([a,b])=>a&&b&&a!=="MO-999"&&b!=="E99");
+   const pairs=new Set(valid.map(row=>row.join("::")));
+   const buckets={nullBoth:0,nullSourceOnly:0,nullTargetOnly:0,sourceOrphanOnly:0,targetOrphanOnly:0,bothOrphan:0,matched:0};
+   for(const [a,b] of rows){
+     if(a===null&&b===null)buckets.nullBoth++;
+     else if(a===null)buckets.nullSourceOnly++;
+     else if(b===null)buckets.nullTargetOnly++;
+     else if(a==="MO-999"&&b==="E99")buckets.bothOrphan++;
+     else if(a==="MO-999")buckets.sourceOrphanOnly++;
+     else if(b==="E99")buckets.targetOrphanOnly++;
+     else buckets.matched++;
+   }
+   const nullRows=buckets.nullBoth+buckets.nullSourceOnly+buckets.nullTargetOnly;
+   const orphans=buckets.sourceOrphanOnly+buckets.targetOrphanOnly+buckets.bothOrphan;
+   if(Object.values(buckets).reduce((sum,v)=>sum+v,0)!==rows.length)throw Error("invalid FULL bucket ledger");
+   return {rows:rows.length,pairs:pairs.size,duplicates:valid.length-pairs.size,nullRows,orphans,buckets};
+ }
+ function validation(){
+   const m=mapping(),scenario=$("#validation-scenario").value;
+   resetValidation();
+   $("#validation-source-version").textContent=m.source+" · identityDomain-MO";
+   $("#validation-target-version").textContent=m.target+" · identityDomain-EQ";
+   state.validationScenario=scenario;
+   $("#validation-ledger").hidden=false;
+   if(m.source==="foreign"||m.target==="foreign"){
+     setStatus("validation-outcome","bad","FAILED · 409 LINK_ENDPOINT_VERSION_MISMATCH","端点 Binding 不属于已冻结 Snapshot；请返回重选。");
+   }else if(m.table==="cross-source"){
+     setStatus("validation-outcome","bad","FAILED · 422 BRIDGE_SOURCE_MISMATCH","三表必须来自同一受控 sourceId，不得跨 PostgreSQL 拼事务。");
+   }else if(m.table==="unknown"){
+     setStatus("validation-outcome","bad","FAILED · 403 SOURCE_NOT_ALLOWED","桥表不在当前白名单；不透露受限物理来源内容。");
+   }else if(m.sourceFk!=="work_order_no"||m.targetFk!=="equipment_code"){
+     setStatus("validation-outcome","bad","FAILED · 422 LINK_BRIDGE_COLUMN_INCOMPATIBLE","桥表两列必须按方向分别匹配已冻结端点主键，禁止类型隐式转换。");
+   }else if(scenario==="budget"){
+     setStatus("validation-outcome","bad","FAILED · 429 QUERY_BUDGET_EXCEEDED","三表总计 10,001 行；仅有 SAMPLE/UNKNOWN_TOTAL，不能保存完整校验资格。");
+     $("#validation-coverage").textContent="SAMPLE / UNKNOWN_TOTAL · 不可保存";
+   }else if(scenario==="revoke"){
+     setStatus("validation-outcome","bad","FAILED · 403 SOURCE_NOT_ALLOWED","BRIDGE SELECT 资格未知；不能把无权结果解释成孤儿。");
+     // A new source admission failure invalidates the old visible result too.
+     fail("403 SOURCE_NOT_ALLOWED","FULL 复核发现 BRIDGE SELECT 已撤销，旧结果与 cursor 均失效");
+   }else if(scenario==="drift"){
+     setStatus("validation-outcome","bad","FAILED · 409 LINK_SOURCE_SCHEMA_DRIFT","Bridge schemaFingerprint 不再与候选配置一致。");
+     fail("409 LINK_SOURCE_SCHEMA_DRIFT","FULL 复核发现 BRIDGE 结构漂移，旧结果与 cursor 均失效");
+   }else{
+     let l=ledgerFor(scenario), quality=l.orphans?"VALID_WITH_ORPHANS":"VALID";
+     state.validated=true;state.validationQuality=quality;state.qualityLedger=l;
+     $("#validation-coverage").textContent="FULL · READ ONLY / REPEATABLE_READ";
+     $("#validation-pairs").textContent=l.pairs+" 个逻辑 pair / "+l.rows+" 条 Bridge 物理行";
+     $("#validation-quality").textContent="重复 "+l.duplicates+" · NULL "+l.nullRows+" · 孤儿 "+l.orphans;
+     const b=l.buckets;
+     $("#validation-buckets").textContent="双 NULL "+b.nullBoth+" / 仅 SOURCE NULL "+b.nullSourceOnly+" / 仅 TARGET NULL "+b.nullTargetOnly+
+       " / SOURCE 孤儿 "+b.sourceOrphanOnly+" / TARGET 孤儿 "+b.targetOrphanOnly+
+       " / 双端孤儿 "+b.bothOrphan+" / 有效物理行 "+b.matched+" = 总 "+l.rows;
+     setStatus("validation-outcome",l.orphans?"warn":"good",quality+" · FULL",
+        "三方来源资格通过；物理重复 "+l.duplicates+"、NULL "+l.nullRows+"、可确认孤儿 "+l.orphans+
+        "。完整校验不自动写入 LinkBinding。");
+     $("#continue-save").disabled=false;
+   }
+   if(!state.validated){
+     if(scenario!=="budget")$("#validation-coverage").textContent="FAILED · 无有效 FULL";
+     $("#validation-pairs").textContent="未提供";
+     $("#validation-quality").textContent="失败不返回全局孤儿计数";
+     $("#validation-buckets").textContent="未取得完整三方来源资格，不返回互斥桶";
+     // With unknown grants, wrong source, or a drifting schema we cannot
+     // display the previously fixed role/card evidence. Only a permitted
+     // budget diagnostic is exposed without qualified FULL statistics.
+     if(scenario!=="budget")$("#validation-ledger").hidden=true;
+   }
+ }
+ function save(){
+   if(!state.validated){setStatus("save-outcome","bad","保存拒绝 · 未经 FULL","返回完整核验，不能创建有效关系修订。");return;}
+   const fault=$("#save-fault").value;
+   if(fault==="cas"){
+     setStatus("save-outcome","bad","409 BINDING_REVISION_CONFLICT","当前 Head revision 已改变，未覆盖旧修订。保留编辑，重开版本后重新验证。");return;
+   }
+   if(fault==="drift"){
+     state.validated=false;$("#commit-binding").disabled=true;$("#continue-save").disabled=true;
+     setStatus("save-outcome","bad","409 LINK_SOURCE_SCHEMA_DRIFT","保存前 Bridge 指纹已变，拒绝提交。须重新 FULL 核验。");return;
+   }
+   // R2 model: committed op is canonical and restart-repeatable. Only a local simulation.
+   if(!state.saveUnknown){
+     state.revision+=1;
+     state.saved={mapping:mapping(),quality:state.validationQuality,scenario:state.validationScenario,ledger:state.qualityLedger,revision:state.revision};
+     state.operationId="operation-DEMO-"+state.revision;
+   }
+   state.dirty=false;$("#dirty-note").hidden=true;
+   $("#commit-binding").disabled=true; // Same operation cannot accidentally create a second immutable revision.
+   $("#main-status").textContent="LinkBinding r"+state.revision+" · 已保存";
+   $("#type-status").textContent="BRIDGE_TABLE / revision r"+state.revision;
+   if(fault==="unknown"){
+     state.saveUnknown=true;$("#lookup-operation").hidden=false;
+     setStatus("save-outcome","warn","UNKNOWN · 响应丢失","模拟服务器已提交 revision r"+state.revision+"；必须使用原幂等键查询回执，不可盲目新建。");
+   }else{
+     state.saveUnknown=false;$("#lookup-operation").hidden=true;commitReceipt();
+   }
+ }
+ function commitReceipt(){
+   state.saveUnknown=false;$("#lookup-operation").hidden=true;
+   $("#reopen-revision").hidden=false;$("#to-query").hidden=false;
+   setStatus("save-outcome","good","保存完成 · 不可变修订 r"+state.revision,
+     "操作回执 "+state.operationId+" · 双端 Binding + BRIDGE 来源 + FULL 证据已冻结（模拟）。");
+ }
+ function reopen(){
+   if(!state.saved)return;
+   apply(state.saved.mapping);state.dirty=false;$("#dirty-note").hidden=true;
+   setStatus("save-outcome","good","重开已保存修订 r"+state.revision,
+     "从持久修订重建映射选择（模拟），无新增 revision；可单独进入查询。");
+ }
+ function refreshRoots(){
+   const direction=$("#query-direction").value,opts=direction==="OUT"?["MO-001","MO-002","MO-003"]:["E01","E02","E03"];
+   const root=$("#query-root");root.replaceChildren();
+   opts.forEach(id=>{let o=document.createElement("option");o.value=id;o.textContent=id;root.append(o);});
+   const targetOption=$("#target-filter").options[1];
+   targetOption.textContent=direction==="OUT"?"仅设备 E02":"仅工单 MO-002";
+   targetOption.value=direction==="OUT"?"E02":"MO-002";
+   const property=$("#aggregate-property").options[0];
+   property.value=direction==="OUT"?"equipment-maintenance-cost":"order-labor-hours";
+   property.textContent=direction==="OUT"?"Equipment.maintenanceCost（E01=10 / E02=20）":
+     "MaintenanceOrder.laborHours（MO-001=100 / MO-002=200）";
+   // A TARGET FILTER is typed against the current output ObjectType.
+   // Never carry a device predicate into an order query after direction flips.
+   $("#target-filter").value="all";
+   updateRoot();
+ }
+ function updateRoot(){
+   const dir=$("#query-direction").value,bounded=$("#root-mode").value==="bounded";
+   $("#query-root").disabled=bounded;
+   $("#aggregate-property").disabled=$("#result-operation").value!=="SUM";
+   $("#root-scope").textContent=bounded?
+      (dir==="OUT"?"有界根集合 MO-001、MO-002（冻结两条工单 ObjectRef）":"有界根集合 E01、E02（冻结两条设备 ObjectRef）"):
+      "当前 "+(dir==="OUT"?"SOURCE 工单":"TARGET 设备")+" 根："+$("#query-root").value+"（绑定身份域固定）";
+   clearVisibleResult("查询条件已修改，请明确执行新查询。");
+ }
+ function purgeRenderedResult(){
+   // Hiding a panel alone leaves private values in the client DOM. Remove them
+   // on query edits and authorization/source failures as well.
+   $("#result-panel").hidden=true;
+   $("#result-rows").replaceChildren();
+   $("#result-summary").replaceChildren();
+   $("#result-snapshot").textContent="";
+   $("#aggregate-panel").textContent="";
+   $("#page-number").textContent="";
+   $("#next-page").disabled=true;
+ }
+ function clearVisibleResult(message){
+   // A changed root/filter/operation is not the old execution. Never present old
+   // source/version evidence as proof for the currently selected query draft.
+   state.lastResult=null;state.failure=null;
+   purgeRenderedResult();
+   setStatus("query-outcome","",message,"对象、LinkFact 与聚合仅在新执行成功后展示。");
+ }
+ function fail(code,message){
+   const r=state.lastResult;
+   if(r&&r.snapshot&&!state.retired.includes(r.snapshot))state.retired.push(r.snapshot);
+   state.failure={code,message};
+   state.lastResult=null;
+   purgeRenderedResult();
+   setStatus("query-outcome","bad","FAILED · "+code,message+"；已清空旧对象与关系载荷，恢复必须重新执行。");
+   renderEvidence();
+ }
+ const objCount=rows=>new Set(rows.map(x=>x.out)).size;
+ function query(){
+   if(!state.saved){clearVisibleResult("尚未配置 LinkBinding");return;}
+   if(state.saveUnknown){
+     clearVisibleResult("保存结果 UNKNOWN · 必须先用原幂等键查询操作回执");
+     return;
+   }
+   state.failure=null;const dir=$("#query-direction").value,root=$("#query-root").value,bounded=$("#root-mode").value==="bounded";
+   const fault=$("#query-fault").value;
+   if(fault==="timeout"){fail("503 QUERY_TIMEOUT","执行超过 3s 逻辑预算，没有可分页结果");return;}
+   if(fault==="budget"){fail("429 QUERY_BUDGET_EXCEEDED","三表/Join 完整预算不可满足，拒绝截断成空结果");return;}
+   if(fault==="expired"){fail("410 RESULT_EXPIRED","服务重启或 TTL 到期，不能继续旧 cursor");return;}
+   const roots=bounded?(dir==="OUT"?["MO-001","MO-002"]:["E01","E02"]):[root];
+   const physical=factsFor(state.saved.scenario);
+   const seen=new Set(),rows=[];let orphanPairs=new Set(),duplicates=0;
+   for(const [mo,eq] of physical){
+     // Both keys non-NULL; only source/target-real objects can form logical LinkFact.
+     if(mo===null||eq===null)continue;
+     const isRoot=roots.includes(dir==="OUT"?mo:eq);if(!isRoot)continue;
+     if(mo==="MO-999"||eq==="E99"){
+       orphanPairs.add(mo+"|"+eq);continue;
+     }
+     const pair=mo+"|"+eq;
+     if(seen.has(pair)){duplicates++;continue;}
+     seen.add(pair);
+     rows.push({source:mo,target:eq,out:dir==="OUT"?eq:mo});
+   }
+   let filter=$("#target-filter").value;
+   if(filter!=="all")rows.splice(0,rows.length,...rows.filter(r=>r.out===filter));
+   // After target filtering, duplicate evidence is scoped to the returned pair set.
+   // Duplicate physical rows for a filtered-out pair must not inflate this result.
+   const visiblePairs=new Set(rows.map(r=>r.source+"|"+r.target));
+   duplicates=physical.filter(([mo,eq])=>visiblePairs.has(mo+"|"+eq)).length-rows.length;
+   const objects=[...new Set(rows.map(x=>x.out))].sort();
+   state.sequence++;
+   const op=$("#result-operation").value,partial=orphanPairs.size>0;
+   const snapshot="local-result:BRIDGE-DEMO-"+String(state.sequence).padStart(3,"0");
+   state.lastResult={rows,objects,roots,dir,op,partial,quality:partial?"PARTIAL / KNOWN_SUBSET":"COMPLETE / REQUESTED_SCOPE",
+       duplicates,orphanCount:orphanPairs.size,snapshot,page:1,execution:"execution-BRIDGE-"+state.sequence};
+   const message=(rows.length?"查询到 "+objects.length+" 个不同输出对象 / "+rows.length+" 条逻辑 LinkFact":"本次根范围真实零关系")+
+      "；物理重复行 "+duplicates+"，只显示一条逻辑 LinkFact。";
+   setStatus("query-outcome",partial?"warn":"good",partial?"SUCCESS · PARTIAL / KNOWN_SUBSET":rows.length?"SUCCESS · COMPLETE":"SUCCESS · 真实零关联",
+       message+(partial?" 当前根有 "+orphanPairs.size+" 个可确认孤儿 pair；其余根不受影响。":""));
+   $("#result-panel").hidden=false;
+   renderPage();renderEvidence();
+ }
+ function renderPage(){
+   const r=state.lastResult;if(!r)return;
+   $("#result-summary").replaceChildren();
+   ["对象 "+r.objects.length,"LinkFact "+r.rows.length,"路径 "+r.rows.length,
+     "质量 "+r.quality,"Bridge 重复物理行 "+r.duplicates,
+     "SOURCE / TARGET / BRIDGE 三方来源"].forEach(x=>{let b=document.createElement("span");b.textContent=x;$("#result-summary").append(b);});
+   $("#result-snapshot").textContent=r.snapshot+" · "+r.execution+" · freshness UNKNOWN";
+   $("#result-table").hidden=r.op!=="PAGE";
+   $("#aggregate-panel").hidden=r.op==="PAGE";
+   $("#result-rows").replaceChildren();
+   let target=r.objects[r.page-1];
+   r.rows.filter(x=>x.out===target).forEach(x=>{
+     let tr=document.createElement("tr");
+     [x.out,x.source+" → "+x.target,"SOURCE + TARGET + BRIDGE · 同一只读事务"].forEach(t=>{let td=document.createElement("td");td.textContent=t;tr.append(td)});
+     $("#result-rows").append(tr);
+   });
+   if(!r.objects.length){
+     let tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=3;td.textContent=r.partial?"只有当前根可确认的断链，无合法 LinkFact":"真实无关联对象";tr.append(td);$("#result-rows").append(tr);
+   }
+   if(r.op!=="PAGE"){
+     const count=r.objects.length,sum=r.objects.reduce((v,x)=>v+(x==="E01"?10:x==="E02"?20:x==="MO-001"?100:200),0);
+     $("#aggregate-panel").textContent=r.op==="COUNT_DISTINCT"?"COUNT_DISTINCT(输出 ObjectRef) = "+count+"，不重复计算桥表同 pair 或共享设备":
+       "SUM("+$("#aggregate-property").options[0].textContent.split("（")[0]+") = "+sum+
+         (r.partial?" · 已知子集小计（非全量）":" · 完整作用域合计")+
+         "，按唯一输出 ObjectRef 求和而非 Bridge 物理行";
+   }
+   $("#page-number").textContent=r.op!=="PAGE"?"聚合结果不分页":"第 "+r.page+" / "+Math.max(1,r.objects.length)+" 页 · 同一冻结成员";
+   $("#next-page").disabled=r.op!=="PAGE"||r.page>=r.objects.length;
+ }
+ function next(){
+   if(!state.lastResult)return;
+   const fault=$("#query-fault").value;
+   if(fault==="revoke-bridge"){fail("403 SOURCE_NOT_ALLOWED","翻页时 BRIDGE SELECT 撤销；旧 cursor 被永久废止");return;}
+   if(fault==="drift-bridge"){fail("409 LINK_SOURCE_SCHEMA_DRIFT","翻页时 BRIDGE 指纹漂移；旧 cursor 不可再用");return;}
+   if(fault==="expired"){fail("410 RESULT_EXPIRED","来源恢复后仍不能复活之前签发的 cursor");return;}
+   state.lastResult.page+=1;renderPage();
+ }
+ function renderEvidence(){
+   // Source table identities and version grants are not public error evidence.
+   // Show the role cards and execution version lock only on a valid success.
+   const successful=!!state.lastResult&&!state.failure;
+   $("#three-read-roles").hidden=!successful;
+   $("#execution-lock").hidden=!successful;
+   const mappingInUse=state.saved?.mapping||original;
+   $("#evidence-source-version").textContent="Binding "+mappingInUse.source+" · READ ONLY · 同一 PG";
+   $("#evidence-target-version").textContent="Binding "+mappingInUse.target+" · READ ONLY · 同一 PG";
+   if(state.failure){
+     $("#failure-evidence").hidden=false;
+     setStatus("failure-evidence","bad","旧结果已失效 · "+state.failure.code,
+        state.failure.message+"；旧快照不会复用。必须确认 Bridge 当前授权/指纹，再发起新查询。");
+     setStatus("evidence-summary","warn","错误证据而非查询结果","撤权/漂移失败不返回对象、LinkFact 或敏感桥表明细。下方按钮仅模拟授权/结构已被外部修复，并显式签发新执行；不能复活旧 cursor。");
+     return;
+   }
+   $("#failure-evidence").hidden=true;
+   if(state.lastResult){
+     const r=state.lastResult;
+     $("#lock-link").textContent="S-042 / order-equipment / LinkBinding r"+state.revision+" · "+r.dir+" / "+r.roots.join(",");
+     $("#lock-reads").textContent="SRC-DEMO-"+r.execution+" / TGT-DEMO-"+r.execution+" / BRG-DEMO-"+r.execution;
+     $("#lock-fp").textContent="FP-SRC-DEMO / FP-TGT-DEMO / FP-BRG-DEMO · freshness UNKNOWN";
+     setStatus("evidence-summary","good","已冻结的模拟执行 "+r.execution,
+        "三方 schemaFingerprint + 两端 Object Binding/一条 LinkBinding 版本锁；"+
+        r.quality+"；可确认孤儿 pair "+r.orphanCount+"；Bridge duplicatePairRows "+r.duplicates+
+        "；SOURCE/TARGET/BRIDGE SourceReadRef 各一，freshness UNKNOWN。");
+   }else{
+     setStatus("evidence-summary","","暂无可执行证据","保存配置不是一次真实关联查询，请先明确运行 ObjectSet。");
+   }
+ }
+ $$("[data-nav]").forEach(x=>x.addEventListener("click",()=>navigate(x.dataset.nav)));
+ $$("[data-stage]").forEach(x=>x.addEventListener("click",()=>navigate(x.dataset.stage)));
+ ["source-binding","target-binding","bridge-table","source-fk","target-fk"].forEach(id=>$("#"+id).addEventListener("change",change));
+ $("#open-config").onclick=()=>navigate("config");
+ $("#to-validate").onclick=()=>{navigate("validate",false);resetValidation();};
+ $("#restore-config").onclick=discard;
+ $("#back-to-config").onclick=()=>navigate("config",false);
+ $("#run-validation").onclick=()=>requestValidation();
+ $("#validation-scenario").onchange=()=>{
+   resetValidation();
+   state.validationScenario=null;
+   $("#validation-coverage").textContent="UNVERIFIED · 场景已更改";
+ };
+ $("#continue-save").onclick=()=>{navigate("save",false);$("#save-versions").textContent=mapping().source+" + "+mapping().target+" · FULL";$("#save-mapping").textContent=mapping().table+" · "+mapping().sourceFk+" / "+mapping().targetFk;$("#commit-binding").disabled=!state.validated;};
+ $("#commit-binding").onclick=save;
+ $("#lookup-operation").onclick=commitReceipt;
+ $("#reopen-revision").onclick=reopen;
+ $("#to-query").onclick=()=>navigate("query",false);
+ $("#query-direction").onchange=refreshRoots;
+ ["query-root","root-mode","result-operation","target-filter","aggregate-property"].forEach(id=>$("#"+id).addEventListener("change",updateRoot));
+ $("#run-query").onclick=()=>requestQuery();
+ $("#next-page").onclick=next;
+ $("#open-evidence").onclick=()=>navigate("evidence",false);
+ $("#edit-mapping").onclick=()=>navigate("config");
+ $("#repair-config").onclick=()=>navigate("config",false);
+ $("#retry-query").onclick=()=>{$("#query-fault").value="none";if(navigate("query"))requestQuery();};
+ // UX-High's request controller intentionally simulates latency and cancellation.
+ // Every async callback is guarded by a generation token; stale responses
+ // cannot overwrite current filters, roots, version locks, or revoked evidence.
+ const isVisible=n=>!$("#view-"+n).hidden;
+ function setAsync(id,status,details){
+   const el=$("#"+id);
+   el.className="asyncbar"+(status==="LOADING"?" busy":status==="CANCELLED"||status==="FAILED"?" error":"");
+   el.replaceChildren();
+   const a=document.createElement("strong"),b=document.createElement("span");
+   a.textContent=details;b.textContent=status;el.append(a,b);
+ }
+ function abortQuery(reason="请求已取消；旧回包不能覆盖新选择",clear=true){
+   state.queryGeneration++;
+   if(state.queryPending){
+     state.queryPending=false;state.asyncDiscarded++;
+     setAsync("query-async","CANCELLED",reason);
+     if(clear)clearVisibleResult(reason);
+   }
+   $("#cancel-query").disabled=true;
+   $("#run-query").disabled=false;
+ }
+ function abortValidation(reason="来源输入改变，旧 FULL 响应失效"){
+   state.validationGeneration++;
+   if(state.validationPending){
+     state.validationPending=false;state.asyncDiscarded++;
+     setAsync("validation-async","CANCELLED",reason);
+     resetValidation();
+   }
+   $("#run-validation").disabled=false;
+ }
+ function requestValidation(){
+   abortValidation();
+   const gen=++state.validationGeneration;
+   if($("#validation-pace").value==="slow"){
+     state.validationPending=true;
+     resetValidation();
+     $("#run-validation").disabled=true;
+     setAsync("validation-async","LOADING","只读校验中 · SOURCE/TARGET/BRIDGE，同一快照候选");
+     window.setTimeout(()=>{
+       if(gen!==state.validationGeneration||!state.validationPending)return;
+       state.validationPending=false;$("#run-validation").disabled=false;
+       validation();
+       setAsync("validation-async",state.validated?"COMPLETE":"FAILED","本次 FULL 请求已返回 · 资格随来源输入冻结");
+     },320);
+   }else{
+     validation();
+     setAsync("validation-async",state.validated?"COMPLETE":"FAILED","本次 FULL 请求已返回 · 只读、不写入");
+   }
+ }
+ function requestQuery(){
+   abortQuery("新查询取代之前未完成的请求",false);
+   const gen=++state.queryGeneration;
+   if($("#query-fault").value==="slow"){
+     if(!state.saved||state.saveUnknown){query();return;}
+     state.queryPending=true;
+     clearVisibleResult("RUNNING · 查询来源/版本/权限校验中");
+     $("#cancel-query").disabled=false;
+     setAsync("query-async","LOADING","对象集合查询执行中 · 三表单一受控读取");
+     window.setTimeout(()=>{
+       if(gen!==state.queryGeneration||!state.queryPending)return;
+       state.queryPending=false;$("#cancel-query").disabled=true;
+       const prior=$("#query-fault").value;
+       if(prior!=="slow"){setAsync("query-async","CANCELLED","输入已变；拒绝延迟响应");return;}
+       $("#query-fault").value="none";
+       query();
+       $("#query-fault").value="slow";
+       setAsync("query-async",state.lastResult?"COMPLETE":"FAILED","延迟请求已完成，生成独立执行证据");
+     },380);
+   }else{
+     query();
+     setAsync("query-async",state.lastResult?"COMPLETE":"FAILED","同步模拟请求完成 · 不等于真实生产查询");
+   }
+ }
+ $("#cancel-query").onclick=()=>abortQuery("用户主动取消旧查询：没有成功结果快照");
+ ["query-direction","query-root","root-mode","result-operation","aggregate-property","target-filter","query-fault"].forEach(id=>
+   $("#"+id).addEventListener("change",()=>abortQuery("查询条件变化：丢弃旧请求")));
+ ["source-binding","target-binding","bridge-table","source-fk","target-fk","validation-scenario"].forEach(id=>
+   $("#"+id).addEventListener("change",()=>abortValidation()));
+ $("#reset-demo").onclick=()=>{
+   if((state.dirty||state.saveUnknown||state.queryPending||state.validationPending)&&
+      !window.confirm("重置将丢弃未保存草稿、未知提交恢复入口及模拟执行。确定重置吗？"))return;
+   abortQuery("用户重置演示，取消未完成请求",false);
+   abortValidation("用户重置演示，取消未完成 FULL");
+   window.location.reload();
+ };
+ // Explicit tab -> panel semantics for keyboard and screen-reader navigation.
+ $$("[data-stage]").forEach((tab,index,items)=>{
+   const panel=$("#view-"+tab.dataset.stage);
+   tab.setAttribute("aria-controls",panel.id);tab.setAttribute("tabindex",tab.getAttribute("aria-selected")==="true"?"0":"-1");
+   panel.setAttribute("role","tabpanel");panel.setAttribute("aria-labelledby",tab.id);
+   tab.addEventListener("keydown",evt=>{
+     let next=evt.key==="ArrowRight"?(index+1)%items.length:evt.key==="ArrowLeft"?(index+items.length-1)%items.length:null;
+     if(next!==null){evt.preventDefault();items[next].focus();items[next].click();}
+   });
+ });
+ const oldNavigate=navigate;
+ // Navigation happens in the existing handler first. Only if it succeeds
+ // may the high-fidelity async controller retire an obsolete in-flight result.
+ $$("[data-stage], [data-nav]").forEach(el=>el.addEventListener("click",()=>{
+   if(state.view!=="query"&&state.queryPending)abortQuery("离开查询工作区，旧请求结果已取消");
+   if(state.view!=="validate"&&state.validationPending)abortValidation("离开 FULL 核验工作区，旧校验已取消");
+   $$("[data-stage]").forEach(t=>t.tabIndex=t.getAttribute("aria-selected")==="true"?0:-1);
+ }));
+ refreshRoots();navigate("config",false);
+ window.__m82uxHigh={getState:()=>({view:state.view,dirty:state.dirty,validated:state.validated,validationQuality:state.validationQuality,
+  revision:state.revision,saved:!!state.saved,saveUnknown:state.saveUnknown,operationId:state.operationId,
+  savedMapping:state.saved?{...state.saved.mapping}:null,savedScenario:state.saved?.scenario||null,
+  execution:state.lastResult?.execution||null,snapshot:state.lastResult?.snapshot||null,retired:[...state.retired],
+  failure:state.failure,qualityResult:state.lastResult?.quality||null,duplicates:state.lastResult?.duplicates||0,
+  objectCount:state.lastResult?.objects.length||0,linkCount:state.lastResult?.rows.length||0,
+  queryPending:state.queryPending,validationPending:state.validationPending,asyncDiscarded:state.asyncDiscarded})};
+})();
+</script>
+</body>
+</html>

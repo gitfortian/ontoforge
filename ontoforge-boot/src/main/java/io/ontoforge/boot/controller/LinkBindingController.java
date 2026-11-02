@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ontoforge.business.connection.DataBindingService.BindingFailure;
 import io.ontoforge.business.connection.LinkBindingService;
+import io.ontoforge.business.connection.BridgeLinkBindingService;
 import io.ontoforge.business.connection.LinkBindingService.LinkFailure;
 import io.ontoforge.business.model.NativeDraftService.DraftFailure;
 import io.ontoforge.dao.connection.LinkBindingRepository;
@@ -38,29 +39,34 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @RequestMapping("/api/runtime/link-bindings")
 public class LinkBindingController {
     private final LinkBindingService service;
+    private final BridgeLinkBindingService bridge;
     private final ObjectMapper mapper;
 
-    public LinkBindingController(LinkBindingService service, ObjectMapper mapper) {
+    public LinkBindingController(LinkBindingService service,
+            BridgeLinkBindingService bridge, ObjectMapper mapper) {
         this.service = service;
+        this.bridge = bridge;
         this.mapper = mapper;
     }
 
     @PostMapping("/validate")
-    public LinkBindingService.LinkValidation validate(
-            @RequestBody JsonNode body, Authentication auth) {
-        return service.validate(parse(body), auth);
+    public Object validate(@RequestBody JsonNode body, Authentication auth) {
+        return isBridgeV2(body) ? bridge.validate(parseBridge(body), auth)
+                : service.validate(parse(body), auth);
     }
 
     @PostMapping
-    public ResponseEntity<LinkBindingService.LinkDetail> create(
-            @RequestBody JsonNode body, Authentication auth) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.create(parse(body), auth));
+    public ResponseEntity<?> create(@RequestBody JsonNode body, Authentication auth) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                isBridgeV2(body) ? bridge.create(parseBridge(body), auth)
+                        : service.create(parse(body), auth));
     }
 
     @PutMapping("/{linkBindingId}")
-    public LinkBindingService.LinkDetail update(@PathVariable UUID linkBindingId,
+    public Object update(@PathVariable UUID linkBindingId,
             @RequestBody JsonNode body, Authentication auth) {
-        return service.update(linkBindingId, parse(body), auth);
+        return isBridgeV2(body) ? bridge.update(linkBindingId, parseBridge(body), auth)
+                : service.update(linkBindingId, parse(body), auth);
     }
 
     @GetMapping
@@ -70,10 +76,43 @@ public class LinkBindingController {
     }
 
     @GetMapping("/{linkBindingId}")
-    public LinkBindingService.LinkDetail get(@PathVariable UUID linkBindingId,
+    public Object get(@PathVariable UUID linkBindingId,
             @RequestParam String packageId, @RequestParam(required = false) Long revision,
             Authentication auth) {
-        return service.get(linkBindingId, packageId, revision, auth);
+        try {
+            return service.get(linkBindingId, packageId, revision, auth);
+        } catch (LinkFailure ex) {
+            if (!"LINK_BINDING_MODE_MISMATCH".equals(ex.code)) throw ex;
+            return bridge.get(linkBindingId, packageId, revision, auth);
+        }
+    }
+
+    private static boolean isBridgeV2(JsonNode body) {
+        return body != null && "local-link-binding-v2".equals(body.path("contractVersion").asText());
+    }
+
+    private BridgeLinkBindingService.Request parseBridge(JsonNode body) {
+        if (body == null || !body.isObject()
+                || !fieldsOnly(body, Set.of("contractVersion", "modelSourceRef", "packageId",
+                        "linkTypeId", "sourceBindingRef", "targetBindingRef", "mode",
+                        "bridgeSourceRef", "expectedRevision", "idempotencyKey",
+                        "expectedSchemaFingerprints", "validationScope"))
+                || !fieldsOnly(body.path("modelSourceRef"), Set.of("kind", "snapshotId"))
+                || !fieldsOnly(body.path("sourceBindingRef"), Set.of("bindingId", "revision", "digest"))
+                || !fieldsOnly(body.path("targetBindingRef"), Set.of("bindingId", "revision", "digest"))
+                || !fieldsOnly(body.path("bridgeSourceRef"),
+                        Set.of("sourceId", "schema", "table", "sourceFkColumn", "targetFkColumn"))
+                || !fieldsOnly(body.path("expectedSchemaFingerprints"), Set.of("source", "target", "bridge"))
+                || !fieldsOnly(body.path("validationScope"), Set.of("kind", "coverage"))) {
+            throw new LinkFailure(422, "MALFORMED_LINK_CONTRACT",
+                    "Bridge 请求包含未批准字段或缺少必需对象", "request");
+        }
+        try {
+            return mapper.treeToValue(body, BridgeLinkBindingService.Request.class);
+        } catch (JsonProcessingException | IllegalArgumentException ex) {
+            throw new LinkFailure(422, "MALFORMED_LINK_CONTRACT",
+                    "Bridge v2 字段值或身份引用无法解析", "request");
+        }
     }
 
     private LinkBindingService.LinkRequest parse(JsonNode body) {

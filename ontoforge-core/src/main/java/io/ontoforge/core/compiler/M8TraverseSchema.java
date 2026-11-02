@@ -17,6 +17,7 @@ import com.networknt.schema.dialect.Dialects;
 public final class M8TraverseSchema {
     private static final Schema QUERY = load("local-query-v2.candidate.schema.json");
     private static final Schema RESULT = load("local-result-v2.candidate.schema.json");
+    private static final Schema BRIDGE_RESULT = load("local-result-v2-bridge.candidate.schema.json");
 
     private M8TraverseSchema() {}
 
@@ -33,6 +34,10 @@ public final class M8TraverseSchema {
 
     public static boolean validQuery(JsonNode request) {
         return request != null && QUERY.validate(request.toString(), InputFormat.JSON).isEmpty();
+    }
+
+    public static boolean validBridgeResult(JsonNode result) {
+        return result != null && BRIDGE_RESULT.validate(result.toString(), InputFormat.JSON).isEmpty();
     }
 
     public static boolean validResult(JsonNode result) {

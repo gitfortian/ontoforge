@@ -49,7 +49,7 @@ class LinkTraverseRealBrowserTest(unittest.TestCase):
     def test_m8_is_integrated_not_a_separate_menu_and_empty_state_is_safe(self):
         page = self.page
         self.assertEqual(page.locator(".sidebar .nav-link").filter(has_text="M8").count(), 0)
-        panel = page.get_by_role("region", name="关系与一跳遍历 M8.1")
+        panel = page.get_by_role("region", name="关系与一跳遍历 M8")
         self.assertEqual(panel.count(), 1)
         panel.get_by_role("button", name="展开关系工作台").click()
         panel.get_by_text("1 选择关系与端点").wait_for()

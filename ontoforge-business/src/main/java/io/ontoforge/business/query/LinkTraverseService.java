@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.ontoforge.business.connection.DataBindingService;
 import io.ontoforge.business.connection.LinkBindingService;
+import io.ontoforge.business.connection.BridgeLinkBindingService;
 import io.ontoforge.business.model.NativeSnapshotService;
 import io.ontoforge.core.compiler.M8TraverseSchema;
 import io.ontoforge.platform.identity.B0AuthorizationService;
@@ -67,6 +68,7 @@ public class LinkTraverseService {
     private static final long MAX_FROZEN_JSON_BYTES = 16L * 1024 * 1024;
 
     private final LinkBindingService links;
+    private final BridgeLinkBindingService bridge;
     private final DataBindingService bindings;
     private final NativeSnapshotService snapshots;
     private final B0AuthorizationService authorization;
@@ -81,14 +83,16 @@ public class LinkTraverseService {
             String linkId, long linkRevision, String linkDigest,
             String sourceBindingId, long sourceRevision, String sourceDigest,
             String targetBindingId, long targetRevision, String targetDigest,
-            String sourceFingerprint, String targetFingerprint) {}
+            String sourceFingerprint, String targetFingerprint,
+            String bridgeTable, String bridgeFingerprint) {}
 
-    public LinkTraverseService(LinkBindingService links, DataBindingService bindings,
+    public LinkTraverseService(LinkBindingService links, BridgeLinkBindingService bridge, DataBindingService bindings,
             NativeSnapshotService snapshots, B0AuthorizationService authorization,
             @Qualifier("bindingSourceJdbcTemplate") ObjectProvider<JdbcTemplate> sourceProvider,
             ObjectMapper mapper,
             @Value("${ontoforge.objectset.cursor-signing-secret:}") String cursorSigningSecret) {
         this.links = links;
+        this.bridge = bridge;
         this.bindings = bindings;
         this.snapshots = snapshots;
         this.authorization = authorization;
@@ -118,6 +122,8 @@ public class LinkTraverseService {
     private static final int MAX_ROOTS = 50;
     private record SourceRows(List<Fact> source, List<Fact> target, long bytes,
             Instant startedAt, Instant completedAt) {}
+    private record Pair(String source, String target) {}
+    private record BridgeRows(SourceRows endpoints, List<Pair> pairs) {}
     private record Requested(String packageId, String snapshotId, String rootTypeId,
             String rootBindingId, long rootBindingRevision, String rootDomain,
             String rootKeyType, String rootKey, String selectorKind,
@@ -138,7 +144,7 @@ public class LinkTraverseService {
                     || System.nanoTime() > deadline) {
                 throw fail(System.nanoTime() > deadline ? 503 : 429,
                         System.nanoTime() > deadline ? "QUERY_TIMEOUT" : "QUERY_BUDGET_EXCEEDED",
-                        "双端真实来源扫描超过总预算，不会以截断结果返回成功", "limits");
+                        "来源物理扫描超过统一预算，不会以截断结果返回成功", "limits");
             }
         }
     }
@@ -169,8 +175,29 @@ public class LinkTraverseService {
         if (!snapshot.packageId().equals(request.packageId())) {
             throw fail(409, "TRAVERSE_SNAPSHOT_MISMATCH", "请求包和不可变模型快照不符", "rootTypeRef");
         }
-        LinkBindingService.LinkDetail link = links.get(UUID.fromString(request.linkBindingId()),
-                request.packageId(), request.linkBindingRevision(), auth);
+        // The v1 FK detail cannot silently omit the third Bridge source. Only
+        // its explicit mode mismatch selects the separately authorized v2 path.
+        BridgeLinkBindingService.Detail bridgeLink = null;
+        LinkBindingService.LinkDetail link;
+        try {
+            link = links.get(UUID.fromString(request.linkBindingId()),
+                    request.packageId(), request.linkBindingRevision(), auth);
+        } catch (LinkBindingService.LinkFailure mismatch) {
+            if (!"LINK_BINDING_MODE_MISMATCH".equals(mismatch.code)) throw mismatch;
+            bridgeLink = bridge.get(UUID.fromString(request.linkBindingId()),
+                    request.packageId(), request.linkBindingRevision(), auth);
+            link = new LinkBindingService.LinkDetail(
+                    bridgeLink.linkBindingId(), bridgeLink.revision(), bridgeLink.packageId(),
+                    bridgeLink.snapshotId(), bridgeLink.linkTypeId(), bridgeLink.digest(),
+                    bridgeLink.historical(), bridgeLink.validationStatus(),
+                    null, null, null,
+                    bridgeLink.sourceBindingId(), bridgeLink.sourceBindingRevision(),
+                    bridgeLink.sourceBindingDigest(), bridgeLink.targetBindingId(),
+                    bridgeLink.targetBindingRevision(), bridgeLink.targetBindingDigest(),
+                    bridgeLink.modelPayloadSha256(), bridgeLink.linkTypeHash(),
+                    bridgeLink.sourceSchemaFingerprint(), bridgeLink.targetSchemaFingerprint(),
+                    bridgeLink.validationScope(), bridgeLink.validationQuality(), bridgeLink.checkedAt());
+        }
         if (link.historical() || !link.snapshotId().equals(request.snapshotId())
                 || !link.linkTypeId().equals(request.linkTypeId())
                 || !link.modelPayloadSha256().equals(snapshot.payloadSha256())
@@ -232,7 +259,16 @@ public class LinkTraverseService {
         String targetFk = "TARGET".equals(link.fkOwner()) ? link.fkSourceColumn() : null;
         ensureColumn(left, sourceBinding.sourceKey());
         ensureColumn(right, targetBinding.sourceKey());
-        if (sourceFk != null) {
+        if (bridgeLink != null) {
+            DataBindingService.SourceTable third = tables.get(bridgeLink.bridgeSourceRef().table());
+            if (third == null || !Objects.equals(third.schemaFingerprint(),
+                    bridgeLink.bridgeSchemaFingerprint())) {
+                throw fail(409, "LINK_SOURCE_SCHEMA_DRIFT",
+                        "第三来源不可见或结构已变化", "steps");
+            }
+            ensureColumn(third, bridgeLink.bridgeSourceRef().sourceFkColumn());
+            ensureColumn(third, bridgeLink.bridgeSourceRef().targetFkColumn());
+        } else if (sourceFk != null) {
             ensureColumn(left, sourceFk);
             if (!targetBinding.sourceKey().equals(link.referencedIdentityColumn())) {
                 throw fail(409, "LINK_MAPPING_DRIFT", "已保存 FK 与被引用身份列不符", "steps");
@@ -253,8 +289,16 @@ public class LinkTraverseService {
         if (request.aggregateProperty() != null) outputFields.add(request.aggregateProperty());
         targetColumns.putAll(mappedResultColumns(output, snapshot.snapshotContent(),
                 outputFields, out ? right : left));
-        SourceRows rows = readSource(request, sourceBinding, targetBinding, sourceFk, targetFk,
-                out ? rootColumns : targetColumns, out ? targetColumns : rootColumns, deadline);
+        BridgeRows bridgeRows = null;
+        SourceRows rows;
+        if (bridgeLink == null) {
+            rows = readSource(request, sourceBinding, targetBinding, sourceFk, targetFk,
+                    out ? rootColumns : targetColumns, out ? targetColumns : rootColumns, deadline);
+        } else {
+            bridgeRows = readBridgeSource(request, sourceBinding, targetBinding, bridgeLink,
+                    out ? rootColumns : targetColumns, out ? targetColumns : rootColumns, deadline, auth);
+            rows = bridgeRows.endpoints();
+        }
         Map<String, Fact> leftIndex = uniqueIndex(rows.source());
         Map<String, Fact> rightIndex = uniqueIndex(rows.target());
         Map<String, Fact> rootIndex = out ? leftIndex : rightIndex;
@@ -277,6 +321,13 @@ public class LinkTraverseService {
 
         String readSourceId = UUID.randomUUID().toString();
         String readTargetId = UUID.randomUUID().toString();
+        String readBridgeId = bridgeLink == null ? null : UUID.randomUUID().toString();
+        // R2-A04: source-quality counters on a TRAVERSAL_SCOPE belong to
+        // this user's selected roots, not unrelated pairs in the full bridge.
+        // The saved FULL report is immutable and must not be reused as current facts.
+        int bridgeDuplicateRows = 0;
+        Set<Pair> scopedMatchedPairs = new HashSet<>();
+        Set<Pair> scopedOrphanPairs = new HashSet<>();
         ArrayNode resultObjects = mapper.createArrayNode();
         ArrayNode resultLinks = mapper.createArrayNode();
         Set<String> distinctOutput = new HashSet<>();
@@ -286,6 +337,39 @@ public class LinkTraverseService {
         int candidates = 0;
         // Iterate saved SOURCE/TARGET roles; traversal direction only determines
         // membership of the requested root and which endpoint is returned.
+        if (bridgeRows != null) {
+            for (Pair pair : bridgeRows.pairs()) {
+                if (System.nanoTime() > deadline) {
+                    throw fail(503, "QUERY_TIMEOUT", "Bridge 一跳执行已超时", "limits");
+                }
+                if (pair.source() == null || pair.target() == null) continue;
+                Fact src = leftIndex.get(pair.source());
+                Fact dst = rightIndex.get(pair.target());
+                boolean selected = out ? selectedRoots.contains(pair.source())
+                        : selectedRoots.contains(pair.target());
+                if (!selected) continue;
+                // Only an orphan attached to a *selected* root makes this
+                // query PARTIAL; unrelated broken Bridge rows do not infect it.
+                if (src == null || dst == null) {
+                    if (((out && src != null) || (!out && dst != null))
+                            && scopedOrphanPairs.add(pair)) orphans++;
+                    continue;
+                }
+                if (++candidates > request.maxJoin()) {
+                    throw fail(429, "QUERY_BUDGET_EXCEEDED", "Bridge Join 候选超过预算", "limits");
+                }
+                if (!matches(out ? dst : src, request.targetConditions())) continue;
+                if (!scopedMatchedPairs.add(pair)) bridgeDuplicateRows++;
+                int before = resultLinks.size();
+                addEdge(request, link, sourceBinding, targetBinding, src, dst,
+                        outputKeyType, sourceKeyType, targetKeyType, out, readSourceId, readTargetId,
+                        distinctOutput, distinctLink, resultObjects, resultLinks);
+                if (resultLinks.size() > before) {
+                    ((ArrayNode) resultLinks.get(resultLinks.size() - 1)
+                            .path("sourceReadRefs")).add(readBridgeId);
+                }
+            }
+        } else {
         for (Fact source : rows.source()) {
             if (System.nanoTime() > deadline) throw fail(503, "QUERY_TIMEOUT", "一跳执行已超时", "limits");
             if (sourceFk != null) {
@@ -327,6 +411,7 @@ public class LinkTraverseService {
                             distinctOutput, distinctLink, resultObjects, resultLinks);
                 }
             }
+        }
         }
         if (candidates > request.maxJoin() || distinctLink.size() > request.maxLinks()) {
             throw fail(429, "QUERY_BUDGET_EXCEEDED", "一跳候选或 LinkFact 超过预算", "limits");
@@ -370,6 +455,15 @@ public class LinkTraverseService {
         ArrayNode fingerprints = mapper.createArrayNode();
         fingerprint(fingerprints, sourceBinding, left, "SOURCE");
         fingerprint(fingerprints, targetBinding, right, "TARGET");
+        if (bridgeLink != null) {
+            DataBindingService.SourceTable third = tables.get(bridgeLink.bridgeSourceRef().table());
+            ObjectNode fp = fingerprints.addObject();
+            fp.put("sourceId", bridgeLink.bridgeSourceRef().sourceId());
+            fp.put("schema", "public");
+            fp.put("table", third.table());
+            fp.put("schemaFingerprint", third.schemaFingerprint());
+            fp.put("role", "BRIDGE");
+        }
         ObjectNode versionLock = mapper.createObjectNode();
         versionLock.put("snapshotId", request.snapshotId());
         versionLock.put("payloadSha256", snapshot.payloadSha256());
@@ -381,6 +475,24 @@ public class LinkTraverseService {
                 out ? rootColumns : targetColumns, "SOURCE", rows.startedAt(), rows.completedAt());
         sourceRead(sourceReadRefs, readTargetId, targetBinding, right, targetFk,
                 out ? targetColumns : rootColumns, "TARGET", rows.startedAt(), rows.completedAt());
+        if (bridgeLink != null) {
+            ObjectNode third = sourceReadRefs.addObject();
+            third.put("id", readBridgeId);
+            third.put("role", "BRIDGE");
+            third.put("sourceId", bridgeLink.bridgeSourceRef().sourceId());
+            third.put("schema", "public");
+            third.put("table", bridgeLink.bridgeSourceRef().table());
+            ArrayNode cols = third.putArray("columns");
+            cols.add(bridgeLink.bridgeSourceRef().sourceFkColumn());
+            cols.add(bridgeLink.bridgeSourceRef().targetFkColumn());
+            third.put("schemaFingerprint", bridgeLink.bridgeSchemaFingerprint());
+            third.put("transactionIsolation", "REPEATABLE_READ");
+            ObjectNode checkpoint = third.putObject("checkpoint");
+            checkpoint.put("status", "UNKNOWN");
+            checkpoint.put("reason", "SOURCE_CURRENT_STATE_NOT_HISTORICALLY_ATTESTED");
+            third.put("startedAt", rows.startedAt().toString());
+            third.put("completedAt", rows.completedAt().toString());
+        }
 
         ObjectNode result = mapper.createObjectNode();
         result.put("status", "SUCCESS");
@@ -405,8 +517,13 @@ public class LinkTraverseService {
         quality.put("answerScope", orphans == 0 ? "REQUESTED_SCOPE" : "KNOWN_SUBSET");
         quality.put("scopeKind", "TRAVERSAL_SCOPE");
         quality.put("knownOrphanCount", orphans);
+        if (bridgeLink != null) {
+            result.put("linkMappingMode", "BRIDGE_TABLE");
+            result.put("bridgeDuplicatePairRowCount", bridgeDuplicateRows);
+        }
         ObjectNode budget = result.putObject("budget");
-        budget.put("physicalRows", rows.source().size() + rows.target().size());
+        budget.put("physicalRows", rows.source().size() + rows.target().size()
+                + (bridgeRows == null ? 0 : bridgeRows.pairs().size()));
         budget.put("joinCandidates", candidates);
         budget.put("distinctObjects", distinctOutput.size());
         budget.put("distinctLinks", distinctLink.size());
@@ -468,9 +585,15 @@ public class LinkTraverseService {
             throw fail(429, "QUERY_BUDGET_EXCEEDED", "响应超过 8MiB 预算", "limits");
         }
         // Final current evidence recheck BEFORE a successful payload escapes.
-        LinkBindingService.LinkDetail current = links.get(
-                UUID.fromString(link.linkBindingId()), request.packageId(), link.revision(), auth);
-        if (!current.digest().equals(link.digest())) {
+        String currentDigest;
+        if (bridgeLink == null) {
+            currentDigest = links.get(UUID.fromString(link.linkBindingId()),
+                    request.packageId(), link.revision(), auth).digest();
+        } else {
+            currentDigest = bridge.get(UUID.fromString(link.linkBindingId()),
+                    request.packageId(), link.revision(), auth).digest();
+        }
+        if (!currentDigest.equals(link.digest())) {
             throw fail(409, "LINK_VERSION_UNAVAILABLE", "查询执行期间关系版本变化", "steps");
         }
         if (System.nanoTime() > deadline) throw fail(503, "QUERY_TIMEOUT", "来源执行整体超时", "limits");
@@ -481,7 +604,9 @@ public class LinkTraverseService {
                 link.linkBindingId(), link.revision(), link.digest(),
                 sourceBinding.bindingId(), sourceBinding.revision(), sourceBinding.digest(),
                 targetBinding.bindingId(), targetBinding.revision(), targetBinding.digest(),
-                left.schemaFingerprint(), right.schemaFingerprint());
+                left.schemaFingerprint(), right.schemaFingerprint(),
+                bridgeLink == null ? null : bridgeLink.bridgeSourceRef().table(),
+                bridgeLink == null ? null : bridgeLink.bridgeSchemaFingerprint());
         synchronized (frozen) {
             frozen.entrySet().removeIf(e -> !e.getValue().expiresAt().isAfter(Instant.now()));
             // Admission is synchronized with eviction and aggregate allocation.
@@ -627,10 +752,23 @@ public class LinkTraverseService {
                     .path("payloadSha256").asText())) {
             throw fail(409, "LINK_VERSION_UNAVAILABLE", "模型快照身份已变化", "cursor");
         }
-        LinkBindingService.LinkDetail link = links.get(UUID.fromString(saved.linkId()),
-                saved.pkg(), saved.linkRevision(), auth);
-        if (link.historical() || !saved.linkDigest().equals(link.digest())) {
-            throw fail(409, "LINK_VERSION_UNAVAILABLE", "关系修订已不再可执行", "cursor");
+        if (saved.bridgeTable() == null) {
+            LinkBindingService.LinkDetail link = links.get(UUID.fromString(saved.linkId()),
+                    saved.pkg(), saved.linkRevision(), auth);
+            if (link.historical() || !saved.linkDigest().equals(link.digest())) {
+                throw fail(409, "LINK_VERSION_UNAVAILABLE", "关系修订已不再可执行", "cursor");
+            }
+        } else {
+            // Current three-party grant, fingerprint and latest-revision check
+            // must happen for EVERY PAGE and evidence fetch. Once denied, caller
+            // removes the frozen record, so re-grant never resurrects cursor.
+            BridgeLinkBindingService.Detail link = bridge.get(UUID.fromString(saved.linkId()),
+                    saved.pkg(), saved.linkRevision(), auth);
+            if (link.historical() || !saved.linkDigest().equals(link.digest())
+                    || !Objects.equals(saved.bridgeFingerprint(), link.bridgeSchemaFingerprint())
+                    || !Objects.equals(saved.bridgeTable(), link.bridgeSourceRef().table())) {
+                throw fail(409, "LINK_VERSION_UNAVAILABLE", "Bridge 冻结版本/三方来源不再有效", "cursor");
+            }
         }
         DataBindingService.BindingDetail a = bindings.getBinding(UUID.fromString(saved.sourceBindingId()),
                 saved.sourceRevision(), auth);
@@ -729,7 +867,10 @@ public class LinkTraverseService {
     }
 
     private static void ensureResultContract(JsonNode result) {
-        if (!M8TraverseSchema.validResult(result)) {
+        boolean valid = result.has("linkMappingMode")
+                ? M8TraverseSchema.validBridgeResult(result)
+                : M8TraverseSchema.validResult(result);
+        if (!valid) {
             throw fail(503, "TRAVERSE_RESULT_CONTRACT_DRIFT",
                     "本次响应无法满足已冻结 v2 合同，已拒绝返回对象和来源证据", "result");
         }
@@ -1033,6 +1174,91 @@ public class LinkTraverseService {
         var names = node.fieldNames();
         while (names.hasNext()) if (!allowed.contains(names.next())) return false;
         return true;
+    }
+
+    /**
+     * Bridge mode reads both endpoints and the complete allowlisted bridge in
+     * ONE read-only REPEATABLE_READ source transaction. No user-supplied SQL,
+     * no cross-source join, and no partial success after exhausting budgets.
+     */
+    private BridgeRows readBridgeSource(Requested r, DataBindingService.BindingDetail a,
+            DataBindingService.BindingDetail b, BridgeLinkBindingService.Detail link,
+            Map<String, String> sourceColumns, Map<String, String> targetColumns,
+            long deadline, Authentication auth) {
+        JdbcTemplate jdbc = sourceProvider.getIfAvailable();
+        if (jdbc == null || jdbc.getDataSource() == null) {
+            throw fail(503, "SOURCE_UNAVAILABLE", "独立只读来源连接不存在", "steps");
+        }
+        Instant started = Instant.now();
+        try (Connection c = jdbc.getDataSource().getConnection()) {
+            c.setReadOnly(true);
+            c.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+            c.setAutoCommit(false);
+            try {
+                Set<String> names = new java.util.TreeSet<>(List.of(
+                        a.sourceTable(), b.sourceTable(), link.bridgeSourceRef().table()));
+                for (String table : names) {
+                    if (!IDENT.matcher(table).matches()) {
+                        throw fail(403, "SOURCE_NOT_ALLOWED", "不允许的来源表", "steps");
+                    }
+                    try (PreparedStatement lock = c.prepareStatement(
+                            "LOCK TABLE public.\"" + table + "\" IN ACCESS SHARE MODE")) {
+                        lock.setQueryTimeout(Math.max(1, r.timeout()));
+                        lock.execute();
+                    }
+                }
+                Map<String, DataBindingService.SourceTable> current = new HashMap<>();
+                bindings.listTables(r.packageId(), auth).forEach(t -> current.put(t.table(), t));
+                if (!Objects.equals(a.sourceSchemaFingerprint(),
+                        current.containsKey(a.sourceTable()) ? current.get(a.sourceTable()).schemaFingerprint() : null)
+                        || !Objects.equals(b.sourceSchemaFingerprint(),
+                            current.containsKey(b.sourceTable()) ? current.get(b.sourceTable()).schemaFingerprint() : null)
+                        || !Objects.equals(link.bridgeSchemaFingerprint(),
+                            current.containsKey(link.bridgeSourceRef().table())
+                                ? current.get(link.bridgeSourceRef().table()).schemaFingerprint() : null)) {
+                    throw fail(409, "LINK_SOURCE_SCHEMA_DRIFT",
+                            "三方表锁定后的当前来源证据不一致", "steps");
+                }
+                Budget budget = new Budget();
+                List<Fact> sourceRows = scan(c, a.sourceTable(), a.sourceKey(), null,
+                        sourceColumns, budget, r, deadline);
+                List<Fact> targetRows = scan(c, b.sourceTable(), b.sourceKey(), null,
+                        targetColumns, budget, r, deadline);
+                List<Pair> bridgePairs = scanBridge(c, link.bridgeSourceRef().table(),
+                        link.bridgeSourceRef().sourceFkColumn(),
+                        link.bridgeSourceRef().targetFkColumn(), budget, r, deadline);
+                return new BridgeRows(new SourceRows(sourceRows, targetRows, budget.bytes,
+                        started, Instant.now()), bridgePairs);
+            } finally {
+                c.rollback();
+            }
+        } catch (SQLException ex) {
+            throw fail(503, "SOURCE_UNAVAILABLE", "三方 Bridge 只读事务不可用", "steps");
+        }
+    }
+
+    private static List<Pair> scanBridge(Connection c, String table, String from,
+            String to, Budget budget, Requested r, long deadline) throws SQLException {
+        if (!IDENT.matcher(table).matches() || !IDENT.matcher(from).matches()
+                || !IDENT.matcher(to).matches() || from.equals(to)) {
+            throw fail(422, "LINK_MAPPING_DRIFT", "冻结 Bridge 列不是有效的两个不同列", "steps");
+        }
+        String sql = "SELECT \"" + from + "\", \"" + to
+                + "\" FROM public.\"" + table + "\" LIMIT ?";
+        List<Pair> result = new ArrayList<>();
+        try (PreparedStatement statement = c.prepareStatement(sql)) {
+            statement.setFetchSize(10);
+            statement.setQueryTimeout(Math.max(1, r.timeout()));
+            statement.setInt(1, r.maxRows() + 1);
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    Pair row = new Pair(value(rs.getObject(1)), value(rs.getObject(2)));
+                    budget.accept(new Fact(row.source(), row.target(), Map.of()), r, deadline);
+                    result.add(row);
+                }
+            }
+        }
+        return result;
     }
 
     private SourceRows readSource(Requested r, DataBindingService.BindingDetail a,

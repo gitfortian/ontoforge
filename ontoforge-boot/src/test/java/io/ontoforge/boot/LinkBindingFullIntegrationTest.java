@@ -46,13 +46,14 @@ class LinkBindingFullIntegrationTest {
     private static final String PASSWORD = "m5_test_reader_only";
     private static final String EQUIPMENT = "m8_equipment_source";
     private static final String INSPECTION = "m8_inspection_source";
+    private static final String BRIDGE = "m8_equipment_inspection_bridge";
 
     @DynamicPropertySource
     static void sources(DynamicPropertyRegistry properties) {
         properties.add("ontoforge.binding.source.url", () -> System.getenv("TEST_DB_URL"));
         properties.add("ontoforge.binding.source.username", () -> "ontoforge_binding_login");
         properties.add("ontoforge.binding.source.password", () -> PASSWORD);
-        properties.add("ontoforge.binding.source.allowed-tables", () -> EQUIPMENT + "," + INSPECTION);
+        properties.add("ontoforge.binding.source.allowed-tables", () -> EQUIPMENT + "," + INSPECTION + "," + BRIDGE);
     }
 
     @Autowired NativeDraftService drafts;
@@ -77,6 +78,7 @@ class LinkBindingFullIntegrationTest {
                 """);
         jdbc.execute("ALTER ROLE ontoforge_binding_login WITH LOGIN PASSWORD 'm5_test_reader_only' NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT");
         jdbc.execute("GRANT ontoforge_binding_reader TO ontoforge_binding_login");
+        jdbc.execute("DROP TABLE IF EXISTS public." + BRIDGE);
         jdbc.execute("DROP TABLE IF EXISTS public." + INSPECTION);
         jdbc.execute("DROP TABLE IF EXISTS public." + EQUIPMENT);
         jdbc.execute("""
@@ -99,12 +101,25 @@ class LinkBindingFullIntegrationTest {
                        ('LOT-13',NULL,'HOLD',NULL),('LOT-14','EQ-NO','FAIL',40.00),
                        ('LOT-15','','FAIL',50.00)
                 """);
+        jdbc.execute("""
+                CREATE TABLE public.m8_equipment_inspection_bridge (
+                    equipment_code TEXT NULL, lot_code TEXT NULL)
+                """);
+        jdbc.execute("""
+                INSERT INTO public.m8_equipment_inspection_bridge(equipment_code, lot_code)
+                VALUES ('EQ-001','LOT-11'),('EQ-001','LOT-11'),('EQ-002','LOT-12'),
+                       (NULL,'LOT-13'),('EQ-001',NULL),(NULL,NULL),
+                       ('EQ-NO','LOT-11'),('EQ-001','LOT-NO'),('EQ-NO','LOT-NO')
+                """);
+        jdbc.execute("GRANT SELECT ON public." + BRIDGE + " TO ontoforge_binding_reader");
         jdbc.execute("GRANT SELECT ON public." + EQUIPMENT + " TO ontoforge_binding_reader");
         jdbc.execute("GRANT SELECT ON public." + INSPECTION + " TO ontoforge_binding_reader");
     }
 
     @AfterEach
     void teardown() {
+        jdbc.execute("GRANT SELECT ON public." + BRIDGE + " TO ontoforge_binding_reader");
+        jdbc.execute("DROP TABLE IF EXISTS public." + BRIDGE);
         jdbc.execute("DROP TABLE IF EXISTS public." + INSPECTION);
         jdbc.execute("DROP TABLE IF EXISTS public." + EQUIPMENT);
     }
@@ -900,6 +915,623 @@ class LinkBindingFullIntegrationTest {
         assertThat(result.path("budget").path("serializedResultBytes").asLong())
                 .as("UTF-8 bytes must include the final digit width of the budget field itself")
                 .isEqualTo(actual);
+    }
+
+    @Test
+    void bridgeV2RealPgHttpFullBucketsCasReplayRevokeAndBudget() throws Exception {
+        String pkg = "m8.bridge.p" + UUID.randomUUID().toString().replace("-", "");
+        NativeDraftService.DraftDetail draft = drafts.create(pkg);
+        ObjectNode editor = mapper.createObjectNode();
+        editor.put("editorSchemaVersion", "0.1.0");
+        ArrayNode types = editor.putArray("objectTypes");
+        addType(types, "equipment", "Equipment", "equipment-code", "equipmentCode",
+                "equipment-label", "label", "equipment-site", "site");
+        addType(types, "inspection-lot", "InspectionLot", "lot-code", "lotCode",
+                "equipment-ref", "equipmentRef", "inspection-status", "status");
+        decimalProperty((ArrayNode) types.get(1).path("properties"), "inspection-amount", "amount");
+        ArrayNode links = editor.putArray("linkTypes");
+        link(links, "equipment-inspections-bridge", "equipmentInspectionsBridge", "MANY_TO_MANY");
+        var saved = drafts.save(UUID.fromString(draft.draftId()), draft.revision(), editor);
+        assertThat(drafts.validate(UUID.fromString(draft.draftId()), saved.revision()).status())
+                .isEqualTo("VALID");
+        String snap = snapshots.freeze(UUID.fromString(draft.draftId()),
+                saved.revision(), UUID.randomUUID()).snapshot().snapshotId();
+        var equipment = createBinding(snap, "equipment", EQUIPMENT, "equipment_code",
+                new String[][]{{"equipment-code","equipment_code"},
+                        {"equipment-label","label"},{"equipment-site","site"}});
+        var lot = createBinding(snap, "inspection-lot", INSPECTION, "lot_code",
+                new String[][]{{"lot-code","lot_code"},{"equipment-ref","equipment_code"},
+                        {"inspection-status","status"}, {"inspection-amount","amount"}});
+        String bridgeFp = bindings.listTables(pkg, null).stream().filter(t -> BRIDGE.equals(t.table()))
+                .findFirst().orElseThrow().schemaFingerprint();
+        ObjectNode request = mapper.createObjectNode();
+        request.put("contractVersion", "local-link-binding-v2");
+        request.putObject("modelSourceRef").put("kind", "LOCAL_SNAPSHOT").put("snapshotId", snap);
+        request.put("packageId", pkg);
+        request.put("linkTypeId", "equipment-inspections-bridge");
+        ref(request.putObject("sourceBindingRef"), equipment);
+        ref(request.putObject("targetBindingRef"), lot);
+        request.put("mode", "BRIDGE_TABLE");
+        request.putObject("bridgeSourceRef")
+                .put("sourceId", "local-pg-sandbox").put("schema", "public")
+                .put("table", BRIDGE).put("sourceFkColumn", "equipment_code")
+                .put("targetFkColumn", "lot_code");
+        request.put("expectedRevision", 0);
+        request.put("idempotencyKey", UUID.randomUUID().toString());
+        request.putObject("expectedSchemaFingerprints")
+                .put("source", equipment.sourceSchemaFingerprint())
+                .put("target", lot.sourceSchemaFingerprint()).put("bridge", bridgeFp);
+        request.putObject("validationScope").put("kind", "VALIDATION_SCOPE")
+                .put("coverage", "FULL");
+
+        ResponseEntity<String> full = post("/validate", request);
+        assertThat(full.getStatusCode().value()).as(full.getBody()).isEqualTo(200);
+        JsonNode quality = mapper.readTree(full.getBody()).path("quality");
+        assertThat(quality.path("bridgePhysicalRows").asInt()).isEqualTo(9);
+        assertThat(quality.path("matchedPhysicalRows").asInt()).isEqualTo(3);
+        assertThat(quality.path("uniquePairCount").asInt()).isEqualTo(2);
+        assertThat(quality.path("duplicatePairRowCount").asInt()).isEqualTo(1);
+        for (String key : new String[]{"nullBoth","nullSourceOnly","nullTargetOnly",
+                "orphanSourceOnly","orphanTargetOnly","orphanBoth"}) {
+            assertThat(quality.path(key).asInt()).as(key).isEqualTo(1);
+        }
+        assertThat(mapper.readTree(full.getBody()).path("status").asText())
+                .isEqualTo("VALID_WITH_ORPHANS");
+
+        // T5 B05/C06: empty-string Bridge foreign keys are NOT SQL NULL.
+        // They are non-NULL values without a matching endpoint identity, and
+        // must land in the corresponding orphan bucket; cleanup is mandatory
+        // so the immutable T2 baseline stays at nine physical rows.
+        jdbc.execute("INSERT INTO public." + BRIDGE
+                + "(equipment_code,lot_code) VALUES ('','LOT-11'),('EQ-001','')");
+        try {
+            ResponseEntity<String> emptyFk = post("/validate", request);
+            assertThat(emptyFk.getStatusCode().value()).as(emptyFk.getBody()).isEqualTo(200);
+            JsonNode buckets = mapper.readTree(emptyFk.getBody()).path("quality");
+            assertThat(buckets.path("bridgePhysicalRows").asInt()).isEqualTo(11);
+            assertThat(buckets.path("nullBoth").asInt()).isEqualTo(1);
+            assertThat(buckets.path("nullSourceOnly").asInt()).isEqualTo(1);
+            assertThat(buckets.path("nullTargetOnly").asInt()).isEqualTo(1);
+            assertThat(buckets.path("orphanSourceOnly").asInt()).isEqualTo(2);
+            assertThat(buckets.path("orphanTargetOnly").asInt()).isEqualTo(2);
+            assertThat(buckets.path("orphanBoth").asInt()).isEqualTo(1);
+            assertThat(buckets.path("matchedPhysicalRows").asInt()).isEqualTo(3);
+        } finally {
+            jdbc.execute("DELETE FROM public." + BRIDGE
+                    + " WHERE equipment_code='' OR lot_code=''");
+        }
+
+        ResponseEntity<String> savedResponse = post("", request);
+        assertThat(savedResponse.getStatusCode().value()).as(savedResponse.getBody()).isEqualTo(201);
+        JsonNode first = mapper.readTree(savedResponse.getBody());
+        String id = first.path("linkBindingId").asText();
+        assertThat(first.path("mappingMode").asText()).isEqualTo("BRIDGE_TABLE");
+        assertThat(first.path("validationQuality").path("duplicatePairRowCount").asInt())
+                .isEqualTo(1);
+        assertThat(first.path("bridgeSourceRef").path("table").asText()).isEqualTo(BRIDGE);
+        assertThat(first.path("digest").asText()).matches("[0-9a-f]{64}");
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM runtime_link_binding_revision
+                WHERE link_binding_id=?::uuid AND mapping_mode='BRIDGE_TABLE'
+                  AND fk_owner IS NULL AND fk_source_column IS NULL
+                  AND referenced_identity_column IS NULL
+                """, Integer.class, id)).isEqualTo(1);
+
+        ResponseEntity<String> replay = post("", request);
+        assertThat(replay.getStatusCode().value()).as(replay.getBody()).isEqualTo(201);
+        assertThat(mapper.readTree(replay.getBody()).path("digest").asText())
+                .isEqualTo(first.path("digest").asText());
+
+        ObjectNode altered = request.deepCopy();
+        altered.put("linkTypeId", "equipment-inspections-bridge");
+        ((ObjectNode) altered.path("expectedSchemaFingerprints"))
+                .put("bridge", bridgeFp.startsWith("0") ? "1".repeat(64) : "0".repeat(64));
+        assertThat(post("", altered).getBody()).contains("IDEMPOTENCY_KEY_CONFLICT");
+
+        ObjectNode unapproved = request.deepCopy();
+        unapproved.put("clientSql", "SELECT current_user");
+        unapproved.put("idempotencyKey", UUID.randomUUID().toString());
+        assertThat(post("/validate", unapproved).getStatusCode().value()).isEqualTo(422);
+        ObjectNode fakeForeignKey = request.deepCopy();
+        fakeForeignKey.put("fkOwner", "SOURCE");
+        assertThat(post("/validate", fakeForeignKey).getStatusCode().value()).isEqualTo(422);
+
+        // T5 B02/B07/C02: no alternate source IDs, unknown Bridge columns,
+        // or tables outside the allowlist may be accepted as authoritative
+        // evidence; the response must not disclose any physical ObjectRefs.
+        ObjectNode alienSource = request.deepCopy();
+        ((ObjectNode) alienSource.path("bridgeSourceRef")).put("sourceId", "remote-warehouse");
+        ResponseEntity<String> wrongSource = post("/validate", alienSource);
+        // Invalid sourceId is rejected by the strict v2 request contract
+        // before endpoint congruence checks; do not weaken that gate.
+        assertThat(wrongSource.getStatusCode().value()).as(wrongSource.getBody()).isEqualTo(422);
+        assertThat(wrongSource.getBody()).contains("MALFORMED_LINK_CONTRACT")
+                .doesNotContain("EQ-001", "LOT-11", "sourceReadRefs");
+
+        ObjectNode missingBridgeColumn = request.deepCopy();
+        ((ObjectNode) missingBridgeColumn.path("bridgeSourceRef"))
+                .put("sourceFkColumn", "unknown_source_fk");
+        ResponseEntity<String> missingColumn = post("/validate", missingBridgeColumn);
+        assertThat(missingColumn.getStatusCode().value()).as(missingColumn.getBody())
+                .isEqualTo(422);
+        assertThat(missingColumn.getBody()).contains("LINK_FK_INCOMPATIBLE")
+                .doesNotContain("EQ-001", "LOT-11", "sourceReadRefs");
+
+        ObjectNode unlistedBridge = request.deepCopy();
+        ((ObjectNode) unlistedBridge.path("bridgeSourceRef")).put("table", "pg_catalog");
+        ResponseEntity<String> notAllowlisted = post("/validate", unlistedBridge);
+        assertThat(notAllowlisted.getStatusCode().value()).as(notAllowlisted.getBody())
+                .isEqualTo(403);
+        assertThat(notAllowlisted.getBody()).contains("SOURCE_NOT_ALLOWED")
+                .doesNotContain("EQ-001", "LOT-11", "sourceReadRefs");
+
+        ObjectNode update = request.deepCopy();
+        update.put("expectedRevision", 1);
+        update.put("idempotencyKey", UUID.randomUUID().toString());
+        ResponseEntity<String> second = put("/" + id, update);
+        assertThat(second.getStatusCode().value()).as(second.getBody()).isEqualTo(200);
+        assertThat(mapper.readTree(second.getBody()).path("revision").asLong()).isEqualTo(2);
+        assertThat(put("/" + id, update).getStatusCode().value()).isEqualTo(200);
+        ObjectNode conflict = update.deepCopy();
+        conflict.put("idempotencyKey", UUID.randomUUID().toString());
+        assertThat(put("/" + id, conflict).getStatusCode().value()).isEqualTo(409);
+
+        // T3: query one frozen Bridge revision against the actual PG17 source.
+        // Later physical duplicates and orphan duplicates must not rewrite the
+        // immutable FULL revision. They must update CURRENT root-scoped evidence.
+        jdbc.execute("INSERT INTO public." + BRIDGE
+                + "(equipment_code,lot_code) VALUES "
+                + "('EQ-001','LOT-12'),('EQ-001','LOT-12'),"
+                + "('EQ-002','LOT-12'),('EQ-001','LOT-NO')");
+        ObjectNode out = traverseRequest(pkg, snap, equipment, lot, id,
+                "equipment-inspections-bridge", "OUT", "EQ-001", 1);
+        ((ObjectNode) out.withArray("steps").get(0).path("linkBindingRef")).put("revision", 2);
+        ResponseEntity<String> firstPage = traverse(out);
+        assertThat(firstPage.getStatusCode().value()).as(firstPage.getBody()).isEqualTo(200);
+        JsonNode one = mapper.readTree(firstPage.getBody());
+        assertExactJsonBudget(one);
+        assertThat(one.path("linkMappingMode").asText()).isEqualTo("BRIDGE_TABLE");
+        assertThat(one.path("bridgeDuplicatePairRowCount").asInt()).isEqualTo(2);
+        // 2 SOURCE rows + 5 TARGET rows + 13 BRIDGE rows. Omitting BRIDGE
+        // would produce a misleading 7-row budget despite consuming 20 rows.
+        assertThat(one.path("budget").path("physicalRows").asInt()).isEqualTo(20);
+        // An unrelated EQ-002 duplicate must NOT leak into EQ-001's
+        // TRAVERSAL_SCOPE duplicate count (the global count is now 3).
+        assertThat(one.path("quality").path("completeness").asText()).isEqualTo("PARTIAL");
+        assertThat(one.path("quality").path("knownOrphanCount").asInt()).isEqualTo(1);
+        assertThat(one.path("sourceReadRefs").size()).isEqualTo(3);
+        assertThat(one.path("versionLock").path("sourceSchemaFingerprints").size()).isEqualTo(3);
+        assertThat(one.path("sourceReadRefs").toString()).contains("BRIDGE");
+        assertThat(one.path("links").get(0).path("sourceReadRefs").size()).isEqualTo(3);
+        assertThat(one.path("links").get(0).path("source").path("objectTypeId").asText())
+                .isEqualTo("equipment");
+        assertThat(one.path("links").get(0).path("target").path("objectTypeId").asText())
+                .isEqualTo("inspection-lot");
+        String pageToken = one.path("nextCursor").asText();
+        assertThat(pageToken).startsWith("v2.");
+        String forgedCursor = pageToken.substring(0, 3)
+                + (pageToken.charAt(3) == 'A' ? 'B' : 'A') + pageToken.substring(4);
+        ResponseEntity<String> tamperedCursor = traversePage(forgedCursor);
+        assertThat(tamperedCursor.getStatusCode().value()).isEqualTo(400);
+        assertThat(tamperedCursor.getBody()).doesNotContain("LOT-11", BRIDGE);
+        // C09/B11: frozen pages are stable even if CURRENT source facts change
+        // after page one. A new execution sees the new facts instead.
+        assertThat(jdbc.update("DELETE FROM public." + BRIDGE
+                + " WHERE equipment_code='EQ-001' AND lot_code='LOT-12'")).isEqualTo(2);
+        JsonNode freshAfterDelete = mapper.readTree(traverse(out).getBody());
+        assertThat(freshAfterDelete.path("objects").size()).isEqualTo(1);
+        assertThat(freshAfterDelete.path("nextCursor").isMissingNode()).isTrue();
+        assertThat(freshAfterDelete.path("budget").path("physicalRows").asInt()).isEqualTo(18);
+        ResponseEntity<String> pageTwo = traversePage(pageToken);
+        assertThat(pageTwo.getStatusCode().value()).as(pageTwo.getBody()).isEqualTo(200);
+        JsonNode two = mapper.readTree(pageTwo.getBody());
+        assertExactJsonBudget(two);
+        assertThat(two.path("objects").size()).isEqualTo(1);
+        assertThat(two.path("resultSnapshotRef")).isEqualTo(one.path("resultSnapshotRef"));
+        assertThat(two.path("nextCursor").isMissingNode()).isTrue();
+        assertThat(two.path("objects").get(0).path("objectRef").path("key"))
+                .isNotEqualTo(one.path("objects").get(0).path("objectRef").path("key"));
+        assertThat(two.path("budget").path("physicalRows").asInt()).isEqualTo(20);
+        jdbc.execute("INSERT INTO public." + BRIDGE
+                + "(equipment_code,lot_code) VALUES ('EQ-001','LOT-12'),('EQ-001','LOT-12')");
+
+        ObjectNode clean = traverseRequest(pkg, snap, equipment, lot, id,
+                "equipment-inspections-bridge", "OUT", "EQ-002", 50);
+        ((ObjectNode) clean.withArray("steps").get(0).path("linkBindingRef")).put("revision", 2);
+        JsonNode scoped = mapper.readTree(traverse(clean).getBody());
+        assertThat(scoped.path("quality").path("completeness").asText()).isEqualTo("COMPLETE");
+        assertThat(scoped.path("linkCount").asInt()).isEqualTo(1);
+        assertThat(scoped.path("bridgeDuplicatePairRowCount").asInt()).isEqualTo(1);
+        assertThat(scoped.path("quality").path("knownOrphanCount").asInt()).isZero();
+        assertThat(scoped.path("budget").path("physicalRows").asInt()).isEqualTo(20);
+
+        // T5 B09/C03: an independent PostgreSQL writer must commit its
+        // TARGET row and BRIDGE edge atomically while real HTTP readers query.
+        // Any individual read must see the complete BEFORE or AFTER state,
+        // never an orphan edge or a partially visible three-table join.
+        java.util.concurrent.CountDownLatch stagedWriter =
+                new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch commitWriter =
+                new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CompletableFuture<Void> writer =
+                java.util.concurrent.CompletableFuture.runAsync(() -> {
+                    try (java.sql.Connection connection = jdbc.getDataSource().getConnection()) {
+                        connection.setAutoCommit(false);
+                        try (java.sql.Statement statement = connection.createStatement()) {
+                            statement.executeUpdate("INSERT INTO public." + INSPECTION
+                                    + "(lot_code,equipment_code,status,amount)"
+                                    + " VALUES ('LOT-T5-WRITER','EQ-002','PASS',7.00)");
+                            statement.executeUpdate("INSERT INTO public." + BRIDGE
+                                    + "(equipment_code,lot_code)"
+                                    + " VALUES ('EQ-002','LOT-T5-WRITER')");
+                        }
+                        stagedWriter.countDown();
+                        if (!commitWriter.await(15, java.util.concurrent.TimeUnit.SECONDS)) {
+                            throw new IllegalStateException("Bridge writer commit gate timed out");
+                        }
+                        connection.commit();
+                    } catch (Exception ex) {
+                        stagedWriter.countDown();
+                        throw new IllegalStateException("Bridge concurrent writer failed", ex);
+                    }
+                });
+        try {
+            assertThat(stagedWriter.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            ResponseEntity<String> beforeCommit = traverse(clean);
+            assertThat(beforeCommit.getStatusCode().value()).as(beforeCommit.getBody())
+                    .isEqualTo(200);
+            JsonNode beforeFacts = mapper.readTree(beforeCommit.getBody());
+            assertThat(beforeFacts.path("quality").path("completeness").asText())
+                    .isEqualTo("COMPLETE");
+            assertThat(beforeFacts.path("linkCount").asInt()).isEqualTo(1);
+            assertThat(beforeFacts.toString()).doesNotContain("LOT-T5-WRITER");
+
+            // Race an independent reader against the COMMIT boundary. Both
+            // legal snapshots have matching objects+edges and COMPLETE quality.
+            var overlappingRead = java.util.concurrent.CompletableFuture.supplyAsync(
+                    () -> traverse(clean));
+            commitWriter.countDown();
+            ResponseEntity<String> raced = overlappingRead.get(
+                    20, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(raced.getStatusCode().value()).as(raced.getBody()).isEqualTo(200);
+            JsonNode racedFacts = mapper.readTree(raced.getBody());
+            assertThat(racedFacts.path("quality").path("completeness").asText())
+                    .isEqualTo("COMPLETE");
+            assertThat(racedFacts.path("quality").path("knownOrphanCount").asInt()).isZero();
+            assertThat(racedFacts.path("linkCount").asInt()).isIn(1, 2);
+            assertThat(racedFacts.path("objects").size())
+                    .isEqualTo(racedFacts.path("linkCount").asInt());
+            writer.get(20, java.util.concurrent.TimeUnit.SECONDS);
+
+            ResponseEntity<String> afterCommit = traverse(clean);
+            assertThat(afterCommit.getStatusCode().value()).as(afterCommit.getBody())
+                    .isEqualTo(200);
+            JsonNode afterFacts = mapper.readTree(afterCommit.getBody());
+            assertThat(afterFacts.path("quality").path("completeness").asText())
+                    .isEqualTo("COMPLETE");
+            assertThat(afterFacts.path("quality").path("knownOrphanCount").asInt()).isZero();
+            assertThat(afterFacts.path("objects").size()).isEqualTo(2);
+            assertThat(afterFacts.path("linkCount").asInt()).isEqualTo(2);
+            assertThat(afterFacts.toString()).contains("LOT-T5-WRITER");
+        } finally {
+            commitWriter.countDown();
+            writer.get(20, java.util.concurrent.TimeUnit.SECONDS);
+            jdbc.execute("DELETE FROM public." + BRIDGE
+                    + " WHERE lot_code='LOT-T5-WRITER'");
+            jdbc.execute("DELETE FROM public." + INSPECTION
+                    + " WHERE lot_code='LOT-T5-WRITER'");
+        }
+
+        // T5 B10/B11/C08: actual Bridge-specific high fanout, not the old
+        // FK-only stress fixture. 1,000 valid new pairs must remain bounded,
+        // distinct, and stable across a frozen cursor when the source changes.
+        jdbc.execute("INSERT INTO public." + INSPECTION
+                + " (lot_code,equipment_code,status,amount)"
+                + " SELECT 'T5-FAN-' || lpad(g::text,4,'0'), 'EQ-002','PASS',1.00"
+                + " FROM generate_series(1,1000) AS g");
+        jdbc.execute("INSERT INTO public." + BRIDGE
+                + " (equipment_code,lot_code)"
+                + " SELECT 'EQ-002','T5-FAN-' || lpad(g::text,4,'0')"
+                + " FROM generate_series(1,1000) AS g");
+        try {
+            jdbc.execute("ANALYZE public." + BRIDGE);
+            String planJson = sourceJdbc.queryForObject("""
+                    EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+                    SELECT t.lot_code FROM public.m8_equipment_inspection_bridge b
+                    JOIN public.m8_inspection_source t ON t.lot_code=b.lot_code
+                    WHERE b.equipment_code='EQ-002'
+                    """, String.class);
+            JsonNode plan = mapper.readTree(planJson).get(0);
+            assertThat(plan.path("Plan").path("Actual Rows").asInt())
+                    .as("One thousand new physical Bridge pairs plus two existing EQ-002 rows")
+                    .isEqualTo(1002);
+            assertThat(plan.path("Execution Time").asDouble()).isLessThan(3000.0);
+
+            ObjectNode fan = clean.deepCopy();
+            ((ObjectNode) fan.withArray("steps").get(1)).put("pageSize", 50);
+            ResponseEntity<String> fullFan = traverse(fan);
+            assertThat(fullFan.getStatusCode().value()).as(fullFan.getBody()).isEqualTo(200);
+            JsonNode fanPage = mapper.readTree(fullFan.getBody());
+            assertThat(fanPage.path("quality").path("completeness").asText())
+                    .isEqualTo("COMPLETE");
+            // linkCount is PAGE-local (50), while the frozen distinctLinks
+            // evidence covers all 1,001 valid logical links across pages.
+            assertThat(fanPage.path("linkCount").asInt()).isEqualTo(50);
+            assertThat(fanPage.path("budget").path("distinctLinks").asInt()).isEqualTo(1001);
+            assertThat(fanPage.path("budget").path("physicalRows").asInt())
+                    .isEqualTo(2020);
+            assertThat(fanPage.path("objects").size()).isEqualTo(50);
+            String signedPage = fanPage.path("nextCursor").asText();
+            assertThat(signedPage).startsWith("v2.");
+
+            ObjectNode joinLimited = fan.deepCopy();
+            joinLimited.putObject("limits").put("maxJoinCandidates", 1000);
+            ResponseEntity<String> overJoin = traverse(joinLimited);
+            assertThat(overJoin.getStatusCode().value()).as(overJoin.getBody())
+                    .isEqualTo(429);
+            assertThat(overJoin.getBody()).contains("QUERY_BUDGET_EXCEEDED")
+                    .doesNotContain("T5-FAN-0001", "objectRef", "nextCursor");
+
+            // Signed result pages keep their originally validated snapshot
+            // even after the source no longer contains the 1,000 new pairs.
+            jdbc.execute("DELETE FROM public." + BRIDGE
+                    + " WHERE lot_code LIKE 'T5-FAN-%'");
+            jdbc.execute("DELETE FROM public." + INSPECTION
+                    + " WHERE lot_code LIKE 'T5-FAN-%'");
+            ResponseEntity<String> preserved = traversePage(signedPage);
+            assertThat(preserved.getStatusCode().value()).as(preserved.getBody())
+                    .isEqualTo(200);
+            JsonNode frozenFan = mapper.readTree(preserved.getBody());
+            assertThat(frozenFan.path("objects").size()).isEqualTo(50);
+            assertThat(frozenFan.path("resultSnapshotRef"))
+                    .isEqualTo(fanPage.path("resultSnapshotRef"));
+            JsonNode latestFan = mapper.readTree(traverse(clean).getBody());
+            assertThat(latestFan.path("objects").size()).isEqualTo(1);
+            assertThat(latestFan.path("linkCount").asInt()).isEqualTo(1);
+        } finally {
+            jdbc.execute("DELETE FROM public." + BRIDGE
+                    + " WHERE lot_code LIKE 'T5-FAN-%'");
+            jdbc.execute("DELETE FROM public." + INSPECTION
+                    + " WHERE lot_code LIKE 'T5-FAN-%'");
+        }
+
+        ObjectNode inbound = traverseRequest(pkg, snap, lot, equipment, id,
+                "equipment-inspections-bridge", "IN", "LOT-11", 50);
+        ((ObjectNode) inbound.withArray("steps").get(0).path("linkBindingRef")).put("revision", 2);
+        ResponseEntity<String> inboundResponse = traverse(inbound);
+        assertThat(inboundResponse.getStatusCode().value()).as(inboundResponse.getBody()).isEqualTo(200);
+        JsonNode reverse = mapper.readTree(inboundResponse.getBody());
+        assertThat(reverse.path("quality").path("completeness").asText()).isEqualTo("PARTIAL");
+        assertThat(reverse.path("quality").path("knownOrphanCount").asInt()).isEqualTo(1);
+        assertThat(reverse.path("linkCount").asInt()).isEqualTo(1);
+        assertThat(reverse.path("links").get(0).path("source").path("objectTypeId").asText())
+                .isEqualTo("equipment");
+
+        ObjectNode aggregate = out.deepCopy();
+        ArrayNode steps = aggregate.withArray("steps");
+        steps.remove(steps.size() - 1);
+        steps.addObject().put("kind", "AGGREGATE").put("operation", "SUM")
+                .put("propertyRef", "inspection-amount");
+        ResponseEntity<String> aggregateResponse = traverse(aggregate);
+        assertThat(aggregateResponse.getStatusCode().value()).as(aggregateResponse.getBody()).isEqualTo(200);
+        JsonNode sum = mapper.readTree(aggregateResponse.getBody());
+        assertThat(sum.path("aggregate").path("matchedObjects").asInt()).isEqualTo(2);
+        assertThat(sum.path("aggregate").path("value").asText()).isEqualTo("30");
+        assertThat(sum.path("quality").path("answerScope").asText()).isEqualTo("KNOWN_SUBSET");
+        ((ObjectNode) steps.get(steps.size() - 1)).put("operation", "COUNT_DISTINCT").remove("propertyRef");
+        JsonNode distinctCount = mapper.readTree(traverse(aggregate).getBody());
+        assertThat(distinctCount.path("aggregate").path("value").asText()).isEqualTo("2");
+
+        ObjectNode limitedJoin = out.deepCopy();
+        limitedJoin.putObject("limits").put("maxJoinCandidates", 1);
+        ResponseEntity<String> joinBlocked = traverse(limitedJoin);
+        assertThat(joinBlocked.getStatusCode().value()).isEqualTo(429);
+        assertThat(joinBlocked.getBody()).contains("QUERY_BUDGET_EXCEEDED");
+        assertThat(joinBlocked.getBody()).doesNotContain("LOT-11", BRIDGE);
+        ObjectNode limitedPhysical = out.deepCopy();
+        limitedPhysical.putObject("limits").put("maxPhysicalRows", 2);
+        ResponseEntity<String> physicalBlocked = traverse(limitedPhysical);
+        assertThat(physicalBlocked.getStatusCode().value()).isEqualTo(429);
+        assertThat(physicalBlocked.getBody()).contains("QUERY_BUDGET_EXCEEDED");
+        assertThat(physicalBlocked.getBody()).doesNotContain("LOT-11", BRIDGE);
+        // C08: the same three-source scan obeys a reduced REAL byte
+        // budget, not only row and Join counters. A rejection cannot expose
+        // partially scanned object or LinkFact payloads.
+        ObjectNode limitedBytes = out.deepCopy();
+        limitedBytes.putObject("limits").put("maxSourceBytes", 64);
+        ResponseEntity<String> bytesBlocked = traverse(limitedBytes);
+        assertThat(bytesBlocked.getStatusCode().value()).isEqualTo(429);
+        assertThat(bytesBlocked.getBody()).contains("QUERY_BUDGET_EXCEEDED");
+        assertThat(bytesBlocked.getBody()).doesNotContain("EQ-001", "LOT-11", BRIDGE);
+        String revokeCursor = mapper.readTree(traverse(out).getBody()).path("nextCursor").asText();
+        assertThat(revokeCursor).startsWith("v2.");
+
+        // A revoked Bridge grant forbids retrieval of past full source/quality.
+        jdbc.execute("REVOKE SELECT ON public." + BRIDGE + " FROM ontoforge_binding_reader");
+        try {
+            ResponseEntity<String> denied = http.getForEntity(URI.create(url("/" + id
+                    + "?packageId=" + pkg)), String.class);
+            assertThat(denied.getStatusCode().value()).isEqualTo(403);
+            assertThat(denied.getBody()).doesNotContain("EQ-001", BRIDGE, bridgeFp);
+            ResponseEntity<String> revoked = traversePage(revokeCursor);
+            assertThat(revoked.getStatusCode().value()).isIn(403,409,410);
+            assertThat(revoked.getBody()).doesNotContain("LOT-11", BRIDGE);
+        } finally {
+            jdbc.execute("GRANT SELECT ON public." + BRIDGE + " TO ontoforge_binding_reader");
+        }
+        assertThat(traversePage(revokeCursor).getStatusCode().value()).isEqualTo(410);
+
+        // C06: SQL empty TEXT is not SQL NULL. Although PostgreSQL accepts
+        // '' as a PK, M6 ObjectRef prohibits blank value and FULL must 409,
+        // not save a malformed identity or mislabel the row as an orphan.
+        jdbc.execute("INSERT INTO public." + EQUIPMENT
+                + "(equipment_code,label,site,cost) VALUES ('','bad identity','A',0)");
+        try {
+            ResponseEntity<String> rejected = post("/validate", request);
+            assertThat(rejected.getStatusCode().value()).isEqualTo(409);
+            assertThat(rejected.getBody()).contains("OBJECT_IDENTITY_UNREPRESENTABLE");
+            assertThat(rejected.getBody()).doesNotContain("EQ-001", BRIDGE);
+            ResponseEntity<String> invalidTraverse = traverse(out);
+            assertThat(invalidTraverse.getStatusCode().value()).isEqualTo(409);
+            assertThat(invalidTraverse.getBody()).doesNotContain("LOT-11", BRIDGE);
+        } finally {
+            jdbc.execute("DELETE FROM public." + EQUIPMENT + " WHERE equipment_code=''");
+        }
+
+        // C09: a real Bridge DDL changes its independently frozen schema.
+        // The UI must revalidate instead of silently using a saved revision.
+        String ddlCursor = mapper.readTree(traverse(out).getBody())
+                .path("nextCursor").asText();
+        assertThat(ddlCursor).startsWith("v2.");
+        jdbc.execute("ALTER TABLE public." + BRIDGE + " ADD COLUMN t5_schema_probe TEXT");
+        try {
+            ResponseEntity<String> drift = post("/validate", request);
+            assertThat(drift.getStatusCode().value()).isEqualTo(409);
+            assertThat(drift.getBody()).contains("LINK_SOURCE_SCHEMA_DRIFT");
+            ResponseEntity<String> staleDetail = http.getForEntity(
+                    URI.create(url("/" + id + "?packageId=" + pkg)), String.class);
+            assertThat(staleDetail.getStatusCode().value()).isIn(403, 409);
+            assertThat(staleDetail.getBody()).doesNotContain("EQ-001", "LOT-11", BRIDGE);
+            ResponseEntity<String> staleTraverse = traverse(out);
+            assertThat(staleTraverse.getStatusCode().value()).isIn(403, 409);
+            assertThat(staleTraverse.getBody()).doesNotContain("EQ-001", "LOT-11", BRIDGE);
+            ResponseEntity<String> driftedPage = traversePage(ddlCursor);
+            assertThat(driftedPage.getStatusCode().value()).isIn(403, 409, 410);
+            assertThat(driftedPage.getBody()).doesNotContain("EQ-001", "LOT-11", BRIDGE);
+        } finally {
+            jdbc.execute("ALTER TABLE public." + BRIDGE + " DROP COLUMN t5_schema_probe");
+        }
+        // After restoring the original schema, a fresh authorized FULL works;
+        // retired cursors still remain retired from the preceding revoke.
+        assertThat(post("/validate", request).getStatusCode().value()).isEqualTo(200);
+        assertThat(traversePage(ddlCursor).getStatusCode().value()).isEqualTo(410);
+
+        // B14/C06: a real, authorized root with NO Bridge pair is a true
+        // COMPLETE empty answer, not a source failure or inferred PARTIAL.
+        jdbc.execute("INSERT INTO public." + EQUIPMENT
+                + "(equipment_code,label,site,cost) VALUES ('EQ-003','Idle','C',300)");
+        try {
+            ObjectNode emptyRoot = traverseRequest(pkg, snap, equipment, lot, id,
+                    "equipment-inspections-bridge", "OUT", "EQ-003", 50);
+            ((ObjectNode) emptyRoot.withArray("steps").get(0).path("linkBindingRef"))
+                    .put("revision", 2);
+            ResponseEntity<String> noEdges = traverse(emptyRoot);
+            assertThat(noEdges.getStatusCode().value()).as(noEdges.getBody()).isEqualTo(200);
+            JsonNode zero = mapper.readTree(noEdges.getBody());
+            assertThat(zero.path("quality").path("completeness").asText())
+                    .isEqualTo("COMPLETE");
+            assertThat(zero.path("quality").path("knownOrphanCount").asInt()).isZero();
+            assertThat(zero.path("objects").size()).isZero();
+            assertThat(zero.path("links").size()).isZero();
+            assertThat(zero.path("linkCount").asInt()).isZero();
+            assertThat(zero.path("budget").path("physicalRows").asInt()).isEqualTo(21);
+        } finally {
+            jdbc.execute("DELETE FROM public." + EQUIPMENT + " WHERE equipment_code='EQ-003'");
+        }
+
+        // T5 C08/B10: a real >8 MiB Bridge FK value must be refused by
+        // the three-source byte admission guard before any partial object
+        // result can be returned. Generate the payload inside PostgreSQL;
+        // never upload an 8 MiB HTTP request or log the sensitive value.
+        jdbc.execute("INSERT INTO public." + BRIDGE
+                + "(equipment_code,lot_code) VALUES (repeat('X',8388609),'LOT-11')");
+        try {
+            ResponseEntity<String> oversized = traverse(out);
+            assertThat(oversized.getStatusCode().value()).as(oversized.getBody())
+                    .isIn(429, 503);
+            assertThat(oversized.getBody()).doesNotContain("LOT-11", "EQ-001",
+                    "8388609", "objectRef", "sourceReadRefs");
+            assertThat(oversized.getBody()).containsAnyOf(
+                    "QUERY_BUDGET_EXCEEDED", "QUERY_TIMEOUT");
+        } finally {
+            jdbc.execute("DELETE FROM public." + BRIDGE
+                    + " WHERE length(equipment_code)>8388608");
+        }
+
+        // C07/B08: two genuinely concurrent Spring HTTP requests compete
+        // for the SAME persisted Head and expectedRevision=2. Exactly one
+        // request may advance to immutable revision 3; the loser is 409.
+        // This proves same-process PG lock/CAS, NOT multi-JVM recovery.
+        ObjectNode concurrentA = update.deepCopy();
+        concurrentA.put("expectedRevision", 2);
+        concurrentA.put("idempotencyKey", UUID.randomUUID().toString());
+        ObjectNode concurrentB = concurrentA.deepCopy();
+        concurrentB.put("idempotencyKey", UUID.randomUUID().toString());
+        java.util.concurrent.ExecutorService executor =
+                java.util.concurrent.Executors.newFixedThreadPool(2);
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        try {
+            var firstWriter = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                try {
+                    start.await();
+                    return put("/" + id, concurrentA);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(ex);
+                }
+            }, executor);
+            var secondWriter = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                try {
+                    start.await();
+                    return put("/" + id, concurrentB);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(ex);
+                }
+            }, executor);
+            start.countDown();
+            ResponseEntity<String> a = firstWriter.get(20, java.util.concurrent.TimeUnit.SECONDS);
+            ResponseEntity<String> b = secondWriter.get(20, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(java.util.Set.of(a.getStatusCode().value(), b.getStatusCode().value()))
+                    .containsExactlyInAnyOrder(200, 409);
+            assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM runtime_link_binding_revision
+                    WHERE link_binding_id=?::uuid AND revision=3
+                    """, Integer.class, id)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("""
+                    SELECT current_revision FROM runtime_link_binding WHERE link_binding_id=?::uuid
+                    """, Long.class, id)).isEqualTo(3L);
+        } finally {
+            executor.shutdownNow();
+        }
+
+        // T5 B10/C08: deliberately hold an ACCESS EXCLUSIVE database lock
+        // from a DIFFERENT real PostgreSQL connection. Bridge FULL cannot
+        // wait indefinitely and must never return a fake VALID/zero result
+        // or expose source keys while the reader's ACCESS SHARE is blocked.
+        java.util.concurrent.ExecutorService lockExecutor =
+                java.util.concurrent.Executors.newSingleThreadExecutor();
+        try (java.sql.Connection lockHolder = jdbc.getDataSource().getConnection()) {
+            lockHolder.setAutoCommit(false);
+            try (java.sql.Statement hold = lockHolder.createStatement()) {
+                hold.execute("LOCK TABLE public." + BRIDGE + " IN ACCESS EXCLUSIVE MODE");
+            }
+            try {
+                long lockStart = System.nanoTime();
+                var blockedFull = lockExecutor.submit(() -> post("/validate", request));
+                ResponseEntity<String> denied = blockedFull.get(
+                        6, java.util.concurrent.TimeUnit.SECONDS);
+                long lockMillis = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(
+                        System.nanoTime() - lockStart);
+                assertThat(denied.getStatusCode().value()).as(denied.getBody())
+                        .isEqualTo(503);
+                assertThat(denied.getBody()).contains("SOURCE_UNAVAILABLE")
+                        .doesNotContain("EQ-001", "LOT-11", BRIDGE,
+                                "sourceReadRefs", "objects", "links");
+                assertThat(lockMillis).as("The source lock wait must be bounded")
+                        .isLessThan(6000L);
+            } finally {
+                lockHolder.rollback();
+            }
+        } finally {
+            lockExecutor.shutdownNow();
+        }
+
+        // All THREE physical reads must share one 10k budget: no truncation to
+        // a misleading success result when a bridge becomes over-budget.
+        jdbc.execute("INSERT INTO public." + BRIDGE
+                + " SELECT 'EQ-001','LOT-11' FROM generate_series(1,10001)");
+        assertThat(post("/validate", request).getStatusCode().value()).isEqualTo(429);
     }
 
     private DataBindingService.BindingDetail createBinding(String snapshot, String type,
